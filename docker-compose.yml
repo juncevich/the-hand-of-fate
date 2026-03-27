@@ -65,8 +65,8 @@ services:
   # ── Telegram Bot ───────────────────────────────────────────────────────────
   bot:
     build:
-      context: ./bot
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: bot/Dockerfile
     image: ghcr.io/juncevich/fate-bot:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
