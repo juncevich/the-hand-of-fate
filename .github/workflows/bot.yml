@@ -28,7 +28,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24"
-          cache-dependency-path: bot/go.sum
+          cache-dependency-path: bot/go.mod
 
       - uses: bufbuild/buf-setup-action@v1
 
@@ -39,6 +39,9 @@ jobs:
 
       - name: Generate proto
         run: buf generate
+
+      - name: Download dependencies
+        run: cd bot && go mod download
 
       - run: cd bot && go vet ./...
       - run: cd bot && go test ./...
@@ -55,7 +58,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24"
-          cache-dependency-path: bot/go.sum
+          cache-dependency-path: bot/go.mod
 
       - uses: bufbuild/buf-setup-action@v1
 
@@ -66,6 +69,9 @@ jobs:
 
       - name: Generate proto
         run: buf generate
+
+      - name: Download dependencies
+        run: cd bot && go mod download
 
       - name: Build
         run: |
