@@ -48,9 +48,12 @@ cd backend
 ```bash
 cd frontend
 npm install
-npm run dev      # dev server on :3000 (proxies /api → :8080)
-npm test         # run vitest
-npm run build    # production build
+npm run dev          # dev server on :3000 (proxies /api → :8080)
+npm run dev:mock     # dev server with mock API (no backend needed)
+npm test             # run vitest once
+npm run test:watch   # vitest in watch mode
+npm run lint         # ESLint check
+npm run build        # production build
 ```
 
 ### Bot (Go)
@@ -62,10 +65,20 @@ protoc -I ../proto \
   --go-grpc_out=gen --go-grpc_opt=paths=source_relative \
   ../proto/fate.proto
 
-go run ./cmd/bot          # run
-go test ./...             # test
-go build -o bot ./cmd/bot # build binary
+go run ./cmd/bot           # run
+go test ./...              # test
+go build -o fate-bot ./cmd/bot  # build binary
 ```
+
+### Telegram Bot Commands
+| Command | Description |
+|---|---|
+| `/start`, `/help` | Welcome message and command list |
+| `/link <token>` | Link Telegram to app account (token from Settings page) |
+| `/votes` | List your votes with status and participant count |
+| `/draw <id>` | Perform a draw for a vote (creator only) |
+| `/result <id>` | Show last draw result for a vote |
+| `/unlink` | Unlink Telegram account |
 
 ## Architecture
 
@@ -96,7 +109,7 @@ go build -o bot ./cmd/bot # build binary
 - Backend: Micrometer + `micrometer-tracing-bridge-otel` → OTLP → OTel Collector
 - OTel Collector: metrics → Mimir, logs → Loki
 - Custom metrics: `vote.created{mode}`, `vote.draw.performed{mode,round}`, `vote.participants.count`
-- Grafana: pre-provisioned datasources (Mimir, Loki); add dashboards under `infra/monitoring/grafana/provisioning/dashboards/`
+- Grafana: pre-provisioned datasources (Mimir, Loki); add dashboard JSON files under `infra/monitoring/grafana/provisioning/dashboards/` (directory exists, no dashboards shipped yet)
 
 ### Database Migrations
 Flyway, files in `backend/src/main/resources/db/migration/`:
@@ -124,6 +137,8 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 ## CI/CD
 
 Services run directly on Ubuntu via systemd (no Docker). Nginx serves the frontend and proxies `/api/` to the backend.
+
+> **Note:** `infra/k8s/` contains Kubernetes manifests with kustomize overlays (staging/production), but the active deployment is systemd-based. K8s manifests are prepared for future migration.
 
 ### CI воркфлоу (backend.yml / frontend.yml / bot.yml)
 Каждый проект — отдельный yml файл. Запускаются на PR и push в `main` по path-фильтрам.
