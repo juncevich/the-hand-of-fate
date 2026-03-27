@@ -7,13 +7,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toaster'
-import { Sparkles } from 'lucide-react'
+import { Moon, Sparkles, Sun } from 'lucide-react'
+import { useThemeStore } from '@/store/themeStore'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const setAuth = useAuthStore((s) => s.setAuth)
   const navigate = useNavigate()
+  const { theme, toggleTheme } = useThemeStore()
 
   const { mutate, isPending } = useMutation({
     mutationFn: () => authApi.login({ email, password }),
@@ -26,6 +28,16 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--color-fate-bg)] px-4">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={toggleTheme}
+        aria-label="Toggle theme"
+        className="absolute top-4 right-4"
+      >
+        {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      </Button>
+
       {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-[var(--color-fate-gold)]/5 rounded-full blur-3xl" />

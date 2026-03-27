@@ -15,6 +15,21 @@
   --radius-card: 12px;
 }
 
+/* ── Light theme overrides ──────────────────────────────────────────────────── */
+
+html.light {
+  --color-fate-bg:        #f5f3ee;
+  --color-fate-surface:   #fffef9;
+  --color-fate-border:    rgba(0, 0, 0, 0.09);
+  --color-fate-gold:      #b45309;
+  --color-fate-gold-dark: #92400e;
+  --color-fate-purple:    #6d28d9;
+  --color-fate-text:      #1a1a2e;
+  --color-fate-muted:     #64647a;
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────────── */
+
 * {
   box-sizing: border-box;
 }
@@ -33,9 +48,11 @@ body {
   font-family: var(--font-family-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Scrollbar */
+/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
+
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -50,15 +67,22 @@ body {
   background: rgba(245, 158, 11, 0.6);
 }
 
-/* Glass card utility */
+/* ── Glass card utility ─────────────────────────────────────────────────────── */
+
 .glass {
   background: rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(12px);
   border: 1px solid var(--color-fate-border);
   border-radius: var(--radius-card);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-/* Gold glow */
+html.light .glass {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+/* ── Gold glow ──────────────────────────────────────────────────────────────── */
+
 .glow-gold {
   box-shadow: 0 0 20px rgba(245, 158, 11, 0.3), 0 0 40px rgba(245, 158, 11, 0.1);
 }

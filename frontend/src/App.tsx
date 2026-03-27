@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthStore } from '@/store/authStore'
+import { useThemeStore } from '@/store/themeStore'
 import { authApi } from '@/api/auth'
 import { Toaster } from '@/components/ui/toaster'
 import { AppShell } from '@/components/layout/AppShell'
@@ -18,6 +19,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const setAuth = useAuthStore((s) => s.setAuth)
+  const theme = useThemeStore((s) => s.theme)
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('light', theme === 'light')
+  }, [theme])
 
   // Attempt silent refresh on mount using the httpOnly cookie
   useEffect(() => {

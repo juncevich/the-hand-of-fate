@@ -1,11 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { LogOut, Settings, Sparkles } from 'lucide-react'
+import { LogOut, Moon, Settings, Sparkles, Sun } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { useThemeStore } from '@/store/themeStore'
 import { authApi } from '@/api/auth'
 import { Button } from '@/components/ui/button'
 
 export function Topbar() {
   const { displayName, clearAuth } = useAuthStore()
+  const { theme, toggleTheme } = useThemeStore()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -36,6 +38,11 @@ export function Topbar() {
           <span className="text-sm text-[var(--color-fate-muted)] hidden sm:block">
             {displayName}
           </span>
+          <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
+            {theme === 'dark'
+              ? <Sun className="w-4 h-4" />
+              : <Moon className="w-4 h-4" />}
+          </Button>
           <Button variant="ghost" size="icon" asChild>
             <Link to="/settings">
               <Settings className="w-4 h-4" />
