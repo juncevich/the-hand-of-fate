@@ -1,8 +1,8 @@
 package com.juncevich.fate.grpc
 
 import com.juncevich.fate.domain.user.UserRepository
-import com.juncevich.fate.domain.vote.VoteMode
-import com.juncevich.fate.domain.vote.VoteStatus
+import com.juncevich.fate.domain.vote.VoteMode as DomainVoteMode
+import com.juncevich.fate.domain.vote.VoteStatus as DomainVoteStatus
 import com.juncevich.fate.grpc.FateProto.*
 import com.juncevich.fate.service.DrawService
 import com.juncevich.fate.service.TelegramLinkService
@@ -184,14 +184,14 @@ class FateGrpcService(
 
     // ── Proto enum conversions ──────────────────────────────────────────────
 
-    private fun VoteStatus.toProto(): fate.v1.VoteStatus = when (this) {
-        VoteStatus.PENDING -> fate.v1.VoteStatus.VOTE_STATUS_PENDING
-        VoteStatus.DRAWN   -> fate.v1.VoteStatus.VOTE_STATUS_DRAWN
-        VoteStatus.CLOSED  -> fate.v1.VoteStatus.VOTE_STATUS_CLOSED
+    private fun DomainVoteStatus.toProto(): VoteStatus = when (this) {
+        DomainVoteStatus.PENDING -> VoteStatus.VOTE_STATUS_PENDING
+        DomainVoteStatus.DRAWN   -> VoteStatus.VOTE_STATUS_DRAWN
+        DomainVoteStatus.CLOSED  -> VoteStatus.VOTE_STATUS_CLOSED
     }
 
-    private fun VoteMode.toProto(): fate.v1.VoteMode = when (this) {
-        VoteMode.SIMPLE        -> fate.v1.VoteMode.VOTE_MODE_SIMPLE
-        VoteMode.FAIR_ROTATION -> fate.v1.VoteMode.VOTE_MODE_FAIR_ROTATION
+    private fun DomainVoteMode.toProto(): VoteMode = when (this) {
+        DomainVoteMode.SIMPLE        -> VoteMode.VOTE_MODE_SIMPLE
+        DomainVoteMode.FAIR_ROTATION -> VoteMode.VOTE_MODE_FAIR_ROTATION
     }
 }
