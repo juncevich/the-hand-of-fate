@@ -1,0 +1,137 @@
+import com.google.protobuf.gradle.*
+
+plugins {
+    kotlin("jvm")                         version "2.1.20"
+    kotlin("plugin.spring")               version "2.1.20"
+    kotlin("plugin.jpa")                  version "2.1.20"
+    id("org.springframework.boot")        version "3.4.4"
+    id("io.spring.dependency-management") version "1.1.7"
+    id("com.google.protobuf")             version "0.9.4"
+}
+
+group   = "com.juncevich"
+version = "0.1.0-SNAPSHOT"
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.addAll("-Xjsr305=strict")
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom(configurations.annotationProcessor.get())
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+val grpcVersion        = "1.71.0"
+val grpcKotlinVersion  = "1.4.1"
+val protobufVersion    = "4.30.2"
+val jjwtVersion        = "0.12.6"
+
+dependencies {
+    // ── Spring Boot ─────────────────────────────────────────────────────────
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+    // ── Kotlin ───────────────────────────────────────────────────────────────
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
+
+    // ── JWT ──────────────────────────────────────────────────────────────────
+    implementation("io.jsonwebtoken:jjwt-api:$jjwtVersion")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:$jjwtVersion")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:$jjwtVersion")
+
+    // ── gRPC ─────────────────────────────────────────────────────────────────
+    implementation("net.devh:grpc-server-spring-boot-starter:3.1.0.RELEASE")
+    implementation("io.grpc:grpc-protobuf:$grpcVersion")
+    implementation("io.grpc:grpc-stub:$grpcVersion")
+    implementation("io.grpc:grpc-kotlin-stub:$grpcKotlinVersion")
+    implementation("com.google.protobuf:protobuf-kotlin:$protobufVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.10.1")
+
+    // ── Database ─────────────────────────────────────────────────────────────
+    runtimeOnly("org.postgresql:postgresql:42.7.5")
+    implementation("org.flywaydb:flyway-core:11.4.0")
+    implementation("org.flywaydb:flyway-database-postgresql:11.4.0")
+
+    // ── Observability ─────────────────────────────────────────────────────────
+    implementation("io.micrometer:micrometer-registry-prometheus")
+    implementation("io.micrometer:micrometer-tracing-bridge-otel")
+    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
+
+    // ── OpenAPI ───────────────────────────────────────────────────────────────
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6")
+
+    // ── Test ──────────────────────────────────────────────────────────────────
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("org.testcontainers:postgresql:1.20.6")
+    testImplementation("org.testcontainers:junit-jupiter:1.20.6")
+    testImplementation("io.mockk:mockk:1.14.0")
+    testImplementation("com.ninja-squad:springmockk:4.0.2")
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:$protobufVersion"
+    }
+    plugins {
+        id("grpc") {
+            artifact = "io.grpc:protoc-gen-grpc-java:$grpcVersion"
+        }
+        id("grpckt") {
+            artifact = "io.grpc:protoc-gen-grpc-kotlin:$grpcKotlinVersion:jdk8@jar"
+        }
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.plugins {
+                id("grpc")
+                id("grpckt")
+            }
+            task.builtins {
+                id("kotlin")
+            }
+        }
+    }
+}
+
+sourceSets {
+    main {
+        proto {
+            srcDir("${rootProject.projectDir}/../proto")
+        }
+    }
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+}
+
+// Ensure generated sources are on the compile classpath
+afterEvaluate {
+    val generatedSourcesDir = layout.buildDirectory.dir("generated/source/proto/main").get().asFile
+    sourceSets["main"].java.srcDirs(
+        "$generatedSourcesDir/java",
+        "$generatedSourcesDir/grpc",
+        "$generatedSourcesDir/grpckt",
+        "$generatedSourcesDir/kotlin",
+    )
+}

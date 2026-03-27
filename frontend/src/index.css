@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  --color-fate-bg:        #0d0d1a;
+  --color-fate-surface:   #141428;
+  --color-fate-border:    rgba(255, 255, 255, 0.08);
+  --color-fate-gold:      #f59e0b;
+  --color-fate-gold-dark: #d97706;
+  --color-fate-purple:    #7c3aed;
+  --color-fate-text:      #f0f0f0;
+  --color-fate-muted:     #a0a0b0;
+
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+
+  --radius-card: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-fate-bg);
+  color: var(--color-fate-text);
+  font-family: var(--font-family-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-fate-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.6);
+}
+
+/* Glass card utility */
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-fate-border);
+  border-radius: var(--radius-card);
+}
+
+/* Gold glow */
+.glow-gold {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.3), 0 0 40px rgba(245, 158, 11, 0.1);
+}

@@ -1,0 +1,46 @@
+# Mimir single-binary mode (local / small deployments)
+target: all
+
+server:
+  http_listen_port: 9009
+
+common:
+  storage:
+    backend: filesystem
+    filesystem:
+      dir: /data/mimir
+
+blocks_storage:
+  storage_prefix: blocks
+  tsdb:
+    dir: /data/mimir/tsdb
+
+compactor:
+  data_dir: /data/mimir/compactor
+
+distributor:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+ingester:
+  ring:
+    instance_addr:      127.0.0.1
+    kvstore:
+      store:            inmemory
+    replication_factor: 1
+
+store_gateway:
+  sharding_ring:
+    replication_factor: 1
+
+ruler_storage:
+  storage_prefix: ruler
+  backend:         filesystem
+  filesystem:
+    dir: /data/mimir/rules
+
+limits:
+  # Enable OrgID header handling
+  native_histograms_ingestion_enabled: true

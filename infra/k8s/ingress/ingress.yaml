@@ -1,0 +1,37 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hand-of-fate
+  namespace: hand-of-fate
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size:         "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout:      "60"
+    nginx.ingress.kubernetes.io/ssl-redirect:            "true"
+    cert-manager.io/cluster-issuer:                      "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit:              "on"
+    nginx.ingress.kubernetes.io/limit-connections:       "20"
+    nginx.ingress.kubernetes.io/limit-rps:               "10"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - fate.example.com
+      secretName: fate-tls
+  rules:
+    - host: fate.example.com
+      http:
+        paths:
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

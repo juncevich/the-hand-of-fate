@@ -1,0 +1,60 @@
+# ── Build outputs ─────────────────────────────────────────────────────────────
+build/
+out/
+dist/
+target/
+*.jar
+*.war
+*.class
+
+# ── Node / Frontend ───────────────────────────────────────────────────────────
+node_modules/
+.npm/
+*.tsbuildinfo
+
+# ── Go / Bot ──────────────────────────────────────────────────────────────────
+bot/gen/
+/bot/bot
+
+# ── Gradle ────────────────────────────────────────────────────────────────────
+.gradle/
+gradle-app.setting
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# ── Proto generated ───────────────────────────────────────────────────────────
+backend/src/main/generated/
+
+# ── Kotlin compiler cache ─────────────────────────────────────────────────────
+.kotlin/
+
+# ── JVM diagnostics ───────────────────────────────────────────────────────────
+*.hprof
+hs_err_pid*.log
+replay_pid*.log
+
+# ── Test coverage ─────────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Environment ───────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+infra/docker/data/

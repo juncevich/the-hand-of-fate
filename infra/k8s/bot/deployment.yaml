@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bot
+  namespace: hand-of-fate
+  labels:
+    app: bot
+spec:
+  # IMPORTANT: Always 1 replica — Telegram polling is not idempotent
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: bot
+  template:
+    metadata:
+      labels:
+        app: bot
+    spec:
+      containers:
+        - name: bot
+          image: ghcr.io/juncevich/fate-bot:latest
+          env:
+            - name: BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: bot-secrets
+                  key: bot-token
+            - name: GRPC_SERVER_ADDR
+              value: backend:9090
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector:4317
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu:    "50m"
+            limits:
+              memory: "128Mi"
+              cpu:    "200m"
