@@ -48,7 +48,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Generate proto sources
-        run: cd backend && ./gradlew generateProto --no-daemon -q
+        run: cd backend && ./gradlew generateProto --no-daemon -q --rerun-tasks
 
       - name: Run tests
         run: cd backend && ./gradlew test --no-daemon
@@ -79,6 +79,9 @@ jobs:
           cache: gradle
 
       - uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate proto sources
+        run: cd backend && ./gradlew generateProto --no-daemon -q --rerun-tasks
 
       - run: cd backend && ./gradlew bootJar --no-daemon -x test
 
