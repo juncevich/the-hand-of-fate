@@ -18,7 +18,7 @@ infra/
   monitoring/ OTel Collector, Loki, Mimir, Grafana provisioning
   k8s/       Kubernetes manifests + kustomize overlays (staging/production)
 .github/
-  workflows/ CI (ci.yml) + deploy (deploy.yml)
+  workflows/ backend.yml + frontend.yml + bot.yml + deploy.yml + server-setup.yml
 ```
 
 ## Common Commands
@@ -117,10 +117,57 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTLP HTTP endpoint |
 | `BOT_TOKEN` | — | Required; from @BotFather |
 | `GRPC_SERVER_ADDR` | `localhost:9090` | Bot → backend gRPC address |
+| `JWT_ACCESS_TTL_MINUTES` | `15` | Access token lifetime |
+| `JWT_REFRESH_TTL_DAYS` | `30` | Refresh token lifetime |
+| `LOG_LEVEL` | `info` | Bot log level |
 
 ## CI/CD
-- `ci.yml`: runs on all PRs and pushes to `main` — tests all three services, builds Docker images on `main`
-- `deploy.yml`: deploys to `staging` on `main` push, to `production` on `v*` tags
-- Images: `ghcr.io/juncevich/fate-{backend,frontend,bot}:{sha}`
-- K8s: kustomize overlays at `infra/k8s/overlays/{staging,production}/`
-- Secrets expected: `KUBE_CONFIG_STAGING`, `KUBE_CONFIG_PRODUCTION` in GitHub environments
+
+Services run directly on Ubuntu via systemd (no Docker). Nginx serves the frontend and proxies `/api/` to the backend.
+
+### CI воркфлоу (backend.yml / frontend.yml / bot.yml)
+Каждый проект — отдельный yml файл. Запускаются на PR и push в `main` по path-фильтрам.
+Каждый файл содержит две джобы: test → build.
+- `backend.yml`: `backend-test` → `backend-build` (артефакт `backend-jar`)
+- `frontend.yml`: `frontend-test` → `frontend-build` (артефакт `frontend-dist`)
+- `bot.yml`: `bot-test` → `build-bot` (артефакт `bot-binary`, только на `main`)
+
+### deploy.yml
+Триггерится при завершении любого из трёх CI воркфлоу, а также через `workflow_dispatch`.
+
+**Джоба `gate`** — проверяет через GitHub API что все три CI успешно прошли для одного SHA. Если нет — пропускает деплой (`ready=false`); деплой произойдёт когда завершится последний из трёх.
+
+**Джоба `deploy`** — скачивает артефакты из соответствующих run-id каждого воркфлоу, копирует на сервер, перезапускает сервисы.
+
+**Flow:**
+1. Downloads the three artifacts from the CI run
+2. SCPs them to `/opt/hand-of-fate/{backend,frontend,bot}/` on the server
+3. Writes `/opt/hand-of-fate/.env` from GitHub Secrets (overwrites on every deploy)
+4. Restarts `fate-backend` and `fate-bot` systemd services, reloads Nginx
+5. Health-checks `/actuator/health`; on failure prints last 50 lines of `journalctl`
+
+### server-setup.yml
+One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first deploy. Steps:
+1. Updates packages
+2. Installs Java 21 (Temurin)
+3. Installs and enables Nginx
+4. Installs PostgreSQL 17, creates `fate` DB user and `fate` database
+5. Creates `fate` system user and `/opt/hand-of-fate/{backend,frontend,bot}/` directories
+6. Registers `fate-backend` and `fate-bot` systemd units with `EnvironmentFile=/opt/hand-of-fate/.env`
+7. Writes Nginx site config: SPA routing (`/`), API proxy (`/api/`), Swagger UI (`/swagger-ui/`, `/v3/api-docs`), static asset caching
+
+**Required GitHub Secrets:**
+| Secret | Description |
+|---|---|
+| `DEPLOY_HOST` | Server IP or hostname |
+| `DEPLOY_USER` | SSH user (`ubuntu`) |
+| `DEPLOY_SSH_KEY` | Private SSH key |
+| `DEPLOY_PORT` | SSH port (optional, default 22) |
+| `DB_USERNAME` | PostgreSQL user (also used to create it) |
+| `DB_PASSWORD` | PostgreSQL password |
+| `DB_URL` | Full JDBC URL, e.g. `jdbc:postgresql://localhost:5432/fate` |
+| `JWT_ACCESS_SECRET` | ≥256-bit random string |
+| `BOT_TOKEN` | Telegram bot token from @BotFather |
+| `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` | SMTP credentials |
+| `FRONTEND_URL` | Public URL for CORS and email links |
+| `GRPC_SERVER_ADDR` | gRPC address for bot → backend (`localhost:9090`) |

@@ -1,73 +1,215 @@
 name: Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: [Backend CI, Frontend CI, Bot CI]
+    types: [completed]
     branches: [main]
-    tags:
-      - 'v*'
+
+  workflow_dispatch:
 
 jobs:
-  deploy-staging:
-    name: Deploy to Staging
+
+  # ── Ждём пока все три CI пройдут для одного коммита ───────────────────────
+  gate:
+    name: CI Gate
     runs-on: ubuntu-24.04
-    if: github.ref == 'refs/heads/main'
-    environment: staging
-    needs: []  # triggered after ci.yml via workflow_run or direct push
+    outputs:
+      ready:           ${{ steps.check.outputs.ready }}
+      backend-run-id:  ${{ steps.ids.outputs.backend }}
+      frontend-run-id: ${{ steps.ids.outputs.frontend }}
+      bot-run-id:      ${{ steps.ids.outputs.bot }}
+
+    steps:
+      - name: Check all CI workflows passed
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+            echo "::notice::Triggering workflow failed — деплой пропущен"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          all_ok=true
+          for workflow in "Backend CI" "Frontend CI" "Bot CI"; do
+            conclusion=$(gh run list \
+              --workflow "$workflow" --branch main --commit "$SHA" \
+              --limit 1 --json conclusion -q '.[0].conclusion // "pending"')
+            echo "$workflow: $conclusion"
+            [ "$conclusion" = "success" ] || all_ok=false
+          done
+
+          if $all_ok; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Не все CI завершены — деплой отложен до следующего триггера"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve artifact run IDs
+        id: ids
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          get_run_id() {
+            local workflow="$1"
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              gh run list --workflow "$workflow" --branch main --status success \
+                --limit 1 --json databaseId -q '.[0].databaseId'
+            else
+              gh run list --workflow "$workflow" --branch main \
+                --commit "${{ github.event.workflow_run.head_sha }}" \
+                --limit 1 --json databaseId -q '.[0].databaseId'
+            fi
+          }
+          echo "backend=$(get_run_id 'Backend CI')"   >> "$GITHUB_OUTPUT"
+          echo "frontend=$(get_run_id 'Frontend CI')" >> "$GITHUB_OUTPUT"
+          echo "bot=$(get_run_id 'Bot CI')"           >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-24.04
+    needs: gate
+    if: needs.gate.outputs.ready == 'true'
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set image tag
-        id: vars
-        run: echo "sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+      # ── Скачиваем артефакты из соответствующих воркфлоу ─────────────────────
+      - name: Download backend JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+          path: artifacts/backend
+          run-id: ${{ needs.gate.outputs.backend-run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: artifacts/frontend
+          run-id: ${{ needs.gate.outputs.frontend-run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configure kubeconfig
+      - name: Download bot binary
+        uses: actions/download-artifact@v4
+        with:
+          name: bot-binary
+          path: artifacts/bot
+          run-id: ${{ needs.gate.outputs.bot-run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare artifacts
         run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+          mv artifacts/backend/*.jar artifacts/backend/app.jar
+          chmod +x artifacts/bot/fate-bot
 
-      - name: Deploy with kustomize
-        run: |
-          cd infra/k8s/overlays/staging
-          kustomize edit set image \
-            ghcr.io/juncevich/fate-backend=ghcr.io/juncevich/fate-backend:${{ github.sha }} \
-            ghcr.io/juncevich/fate-frontend=ghcr.io/juncevich/fate-frontend:${{ github.sha }} \
-            ghcr.io/juncevich/fate-bot=ghcr.io/juncevich/fate-bot:${{ github.sha }}
-          kubectl apply -k .
-          kubectl rollout status deployment/backend  -n hand-of-fate-staging --timeout=120s
-          kubectl rollout status deployment/frontend -n hand-of-fate-staging --timeout=60s
-          kubectl rollout status deployment/bot      -n hand-of-fate-staging --timeout=60s
+      # ── Копируем артефакты на сервер ─────────────────────────────────────────
+      - name: Copy backend JAR
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host:     ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key:      ${{ secrets.DEPLOY_SSH_KEY }}
+          port:     ${{ secrets.DEPLOY_PORT || 22 }}
+          source:   artifacts/backend/app.jar
+          target:   /opt/hand-of-fate/backend/
+          strip_components: 2
 
-      - name: Smoke test
-        run: |
-          sleep 10
-          curl -f https://staging.fate.example.com/actuator/health || exit 1
+      - name: Copy frontend static files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host:     ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key:      ${{ secrets.DEPLOY_SSH_KEY }}
+          port:     ${{ secrets.DEPLOY_PORT || 22 }}
+          source:   "artifacts/frontend/*"
+          target:   /opt/hand-of-fate/frontend/
+          strip_components: 2
 
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-24.04
-    if: startsWith(github.ref, 'refs/tags/v')
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
+      - name: Copy bot binary
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host:     ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key:      ${{ secrets.DEPLOY_SSH_KEY }}
+          port:     ${{ secrets.DEPLOY_PORT || 22 }}
+          source:   artifacts/bot/fate-bot
+          target:   /opt/hand-of-fate/bot/
+          strip_components: 2
 
-      - uses: azure/setup-kubectl@v4
+      # ── Записываем env vars и перезапускаем сервисы ──────────────────────────
+      - name: Update env and restart services
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host:     ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key:      ${{ secrets.DEPLOY_SSH_KEY }}
+          port:     ${{ secrets.DEPLOY_PORT || 22 }}
+          envs:     BOT_TOKEN,DB_URL,DB_USERNAME,DB_PASSWORD,JWT_ACCESS_SECRET,MAIL_HOST,MAIL_PORT,MAIL_USERNAME,MAIL_PASSWORD,FRONTEND_URL,GRPC_SERVER_ADDR
+          script: |
+            set -euo pipefail
 
-      - name: Configure kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+            # Перезаписываем EnvironmentFile из секретов GitHub
+            cat > /opt/hand-of-fate/.env << EOF
+            BOT_TOKEN=${BOT_TOKEN}
+            DB_URL=${DB_URL}
+            DB_USERNAME=${DB_USERNAME}
+            DB_PASSWORD=${DB_PASSWORD}
+            JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+            MAIL_HOST=${MAIL_HOST}
+            MAIL_PORT=${MAIL_PORT}
+            MAIL_USERNAME=${MAIL_USERNAME}
+            MAIL_PASSWORD=${MAIL_PASSWORD}
+            FRONTEND_URL=${FRONTEND_URL}
+            GRPC_SERVER_ADDR=${GRPC_SERVER_ADDR}
+            EOF
+            chmod 600 /opt/hand-of-fate/.env
+            chown fate:fate /opt/hand-of-fate/.env
 
-      - name: Deploy with kustomize
-        run: |
-          cd infra/k8s/overlays/production
-          kustomize edit set image \
-            ghcr.io/juncevich/fate-backend=ghcr.io/juncevich/fate-backend:${{ github.sha }} \
-            ghcr.io/juncevich/fate-frontend=ghcr.io/juncevich/fate-frontend:${{ github.sha }} \
-            ghcr.io/juncevich/fate-bot=ghcr.io/juncevich/fate-bot:${{ github.sha }}
-          kubectl apply -k .
-          kubectl rollout status deployment/backend  -n hand-of-fate --timeout=180s
-          kubectl rollout status deployment/frontend -n hand-of-fate --timeout=120s
-          kubectl rollout status deployment/bot      -n hand-of-fate --timeout=60s
+            # Права на артефакты
+            chown fate:fate /opt/hand-of-fate/backend/app.jar
+            chown -R fate:fate /opt/hand-of-fate/frontend/
+            chmod +x /opt/hand-of-fate/bot/fate-bot
+            chown fate:fate /opt/hand-of-fate/bot/fate-bot
+
+            # Перезапуск сервисов
+            systemctl restart fate-backend
+            systemctl restart fate-bot
+            systemctl reload nginx
+
+            # Health check (ждём до 2 минут)
+            echo "Ожидаем старт бэкенда..."
+            for i in $(seq 1 24); do
+              sleep 5
+              if curl -sf http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+                echo "✓ Бэкенд запущен (попытка ${i})"
+                exit 0
+              fi
+              echo "  Попытка ${i}/24..."
+            done
+            echo "✗ Бэкенд не ответил за 2 минуты"
+            journalctl -u fate-backend --no-pager -n 50
+            exit 1
+        env:
+          BOT_TOKEN:         ${{ secrets.BOT_TOKEN }}
+          DB_URL:            ${{ secrets.DB_URL }}
+          DB_USERNAME:       ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD:       ${{ secrets.DB_PASSWORD }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          MAIL_HOST:         ${{ secrets.MAIL_HOST }}
+          MAIL_PORT:         ${{ secrets.MAIL_PORT }}
+          MAIL_USERNAME:     ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD:     ${{ secrets.MAIL_PASSWORD }}
+          FRONTEND_URL:      ${{ secrets.FRONTEND_URL }}
+          GRPC_SERVER_ADDR:  ${{ secrets.GRPC_SERVER_ADDR }}

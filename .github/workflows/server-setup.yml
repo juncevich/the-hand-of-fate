@@ -1,0 +1,188 @@
+name: Server Setup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    name: Prepare Ubuntu VPS
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Setup server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host:     ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key:      ${{ secrets.DEPLOY_SSH_KEY }}
+          port:     ${{ secrets.DEPLOY_PORT || 22 }}
+          envs:     DB_USERNAME,DB_PASSWORD
+          script: |
+            set -euo pipefail
+            export DEBIAN_FRONTEND=noninteractive
+
+            APP_DIR=/opt/hand-of-fate
+            APP_USER=fate
+
+            echo "━━━ [1/7] Обновление пакетов ━━━"
+            apt-get update -q
+            apt-get upgrade -y -q
+
+            echo "━━━ [2/7] Установка Java 21 (Temurin) ━━━"
+            if ! java -version 2>&1 | grep -q "21"; then
+              apt-get install -y -q wget apt-transport-https gpg
+              wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public \
+                | gpg --dearmor -o /etc/apt/keyrings/adoptium.gpg
+              echo "deb [signed-by=/etc/apt/keyrings/adoptium.gpg] \
+                https://packages.adoptium.net/artifactory/deb $(lsb_release -cs) main" \
+                > /etc/apt/sources.list.d/adoptium.list
+              apt-get update -q
+              apt-get install -y -q temurin-21-jdk
+              echo "  Java $(java -version 2>&1 | head -1)"
+            else
+              echo "  Java уже установлена"
+            fi
+
+            echo "━━━ [3/7] Установка Nginx ━━━"
+            apt-get install -y -q nginx
+            systemctl enable nginx
+            echo "  Nginx $(nginx -v 2>&1)"
+
+            echo "━━━ [4/7] Установка PostgreSQL 17 ━━━"
+            if ! command -v psql &>/dev/null; then
+              apt-get install -y -q gnupg2
+              curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+                | gpg --dearmor -o /etc/apt/keyrings/postgresql.gpg
+              echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] \
+                https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+                > /etc/apt/sources.list.d/pgdg.list
+              apt-get update -q
+              apt-get install -y -q postgresql-17
+              systemctl enable postgresql
+              systemctl start postgresql
+              echo "  PostgreSQL $(psql --version)"
+            else
+              echo "  PostgreSQL уже установлен"
+            fi
+
+            echo "  Создаём БД и пользователя..."
+            sudo -u postgres psql -tc \
+              "SELECT 1 FROM pg_roles WHERE rolname='${DB_USERNAME}'" \
+              | grep -q 1 || \
+              sudo -u postgres psql -c \
+              "CREATE USER ${DB_USERNAME} WITH PASSWORD '${DB_PASSWORD}';"
+
+            sudo -u postgres psql -tc \
+              "SELECT 1 FROM pg_database WHERE datname='fate'" \
+              | grep -q 1 || \
+              sudo -u postgres psql -c \
+              "CREATE DATABASE fate OWNER ${DB_USERNAME};"
+
+            echo "━━━ [5/7] Пользователь и директории ━━━"
+            id "${APP_USER}" &>/dev/null || useradd -r -s /sbin/nologin "${APP_USER}"
+
+            mkdir -p "${APP_DIR}/backend" \
+                     "${APP_DIR}/frontend" \
+                     "${APP_DIR}/bot"
+            chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
+            chmod 750 "${APP_DIR}"
+
+            echo "━━━ [6/7] Systemd сервисы ━━━"
+            cat > /etc/systemd/system/fate-backend.service << 'UNIT'
+            [Unit]
+            Description=Hand of Fate — Backend
+            After=network.target postgresql.service
+            Requires=postgresql.service
+
+            [Service]
+            User=fate
+            WorkingDirectory=/opt/hand-of-fate/backend
+            EnvironmentFile=/opt/hand-of-fate/.env
+            ExecStart=/usr/bin/java \
+              -XX:MaxRAMPercentage=75.0 \
+              -Djava.security.egd=file:/dev/./urandom \
+              -jar /opt/hand-of-fate/backend/app.jar
+            SuccessExitStatus=143
+            Restart=on-failure
+            RestartSec=15
+            StandardOutput=journal
+            StandardError=journal
+            SyslogIdentifier=fate-backend
+
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+
+            cat > /etc/systemd/system/fate-bot.service << 'UNIT'
+            [Unit]
+            Description=Hand of Fate — Telegram Bot
+            After=network.target
+
+            [Service]
+            User=fate
+            EnvironmentFile=/opt/hand-of-fate/.env
+            ExecStart=/opt/hand-of-fate/bot/fate-bot
+            Restart=on-failure
+            RestartSec=15
+            StandardOutput=journal
+            StandardError=journal
+            SyslogIdentifier=fate-bot
+
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+
+            systemctl daemon-reload
+            systemctl enable fate-backend fate-bot
+            echo "  Сервисы зарегистрированы"
+
+            echo "━━━ [7/7] Nginx конфигурация ━━━"
+            cat > /etc/nginx/sites-available/hand-of-fate << 'NGINX'
+            server {
+                listen 80;
+                server_name _;
+
+                root /opt/hand-of-fate/frontend;
+                index index.html;
+
+                location / {
+                    try_files $uri $uri/ /index.html;
+                }
+
+                location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2|woff|ttf)$ {
+                    expires 1y;
+                    add_header Cache-Control "public, immutable";
+                    access_log off;
+                }
+
+                location /api/ {
+                    proxy_pass         http://127.0.0.1:8080;
+                    proxy_http_version 1.1;
+                    proxy_set_header   Host              $host;
+                    proxy_set_header   X-Real-IP         $remote_addr;
+                    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+                    proxy_set_header   X-Forwarded-Proto $scheme;
+                    proxy_read_timeout 30s;
+                }
+
+                location /swagger-ui/ {
+                    proxy_pass http://127.0.0.1:8080;
+                }
+
+                location /v3/api-docs {
+                    proxy_pass http://127.0.0.1:8080;
+                }
+            }
+            NGINX
+
+            ln -sf /etc/nginx/sites-available/hand-of-fate \
+                   /etc/nginx/sites-enabled/hand-of-fate
+            rm -f /etc/nginx/sites-enabled/default
+            nginx -t
+            systemctl reload nginx
+
+            echo ""
+            echo "✓ Сервер готов. Запустите workflow 'Deploy' для первого деплоя."
+        env:
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}

@@ -25,6 +25,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: ghcr.io/juncevich/fate-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
       - "8080:8080"   # HTTP REST
@@ -54,6 +55,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    image: ghcr.io/juncevich/fate-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
       - "3000:80"
@@ -65,6 +67,7 @@ services:
     build:
       context: ./bot
       dockerfile: Dockerfile
+    image: ghcr.io/juncevich/fate-bot:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       BOT_TOKEN: ${BOT_TOKEN}

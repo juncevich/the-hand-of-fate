@@ -1,0 +1,82 @@
+name: Bot CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - bot/**
+      - proto/**
+      - .github/workflows/bot.yml
+  pull_request:
+    paths:
+      - bot/**
+      - proto/**
+      - .github/workflows/bot.yml
+
+concurrency:
+  group: bot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  bot-test:
+    name: Bot — Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: bot/go.sum
+
+      - name: Generate proto
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          sudo apt-get install -y protobuf-compiler
+          mkdir -p bot/gen/fate/v1
+          protoc -I proto \
+            --go_out=bot/gen --go_opt=paths=source_relative \
+            --go-grpc_out=bot/gen --go-grpc_opt=paths=source_relative \
+            proto/fate.proto
+
+      - run: cd bot && go vet ./...
+      - run: cd bot && go test ./...
+
+  build-bot:
+    name: Bot — Build binary (linux/amd64)
+    runs-on: ubuntu-24.04
+    needs: bot-test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: bot/go.sum
+
+      - name: Generate proto
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          sudo apt-get install -y -q protobuf-compiler
+          mkdir -p bot/gen/fate/v1
+          protoc -I proto \
+            --go_out=bot/gen --go_opt=paths=source_relative \
+            --go-grpc_out=bot/gen --go-grpc_opt=paths=source_relative \
+            proto/fate.proto
+
+      - name: Build
+        run: |
+          cd bot
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags="-s -w" -o fate-bot ./cmd/bot
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bot-binary
+          path: bot/fate-bot
+          if-no-files-found: error
