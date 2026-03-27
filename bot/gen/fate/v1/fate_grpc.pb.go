@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             (unknown)
-// source: fate.proto
+// source: fate/v1/fate.proto
 
 package fatev1
 
@@ -319,5 +319,5 @@ var FateService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "fate.proto",
+	Metadata: "fate/v1/fate.proto",
 }
