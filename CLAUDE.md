@@ -56,15 +56,20 @@ npm run lint         # ESLint check
 npm run build        # production build
 ```
 
+### Proto (gRPC stubs)
+```bash
+# From repo root — regenerate stubs for both components:
+make proto              # runs proto-bot + proto-backend
+make proto-bot          # bot Go stubs via Buf (requires protoc-gen-go + protoc-gen-go-grpc)
+make proto-backend      # backend Java/Kotlin stubs via Gradle
+
+# Install Go proto plugins (needed for make proto-bot):
+make install-proto-tools
+```
+
 ### Bot (Go)
 ```bash
 cd bot
-# Generate proto stubs first (requires protoc + plugins):
-protoc -I ../proto \
-  --go_out=gen --go_opt=paths=source_relative \
-  --go-grpc_out=gen --go-grpc_opt=paths=source_relative \
-  ../proto/fate.proto
-
 go run ./cmd/bot           # run
 go test ./...              # test
 go build -o fate-bot ./cmd/bot  # build binary
@@ -94,8 +99,9 @@ go build -o fate-bot ./cmd/bot  # build binary
 
 ### gRPC (Backend ↔ Bot)
 - Proto source: `proto/fate.proto`
+- Buf is used for proto management (`buf.yaml` + `buf.gen.yaml` at repo root)
 - Backend generates Java/Kotlin stubs via `com.google.protobuf` Gradle plugin; stubs land in `backend/build/generated/source/proto/main/`
-- Bot generates Go stubs via `protoc`; stubs live in `bot/gen/fate/v1/`
+- Bot generates Go stubs via Buf (`buf generate`); stubs live in `bot/gen/fate/v1/`
 - `FateGrpcService.kt` in the backend implements the service; `bot/internal/grpcclient/` wraps the Go stub
 
 ### Telegram Bot Linking

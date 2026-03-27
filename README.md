@@ -9,6 +9,7 @@ A voting and random selection application with fair rotation support. Users crea
 - Telegram bot integration — link your account and manage votes directly in Telegram
 - Email notifications for invitations and draw results
 - Observability stack: metrics, logs, and traces via OpenTelemetry
+- Dark/light theme toggle
 
 ## Architecture
 
@@ -56,6 +57,13 @@ npm run dev             # dev server with proxy to :8080
 npm run dev:mock        # dev server with mock API (no backend needed)
 npm test                # run tests
 npm run build           # production build
+```
+
+### Proto (gRPC stubs)
+```bash
+make proto              # regenerate stubs for both bot and backend
+make proto-bot          # bot only (uses Buf)
+make proto-backend      # backend only (uses Gradle)
 ```
 
 ### Telegram Bot
