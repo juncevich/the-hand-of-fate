@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
+import axios from 'axios'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
@@ -10,10 +11,13 @@ import { toast } from '@/components/ui/toaster'
 import { Moon, Sparkles, Sun } from 'lucide-react'
 import { useThemeStore } from '@/store/themeStore'
 
+type FieldErrors = Partial<Record<'email' | 'password' | 'displayName', string>>
+
 export function RegisterPage() {
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const setAuth = useAuthStore((s) => s.setAuth)
   const navigate = useNavigate()
 
@@ -25,7 +29,15 @@ export function RegisterPage() {
       setAuth(data)
       navigate('/')
     },
-    onError: (e: Error) => toast('Ошибка регистрации', e.message, 'error'),
+    onError: (e: Error) => {
+      if (axios.isAxiosError(e) && e.response?.data?.errors) {
+        setFieldErrors(e.response.data.errors as FieldErrors)
+      }
+      const detail = axios.isAxiosError(e)
+        ? (e.response?.data?.title ?? e.response?.data?.detail ?? e.message)
+        : e.message
+      toast('Ошибка регистрации', detail, 'error')
+    },
   })
 
   return (
@@ -60,8 +72,11 @@ export function RegisterPage() {
               id="displayName"
               placeholder="Иван Иванов"
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(e) => { setDisplayName(e.target.value); setFieldErrors((prev) => ({ ...prev, displayName: undefined })) }}
             />
+            {fieldErrors.displayName && (
+              <p className="text-xs text-red-500">{fieldErrors.displayName}</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
@@ -70,8 +85,11 @@ export function RegisterPage() {
               type="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); setFieldErrors((prev) => ({ ...prev, email: undefined })) }}
             />
+            {fieldErrors.email && (
+              <p className="text-xs text-red-500">{fieldErrors.email}</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="password">Пароль</Label>
@@ -80,9 +98,12 @@ export function RegisterPage() {
               type="password"
               placeholder="Минимум 8 символов"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); setFieldErrors((prev) => ({ ...prev, password: undefined })) }}
               onKeyDown={(e) => e.key === 'Enter' && mutate()}
             />
+            {fieldErrors.password && (
+              <p className="text-xs text-red-500">{fieldErrors.password}</p>
+            )}
           </div>
 
           <Button

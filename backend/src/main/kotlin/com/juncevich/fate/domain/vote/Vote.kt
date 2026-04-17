@@ -18,7 +18,6 @@ enum class VoteStatus { PENDING, DRAWN, CLOSED }
 class Vote(
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @get:JvmName("getId_")
     val id: UUID = UUID.randomUUID(),
 

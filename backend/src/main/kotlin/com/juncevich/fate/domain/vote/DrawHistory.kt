@@ -10,7 +10,6 @@ import java.util.UUID
 class DrawHistory(
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @get:JvmName("getId_")
     val id: UUID = UUID.randomUUID(),
 
