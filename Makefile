@@ -1,4 +1,4 @@
-.PHONY: proto proto-bot proto-backend install-proto-tools dev
+.PHONY: proto proto-bot proto-backend install-proto-tools dev dev-local infra infra-down
 
 proto: proto-bot proto-backend
 
@@ -14,3 +14,13 @@ proto-backend:
 
 dev:
 	docker compose up -d
+
+# Run infrastructure in Docker + app processes natively (hot-reload)
+dev-local:
+	./dev.sh
+
+infra:
+	docker compose -f docker-compose.infra.yml up -d
+
+infra-down:
+	docker compose -f docker-compose.infra.yml down

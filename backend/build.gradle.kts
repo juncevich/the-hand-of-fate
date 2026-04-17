@@ -39,6 +39,16 @@ val grpcKotlinVersion  = "1.5.0"
 val protobufVersion    = "4.34.0"
 val jjwtVersion        = "0.13.0"
 
+configurations.all {
+    resolutionStrategy.force(
+        "io.grpc:grpc-core:$grpcVersion",
+        "io.grpc:grpc-api:$grpcVersion",
+        "io.grpc:grpc-netty-shaded:$grpcVersion",
+        "io.grpc:grpc-protobuf:$grpcVersion",
+        "io.grpc:grpc-stub:$grpcVersion",
+    )
+}
+
 dependencies {
     // ── Spring Boot ─────────────────────────────────────────────────────────
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
