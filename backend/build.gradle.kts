@@ -1,12 +1,12 @@
 import com.google.protobuf.gradle.*
 
 plugins {
-    kotlin("jvm")                         version "2.1.20"
-    kotlin("plugin.spring")               version "2.1.20"
-    kotlin("plugin.jpa")                  version "2.1.20"
-    id("org.springframework.boot")        version "3.4.4"
+    kotlin("jvm")                         version "2.2.20"
+    kotlin("plugin.spring")               version "2.2.20"
+    kotlin("plugin.jpa")                  version "2.2.20"
+    id("org.springframework.boot")        version "3.5.3"
     id("io.spring.dependency-management") version "1.1.7"
-    id("com.google.protobuf")             version "0.9.4"
+    id("com.google.protobuf")             version "0.9.6"
 }
 
 group   = "com.juncevich"
@@ -34,10 +34,10 @@ repositories {
     mavenCentral()
 }
 
-val grpcVersion        = "1.71.0"
-val grpcKotlinVersion  = "1.4.1"
-val protobufVersion    = "4.30.2"
-val jjwtVersion        = "0.12.6"
+val grpcVersion        = "1.73.0"
+val grpcKotlinVersion  = "1.5.0"
+val protobufVersion    = "4.31.1"
+val jjwtVersion        = "0.13.0"
 
 dependencies {
     // ── Spring Boot ─────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ dependencies {
     // ── Kotlin ───────────────────────────────────────────────────────────────
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 
     // ── JWT ──────────────────────────────────────────────────────────────────
     implementation("io.jsonwebtoken:jjwt-api:$jjwtVersion")
@@ -64,12 +64,12 @@ dependencies {
     implementation("io.grpc:grpc-stub:$grpcVersion")
     implementation("io.grpc:grpc-kotlin-stub:$grpcKotlinVersion")
     implementation("com.google.protobuf:protobuf-kotlin:$protobufVersion")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.10.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.10.2")
 
     // ── Database ─────────────────────────────────────────────────────────────
-    runtimeOnly("org.postgresql:postgresql:42.7.5")
-    implementation("org.flywaydb:flyway-core:11.4.0")
-    implementation("org.flywaydb:flyway-database-postgresql:11.4.0")
+    runtimeOnly("org.postgresql:postgresql:42.7.10")
+    implementation("org.flywaydb:flyway-core:12.4.0")
+    implementation("org.flywaydb:flyway-database-postgresql:12.4.0")
 
     // ── Observability ─────────────────────────────────────────────────────────
     implementation("io.micrometer:micrometer-registry-prometheus")
@@ -77,15 +77,15 @@ dependencies {
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")
 
     // ── OpenAPI ───────────────────────────────────────────────────────────────
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
 
     // ── Test ──────────────────────────────────────────────────────────────────
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
-    testImplementation("org.testcontainers:postgresql:1.20.6")
-    testImplementation("org.testcontainers:junit-jupiter:1.20.6")
-    testImplementation("io.mockk:mockk:1.14.0")
-    testImplementation("com.ninja-squad:springmockk:4.0.2")
+    testImplementation("org.testcontainers:postgresql:1.21.3")
+    testImplementation("org.testcontainers:junit-jupiter:1.21.3")
+    testImplementation("io.mockk:mockk:1.14.9")
+    testImplementation("com.ninja-squad:springmockk:5.0.1")
 }
 
 protobuf {
@@ -127,7 +127,7 @@ tasks.withType<Test> {
 
 // Ensure generated sources are on the compile classpath
 afterEvaluate {
-    val generatedSourcesDir = layout.buildDirectory.dir("generated/source/proto/main").get().asFile
+    val generatedSourcesDir = layout.buildDirectory.dir("generated/sources/proto/main").get().asFile
     sourceSets["main"].java.srcDirs(
         "$generatedSourcesDir/java",
         "$generatedSourcesDir/grpc",

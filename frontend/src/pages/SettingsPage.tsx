@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { telegramApi } from '@/api/telegram'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toaster'

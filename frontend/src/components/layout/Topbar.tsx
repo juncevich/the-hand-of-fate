@@ -43,10 +43,8 @@ export function Topbar() {
               ? <Sun className="w-4 h-4" />
               : <Moon className="w-4 h-4" />}
           </Button>
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/settings">
-              <Settings className="w-4 h-4" />
-            </Link>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} aria-label="Settings">
+            <Settings className="w-4 h-4" />
           </Button>
           <Button variant="ghost" size="icon" onClick={handleLogout}>
             <LogOut className="w-4 h-4" />

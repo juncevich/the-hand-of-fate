@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Crown, Sparkles, Trash2, UserPlus, RotateCcw } from 'lucide-react'
-import { formatDistanceToNow, format } from 'date-fns'
+import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import type { DrawResult } from '@/types/vote'
 
