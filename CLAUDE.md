@@ -12,11 +12,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 backend/     Kotlin + Spring Boot 3.4.4, PostgreSQL, gRPC server
 frontend/    React 19 + TypeScript + Vite + Tailwind CSS 4 + shadcn/ui
 bot/         Golang Telegram bot, gRPC client to backend
-proto/       Shared protobuf definitions (fate.proto)
+proto/       Shared protobuf definitions (proto/fate/v1/fate.proto)
 infra/
   nginx/     Nginx reverse proxy configs
   monitoring/ OTel Collector, Loki, Mimir, Grafana provisioning
-  k8s/       Kubernetes manifests + kustomize overlays (staging/production)
+  k8s/       Kubernetes manifests + kustomize overlays (staging/production, not active)
 .github/
   workflows/ backend.yml + frontend.yml + bot.yml + deploy.yml + server-setup.yml
 ```
@@ -90,32 +90,47 @@ go build -o fate-bot ./cmd/bot  # build binary
 ### Auth Flow
 - Registration/login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 30 days)
 - `refreshToken` is stored hashed in `refresh_tokens` table
-- Frontend keeps `accessToken` in Zustand (memory only); `refreshToken` is sent via JSON body (not httpOnly cookie in current impl)
-- On 401, Axios interceptor silently calls `/api/v1/auth/refresh` and retries once
+- Frontend keeps `accessToken` in Zustand (memory only); `refreshToken` is sent via JSON body (not httpOnly cookie)
+- On 401, Axios interceptor silently calls `/api/v1/auth/refresh`, queues concurrent requests, and retries once
+
+### Frontend State & Data Fetching
+- **Zustand** manages auth state (`authStore`) and dark/light theme (`themeStore`; persisted to localStorage)
+- **React Query** (`@tanstack/react-query`) handles all server state — queries, mutations, cache invalidation
+- Custom Axios instance in `frontend/src/lib/axios.ts` handles token refresh with a retry queue so concurrent 401s only trigger one refresh call
 
 ### Vote Modes
 - **SIMPLE**: random draw from all participants, no history tracking
 - **FAIR_ROTATION**: tracks `draw_history` per round; only participants who haven't won in `currentRound` are eligible. When all have won, `currentRound` increments and the cycle restarts
 
+### Key Backend Services
+- **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching
+- **NotificationService**: async dispatcher — triggers email after draws/invitations, swallows errors so draw success is never blocked by notification failure
+- **EmailService**: sends styled HTML emails (dark theme) for vote invitations and draw results
+- **FateGrpcService**: gRPC server implementation; uses `runCatching` + `StatusRuntimeException` for error mapping
+
 ### gRPC (Backend ↔ Bot)
-- Proto source: `proto/fate.proto`
-- Buf is used for proto management (`buf.yaml` + `buf.gen.yaml` at repo root)
-- Backend generates Java/Kotlin stubs via `com.google.protobuf` Gradle plugin; stubs land in `backend/build/generated/source/proto/main/`
-- Bot generates Go stubs via Buf (`buf generate`); stubs live in `bot/gen/fate/v1/`
-- `FateGrpcService.kt` in the backend implements the service; `bot/internal/grpcclient/` wraps the Go stub
+- Proto source: `proto/fate/v1/fate.proto` (package `fate.v1`)
+- Buf manages proto (`buf.yaml` + `buf.gen.yaml` at repo root)
+- Backend generates Java/Kotlin stubs via `com.google.protobuf` Gradle plugin → `backend/build/generated/source/proto/main/`
+- Bot generates Go stubs via Buf → `bot/gen/fate/v1/`
+- `FateGrpcService.kt` implements the service; `bot/internal/grpcclient/` wraps the Go stub
 
 ### Telegram Bot Linking
-1. User opens Settings page → clicks "Get link token" → calls `GET /api/v1/telegram/link-token`
+1. User opens Settings page → clicks "Get link token" → `GET /api/v1/telegram/link-token`
 2. Backend creates a `telegram_link_tokens` record (5-min expiry), returns the token
 3. User sends `/link <token>` to the bot
 4. Bot calls `LinkTelegramAccount` gRPC → backend validates token, sets `users.telegram_id`
 5. Bot notifies via Telegram; backend sends emails for invitations and draw results
 
+### Testing
+- **Backend**: TestContainers (spins up real PostgreSQL) + MockK + SpringMockK. Tests live in `backend/src/test/kotlin/`
+- **Frontend**: Vitest + `@testing-library/react` + jest-dom
+
 ### Observability
 - Backend: Micrometer + `micrometer-tracing-bridge-otel` → OTLP → OTel Collector
 - OTel Collector: metrics → Mimir, logs → Loki
 - Custom metrics: `vote.created{mode}`, `vote.draw.performed{mode,round}`, `vote.participants.count`
-- Grafana: pre-provisioned datasources (Mimir, Loki); add dashboard JSON files under `infra/monitoring/grafana/provisioning/dashboards/` (directory exists, no dashboards shipped yet)
+- Grafana: pre-provisioned datasources (Mimir, Loki); add dashboard JSON files under `infra/monitoring/grafana/provisioning/dashboards/`
 
 ### Database Migrations
 Flyway, files in `backend/src/main/resources/db/migration/`:
@@ -144,24 +159,21 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 
 Services run directly on Ubuntu via systemd (no Docker). Nginx serves the frontend and proxies `/api/` to the backend.
 
-> **Note:** `infra/k8s/` contains Kubernetes manifests with kustomize overlays (staging/production), but the active deployment is systemd-based. K8s manifests are prepared for future migration.
-
-### CI воркфлоу (backend.yml / frontend.yml / bot.yml)
-Каждый проект — отдельный yml файл. Запускаются на PR и push в `main` по path-фильтрам.
-Каждый файл содержит две джобы: test → build.
-- `backend.yml`: `backend-test` → `backend-build` (артефакт `backend-jar`)
-- `frontend.yml`: `frontend-test` → `frontend-build` (артефакт `frontend-dist`)
-- `bot.yml`: `bot-test` → `build-bot` (артефакт `bot-binary`, только на `main`)
+### CI workflows (backend.yml / frontend.yml / bot.yml)
+Each project has its own workflow file, triggered on PR and push to `main` via path filters. Each contains two jobs: test → build.
+- `backend.yml`: `backend-test` → `backend-build` (artifact: `backend-jar`)
+- `frontend.yml`: `frontend-test` → `frontend-build` (artifact: `frontend-dist`)
+- `bot.yml`: `bot-test` → `build-bot` (artifact: `bot-binary`, built on `main` only)
 
 ### deploy.yml
-Триггерится при завершении любого из трёх CI воркфлоу, а также через `workflow_dispatch`.
+Triggered when any of the three CI workflows completes, and via `workflow_dispatch`.
 
-**Джоба `gate`** — проверяет через GitHub API что все три CI успешно прошли для одного SHA. Если нет — пропускает деплой (`ready=false`); деплой произойдёт когда завершится последний из трёх.
+**`gate` job** — queries the GitHub API to confirm all three CI workflows passed for the same SHA. Skips deploy (`ready=false`) if not; the deploy fires when the last of the three finishes.
 
-**Джоба `deploy`** — скачивает артефакты из соответствующих run-id каждого воркфлоу, копирует на сервер, перезапускает сервисы.
+**`deploy` job** — downloads artifacts from the corresponding run-ids, copies to the server, restarts services.
 
 **Flow:**
-1. Downloads the three artifacts from the CI run
+1. Downloads the three artifacts from CI runs
 2. SCPs them to `/opt/hand-of-fate/{backend,frontend,bot}/` on the server
 3. Writes `/opt/hand-of-fate/.env` from GitHub Secrets (overwrites on every deploy)
 4. Restarts `fate-backend` and `fate-bot` systemd services, reloads Nginx
