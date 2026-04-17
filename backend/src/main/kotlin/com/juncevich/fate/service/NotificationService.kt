@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service
 @Service
 class NotificationService(
     private val emailService: EmailService,
-    @Value("\${app.frontend-url}") private val frontendUrl: String,
+    @param:Value("\${app.frontend-url}") private val frontendUrl: String,
 ) {
 
     private val log = LoggerFactory.getLogger(NotificationService::class.java)

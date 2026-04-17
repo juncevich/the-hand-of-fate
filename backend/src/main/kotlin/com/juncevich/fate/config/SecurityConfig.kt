@@ -24,7 +24,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 @EnableMethodSecurity
 class SecurityConfig(
     private val jwtAuthFilter: JwtAuthFilter,
-    @Value("\${app.frontend-url}") private val frontendUrl: String,
+    @param:Value("\${app.frontend-url}") private val frontendUrl: String,
 ) {
 
     @Bean

@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service
 @Service
 class EmailService(
     private val mailSender: JavaMailSender,
-    @Value("\${spring.mail.username:noreply@handoffate.app}") private val from: String,
+    @param:Value("\${spring.mail.username:noreply@handoffate.app}") private val from: String,
 ) {
 
     fun sendVoteInvitation(

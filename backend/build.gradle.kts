@@ -1,10 +1,10 @@
 import com.google.protobuf.gradle.*
 
 plugins {
-    kotlin("jvm")                         version "2.2.20"
-    kotlin("plugin.spring")               version "2.2.20"
-    kotlin("plugin.jpa")                  version "2.2.20"
-    id("org.springframework.boot")        version "3.5.3"
+    kotlin("jvm")                         version "2.2.21"
+    kotlin("plugin.spring")               version "2.2.21"
+    kotlin("plugin.jpa")                  version "2.2.21"
+    id("org.springframework.boot")        version "4.0.5"
     id("io.spring.dependency-management") version "1.1.7"
     id("com.google.protobuf")             version "0.9.6"
 }
@@ -34,19 +34,20 @@ repositories {
     mavenCentral()
 }
 
-val grpcVersion        = "1.73.0"
+val grpcVersion        = "1.80.0"
 val grpcKotlinVersion  = "1.5.0"
-val protobufVersion    = "4.31.1"
+val protobufVersion    = "4.34.0"
 val jjwtVersion        = "0.13.0"
 
 dependencies {
     // ── Spring Boot ─────────────────────────────────────────────────────────
-    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
 
     // ── Kotlin ───────────────────────────────────────────────────────────────
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
@@ -68,8 +69,7 @@ dependencies {
 
     // ── Database ─────────────────────────────────────────────────────────────
     runtimeOnly("org.postgresql:postgresql:42.7.10")
-    implementation("org.flywaydb:flyway-core:12.4.0")
-    implementation("org.flywaydb:flyway-database-postgresql:12.4.0")
+    runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
     // ── Observability ─────────────────────────────────────────────────────────
     implementation("io.micrometer:micrometer-registry-prometheus")
@@ -82,8 +82,8 @@ dependencies {
     // ── Test ──────────────────────────────────────────────────────────────────
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
-    testImplementation("org.testcontainers:postgresql:1.21.3")
-    testImplementation("org.testcontainers:junit-jupiter:1.21.3")
+    testImplementation("org.testcontainers:postgresql:1.21.4")
+    testImplementation("org.testcontainers:junit-jupiter:1.21.4")
     testImplementation("io.mockk:mockk:1.14.9")
     testImplementation("com.ninja-squad:springmockk:5.0.1")
 }

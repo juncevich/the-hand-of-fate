@@ -33,7 +33,9 @@ class AuthService(
         val user = userRepository.save(
             User(
                 email = request.email.lowercase().trim(),
-                passwordHash = passwordEncoder.encode(request.password),
+                passwordHash = requireNotNull(passwordEncoder.encode(request.password)) {
+                    "Password encoding failed"
+                },
                 displayName = request.displayName,
             )
         )
