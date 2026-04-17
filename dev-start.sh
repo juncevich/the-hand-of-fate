@@ -13,7 +13,10 @@ fi
 
 # ── Kill stale processes from previous runs ─────────────────────────────────
 pkill -f "gradlew bootRun"   2>/dev/null || true
+pkill -f "FateApplicationKt" 2>/dev/null || true
+lsof -ti :8080               2>/dev/null | xargs kill -9 2>/dev/null || true
 pkill -f "vite"              2>/dev/null || true
+lsof -ti :3000               2>/dev/null | xargs kill -9 2>/dev/null || true
 pkill -f "go run ./cmd/bot"  2>/dev/null || true
 
 # ── Infrastructure ──────────────────────────────────────────────────────────

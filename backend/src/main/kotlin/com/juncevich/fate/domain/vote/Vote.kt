@@ -4,6 +4,7 @@ import com.juncevich.fate.domain.user.User
 import jakarta.persistence.*
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
+import org.springframework.data.domain.Persistable
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.Instant
 import java.util.UUID
@@ -18,6 +19,7 @@ class Vote(
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @get:JvmName("getId_")
     val id: UUID = UUID.randomUUID(),
 
     @Column(nullable = false, length = 255)
@@ -48,4 +50,17 @@ class Vote(
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
-)
+) : Persistable<UUID> {
+
+    @Transient
+    private var _isNew: Boolean = true
+
+    override fun getId(): UUID = id
+    override fun isNew(): Boolean = _isNew
+
+    @PostPersist
+    @PostLoad
+    fun markNotNew() {
+        _isNew = false
+    }
+}

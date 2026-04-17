@@ -1,6 +1,7 @@
 package com.juncevich.fate.domain.vote
 
 import jakarta.persistence.*
+import org.springframework.data.domain.Persistable
 import java.time.Instant
 import java.util.UUID
 
@@ -10,6 +11,7 @@ class DrawHistory(
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @get:JvmName("getId_")
     val id: UUID = UUID.randomUUID(),
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -27,4 +29,17 @@ class DrawHistory(
 
     @Column(name = "drawn_at", nullable = false)
     val drawnAt: Instant = Instant.now(),
-)
+) : Persistable<UUID> {
+
+    @Transient
+    private var _isNew: Boolean = true
+
+    override fun getId(): UUID = id
+    override fun isNew(): Boolean = _isNew
+
+    @PostPersist
+    @PostLoad
+    fun markNotNew() {
+        _isNew = false
+    }
+}
