@@ -41,6 +41,9 @@ func main() {
 
 	// ── Handler ───────────────────────────────────────────────────────────────
 	h := handler.New(bot, fateClient, log)
+	if err := h.RegisterCommands(); err != nil {
+		log.Fatal("failed to register Telegram menu", zap.Error(err))
+	}
 
 	// ── Graceful shutdown ─────────────────────────────────────────────────────
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

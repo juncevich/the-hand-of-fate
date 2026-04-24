@@ -22,9 +22,11 @@ const (
 	FateService_LinkTelegramAccount_FullMethodName   = "/fate.v1.FateService/LinkTelegramAccount"
 	FateService_UnlinkTelegramAccount_FullMethodName = "/fate.v1.FateService/UnlinkTelegramAccount"
 	FateService_GetMyVotes_FullMethodName            = "/fate.v1.FateService/GetMyVotes"
+	FateService_CreateVote_FullMethodName            = "/fate.v1.FateService/CreateVote"
 	FateService_GetVoteDetails_FullMethodName        = "/fate.v1.FateService/GetVoteDetails"
 	FateService_DrawVote_FullMethodName              = "/fate.v1.FateService/DrawVote"
 	FateService_GetLastDrawResult_FullMethodName     = "/fate.v1.FateService/GetLastDrawResult"
+	FateService_GetVoteHistory_FullMethodName        = "/fate.v1.FateService/GetVoteHistory"
 )
 
 // FateServiceClient is the client API for FateService service.
@@ -37,12 +39,16 @@ type FateServiceClient interface {
 	UnlinkTelegramAccount(ctx context.Context, in *UnlinkTelegramAccountRequest, opts ...grpc.CallOption) (*UnlinkTelegramAccountResponse, error)
 	// List votes the telegram user participates in or created
 	GetMyVotes(ctx context.Context, in *GetMyVotesRequest, opts ...grpc.CallOption) (*GetMyVotesResponse, error)
+	// Create a vote for the linked telegram user
+	CreateVote(ctx context.Context, in *CreateVoteRequest, opts ...grpc.CallOption) (*CreateVoteResponse, error)
 	// Get detailed info about a vote
 	GetVoteDetails(ctx context.Context, in *GetVoteDetailsRequest, opts ...grpc.CallOption) (*GetVoteDetailsResponse, error)
 	// Perform a draw (only vote creator can do this)
 	DrawVote(ctx context.Context, in *DrawVoteRequest, opts ...grpc.CallOption) (*DrawVoteResponse, error)
 	// Get the last draw result for a vote
 	GetLastDrawResult(ctx context.Context, in *GetLastDrawResultRequest, opts ...grpc.CallOption) (*GetLastDrawResultResponse, error)
+	// Get draw history for a vote
+	GetVoteHistory(ctx context.Context, in *GetVoteHistoryRequest, opts ...grpc.CallOption) (*GetVoteHistoryResponse, error)
 }
 
 type fateServiceClient struct {
@@ -83,6 +89,16 @@ func (c *fateServiceClient) GetMyVotes(ctx context.Context, in *GetMyVotesReques
 	return out, nil
 }
 
+func (c *fateServiceClient) CreateVote(ctx context.Context, in *CreateVoteRequest, opts ...grpc.CallOption) (*CreateVoteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateVoteResponse)
+	err := c.cc.Invoke(ctx, FateService_CreateVote_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *fateServiceClient) GetVoteDetails(ctx context.Context, in *GetVoteDetailsRequest, opts ...grpc.CallOption) (*GetVoteDetailsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetVoteDetailsResponse)
@@ -113,6 +129,16 @@ func (c *fateServiceClient) GetLastDrawResult(ctx context.Context, in *GetLastDr
 	return out, nil
 }
 
+func (c *fateServiceClient) GetVoteHistory(ctx context.Context, in *GetVoteHistoryRequest, opts ...grpc.CallOption) (*GetVoteHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetVoteHistoryResponse)
+	err := c.cc.Invoke(ctx, FateService_GetVoteHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FateServiceServer is the server API for FateService service.
 // All implementations must embed UnimplementedFateServiceServer
 // for forward compatibility.
@@ -123,12 +149,16 @@ type FateServiceServer interface {
 	UnlinkTelegramAccount(context.Context, *UnlinkTelegramAccountRequest) (*UnlinkTelegramAccountResponse, error)
 	// List votes the telegram user participates in or created
 	GetMyVotes(context.Context, *GetMyVotesRequest) (*GetMyVotesResponse, error)
+	// Create a vote for the linked telegram user
+	CreateVote(context.Context, *CreateVoteRequest) (*CreateVoteResponse, error)
 	// Get detailed info about a vote
 	GetVoteDetails(context.Context, *GetVoteDetailsRequest) (*GetVoteDetailsResponse, error)
 	// Perform a draw (only vote creator can do this)
 	DrawVote(context.Context, *DrawVoteRequest) (*DrawVoteResponse, error)
 	// Get the last draw result for a vote
 	GetLastDrawResult(context.Context, *GetLastDrawResultRequest) (*GetLastDrawResultResponse, error)
+	// Get draw history for a vote
+	GetVoteHistory(context.Context, *GetVoteHistoryRequest) (*GetVoteHistoryResponse, error)
 	mustEmbedUnimplementedFateServiceServer()
 }
 
@@ -148,6 +178,9 @@ func (UnimplementedFateServiceServer) UnlinkTelegramAccount(context.Context, *Un
 func (UnimplementedFateServiceServer) GetMyVotes(context.Context, *GetMyVotesRequest) (*GetMyVotesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMyVotes not implemented")
 }
+func (UnimplementedFateServiceServer) CreateVote(context.Context, *CreateVoteRequest) (*CreateVoteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateVote not implemented")
+}
 func (UnimplementedFateServiceServer) GetVoteDetails(context.Context, *GetVoteDetailsRequest) (*GetVoteDetailsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetVoteDetails not implemented")
 }
@@ -156,6 +189,9 @@ func (UnimplementedFateServiceServer) DrawVote(context.Context, *DrawVoteRequest
 }
 func (UnimplementedFateServiceServer) GetLastDrawResult(context.Context, *GetLastDrawResultRequest) (*GetLastDrawResultResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetLastDrawResult not implemented")
+}
+func (UnimplementedFateServiceServer) GetVoteHistory(context.Context, *GetVoteHistoryRequest) (*GetVoteHistoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetVoteHistory not implemented")
 }
 func (UnimplementedFateServiceServer) mustEmbedUnimplementedFateServiceServer() {}
 func (UnimplementedFateServiceServer) testEmbeddedByValue()                     {}
@@ -232,6 +268,24 @@ func _FateService_GetMyVotes_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FateService_CreateVote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateVoteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FateServiceServer).CreateVote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FateService_CreateVote_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FateServiceServer).CreateVote(ctx, req.(*CreateVoteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FateService_GetVoteDetails_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetVoteDetailsRequest)
 	if err := dec(in); err != nil {
@@ -286,6 +340,24 @@ func _FateService_GetLastDrawResult_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FateService_GetVoteHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetVoteHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FateServiceServer).GetVoteHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FateService_GetVoteHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FateServiceServer).GetVoteHistory(ctx, req.(*GetVoteHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FateService_ServiceDesc is the grpc.ServiceDesc for FateService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -306,6 +378,10 @@ var FateService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _FateService_GetMyVotes_Handler,
 		},
 		{
+			MethodName: "CreateVote",
+			Handler:    _FateService_CreateVote_Handler,
+		},
+		{
 			MethodName: "GetVoteDetails",
 			Handler:    _FateService_GetVoteDetails_Handler,
 		},
@@ -316,6 +392,10 @@ var FateService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetLastDrawResult",
 			Handler:    _FateService_GetLastDrawResult_Handler,
+		},
+		{
+			MethodName: "GetVoteHistory",
+			Handler:    _FateService_GetVoteHistory_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

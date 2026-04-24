@@ -17,6 +17,9 @@ service FateService {
   // List votes the telegram user participates in or created
   rpc GetMyVotes(GetMyVotesRequest) returns (GetMyVotesResponse);
 
+  // Create a vote for the linked telegram user
+  rpc CreateVote(CreateVoteRequest) returns (CreateVoteResponse);
+
   // Get detailed info about a vote
   rpc GetVoteDetails(GetVoteDetailsRequest) returns (GetVoteDetailsResponse);
 
@@ -25,6 +28,9 @@ service FateService {
 
   // Get the last draw result for a vote
   rpc GetLastDrawResult(GetLastDrawResultRequest) returns (GetLastDrawResultResponse);
+
+  // Get draw history for a vote
+  rpc GetVoteHistory(GetVoteHistoryRequest) returns (GetVoteHistoryResponse);
 }
 
 // ── Link / Unlink ─────────────────────────────────────────────────────────────
@@ -58,6 +64,20 @@ message GetMyVotesRequest {
 
 message GetMyVotesResponse {
   repeated VoteSummary votes = 1;
+}
+
+message CreateVoteRequest {
+  int64 telegram_id = 1;
+  string title = 2;
+  string description = 3;
+  VoteMode mode = 4;
+  repeated string participant_emails = 5;
+}
+
+message CreateVoteResponse {
+  bool success = 1;
+  string message = 2;
+  GetVoteDetailsResponse vote = 3;
 }
 
 message VoteSummary {
@@ -117,11 +137,21 @@ message DrawVoteResponse {
 
 message GetLastDrawResultRequest {
   string vote_id = 1;
+  int64 telegram_id = 2;
 }
 
 message GetLastDrawResultResponse {
   bool           has_result = 1;
   DrawResultInfo result     = 2;
+}
+
+message GetVoteHistoryRequest {
+  string vote_id = 1;
+  int64 telegram_id = 2;
+}
+
+message GetVoteHistoryResponse {
+  repeated DrawResultInfo results = 1;
 }
 
 // ── Enums ─────────────────────────────────────────────────────────────────────

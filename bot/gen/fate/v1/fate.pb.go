@@ -426,6 +426,142 @@ func (x *GetMyVotesResponse) GetVotes() []*VoteSummary {
 	return nil
 }
 
+type CreateVoteRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	TelegramId        int64                  `protobuf:"varint,1,opt,name=telegram_id,json=telegramId,proto3" json:"telegram_id,omitempty"`
+	Title             string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description       string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Mode              VoteMode               `protobuf:"varint,4,opt,name=mode,proto3,enum=fate.v1.VoteMode" json:"mode,omitempty"`
+	ParticipantEmails []string               `protobuf:"bytes,5,rep,name=participant_emails,json=participantEmails,proto3" json:"participant_emails,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *CreateVoteRequest) Reset() {
+	*x = CreateVoteRequest{}
+	mi := &file_fate_v1_fate_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateVoteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateVoteRequest) ProtoMessage() {}
+
+func (x *CreateVoteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fate_v1_fate_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateVoteRequest.ProtoReflect.Descriptor instead.
+func (*CreateVoteRequest) Descriptor() ([]byte, []int) {
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *CreateVoteRequest) GetTelegramId() int64 {
+	if x != nil {
+		return x.TelegramId
+	}
+	return 0
+}
+
+func (x *CreateVoteRequest) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *CreateVoteRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *CreateVoteRequest) GetMode() VoteMode {
+	if x != nil {
+		return x.Mode
+	}
+	return VoteMode_VOTE_MODE_UNSPECIFIED
+}
+
+func (x *CreateVoteRequest) GetParticipantEmails() []string {
+	if x != nil {
+		return x.ParticipantEmails
+	}
+	return nil
+}
+
+type CreateVoteResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Success       bool                    `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                  `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Vote          *GetVoteDetailsResponse `protobuf:"bytes,3,opt,name=vote,proto3" json:"vote,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateVoteResponse) Reset() {
+	*x = CreateVoteResponse{}
+	mi := &file_fate_v1_fate_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateVoteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateVoteResponse) ProtoMessage() {}
+
+func (x *CreateVoteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fate_v1_fate_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateVoteResponse.ProtoReflect.Descriptor instead.
+func (*CreateVoteResponse) Descriptor() ([]byte, []int) {
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *CreateVoteResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *CreateVoteResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *CreateVoteResponse) GetVote() *GetVoteDetailsResponse {
+	if x != nil {
+		return x.Vote
+	}
+	return nil
+}
+
 type VoteSummary struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	VoteId           string                 `protobuf:"bytes,1,opt,name=vote_id,json=voteId,proto3" json:"vote_id,omitempty"`
@@ -441,7 +577,7 @@ type VoteSummary struct {
 
 func (x *VoteSummary) Reset() {
 	*x = VoteSummary{}
-	mi := &file_fate_v1_fate_proto_msgTypes[6]
+	mi := &file_fate_v1_fate_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -453,7 +589,7 @@ func (x *VoteSummary) String() string {
 func (*VoteSummary) ProtoMessage() {}
 
 func (x *VoteSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_fate_v1_fate_proto_msgTypes[6]
+	mi := &file_fate_v1_fate_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -466,7 +602,7 @@ func (x *VoteSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoteSummary.ProtoReflect.Descriptor instead.
 func (*VoteSummary) Descriptor() ([]byte, []int) {
-	return file_fate_v1_fate_proto_rawDescGZIP(), []int{6}
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *VoteSummary) GetVoteId() string {
@@ -528,7 +664,7 @@ type GetVoteDetailsRequest struct {
 
 func (x *GetVoteDetailsRequest) Reset() {
 	*x = GetVoteDetailsRequest{}
-	mi := &file_fate_v1_fate_proto_msgTypes[7]
+	mi := &file_fate_v1_fate_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -540,7 +676,7 @@ func (x *GetVoteDetailsRequest) String() string {
 func (*GetVoteDetailsRequest) ProtoMessage() {}
 
 func (x *GetVoteDetailsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fate_v1_fate_proto_msgTypes[7]
+	mi := &file_fate_v1_fate_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -553,7 +689,7 @@ func (x *GetVoteDetailsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVoteDetailsRequest.ProtoReflect.Descriptor instead.
 func (*GetVoteDetailsRequest) Descriptor() ([]byte, []int) {
-	return file_fate_v1_fate_proto_rawDescGZIP(), []int{7}
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetVoteDetailsRequest) GetVoteId() string {
@@ -586,7 +722,7 @@ type GetVoteDetailsResponse struct {
 
 func (x *GetVoteDetailsResponse) Reset() {
 	*x = GetVoteDetailsResponse{}
-	mi := &file_fate_v1_fate_proto_msgTypes[8]
+	mi := &file_fate_v1_fate_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -598,7 +734,7 @@ func (x *GetVoteDetailsResponse) String() string {
 func (*GetVoteDetailsResponse) ProtoMessage() {}
 
 func (x *GetVoteDetailsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fate_v1_fate_proto_msgTypes[8]
+	mi := &file_fate_v1_fate_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -611,7 +747,7 @@ func (x *GetVoteDetailsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVoteDetailsResponse.ProtoReflect.Descriptor instead.
 func (*GetVoteDetailsResponse) Descriptor() ([]byte, []int) {
-	return file_fate_v1_fate_proto_rawDescGZIP(), []int{8}
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetVoteDetailsResponse) GetVoteId() string {
@@ -681,7 +817,7 @@ type ParticipantInfo struct {
 
 func (x *ParticipantInfo) Reset() {
 	*x = ParticipantInfo{}
-	mi := &file_fate_v1_fate_proto_msgTypes[9]
+	mi := &file_fate_v1_fate_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -693,7 +829,7 @@ func (x *ParticipantInfo) String() string {
 func (*ParticipantInfo) ProtoMessage() {}
 
 func (x *ParticipantInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_fate_v1_fate_proto_msgTypes[9]
+	mi := &file_fate_v1_fate_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -706,7 +842,7 @@ func (x *ParticipantInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ParticipantInfo.ProtoReflect.Descriptor instead.
 func (*ParticipantInfo) Descriptor() ([]byte, []int) {
-	return file_fate_v1_fate_proto_rawDescGZIP(), []int{9}
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ParticipantInfo) GetEmail() string {
@@ -742,7 +878,7 @@ type DrawResultInfo struct {
 
 func (x *DrawResultInfo) Reset() {
 	*x = DrawResultInfo{}
-	mi := &file_fate_v1_fate_proto_msgTypes[10]
+	mi := &file_fate_v1_fate_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -754,7 +890,7 @@ func (x *DrawResultInfo) String() string {
 func (*DrawResultInfo) ProtoMessage() {}
 
 func (x *DrawResultInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_fate_v1_fate_proto_msgTypes[10]
+	mi := &file_fate_v1_fate_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -767,7 +903,7 @@ func (x *DrawResultInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrawResultInfo.ProtoReflect.Descriptor instead.
 func (*DrawResultInfo) Descriptor() ([]byte, []int) {
-	return file_fate_v1_fate_proto_rawDescGZIP(), []int{10}
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *DrawResultInfo) GetWinnerEmail() string {
@@ -808,7 +944,7 @@ type DrawVoteRequest struct {
 
 func (x *DrawVoteRequest) Reset() {
 	*x = DrawVoteRequest{}
-	mi := &file_fate_v1_fate_proto_msgTypes[11]
+	mi := &file_fate_v1_fate_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -820,7 +956,7 @@ func (x *DrawVoteRequest) String() string {
 func (*DrawVoteRequest) ProtoMessage() {}
 
 func (x *DrawVoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fate_v1_fate_proto_msgTypes[11]
+	mi := &file_fate_v1_fate_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -833,7 +969,7 @@ func (x *DrawVoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrawVoteRequest.ProtoReflect.Descriptor instead.
 func (*DrawVoteRequest) Descriptor() ([]byte, []int) {
-	return file_fate_v1_fate_proto_rawDescGZIP(), []int{11}
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *DrawVoteRequest) GetVoteId() string {
@@ -864,7 +1000,7 @@ type DrawVoteResponse struct {
 
 func (x *DrawVoteResponse) Reset() {
 	*x = DrawVoteResponse{}
-	mi := &file_fate_v1_fate_proto_msgTypes[12]
+	mi := &file_fate_v1_fate_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -876,7 +1012,7 @@ func (x *DrawVoteResponse) String() string {
 func (*DrawVoteResponse) ProtoMessage() {}
 
 func (x *DrawVoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fate_v1_fate_proto_msgTypes[12]
+	mi := &file_fate_v1_fate_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -889,7 +1025,7 @@ func (x *DrawVoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrawVoteResponse.ProtoReflect.Descriptor instead.
 func (*DrawVoteResponse) Descriptor() ([]byte, []int) {
-	return file_fate_v1_fate_proto_rawDescGZIP(), []int{12}
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DrawVoteResponse) GetSuccess() bool {
@@ -937,13 +1073,14 @@ func (x *DrawVoteResponse) GetMessage() string {
 type GetLastDrawResultRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	VoteId        string                 `protobuf:"bytes,1,opt,name=vote_id,json=voteId,proto3" json:"vote_id,omitempty"`
+	TelegramId    int64                  `protobuf:"varint,2,opt,name=telegram_id,json=telegramId,proto3" json:"telegram_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetLastDrawResultRequest) Reset() {
 	*x = GetLastDrawResultRequest{}
-	mi := &file_fate_v1_fate_proto_msgTypes[13]
+	mi := &file_fate_v1_fate_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -955,7 +1092,7 @@ func (x *GetLastDrawResultRequest) String() string {
 func (*GetLastDrawResultRequest) ProtoMessage() {}
 
 func (x *GetLastDrawResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fate_v1_fate_proto_msgTypes[13]
+	mi := &file_fate_v1_fate_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -968,7 +1105,7 @@ func (x *GetLastDrawResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLastDrawResultRequest.ProtoReflect.Descriptor instead.
 func (*GetLastDrawResultRequest) Descriptor() ([]byte, []int) {
-	return file_fate_v1_fate_proto_rawDescGZIP(), []int{13}
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetLastDrawResultRequest) GetVoteId() string {
@@ -976,6 +1113,13 @@ func (x *GetLastDrawResultRequest) GetVoteId() string {
 		return x.VoteId
 	}
 	return ""
+}
+
+func (x *GetLastDrawResultRequest) GetTelegramId() int64 {
+	if x != nil {
+		return x.TelegramId
+	}
+	return 0
 }
 
 type GetLastDrawResultResponse struct {
@@ -988,7 +1132,7 @@ type GetLastDrawResultResponse struct {
 
 func (x *GetLastDrawResultResponse) Reset() {
 	*x = GetLastDrawResultResponse{}
-	mi := &file_fate_v1_fate_proto_msgTypes[14]
+	mi := &file_fate_v1_fate_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1000,7 +1144,7 @@ func (x *GetLastDrawResultResponse) String() string {
 func (*GetLastDrawResultResponse) ProtoMessage() {}
 
 func (x *GetLastDrawResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fate_v1_fate_proto_msgTypes[14]
+	mi := &file_fate_v1_fate_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1013,7 +1157,7 @@ func (x *GetLastDrawResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLastDrawResultResponse.ProtoReflect.Descriptor instead.
 func (*GetLastDrawResultResponse) Descriptor() ([]byte, []int) {
-	return file_fate_v1_fate_proto_rawDescGZIP(), []int{14}
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetLastDrawResultResponse) GetHasResult() bool {
@@ -1026,6 +1170,102 @@ func (x *GetLastDrawResultResponse) GetHasResult() bool {
 func (x *GetLastDrawResultResponse) GetResult() *DrawResultInfo {
 	if x != nil {
 		return x.Result
+	}
+	return nil
+}
+
+type GetVoteHistoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	VoteId        string                 `protobuf:"bytes,1,opt,name=vote_id,json=voteId,proto3" json:"vote_id,omitempty"`
+	TelegramId    int64                  `protobuf:"varint,2,opt,name=telegram_id,json=telegramId,proto3" json:"telegram_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetVoteHistoryRequest) Reset() {
+	*x = GetVoteHistoryRequest{}
+	mi := &file_fate_v1_fate_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetVoteHistoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetVoteHistoryRequest) ProtoMessage() {}
+
+func (x *GetVoteHistoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fate_v1_fate_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetVoteHistoryRequest.ProtoReflect.Descriptor instead.
+func (*GetVoteHistoryRequest) Descriptor() ([]byte, []int) {
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *GetVoteHistoryRequest) GetVoteId() string {
+	if x != nil {
+		return x.VoteId
+	}
+	return ""
+}
+
+func (x *GetVoteHistoryRequest) GetTelegramId() int64 {
+	if x != nil {
+		return x.TelegramId
+	}
+	return 0
+}
+
+type GetVoteHistoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Results       []*DrawResultInfo      `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetVoteHistoryResponse) Reset() {
+	*x = GetVoteHistoryResponse{}
+	mi := &file_fate_v1_fate_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetVoteHistoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetVoteHistoryResponse) ProtoMessage() {}
+
+func (x *GetVoteHistoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fate_v1_fate_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetVoteHistoryResponse.ProtoReflect.Descriptor instead.
+func (*GetVoteHistoryResponse) Descriptor() ([]byte, []int) {
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetVoteHistoryResponse) GetResults() []*DrawResultInfo {
+	if x != nil {
+		return x.Results
 	}
 	return nil
 }
@@ -1055,7 +1295,18 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\vtelegram_id\x18\x01 \x01(\x03R\n" +
 	"telegramId\"@\n" +
 	"\x12GetMyVotesResponse\x12*\n" +
-	"\x05votes\x18\x01 \x03(\v2\x14.fate.v1.VoteSummaryR\x05votes\"\x81\x02\n" +
+	"\x05votes\x18\x01 \x03(\v2\x14.fate.v1.VoteSummaryR\x05votes\"\xc2\x01\n" +
+	"\x11CreateVoteRequest\x12\x1f\n" +
+	"\vtelegram_id\x18\x01 \x01(\x03R\n" +
+	"telegramId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12%\n" +
+	"\x04mode\x18\x04 \x01(\x0e2\x11.fate.v1.VoteModeR\x04mode\x12-\n" +
+	"\x12participant_emails\x18\x05 \x03(\tR\x11participantEmails\"}\n" +
+	"\x12CreateVoteResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x123\n" +
+	"\x04vote\x18\x03 \x01(\v2\x1f.fate.v1.GetVoteDetailsResponseR\x04vote\"\x81\x02\n" +
 	"\vVoteSummary\x12\x17\n" +
 	"\avote_id\x18\x01 \x01(\tR\x06voteId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12+\n" +
@@ -1098,13 +1349,21 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\x13winner_display_name\x18\x03 \x01(\tR\x11winnerDisplayName\x12\x14\n" +
 	"\x05round\x18\x04 \x01(\x05R\x05round\x12*\n" +
 	"\x11new_round_started\x18\x05 \x01(\bR\x0fnewRoundStarted\x12\x18\n" +
-	"\amessage\x18\x06 \x01(\tR\amessage\"3\n" +
+	"\amessage\x18\x06 \x01(\tR\amessage\"T\n" +
 	"\x18GetLastDrawResultRequest\x12\x17\n" +
-	"\avote_id\x18\x01 \x01(\tR\x06voteId\"k\n" +
+	"\avote_id\x18\x01 \x01(\tR\x06voteId\x12\x1f\n" +
+	"\vtelegram_id\x18\x02 \x01(\x03R\n" +
+	"telegramId\"k\n" +
 	"\x19GetLastDrawResultResponse\x12\x1d\n" +
 	"\n" +
 	"has_result\x18\x01 \x01(\bR\thasResult\x12/\n" +
-	"\x06result\x18\x02 \x01(\v2\x17.fate.v1.DrawResultInfoR\x06result*q\n" +
+	"\x06result\x18\x02 \x01(\v2\x17.fate.v1.DrawResultInfoR\x06result\"Q\n" +
+	"\x15GetVoteHistoryRequest\x12\x17\n" +
+	"\avote_id\x18\x01 \x01(\tR\x06voteId\x12\x1f\n" +
+	"\vtelegram_id\x18\x02 \x01(\x03R\n" +
+	"telegramId\"K\n" +
+	"\x16GetVoteHistoryResponse\x121\n" +
+	"\aresults\x18\x01 \x03(\v2\x17.fate.v1.DrawResultInfoR\aresults*q\n" +
 	"\n" +
 	"VoteStatus\x12\x1b\n" +
 	"\x17VOTE_STATUS_UNSPECIFIED\x10\x00\x12\x17\n" +
@@ -1114,15 +1373,18 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\bVoteMode\x12\x19\n" +
 	"\x15VOTE_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10VOTE_MODE_SIMPLE\x10\x01\x12\x1b\n" +
-	"\x17VOTE_MODE_FAIR_ROTATION\x10\x022\x8e\x04\n" +
+	"\x17VOTE_MODE_FAIR_ROTATION\x10\x022\xa8\x05\n" +
 	"\vFateService\x12`\n" +
 	"\x13LinkTelegramAccount\x12#.fate.v1.LinkTelegramAccountRequest\x1a$.fate.v1.LinkTelegramAccountResponse\x12f\n" +
 	"\x15UnlinkTelegramAccount\x12%.fate.v1.UnlinkTelegramAccountRequest\x1a&.fate.v1.UnlinkTelegramAccountResponse\x12E\n" +
 	"\n" +
-	"GetMyVotes\x12\x1a.fate.v1.GetMyVotesRequest\x1a\x1b.fate.v1.GetMyVotesResponse\x12Q\n" +
+	"GetMyVotes\x12\x1a.fate.v1.GetMyVotesRequest\x1a\x1b.fate.v1.GetMyVotesResponse\x12E\n" +
+	"\n" +
+	"CreateVote\x12\x1a.fate.v1.CreateVoteRequest\x1a\x1b.fate.v1.CreateVoteResponse\x12Q\n" +
 	"\x0eGetVoteDetails\x12\x1e.fate.v1.GetVoteDetailsRequest\x1a\x1f.fate.v1.GetVoteDetailsResponse\x12?\n" +
 	"\bDrawVote\x12\x18.fate.v1.DrawVoteRequest\x1a\x19.fate.v1.DrawVoteResponse\x12Z\n" +
-	"\x11GetLastDrawResult\x12!.fate.v1.GetLastDrawResultRequest\x1a\".fate.v1.GetLastDrawResultResponseBd\n" +
+	"\x11GetLastDrawResult\x12!.fate.v1.GetLastDrawResultRequest\x1a\".fate.v1.GetLastDrawResultResponse\x12Q\n" +
+	"\x0eGetVoteHistory\x12\x1e.fate.v1.GetVoteHistoryRequest\x1a\x1f.fate.v1.GetVoteHistoryResponseBd\n" +
 	"\x17com.juncevich.fate.grpcB\tFateProtoP\x01Z<github.com/juncevich/the-hand-of-fate/bot/gen/fate/v1;fatev1b\x06proto3"
 
 var (
@@ -1138,7 +1400,7 @@ func file_fate_v1_fate_proto_rawDescGZIP() []byte {
 }
 
 var file_fate_v1_fate_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_fate_v1_fate_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_fate_v1_fate_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_fate_v1_fate_proto_goTypes = []any{
 	(VoteStatus)(0),                       // 0: fate.v1.VoteStatus
 	(VoteMode)(0),                         // 1: fate.v1.VoteMode
@@ -1148,42 +1410,53 @@ var file_fate_v1_fate_proto_goTypes = []any{
 	(*UnlinkTelegramAccountResponse)(nil), // 5: fate.v1.UnlinkTelegramAccountResponse
 	(*GetMyVotesRequest)(nil),             // 6: fate.v1.GetMyVotesRequest
 	(*GetMyVotesResponse)(nil),            // 7: fate.v1.GetMyVotesResponse
-	(*VoteSummary)(nil),                   // 8: fate.v1.VoteSummary
-	(*GetVoteDetailsRequest)(nil),         // 9: fate.v1.GetVoteDetailsRequest
-	(*GetVoteDetailsResponse)(nil),        // 10: fate.v1.GetVoteDetailsResponse
-	(*ParticipantInfo)(nil),               // 11: fate.v1.ParticipantInfo
-	(*DrawResultInfo)(nil),                // 12: fate.v1.DrawResultInfo
-	(*DrawVoteRequest)(nil),               // 13: fate.v1.DrawVoteRequest
-	(*DrawVoteResponse)(nil),              // 14: fate.v1.DrawVoteResponse
-	(*GetLastDrawResultRequest)(nil),      // 15: fate.v1.GetLastDrawResultRequest
-	(*GetLastDrawResultResponse)(nil),     // 16: fate.v1.GetLastDrawResultResponse
+	(*CreateVoteRequest)(nil),             // 8: fate.v1.CreateVoteRequest
+	(*CreateVoteResponse)(nil),            // 9: fate.v1.CreateVoteResponse
+	(*VoteSummary)(nil),                   // 10: fate.v1.VoteSummary
+	(*GetVoteDetailsRequest)(nil),         // 11: fate.v1.GetVoteDetailsRequest
+	(*GetVoteDetailsResponse)(nil),        // 12: fate.v1.GetVoteDetailsResponse
+	(*ParticipantInfo)(nil),               // 13: fate.v1.ParticipantInfo
+	(*DrawResultInfo)(nil),                // 14: fate.v1.DrawResultInfo
+	(*DrawVoteRequest)(nil),               // 15: fate.v1.DrawVoteRequest
+	(*DrawVoteResponse)(nil),              // 16: fate.v1.DrawVoteResponse
+	(*GetLastDrawResultRequest)(nil),      // 17: fate.v1.GetLastDrawResultRequest
+	(*GetLastDrawResultResponse)(nil),     // 18: fate.v1.GetLastDrawResultResponse
+	(*GetVoteHistoryRequest)(nil),         // 19: fate.v1.GetVoteHistoryRequest
+	(*GetVoteHistoryResponse)(nil),        // 20: fate.v1.GetVoteHistoryResponse
 }
 var file_fate_v1_fate_proto_depIdxs = []int32{
-	8,  // 0: fate.v1.GetMyVotesResponse.votes:type_name -> fate.v1.VoteSummary
-	0,  // 1: fate.v1.VoteSummary.status:type_name -> fate.v1.VoteStatus
-	1,  // 2: fate.v1.VoteSummary.mode:type_name -> fate.v1.VoteMode
-	1,  // 3: fate.v1.GetVoteDetailsResponse.mode:type_name -> fate.v1.VoteMode
-	0,  // 4: fate.v1.GetVoteDetailsResponse.status:type_name -> fate.v1.VoteStatus
-	11, // 5: fate.v1.GetVoteDetailsResponse.participants:type_name -> fate.v1.ParticipantInfo
-	12, // 6: fate.v1.GetVoteDetailsResponse.last_result:type_name -> fate.v1.DrawResultInfo
-	12, // 7: fate.v1.GetLastDrawResultResponse.result:type_name -> fate.v1.DrawResultInfo
-	2,  // 8: fate.v1.FateService.LinkTelegramAccount:input_type -> fate.v1.LinkTelegramAccountRequest
-	4,  // 9: fate.v1.FateService.UnlinkTelegramAccount:input_type -> fate.v1.UnlinkTelegramAccountRequest
-	6,  // 10: fate.v1.FateService.GetMyVotes:input_type -> fate.v1.GetMyVotesRequest
-	9,  // 11: fate.v1.FateService.GetVoteDetails:input_type -> fate.v1.GetVoteDetailsRequest
-	13, // 12: fate.v1.FateService.DrawVote:input_type -> fate.v1.DrawVoteRequest
-	15, // 13: fate.v1.FateService.GetLastDrawResult:input_type -> fate.v1.GetLastDrawResultRequest
-	3,  // 14: fate.v1.FateService.LinkTelegramAccount:output_type -> fate.v1.LinkTelegramAccountResponse
-	5,  // 15: fate.v1.FateService.UnlinkTelegramAccount:output_type -> fate.v1.UnlinkTelegramAccountResponse
-	7,  // 16: fate.v1.FateService.GetMyVotes:output_type -> fate.v1.GetMyVotesResponse
-	10, // 17: fate.v1.FateService.GetVoteDetails:output_type -> fate.v1.GetVoteDetailsResponse
-	14, // 18: fate.v1.FateService.DrawVote:output_type -> fate.v1.DrawVoteResponse
-	16, // 19: fate.v1.FateService.GetLastDrawResult:output_type -> fate.v1.GetLastDrawResultResponse
-	14, // [14:20] is the sub-list for method output_type
-	8,  // [8:14] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	10, // 0: fate.v1.GetMyVotesResponse.votes:type_name -> fate.v1.VoteSummary
+	1,  // 1: fate.v1.CreateVoteRequest.mode:type_name -> fate.v1.VoteMode
+	12, // 2: fate.v1.CreateVoteResponse.vote:type_name -> fate.v1.GetVoteDetailsResponse
+	0,  // 3: fate.v1.VoteSummary.status:type_name -> fate.v1.VoteStatus
+	1,  // 4: fate.v1.VoteSummary.mode:type_name -> fate.v1.VoteMode
+	1,  // 5: fate.v1.GetVoteDetailsResponse.mode:type_name -> fate.v1.VoteMode
+	0,  // 6: fate.v1.GetVoteDetailsResponse.status:type_name -> fate.v1.VoteStatus
+	13, // 7: fate.v1.GetVoteDetailsResponse.participants:type_name -> fate.v1.ParticipantInfo
+	14, // 8: fate.v1.GetVoteDetailsResponse.last_result:type_name -> fate.v1.DrawResultInfo
+	14, // 9: fate.v1.GetLastDrawResultResponse.result:type_name -> fate.v1.DrawResultInfo
+	14, // 10: fate.v1.GetVoteHistoryResponse.results:type_name -> fate.v1.DrawResultInfo
+	2,  // 11: fate.v1.FateService.LinkTelegramAccount:input_type -> fate.v1.LinkTelegramAccountRequest
+	4,  // 12: fate.v1.FateService.UnlinkTelegramAccount:input_type -> fate.v1.UnlinkTelegramAccountRequest
+	6,  // 13: fate.v1.FateService.GetMyVotes:input_type -> fate.v1.GetMyVotesRequest
+	8,  // 14: fate.v1.FateService.CreateVote:input_type -> fate.v1.CreateVoteRequest
+	11, // 15: fate.v1.FateService.GetVoteDetails:input_type -> fate.v1.GetVoteDetailsRequest
+	15, // 16: fate.v1.FateService.DrawVote:input_type -> fate.v1.DrawVoteRequest
+	17, // 17: fate.v1.FateService.GetLastDrawResult:input_type -> fate.v1.GetLastDrawResultRequest
+	19, // 18: fate.v1.FateService.GetVoteHistory:input_type -> fate.v1.GetVoteHistoryRequest
+	3,  // 19: fate.v1.FateService.LinkTelegramAccount:output_type -> fate.v1.LinkTelegramAccountResponse
+	5,  // 20: fate.v1.FateService.UnlinkTelegramAccount:output_type -> fate.v1.UnlinkTelegramAccountResponse
+	7,  // 21: fate.v1.FateService.GetMyVotes:output_type -> fate.v1.GetMyVotesResponse
+	9,  // 22: fate.v1.FateService.CreateVote:output_type -> fate.v1.CreateVoteResponse
+	12, // 23: fate.v1.FateService.GetVoteDetails:output_type -> fate.v1.GetVoteDetailsResponse
+	16, // 24: fate.v1.FateService.DrawVote:output_type -> fate.v1.DrawVoteResponse
+	18, // 25: fate.v1.FateService.GetLastDrawResult:output_type -> fate.v1.GetLastDrawResultResponse
+	20, // 26: fate.v1.FateService.GetVoteHistory:output_type -> fate.v1.GetVoteHistoryResponse
+	19, // [19:27] is the sub-list for method output_type
+	11, // [11:19] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_fate_v1_fate_proto_init() }
@@ -1197,7 +1470,7 @@ func file_fate_v1_fate_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fate_v1_fate_proto_rawDesc), len(file_fate_v1_fate_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   15,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
