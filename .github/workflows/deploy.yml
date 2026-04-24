@@ -26,11 +26,13 @@ jobs:
         run: |
           all_ok=true
 
+          REPO="${{ github.repository }}"
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # При ручном запуске проверяем последний запуск каждого воркфлоу в main
             for workflow in "Backend CI" "Frontend CI" "Bot CI"; do
               conclusion=$(gh run list \
-                --workflow "$workflow" --branch main \
+                --repo "$REPO" --workflow "$workflow" --branch main \
                 --limit 1 --json conclusion -q '.[0].conclusion // "none"')
               echo "$workflow: $conclusion"
               [ "$conclusion" = "success" ] || all_ok=false
@@ -45,7 +47,7 @@ jobs:
             SHA="${{ github.event.workflow_run.head_sha }}"
             for workflow in "Backend CI" "Frontend CI" "Bot CI"; do
               conclusion=$(gh run list \
-                --workflow "$workflow" --branch main --commit "$SHA" \
+                --repo "$REPO" --workflow "$workflow" --branch main --commit "$SHA" \
                 --limit 1 --json conclusion -q '.[0].conclusion // "pending"')
               echo "$workflow: $conclusion"
               [ "$conclusion" = "success" ] || all_ok=false
@@ -65,13 +67,14 @@ jobs:
         id: ids
         if: steps.check.outputs.ready == 'true'
         run: |
+          REPO="${{ github.repository }}"
           get_run_id() {
             local workflow="$1"
             if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-              gh run list --workflow "$workflow" --branch main --status success \
+              gh run list --repo "$REPO" --workflow "$workflow" --branch main --status success \
                 --limit 1 --json databaseId -q '.[0].databaseId'
             else
-              gh run list --workflow "$workflow" --branch main \
+              gh run list --repo "$REPO" --workflow "$workflow" --branch main \
                 --commit "${{ github.event.workflow_run.head_sha }}" \
                 --limit 1 --json databaseId -q '.[0].databaseId'
             fi
