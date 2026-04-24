@@ -2,7 +2,6 @@ package com.juncevich.fate.domain.auth
 
 import com.juncevich.fate.domain.user.User
 import jakarta.persistence.*
-import org.springframework.data.domain.Persistable
 import java.time.Instant
 import java.util.UUID
 
@@ -11,7 +10,6 @@ import java.util.UUID
 class TelegramLinkToken(
 
     @Id
-    @get:JvmName("getId_")
     val id: UUID = UUID.randomUUID(),
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -26,19 +24,6 @@ class TelegramLinkToken(
 
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
-) : Persistable<UUID> {
-
-    @Transient
-    private var _isNew: Boolean = true
-
-    override fun getId(): UUID = id
-    override fun isNew(): Boolean = _isNew
-
-    @PostPersist
-    @PostLoad
-    fun markNotNew() {
-        _isNew = false
-    }
-
+) {
     val isExpired get() = Instant.now().isAfter(expiresAt)
 }

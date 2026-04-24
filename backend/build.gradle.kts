@@ -1,10 +1,10 @@
 import com.google.protobuf.gradle.*
 
 plugins {
-    kotlin("jvm")                         version "2.2.21"
-    kotlin("plugin.spring")               version "2.2.21"
-    kotlin("plugin.jpa")                  version "2.2.21"
-    id("org.springframework.boot")        version "4.0.5"
+    kotlin("jvm")                         version "2.3.21"
+    kotlin("plugin.spring")               version "2.3.21"
+    kotlin("plugin.jpa")                  version "2.3.21"
+    id("org.springframework.boot")        version "4.0.6"
     id("io.spring.dependency-management") version "1.1.7"
     id("com.google.protobuf")             version "0.9.6"
 }
@@ -92,8 +92,8 @@ dependencies {
     // ── Test ──────────────────────────────────────────────────────────────────
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
-    testImplementation("org.testcontainers:postgresql:1.21.4")
-    testImplementation("org.testcontainers:junit-jupiter:1.21.4")
+    testImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter:2.0.5")
     testImplementation("io.mockk:mockk:1.14.9")
     testImplementation("com.ninja-squad:springmockk:5.0.1")
 }
