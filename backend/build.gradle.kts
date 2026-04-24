@@ -6,7 +6,7 @@ plugins {
     kotlin("plugin.jpa")                  version "2.3.21"
     id("org.springframework.boot")        version "4.0.6"
     id("io.spring.dependency-management") version "1.1.7"
-    id("com.google.protobuf")             version "0.9.6"
+    id("com.google.protobuf")             version "0.10.0"
 }
 
 group   = "com.juncevich"
@@ -36,7 +36,7 @@ repositories {
 
 val grpcVersion        = "1.80.0"
 val grpcKotlinVersion  = "1.5.0"
-val protobufVersion    = "4.34.0"
+val protobufVersion    = "4.34.1"
 val jjwtVersion        = "0.13.0"
 
 configurations.all {
