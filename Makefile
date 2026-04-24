@@ -17,7 +17,7 @@ dev:
 
 # Run infrastructure in Docker + app processes natively (hot-reload)
 dev-local:
-	./dev.sh
+	./dev-start.sh
 
 infra:
 	docker compose -f docker-compose.infra.yml up -d

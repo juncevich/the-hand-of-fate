@@ -24,10 +24,26 @@ infra/
 ## Common Commands
 
 ### Local dev (full stack)
+
+**Option 1 — everything in Docker:**
 ```bash
 cp .env.example .env          # add BOT_TOKEN
 docker compose up -d
 ```
+
+**Option 2 — infrastructure in Docker, apps native (hot-reload):**
+```bash
+cp .env.example .env          # add BOT_TOKEN
+./dev-start.sh                # starts infra via docker-compose.infra.yml, then runs backend/frontend/bot natively
+./dev-stop.sh                 # stop infrastructure
+# or via make:
+make dev-local                # same as dev-start.sh
+make infra                    # start only postgres + mailhog
+make infra-down               # stop infrastructure
+```
+- `docker-compose.infra.yml` — lightweight compose file with only postgres and mailhog (used by `dev-start.sh`)
+- `dev-start.sh` handles stale process cleanup, colored log output per service, conditional bot startup (skipped if `BOT_TOKEN` unset)
+
 - Frontend:  http://localhost:3000
 - Backend:   http://localhost:8080
 - Swagger:   http://localhost:8080/swagger-ui.html
