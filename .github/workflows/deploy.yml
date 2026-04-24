@@ -46,15 +46,17 @@ jobs:
 
             SHA="${{ github.event.workflow_run.head_sha }}"
             for workflow in "Backend CI" "Frontend CI" "Bot CI"; do
+              # Only consider completed successful runs for this exact SHA
               conclusion=$(gh run list \
                 --repo "$REPO" --workflow "$workflow" --branch main --commit "$SHA" \
-                --limit 1 --json conclusion -q '.[0].conclusion // ""')
+                --status success --limit 1 --json conclusion -q '.[0].conclusion // ""')
               if [ -z "$conclusion" ]; then
-                # Workflow didn't run for this SHA (path filter) — fall back to latest on main
+                # Workflow didn't run for this SHA (path filter) or is still running —
+                # fall back to latest successful run on main (safe for path-filtered workflows)
                 conclusion=$(gh run list \
-                  --repo "$REPO" --workflow "$workflow" --branch main \
+                  --repo "$REPO" --workflow "$workflow" --branch main --status success \
                   --limit 1 --json conclusion -q '.[0].conclusion // "none"')
-                echo "$workflow (no run for SHA, using latest): $conclusion"
+                echo "$workflow (fallback to latest successful): $conclusion"
               else
                 echo "$workflow: $conclusion"
               fi
