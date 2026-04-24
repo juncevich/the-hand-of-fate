@@ -14,15 +14,23 @@ A voting and random selection application with fair rotation support. Users crea
 ## Architecture
 
 ```
-backend/     Kotlin + Spring Boot 3.4.4, PostgreSQL, gRPC server
+backend/     Kotlin + Spring Boot 4.0.6, PostgreSQL, gRPC server
 frontend/    React 19 + TypeScript + Vite + Tailwind CSS 4 + shadcn/ui
-bot/         Golang Telegram bot, gRPC client to backend
+bot/         Go Telegram bot, gRPC client to backend
 proto/       Shared protobuf definitions (fate.proto)
 infra/
   nginx/     Nginx reverse proxy configs
   monitoring/ OTel Collector, Loki, Mimir, Grafana provisioning
   k8s/       Kubernetes manifests + kustomize overlays (staging/production)
 ```
+
+## Tech Stack
+
+| Component  | Language / Runtime | Key Dependencies                         |
+|------------|--------------------|------------------------------------------|
+| `backend/` | Kotlin 2.3.21      | Spring Boot 4.0.6, gRPC 1.80, JJWT 0.13 |
+| `frontend/`| TypeScript 6.0.3   | React 19.2, Vite 8, TanStack Query 5     |
+| `bot/`     | Go 1.25.0          | grpc 1.80, zap 1.27, viper 1.21          |
 
 ## Quick Start
 

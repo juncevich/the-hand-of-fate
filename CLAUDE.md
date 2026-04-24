@@ -9,9 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Monorepo Structure
 
 ```
-backend/     Kotlin + Spring Boot 3.4.4, PostgreSQL, gRPC server
-frontend/    React 19 + TypeScript + Vite + Tailwind CSS 4 + shadcn/ui
-bot/         Golang Telegram bot, gRPC client to backend
+backend/     Kotlin 2.3.21 + Spring Boot 4.0.6, PostgreSQL, gRPC server
+frontend/    React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4 + shadcn/ui
+bot/         Go 1.25.0 Telegram bot, gRPC client to backend
 proto/       Shared protobuf definitions (proto/fate/v1/fate.proto)
 infra/
   nginx/     Nginx reverse proxy configs
@@ -90,6 +90,16 @@ go run ./cmd/bot           # run
 go test ./...              # test
 go build -o fate-bot ./cmd/bot  # build binary
 ```
+
+**Direct dependencies** (from `bot/go.mod`):
+
+| Package                            | Version  | Purpose       |
+|------------------------------------|----------|---------------|
+| `telegram-bot-api/telegram-bot-api/v5` | v5.5.1  | Telegram API  |
+| `spf13/viper`                      | v1.21.0  | Config        |
+| `go.uber.org/zap`                  | v1.27.1  | Logging       |
+| `google.golang.org/grpc`           | v1.80.0  | gRPC client   |
+| `google.golang.org/protobuf`       | v1.36.11 | Proto runtime |
 
 ### Telegram Bot Commands
 | Command | Description |
@@ -176,6 +186,15 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 ## CI/CD
 
 Services run directly on Ubuntu via systemd (no Docker). Nginx serves the frontend and proxies `/api/` to the backend.
+
+### CI environment
+
+| Component | Version      |
+|-----------|--------------|
+| Runner OS | ubuntu-24.04 |
+| Java      | 21 (Temurin) |
+| Go        | 1.24         |
+| Node.js   | 22           |
 
 ### CI workflows (backend.yml / frontend.yml / bot.yml)
 Each project has its own workflow file, triggered on PR and push to `main` via path filters. Each contains two jobs: test → build.
