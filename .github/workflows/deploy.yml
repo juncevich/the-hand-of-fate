@@ -48,8 +48,16 @@ jobs:
             for workflow in "Backend CI" "Frontend CI" "Bot CI"; do
               conclusion=$(gh run list \
                 --repo "$REPO" --workflow "$workflow" --branch main --commit "$SHA" \
-                --limit 1 --json conclusion -q '.[0].conclusion // "pending"')
-              echo "$workflow: $conclusion"
+                --limit 1 --json conclusion -q '.[0].conclusion // ""')
+              if [ -z "$conclusion" ]; then
+                # Workflow didn't run for this SHA (path filter) — fall back to latest on main
+                conclusion=$(gh run list \
+                  --repo "$REPO" --workflow "$workflow" --branch main \
+                  --limit 1 --json conclusion -q '.[0].conclusion // "none"')
+                echo "$workflow (no run for SHA, using latest): $conclusion"
+              else
+                echo "$workflow: $conclusion"
+              fi
               [ "$conclusion" = "success" ] || all_ok=false
             done
           fi
@@ -74,9 +82,14 @@ jobs:
               gh run list --repo "$REPO" --workflow "$workflow" --branch main --status success \
                 --limit 1 --json databaseId -q '.[0].databaseId'
             else
-              gh run list --repo "$REPO" --workflow "$workflow" --branch main \
+              run_id=$(gh run list --repo "$REPO" --workflow "$workflow" --branch main \
                 --commit "${{ github.event.workflow_run.head_sha }}" \
-                --limit 1 --json databaseId -q '.[0].databaseId'
+                --limit 1 --json databaseId -q '.[0].databaseId // ""')
+              if [ -z "$run_id" ]; then
+                run_id=$(gh run list --repo "$REPO" --workflow "$workflow" --branch main --status success \
+                  --limit 1 --json databaseId -q '.[0].databaseId')
+              fi
+              echo "$run_id"
             fi
           }
           echo "backend=$(get_run_id 'Backend CI')"   >> "$GITHUB_OUTPUT"
