@@ -106,13 +106,14 @@ go build -o fate-bot ./cmd/bot  # build binary
 ### Auth Flow
 - Registration/login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 30 days)
 - `refreshToken` is stored hashed in `refresh_tokens` table
-- Frontend keeps `accessToken` in Zustand (memory only); `refreshToken` is sent via JSON body (not httpOnly cookie)
+- Frontend keeps `accessToken` in Zustand (memory only); `refreshToken` is sent via JSON body; all requests use `withCredentials: true`
+- On app mount, `authApi.silentRefresh()` attempts to restore session via httpOnly cookie (`withCredentials: true`, empty body); failure is silently ignored (user stays logged out)
 - On 401, Axios interceptor silently calls `/api/v1/auth/refresh`, queues concurrent requests, and retries once
 
 ### Frontend State & Data Fetching
 - **Zustand** manages auth state (`authStore`) and dark/light theme (`themeStore`; persisted to localStorage)
 - **React Query** (`@tanstack/react-query`) handles all server state — queries, mutations, cache invalidation
-- Custom Axios instance in `frontend/src/lib/axios.ts` handles token refresh with a retry queue so concurrent 401s only trigger one refresh call
+- Custom Axios instance in `frontend/src/api/client.ts` handles token refresh with a retry queue so concurrent 401s only trigger one refresh call
 
 ### Vote Modes
 - **SIMPLE**: random draw from all participants, no history tracking
@@ -156,6 +157,7 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 - V4: draw_history
 - V5: refresh_tokens
 - V6: telegram_link_tokens
+- V7: demo user seed (`admin@admin.com` / `admin`, idempotent insert)
 
 ### Key Environment Variables
 | Variable | Default | Description |

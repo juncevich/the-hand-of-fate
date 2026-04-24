@@ -37,6 +37,13 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      {import.meta.env.DEV && (
+        <div className="fixed top-3 right-3 z-[9999] pointer-events-none select-none">
+          <span className="text-xs font-mono tracking-widest uppercase opacity-30 text-[var(--color-fate-gold)]">
+            dev mode
+          </span>
+        </div>
+      )}
       <Routes>
         <Route path="/login"    element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
