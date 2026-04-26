@@ -8,95 +8,97 @@ on:
 
   workflow_dispatch:
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
 
-  # ── Ждём пока все три CI пройдут для одного коммита ───────────────────────
+  # ── Проверяем CI и находим артефакты для деплоя ───────────────────────────
   gate:
     name: CI Gate
     runs-on: ubuntu-24.04
     outputs:
       ready:           ${{ steps.check.outputs.ready }}
-      backend-run-id:  ${{ steps.ids.outputs.backend }}
-      frontend-run-id: ${{ steps.ids.outputs.frontend }}
-      bot-run-id:      ${{ steps.ids.outputs.bot }}
+      backend-run-id:  ${{ steps.check.outputs.backend }}
+      frontend-run-id: ${{ steps.check.outputs.frontend }}
+      bot-run-id:      ${{ steps.check.outputs.bot }}
 
     steps:
-      - name: Check all CI workflows passed
+      - name: Check CI workflows and resolve artifact runs
         id: check
         run: |
           all_ok=true
 
           REPO="${{ github.repository }}"
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # При ручном запуске проверяем последний запуск каждого воркфлоу в main
-            for workflow in "Backend CI" "Frontend CI" "Bot CI"; do
-              conclusion=$(gh run list \
-                --repo "$REPO" --workflow "$workflow" --branch main \
-                --limit 1 --json conclusion -q '.[0].conclusion // "none"')
-              echo "$workflow: $conclusion"
-              [ "$conclusion" = "success" ] || all_ok=false
-            done
-          else
-            if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
-              echo "::notice::Triggering workflow failed — деплой пропущен"
-              echo "ready=false" >> "$GITHUB_OUTPUT"
-              exit 0
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && \
+             [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+            echo "::notice::Triggering workflow failed — деплой пропущен"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          resolve_run_id() {
+            local workflow="$1"
+            local output_name="$2"
+            local exact_run=""
+            local run_id=""
+            local status=""
+            local conclusion=""
+
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              run_id=$(gh run list --repo "$REPO" --workflow "$workflow" --branch main --status success \
+                --limit 1 --json databaseId -q '.[0].databaseId // ""')
+              if [ -n "$run_id" ]; then
+                echo "$workflow: latest successful run $run_id"
+                echo "$output_name=$run_id" >> "$GITHUB_OUTPUT"
+                return
+              fi
+              echo "::notice::$workflow has no successful main run"
+              all_ok=false
+              return
             fi
 
-            SHA="${{ github.event.workflow_run.head_sha }}"
-            for workflow in "Backend CI" "Frontend CI" "Bot CI"; do
-              # Only consider completed successful runs for this exact SHA
-              conclusion=$(gh run list \
-                --repo "$REPO" --workflow "$workflow" --branch main --commit "$SHA" \
-                --status success --limit 1 --json conclusion -q '.[0].conclusion // ""')
-              if [ -z "$conclusion" ]; then
-                # Workflow didn't run for this SHA (path filter) or is still running —
-                # fall back to latest successful run on main (safe for path-filtered workflows)
-                conclusion=$(gh run list \
-                  --repo "$REPO" --workflow "$workflow" --branch main --status success \
-                  --limit 1 --json conclusion -q '.[0].conclusion // "none"')
-                echo "$workflow (fallback to latest successful): $conclusion"
+            exact_run=$(gh run list --repo "$REPO" --workflow "$workflow" --branch main --commit "$SHA" \
+              --limit 1 --json databaseId,status,conclusion \
+              -q '.[0] // empty | [.databaseId, .status, (.conclusion // "")] | @tsv')
+
+            if [ -n "$exact_run" ]; then
+              IFS=$'\t' read -r run_id status conclusion <<< "$exact_run"
+              echo "$workflow for $SHA: $status/$conclusion (run $run_id)"
+              if [ "$status" = "completed" ] && [ "$conclusion" = "success" ]; then
+                echo "$output_name=$run_id" >> "$GITHUB_OUTPUT"
               else
-                echo "$workflow: $conclusion"
+                all_ok=false
               fi
-              [ "$conclusion" = "success" ] || all_ok=false
-            done
-          fi
+              return
+            fi
+
+            # No run for this commit means the workflow was skipped by path filters.
+            # Reuse the latest successful artifact for that unchanged component.
+            run_id=$(gh run list --repo "$REPO" --workflow "$workflow" --branch main --status success \
+              --limit 1 --json databaseId -q '.[0].databaseId // ""')
+            if [ -n "$run_id" ]; then
+              echo "$workflow did not run for $SHA; using latest successful run $run_id"
+              echo "$output_name=$run_id" >> "$GITHUB_OUTPUT"
+            else
+              echo "::notice::$workflow did not run for $SHA and has no previous successful artifact"
+              all_ok=false
+            fi
+          }
+
+          resolve_run_id "Backend CI" backend
+          resolve_run_id "Frontend CI" frontend
+          resolve_run_id "Bot CI" bot
 
           if $all_ok; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::Не все CI прошли успешно — деплой пропущен"
+            echo "::notice::Не все нужные CI-артефакты готовы — деплой пропущен"
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Resolve artifact run IDs
-        id: ids
-        if: steps.check.outputs.ready == 'true'
-        run: |
-          REPO="${{ github.repository }}"
-          get_run_id() {
-            local workflow="$1"
-            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-              gh run list --repo "$REPO" --workflow "$workflow" --branch main --status success \
-                --limit 1 --json databaseId -q '.[0].databaseId'
-            else
-              run_id=$(gh run list --repo "$REPO" --workflow "$workflow" --branch main \
-                --commit "${{ github.event.workflow_run.head_sha }}" \
-                --limit 1 --json databaseId -q '.[0].databaseId // ""')
-              if [ -z "$run_id" ]; then
-                run_id=$(gh run list --repo "$REPO" --workflow "$workflow" --branch main --status success \
-                  --limit 1 --json databaseId -q '.[0].databaseId')
-              fi
-              echo "$run_id"
-            fi
-          }
-          echo "backend=$(get_run_id 'Backend CI')"   >> "$GITHUB_OUTPUT"
-          echo "frontend=$(get_run_id 'Frontend CI')" >> "$GITHUB_OUTPUT"
-          echo "bot=$(get_run_id 'Bot CI')"           >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
