@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: gate
     if: needs.gate.outputs.ready == 'true'
-    environment: stage
+    environment: staging
 
     steps:
       - name: Validate deployment secrets
@@ -131,7 +131,7 @@ jobs:
           done
 
           if [ "${#missing[@]}" -gt 0 ]; then
-            echo "::error::Missing deployment secrets for environment 'stage': ${missing[*]}"
+            echo "::error::Missing deployment secrets for environment 'staging': ${missing[*]}. Add them in GitHub: Settings → Environments → staging → Environment secrets."
             exit 1
           fi
         env:
