@@ -107,8 +107,45 @@ jobs:
     runs-on: ubuntu-24.04
     needs: gate
     if: needs.gate.outputs.ready == 'true'
+    environment: stage
 
     steps:
+      - name: Validate deployment secrets
+        run: |
+          missing=()
+          for name in \
+            DEPLOY_HOST \
+            DEPLOY_USER \
+            DEPLOY_SSH_KEY \
+            BOT_TOKEN \
+            DB_URL \
+            DB_USERNAME \
+            DB_PASSWORD \
+            JWT_ACCESS_SECRET \
+            FRONTEND_URL \
+            GRPC_SERVER_ADDR
+          do
+            if [ -z "${!name}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing deployment secrets for environment 'stage': ${missing[*]}"
+            exit 1
+          fi
+        env:
+          DEPLOY_HOST:       ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER:       ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY:    ${{ secrets.DEPLOY_SSH_KEY }}
+          BOT_TOKEN:         ${{ secrets.BOT_TOKEN }}
+          DB_URL:            ${{ secrets.DB_URL }}
+          DB_USERNAME:       ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD:       ${{ secrets.DB_PASSWORD }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          FRONTEND_URL:      ${{ secrets.FRONTEND_URL }}
+          GRPC_SERVER_ADDR:  ${{ secrets.GRPC_SERVER_ADDR }}
+
       - uses: actions/checkout@v4
 
       # ── Скачиваем артефакты из соответствующих воркфлоу ─────────────────────
