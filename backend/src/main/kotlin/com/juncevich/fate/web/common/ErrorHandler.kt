@@ -56,4 +56,14 @@ class ErrorHandler {
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(detail)
     }
+
+    @ExceptionHandler(Exception::class)
+    fun handleGeneric(ex: Exception): ResponseEntity<ProblemDetail> {
+        log.error("Unexpected error", ex)
+        val detail = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR).apply {
+            title = "Internal server error"
+            setProperty("timestamp", Instant.now())
+        }
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(detail)
+    }
 }

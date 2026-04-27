@@ -150,8 +150,18 @@ go build -o fate-bot ./cmd/bot  # build binary
 5. Bot notifies via Telegram; backend sends emails for invitations and draw results
 
 ### Testing
-- **Backend**: TestContainers (spins up real PostgreSQL) + MockK + SpringMockK. Tests live in `backend/src/test/kotlin/`
+- **Backend**: MockK for unit tests. TestContainers dependency is declared but no integration tests exist yet. Tests live in `backend/src/test/kotlin/`
 - **Frontend**: Vitest + `@testing-library/react` + jest-dom
+
+#### Backend Testing Patterns
+- Test files mirror main source layout: `service/`, `web/auth/`, `web/vote/`, `grpc/`, `security/`
+- All service tests are pure unit tests using MockK — no Spring context needed
+- Controller tests use `MockMvcBuilders.standaloneSetup()` — Spring Boot 4.0 removed `@WebMvcTest`
+  - Register `AuthenticationPrincipalArgumentResolver` and `PageableHandlerMethodArgumentResolver` explicitly
+  - Set `SecurityContextHolder` directly in `@BeforeEach` for endpoints that use `@AuthenticationPrincipal`
+  - Always include all required non-null JSON fields (Kotlin default params don't apply at JSON level with Jackson 3.x)
+  - `PageImpl` must be constructed with `PageImpl(content, pageable, total)` — single-arg constructor causes serialization error
+- `ErrorHandler` generic 500 handler masks exception details from the response — tests check for `"Internal server error"` title, not the original message
 
 #### Frontend Testing Patterns
 - Test files: `src/pages/__tests__/` and `src/components/**/__tests__/`

@@ -65,4 +65,12 @@ class TelegramLinkService(
         user.telegramName = null
         userRepository.save(user)
     }
+
+    fun unlinkByUserId(userId: UUID) {
+        val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("User not found") }
+        check(user.telegramId != null) { "No Telegram account is linked to this user" }
+        user.telegramId = null
+        user.telegramName = null
+        userRepository.save(user)
+    }
 }

@@ -59,4 +59,20 @@ class ErrorHandlerTest {
         assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
         assertEquals("Not found", response.body?.title)
     }
+
+    @Test
+    fun `handleGeneric - returns 500 with generic message`() {
+        val response = handler.handleGeneric(RuntimeException("database exploded"))
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        assertEquals("Internal server error", response.body?.title)
+        assertNotNull(response.body?.properties?.get("timestamp"))
+    }
+
+    @Test
+    fun `handleGeneric - does not leak exception message to caller`() {
+        val response = handler.handleGeneric(RuntimeException("sensitive internal detail"))
+
+        assertEquals("Internal server error", response.body?.title)
+    }
 }

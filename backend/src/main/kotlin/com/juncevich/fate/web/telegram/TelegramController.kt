@@ -24,8 +24,7 @@ class TelegramController(private val telegramLinkService: TelegramLinkService) {
 
     @DeleteMapping("/unlink")
     fun unlink(@AuthenticationPrincipal user: AuthenticatedUser): ResponseEntity<Void> {
-        // The user can only unlink their own account via web; use telegram_id from user record
-        // This is simplified — in production, fetch user then use telegramId
+        telegramLinkService.unlinkByUserId(user.id)
         return ResponseEntity.noContent().build()
     }
 }
