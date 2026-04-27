@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	fatev1 "github.com/juncevich/the-hand-of-fate/bot/gen/fate/v1"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const helpText = `✦ *The Hand of Fate Bot*
@@ -40,6 +43,12 @@ type Handler struct {
 
 func New(bot TelegramAPI, client fatev1.FateServiceClient, log *zap.Logger) *Handler {
 	return &Handler{bot: bot, client: client, log: log}
+}
+
+const grpcTimeout = 5 * time.Second
+
+func grpcCtx(parent context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, grpcTimeout)
 }
 
 func (h *Handler) RegisterCommands() error {
@@ -141,14 +150,21 @@ func (h *Handler) handleLink(ctx context.Context, msg *tgbotapi.Message, token s
 		return
 	}
 
-	resp, err := h.client.LinkTelegramAccount(ctx, &fatev1.LinkTelegramAccountRequest{
+	var telegramName string
+	if msg.From != nil {
+		telegramName = msg.From.UserName
+	}
+
+	gctx, cancel := grpcCtx(ctx)
+	defer cancel()
+
+	resp, err := h.client.LinkTelegramAccount(gctx, &fatev1.LinkTelegramAccountRequest{
 		LinkToken:    token,
 		TelegramId:   msg.Chat.ID,
-		TelegramName: msg.From.UserName,
+		TelegramName: telegramName,
 	})
 	if err != nil {
-		h.send(msg.Chat.ID, "❌ Ошибка связи с сервером. Попробуйте позже.", false)
-		h.log.Error("LinkTelegramAccount error", zap.Error(err))
+		h.send(msg.Chat.ID, h.grpcErrMsg(err), false)
 		return
 	}
 
@@ -160,7 +176,10 @@ func (h *Handler) handleLink(ctx context.Context, msg *tgbotapi.Message, token s
 }
 
 func (h *Handler) handleVotes(ctx context.Context, msg *tgbotapi.Message) {
-	resp, err := h.client.GetMyVotes(ctx, &fatev1.GetMyVotesRequest{TelegramId: msg.Chat.ID})
+	gctx, cancel := grpcCtx(ctx)
+	defer cancel()
+
+	resp, err := h.client.GetMyVotes(gctx, &fatev1.GetMyVotesRequest{TelegramId: msg.Chat.ID})
 	if err != nil {
 		h.send(msg.Chat.ID, h.grpcErrMsg(err), false)
 		return
@@ -207,7 +226,11 @@ func (h *Handler) handleNewVote(ctx context.Context, msg *tgbotapi.Message, args
 	}
 
 	request.TelegramId = msg.Chat.ID
-	resp, err := h.client.CreateVote(ctx, request)
+
+	gctx, cancel := grpcCtx(ctx)
+	defer cancel()
+
+	resp, err := h.client.CreateVote(gctx, request)
 	if err != nil {
 		h.send(msg.Chat.ID, h.grpcErrMsg(err), false)
 		return
@@ -233,7 +256,10 @@ func (h *Handler) handleVoteInfo(ctx context.Context, msg *tgbotapi.Message, vot
 		return
 	}
 
-	resp, err := h.client.GetVoteDetails(ctx, &fatev1.GetVoteDetailsRequest{
+	gctx, cancel := grpcCtx(ctx)
+	defer cancel()
+
+	resp, err := h.client.GetVoteDetails(gctx, &fatev1.GetVoteDetailsRequest{
 		VoteId:     voteID,
 		TelegramId: msg.Chat.ID,
 	})
@@ -275,7 +301,10 @@ func (h *Handler) handleDraw(ctx context.Context, msg *tgbotapi.Message, voteID 
 		return
 	}
 
-	resp, err := h.client.DrawVote(ctx, &fatev1.DrawVoteRequest{
+	gctx, cancel := grpcCtx(ctx)
+	defer cancel()
+
+	resp, err := h.client.DrawVote(gctx, &fatev1.DrawVoteRequest{
 		VoteId:     voteID,
 		TelegramId: msg.Chat.ID,
 	})
@@ -303,7 +332,10 @@ func (h *Handler) handleResult(ctx context.Context, msg *tgbotapi.Message, voteI
 		return
 	}
 
-	resp, err := h.client.GetLastDrawResult(ctx, &fatev1.GetLastDrawResultRequest{
+	gctx, cancel := grpcCtx(ctx)
+	defer cancel()
+
+	resp, err := h.client.GetLastDrawResult(gctx, &fatev1.GetLastDrawResultRequest{
 		VoteId:     voteID,
 		TelegramId: msg.Chat.ID,
 	})
@@ -334,7 +366,10 @@ func (h *Handler) handleHistory(ctx context.Context, msg *tgbotapi.Message, vote
 		return
 	}
 
-	resp, err := h.client.GetVoteHistory(ctx, &fatev1.GetVoteHistoryRequest{
+	gctx, cancel := grpcCtx(ctx)
+	defer cancel()
+
+	resp, err := h.client.GetVoteHistory(gctx, &fatev1.GetVoteHistoryRequest{
 		VoteId:     voteID,
 		TelegramId: msg.Chat.ID,
 	})
@@ -360,7 +395,10 @@ func (h *Handler) handleHistory(ctx context.Context, msg *tgbotapi.Message, vote
 }
 
 func (h *Handler) handleUnlink(ctx context.Context, msg *tgbotapi.Message) {
-	resp, err := h.client.UnlinkTelegramAccount(ctx, &fatev1.UnlinkTelegramAccountRequest{
+	gctx, cancel := grpcCtx(ctx)
+	defer cancel()
+
+	resp, err := h.client.UnlinkTelegramAccount(gctx, &fatev1.UnlinkTelegramAccountRequest{
 		TelegramId: msg.Chat.ID,
 	})
 	if err != nil {
@@ -385,17 +423,22 @@ func (h *Handler) send(chatID int64, text string, markdown bool) {
 }
 
 func (h *Handler) grpcErrMsg(err error) string {
-	if strings.Contains(err.Error(), "NOT_FOUND") {
+	st, ok := status.FromError(err)
+	if !ok {
+		h.log.Error("non-gRPC error", zap.Error(err))
+		return "❌ Ошибка сервера. Попробуйте позже."
+	}
+	switch st.Code() {
+	case codes.NotFound:
 		return "❌ Telegram аккаунт не привязан.\n\nПолучите токен в настройках приложения и выполните /link <токен>"
-	}
-	if strings.Contains(err.Error(), "INVALID_ARGUMENT") {
+	case codes.InvalidArgument:
 		return "❌ Некорректные данные команды."
-	}
-	if strings.Contains(err.Error(), "PERMISSION_DENIED") {
+	case codes.PermissionDenied:
 		return "❌ У вас нет прав для этого действия."
+	default:
+		h.log.Error("gRPC error", zap.Error(err))
+		return "❌ Ошибка сервера. Попробуйте позже."
 	}
-	h.log.Error("gRPC error", zap.Error(err))
-	return "❌ Ошибка сервера. Попробуйте позже."
 }
 
 var emailSeparator = regexp.MustCompile(`[,\s]+`)
