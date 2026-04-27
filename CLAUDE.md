@@ -153,6 +153,15 @@ go build -o fate-bot ./cmd/bot  # build binary
 - **Backend**: TestContainers (spins up real PostgreSQL) + MockK + SpringMockK. Tests live in `backend/src/test/kotlin/`
 - **Frontend**: Vitest + `@testing-library/react` + jest-dom
 
+#### Frontend Testing Patterns
+- Test files: `src/pages/__tests__/` and `src/components/**/__tests__/`
+- Wrapper: `QueryClientProvider` (retry: false) + `MemoryRouter` — create a fresh `QueryClient` per test
+- Mock API modules: `vi.mock('@/api/<module>', () => ({ api: { method: vi.fn() } }))` at top of file
+- Mock toaster: `vi.mock('@/components/ui/toaster', () => ({ toast: vi.fn() }))`
+- Use `userEvent.setup()` for realistic browser-like interactions
+- Prefer `screen.getByLabelText` / `screen.getByRole` over test IDs
+- For pages that use `useParams`, wrap in `<Routes><Route path="/path/:id" element={...} /></Routes>` with `initialEntries`
+
 ### Observability
 - Backend: Micrometer + `micrometer-tracing-bridge-otel` → OTLP → OTel Collector
 - OTel Collector: metrics → Mimir, logs → Loki

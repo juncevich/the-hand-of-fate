@@ -72,20 +72,20 @@ export function SettingsPage() {
             <p className="text-sm text-[var(--color-fate-text)]">
               Отправьте эту команду{' '}
               <a
-                href="https://t.me/YourBotUsername"
+                href={`https://t.me/${import.meta.env.VITE_BOT_USERNAME ?? 'YourBotUsername'}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[var(--color-fate-gold)] hover:underline"
               >
-                @YourBotUsername
+                @{import.meta.env.VITE_BOT_USERNAME ?? 'YourBotUsername'}
               </a>{' '}
               в Telegram:
             </p>
             <div className="flex items-center gap-2 bg-black/30 rounded-lg p-3 font-mono text-sm text-[var(--color-fate-gold)]">
               <span className="flex-1">/link {token}</span>
-              <button onClick={copyToken} className="text-[var(--color-fate-muted)] hover:text-[var(--color-fate-gold)]">
+              <Button variant="ghost" size="icon" onClick={copyToken} className="h-6 w-6">
                 <Copy className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
             <p className="text-xs text-[var(--color-fate-muted)]">Токен действителен 5 минут</p>
             <Button variant="ghost" size="sm" onClick={() => setToken(null)}>

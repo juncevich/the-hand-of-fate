@@ -6,13 +6,13 @@ import { authApi } from '@/api/auth'
 import { Button } from '@/components/ui/button'
 
 export function Topbar() {
-  const { displayName, clearAuth } = useAuthStore()
+  const { displayName, refreshToken, clearAuth } = useAuthStore()
   const { theme, toggleTheme } = useThemeStore()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
     try {
-      await authApi.logout('')
+      await authApi.logout(refreshToken ?? '')
     } finally {
       clearAuth()
       navigate('/login')

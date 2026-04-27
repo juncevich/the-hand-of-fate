@@ -6,17 +6,15 @@ import { toast } from '@/components/ui/toaster'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Crown, Sparkles, Trash2, UserPlus, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Crown, Sparkles, Trash2, UserPlus, RotateCcw, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import type { DrawResult } from '@/types/vote'
 
 export function VoteDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [newEmail, setNewEmail] = useState('')
-  const [lastResult, setLastResult] = useState<DrawResult | null>(null)
 
   const { data: vote, isLoading } = useQuery({
     queryKey: ['vote', id],
@@ -27,7 +25,6 @@ export function VoteDetailPage() {
   const drawMutation = useMutation({
     mutationFn: () => votesApi.draw(id!),
     onSuccess: (result) => {
-      setLastResult(result)
       queryClient.invalidateQueries({ queryKey: ['vote', id] })
       toast('✦ Рука Судьбы выбрала!', `Победитель: ${result.winnerDisplayName ?? result.winnerEmail}`)
     },
@@ -49,6 +46,15 @@ export function VoteDetailPage() {
     onError: (e: Error) => toast('Ошибка', e.message, 'error'),
   })
 
+  const removeParticipantMutation = useMutation({
+    mutationFn: (email: string) => votesApi.removeParticipant(id!, email),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vote', id] })
+      toast('Участник удалён')
+    },
+    onError: (e: Error) => toast('Ошибка', e.message, 'error'),
+  })
+
   const deleteMutation = useMutation({
     mutationFn: () => votesApi.delete(id!),
     onSuccess: () => navigate('/'),
@@ -66,13 +72,14 @@ export function VoteDetailPage() {
   return (
     <div className="max-w-2xl mx-auto">
       {/* Back */}
-      <button
+      <Button
+        variant="ghost"
         onClick={() => navigate('/')}
-        className="flex items-center gap-2 text-sm text-[var(--color-fate-muted)] hover:text-[var(--color-fate-text)] mb-6 transition-colors"
+        className="flex items-center gap-2 text-sm mb-6 px-0 hover:bg-transparent"
       >
         <ArrowLeft className="w-4 h-4" />
         Назад
-      </button>
+      </Button>
 
       {/* Header */}
       <div className="glass p-6 mb-4">
@@ -84,12 +91,14 @@ export function VoteDetailPage() {
             )}
           </div>
           {vote.isCreator && (
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => deleteMutation.mutate()}
-              className="text-[var(--color-fate-muted)] hover:text-red-400 transition-colors"
+              className="text-[var(--color-fate-muted)] hover:text-red-400"
             >
               <Trash2 className="w-4 h-4" />
-            </button>
+            </Button>
           )}
         </div>
 
@@ -125,7 +134,7 @@ export function VoteDetailPage() {
       </div>
 
       {/* Last result */}
-      {(lastResult || vote.lastResult) && (
+      {vote.lastResult && (
         <div className="glass p-6 mb-4 border-[var(--color-fate-gold)]/30">
           <h2 className="text-sm font-medium text-[var(--color-fate-muted)] mb-3 uppercase tracking-wider">
             Последний результат
@@ -136,11 +145,10 @@ export function VoteDetailPage() {
             </div>
             <div>
               <p className="font-semibold text-[var(--color-fate-text)]">
-                {(lastResult?.winnerDisplayName ?? vote.lastResult?.winnerDisplayName) ||
-                  (lastResult?.winnerEmail ?? vote.lastResult?.winnerEmail)}
+                {vote.lastResult.winnerDisplayName || vote.lastResult.winnerEmail}
               </p>
               <p className="text-xs text-[var(--color-fate-muted)]">
-                {lastResult?.winnerEmail ?? vote.lastResult?.winnerEmail}
+                {vote.lastResult.winnerEmail}
               </p>
             </div>
           </div>
@@ -159,12 +167,22 @@ export function VoteDetailPage() {
               <div className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center text-xs font-medium text-[var(--color-fate-text)]">
                 {(p.displayName ?? p.email)[0].toUpperCase()}
               </div>
-              <div>
+              <div className="flex-1">
                 {p.displayName && (
                   <p className="text-sm font-medium text-[var(--color-fate-text)]">{p.displayName}</p>
                 )}
                 <p className="text-xs text-[var(--color-fate-muted)]">{p.email}</p>
               </div>
+              {vote.isCreator && vote.status === 'PENDING' && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeParticipantMutation.mutate(p.email)}
+                  className="text-[var(--color-fate-muted)] hover:text-red-400 h-6 w-6"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              )}
             </div>
           ))}
         </div>
