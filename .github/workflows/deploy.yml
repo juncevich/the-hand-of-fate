@@ -109,42 +109,55 @@ jobs:
     if: needs.gate.outputs.ready == 'true'
     environment: staging
 
+    env:
+      HOST: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+      DEPLOY_DIRECTORY: /opt/hand-of-fate
+      BACKEND_HEALTHCHECK_URL: http://127.0.0.1:8080/actuator/health
+      BOT_TOKEN:         ${{ secrets.BOT_TOKEN }}
+      DB_URL:            ${{ secrets.DB_URL }}
+      DB_USERNAME:       ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD:       ${{ secrets.DB_PASSWORD }}
+      JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+      MAIL_HOST:         ${{ secrets.MAIL_HOST }}
+      MAIL_PORT:         ${{ secrets.MAIL_PORT }}
+      MAIL_USERNAME:     ${{ secrets.MAIL_USERNAME }}
+      MAIL_PASSWORD:     ${{ secrets.MAIL_PASSWORD }}
+      FRONTEND_URL:      ${{ secrets.FRONTEND_URL }}
+      GRPC_SERVER_ADDR:  ${{ secrets.GRPC_SERVER_ADDR }}
+      DEPLOY_SSH_KEY:    ${{ secrets.DEPLOY_SSH_KEY }}
+
     steps:
       - name: Validate deployment secrets
         run: |
-          missing=()
-          for name in \
-            DEPLOY_HOST \
-            DEPLOY_USER \
-            DEPLOY_SSH_KEY \
-            BOT_TOKEN \
-            DB_URL \
-            DB_USERNAME \
-            DB_PASSWORD \
-            JWT_ACCESS_SECRET \
-            FRONTEND_URL \
+          missing_secrets=()
+
+          required_secrets=(
+            DEPLOY_SSH_KEY
+            BOT_TOKEN
+            DB_URL
+            DB_USERNAME
+            DB_PASSWORD
+            JWT_ACCESS_SECRET
+            MAIL_HOST
+            MAIL_PORT
+            MAIL_USERNAME
+            MAIL_PASSWORD
+            FRONTEND_URL
             GRPC_SERVER_ADDR
-          do
-            if [ -z "${!name}" ]; then
-              missing+=("$name")
+          )
+
+          for secret_name in "${required_secrets[@]}"; do
+            if [ -z "${!secret_name:-}" ]; then
+              missing_secrets+=("$secret_name")
             fi
           done
 
-          if [ "${#missing[@]}" -gt 0 ]; then
-            echo "::error::Missing deployment secrets for environment 'staging': ${missing[*]}. Add them in GitHub: Settings → Environments → staging → Environment secrets."
+          if [ "${#missing_secrets[@]}" -gt 0 ]; then
+            printf 'Missing GitHub Actions secrets:\n' >&2
+            printf ' - %s\n' "${missing_secrets[@]}" >&2
             exit 1
           fi
-        env:
-          DEPLOY_HOST:       ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER:       ${{ secrets.DEPLOY_USER }}
-          DEPLOY_SSH_KEY:    ${{ secrets.DEPLOY_SSH_KEY }}
-          BOT_TOKEN:         ${{ secrets.BOT_TOKEN }}
-          DB_URL:            ${{ secrets.DB_URL }}
-          DB_USERNAME:       ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD:       ${{ secrets.DB_PASSWORD }}
-          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
-          FRONTEND_URL:      ${{ secrets.FRONTEND_URL }}
-          GRPC_SERVER_ADDR:  ${{ secrets.GRPC_SERVER_ADDR }}
 
       - uses: actions/checkout@v4
 
@@ -178,102 +191,84 @@ jobs:
           mv artifacts/backend/*.jar artifacts/backend/app.jar
           chmod +x artifacts/bot/fate-bot
 
+      - name: Setup SSH
+        run: |
+          sudo apt-get install -y ssh rsync
+          echo "$DEPLOY_SSH_KEY" > deploy_key.pem
+          chmod 600 deploy_key.pem
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
+            "mkdir -p ${{ env.DEPLOY_DIRECTORY }}/backend ${{ env.DEPLOY_DIRECTORY }}/frontend ${{ env.DEPLOY_DIRECTORY }}/bot"
+
       # ── Копируем артефакты на сервер ─────────────────────────────────────────
-      - name: Copy backend JAR
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host:     ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key:      ${{ secrets.DEPLOY_SSH_KEY }}
-          port:     ${{ secrets.DEPLOY_PORT || 22 }}
-          source:   artifacts/backend/app.jar
-          target:   /opt/hand-of-fate/backend/
-          strip_components: 2
+      - name: Deploy backend JAR
+        run: |
+          rsync -avz -e "ssh -i deploy_key.pem -p $DEPLOY_PORT -o StrictHostKeyChecking=no" \
+            artifacts/backend/app.jar "$HOST:${{ env.DEPLOY_DIRECTORY }}/backend/"
 
-      - name: Copy frontend static files
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host:     ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key:      ${{ secrets.DEPLOY_SSH_KEY }}
-          port:     ${{ secrets.DEPLOY_PORT || 22 }}
-          source:   "artifacts/frontend/*"
-          target:   /opt/hand-of-fate/frontend/
-          strip_components: 2
+      - name: Deploy frontend static files
+        run: |
+          rsync -avz --delete -e "ssh -i deploy_key.pem -p $DEPLOY_PORT -o StrictHostKeyChecking=no" \
+            artifacts/frontend/ "$HOST:${{ env.DEPLOY_DIRECTORY }}/frontend/"
 
-      - name: Copy bot binary
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host:     ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key:      ${{ secrets.DEPLOY_SSH_KEY }}
-          port:     ${{ secrets.DEPLOY_PORT || 22 }}
-          source:   artifacts/bot/fate-bot
-          target:   /opt/hand-of-fate/bot/
-          strip_components: 2
+      - name: Deploy bot binary
+        run: |
+          rsync -avz -e "ssh -i deploy_key.pem -p $DEPLOY_PORT -o StrictHostKeyChecking=no" \
+            artifacts/bot/fate-bot "$HOST:${{ env.DEPLOY_DIRECTORY }}/bot/"
 
-      # ── Записываем env vars и перезапускаем сервисы ──────────────────────────
-      - name: Update env and restart services
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host:     ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key:      ${{ secrets.DEPLOY_SSH_KEY }}
-          port:     ${{ secrets.DEPLOY_PORT || 22 }}
-          envs:     BOT_TOKEN,DB_URL,DB_USERNAME,DB_PASSWORD,JWT_ACCESS_SECRET,MAIL_HOST,MAIL_PORT,MAIL_USERNAME,MAIL_PASSWORD,FRONTEND_URL,GRPC_SERVER_ADDR
-          script: |
-            set -euo pipefail
+      # ── Записываем env-файл на сервере ───────────────────────────────────────
+      - name: Create environment file on server
+        run: |
+          escape_env_value() {
+            printf '%s' "$1" | sed "s/'/'\\\\''/g"
+          }
 
-            # Перезаписываем EnvironmentFile из секретов GitHub
-            cat > /opt/hand-of-fate/.env << EOF
-            BOT_TOKEN=${BOT_TOKEN}
-            DB_URL=${DB_URL}
-            DB_USERNAME=${DB_USERNAME}
-            DB_PASSWORD=${DB_PASSWORD}
-            JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
-            MAIL_HOST=${MAIL_HOST}
-            MAIL_PORT=${MAIL_PORT}
-            MAIL_USERNAME=${MAIL_USERNAME}
-            MAIL_PASSWORD=${MAIL_PASSWORD}
-            FRONTEND_URL=${FRONTEND_URL}
-            GRPC_SERVER_ADDR=${GRPC_SERVER_ADDR}
-            EOF
-            chmod 600 /opt/hand-of-fate/.env
-            chown fate:fate /opt/hand-of-fate/.env
+          {
+            printf "BOT_TOKEN='%s'\n"         "$(escape_env_value "$BOT_TOKEN")"
+            printf "DB_URL='%s'\n"            "$(escape_env_value "$DB_URL")"
+            printf "DB_USERNAME='%s'\n"       "$(escape_env_value "$DB_USERNAME")"
+            printf "DB_PASSWORD='%s'\n"       "$(escape_env_value "$DB_PASSWORD")"
+            printf "JWT_ACCESS_SECRET='%s'\n" "$(escape_env_value "$JWT_ACCESS_SECRET")"
+            printf "MAIL_HOST='%s'\n"         "$(escape_env_value "$MAIL_HOST")"
+            printf "MAIL_PORT='%s'\n"         "$(escape_env_value "$MAIL_PORT")"
+            printf "MAIL_USERNAME='%s'\n"     "$(escape_env_value "$MAIL_USERNAME")"
+            printf "MAIL_PASSWORD='%s'\n"     "$(escape_env_value "$MAIL_PASSWORD")"
+            printf "FRONTEND_URL='%s'\n"      "$(escape_env_value "$FRONTEND_URL")"
+            printf "GRPC_SERVER_ADDR='%s'\n"  "$(escape_env_value "$GRPC_SERVER_ADDR")"
+          } | \
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
+            "cat > ${{ env.DEPLOY_DIRECTORY }}/.env && chmod 600 ${{ env.DEPLOY_DIRECTORY }}/.env && chown fate:fate ${{ env.DEPLOY_DIRECTORY }}/.env"
 
-            # Права на артефакты
-            chown fate:fate /opt/hand-of-fate/backend/app.jar
-            chown -R fate:fate /opt/hand-of-fate/frontend/
-            chmod +x /opt/hand-of-fate/bot/fate-bot
-            chown fate:fate /opt/hand-of-fate/bot/fate-bot
+      - name: Set file ownership and permissions
+        run: |
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" "
+            chown fate:fate ${{ env.DEPLOY_DIRECTORY }}/backend/app.jar
+            chown -R fate:fate ${{ env.DEPLOY_DIRECTORY }}/frontend/
+            chmod +x ${{ env.DEPLOY_DIRECTORY }}/bot/fate-bot
+            chown fate:fate ${{ env.DEPLOY_DIRECTORY }}/bot/fate-bot
+          "
 
-            # Перезапуск сервисов
-            systemctl restart fate-backend
-            systemctl restart fate-bot
-            systemctl reload nginx
+      # ── Перезапуск сервисов ───────────────────────────────────────────────────
+      - name: Restart services
+        run: |
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
+            "systemctl daemon-reload && systemctl restart fate-backend && systemctl restart fate-bot && systemctl reload nginx"
 
-            # Health check (ждём до 2 минут)
-            echo "Ожидаем старт бэкенда..."
-            for i in $(seq 1 24); do
-              sleep 5
-              if curl -sf http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
-                echo "✓ Бэкенд запущен (попытка ${i})"
-                exit 0
-              fi
-              echo "  Попытка ${i}/24..."
-            done
-            echo "✗ Бэкенд не ответил за 2 минуты"
-            journalctl -u fate-backend --no-pager -n 50
-            exit 1
-        env:
-          BOT_TOKEN:         ${{ secrets.BOT_TOKEN }}
-          DB_URL:            ${{ secrets.DB_URL }}
-          DB_USERNAME:       ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD:       ${{ secrets.DB_PASSWORD }}
-          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
-          MAIL_HOST:         ${{ secrets.MAIL_HOST }}
-          MAIL_PORT:         ${{ secrets.MAIL_PORT }}
-          MAIL_USERNAME:     ${{ secrets.MAIL_USERNAME }}
-          MAIL_PASSWORD:     ${{ secrets.MAIL_PASSWORD }}
-          FRONTEND_URL:      ${{ secrets.FRONTEND_URL }}
-          GRPC_SERVER_ADDR:  ${{ secrets.GRPC_SERVER_ADDR }}
+      # ── Health check ─────────────────────────────────────────────────────────
+      - name: Verify application health
+        run: |
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" "
+          set -eu
+          for attempt in \$(seq 1 24); do
+            if curl --silent --show-error --fail ${{ env.BACKEND_HEALTHCHECK_URL }} | grep -q '\"status\":\"UP\"'; then
+              echo 'Application is healthy'
+              exit 0
+            fi
+            echo \"Attempt \${attempt}/24...\"
+            sleep 5
+          done
+
+          echo 'Application did not become healthy in time'
+          systemctl status fate-backend --no-pager || true
+          journalctl -u fate-backend -n 100 --no-pager || true
+          exit 1
+          "
