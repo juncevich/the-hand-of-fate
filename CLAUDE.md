@@ -50,6 +50,8 @@ make infra-down               # stop infrastructure
 - MailHog:   http://localhost:8025
 - Grafana:   http://localhost:3001  (admin/admin)
 
+**Default demo user** (seeded by migration V7): `admin@admin.com` / `admin`
+
 ### Backend (Kotlin + Gradle)
 ```bash
 cd backend
