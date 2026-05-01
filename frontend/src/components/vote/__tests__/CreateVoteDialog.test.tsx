@@ -72,7 +72,7 @@ describe('CreateVoteDialog', () => {
     await user.click(screen.getByRole('button', { name: /Создать голосование/i }))
 
     await user.type(screen.getByPlaceholderText('email@example.com'), 'ivan@example.com')
-    await user.click(screen.getAllByRole('button').find((b) => b.querySelector('svg'))!)
+    await user.click(screen.getByRole('button', { name: 'Добавить участника' }))
 
     expect(screen.getByText('ivan@example.com')).toBeInTheDocument()
   })
@@ -136,6 +136,7 @@ describe('CreateVoteDialog', () => {
       createdAt: new Date().toISOString(),
       description: null,
       participants: [],
+      options: [],
       lastResult: null,
     })
 
@@ -155,6 +156,7 @@ describe('CreateVoteDialog', () => {
         description: undefined,
         mode: 'SIMPLE',
         participantEmails: ['ivan@example.com'],
+        options: [],
       })
     })
   })
@@ -172,6 +174,7 @@ describe('CreateVoteDialog', () => {
       createdAt: new Date().toISOString(),
       description: null,
       participants: [],
+      options: [],
       lastResult: null,
     })
 

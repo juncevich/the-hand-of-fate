@@ -18,6 +18,7 @@ interface VoteParticipantRepository : JpaRepository<VoteParticipant, UUID> {
           AND p.email NOT IN (
               SELECT h.winnerEmail FROM DrawHistory h
               WHERE h.vote.id = :voteId AND h.round = :round
+              AND h.winnerEmail IS NOT NULL
           )
     """)
     fun findEligibleEmailsForRound(voteId: UUID, round: Int): List<String>

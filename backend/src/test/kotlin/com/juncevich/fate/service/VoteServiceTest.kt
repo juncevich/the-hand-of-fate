@@ -17,6 +17,7 @@ class VoteServiceTest {
 
     private val voteRepository = mockk<VoteRepository>()
     private val participantRepository = mockk<VoteParticipantRepository>()
+    private val voteOptionRepository = mockk<VoteOptionRepository>()
     private val drawHistoryRepository = mockk<DrawHistoryRepository>()
     private val userRepository = mockk<UserRepository>()
     private val drawService = mockk<DrawService>()
@@ -25,7 +26,7 @@ class VoteServiceTest {
     private val counter = mockk<Counter>(relaxed = true)
 
     private val voteService = VoteService(
-        voteRepository, participantRepository, drawHistoryRepository,
+        voteRepository, participantRepository, voteOptionRepository, drawHistoryRepository,
         userRepository, drawService, notificationService, meterRegistry,
     )
 
@@ -176,7 +177,7 @@ class VoteServiceTest {
     fun `draw - delegates to DrawService and notifies participants`() {
         val creator = makeUser()
         val vote = makeVote(creator = creator)
-        val drawResult = DrawResult("winner@test.com", "Winner", 1, false)
+        val drawResult = DrawResult("winner@test.com", "Winner", null, 1, false)
         val participant = VoteParticipant(vote = vote, email = "winner@test.com")
 
         every { voteRepository.findById(vote.id) } returns Optional.of(vote)

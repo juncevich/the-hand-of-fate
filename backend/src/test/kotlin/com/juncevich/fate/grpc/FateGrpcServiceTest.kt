@@ -6,6 +6,7 @@ import com.juncevich.fate.domain.vote.DrawHistory
 import com.juncevich.fate.domain.vote.DrawHistoryRepository
 import com.juncevich.fate.domain.vote.Vote
 import com.juncevich.fate.domain.vote.VoteMode as DomainVoteMode
+import com.juncevich.fate.domain.vote.VoteOptionRepository
 import com.juncevich.fate.domain.vote.VoteParticipantRepository
 import com.juncevich.fate.domain.vote.VoteRepository
 import com.juncevich.fate.domain.vote.VoteStatus as DomainVoteStatus
@@ -28,6 +29,7 @@ class FateGrpcServiceTest {
     private val userRepository = mockk<UserRepository>()
     private val voteRepository = mockk<VoteRepository>()
     private val participantRepository = mockk<VoteParticipantRepository>()
+    private val voteOptionRepository = mockk<VoteOptionRepository>()
     private val drawHistoryRepository = mockk<DrawHistoryRepository>()
     private val telegramLinkService = mockk<TelegramLinkService>()
     private val voteService = mockk<VoteService>()
@@ -36,6 +38,7 @@ class FateGrpcServiceTest {
         userRepository = userRepository,
         voteRepository = voteRepository,
         participantRepository = participantRepository,
+        voteOptionRepository = voteOptionRepository,
         drawHistoryRepository = drawHistoryRepository,
         telegramLinkService = telegramLinkService,
         voteService = voteService,
@@ -56,6 +59,7 @@ class FateGrpcServiceTest {
                 ParticipantDto(user.email, user.displayName),
                 ParticipantDto("friend@example.com", null),
             ),
+            options = emptyList(),
             lastResult = null,
             isCreator = true,
             createdAt = Instant.parse("2026-04-25T00:00:00Z"),

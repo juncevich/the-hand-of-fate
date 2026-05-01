@@ -75,6 +75,7 @@ class VoteControllerTest {
         status = VoteStatus.PENDING,
         currentRound = 1,
         participants = listOf(ParticipantDto("user@test.com", "User")),
+        options = emptyList(),
         lastResult = null,
         isCreator = true,
         createdAt = Instant.now(),
@@ -141,6 +142,7 @@ class VoteControllerTest {
         every { voteService.draw(voteId, userId) } returns DrawResult(
             winnerEmail = "winner@test.com",
             winnerDisplayName = "Winner",
+            winnerOptionTitle = null,
             round = 1,
             newRoundStarted = false,
         )

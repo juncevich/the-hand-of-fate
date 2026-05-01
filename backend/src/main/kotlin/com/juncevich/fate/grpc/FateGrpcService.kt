@@ -8,6 +8,7 @@ import com.juncevich.fate.service.TelegramLinkService
 import com.juncevich.fate.service.VoteService
 import com.juncevich.fate.domain.vote.VoteRepository
 import com.juncevich.fate.domain.vote.VoteParticipantRepository
+import com.juncevich.fate.domain.vote.VoteOptionRepository
 import com.juncevich.fate.domain.vote.DrawHistoryRepository
 import com.juncevich.fate.web.vote.CreateVoteRequest as WebCreateVoteRequest
 import io.grpc.Status
@@ -22,6 +23,7 @@ class FateGrpcService(
     private val userRepository: UserRepository,
     private val voteRepository: VoteRepository,
     private val participantRepository: VoteParticipantRepository,
+    private val voteOptionRepository: VoteOptionRepository,
     private val drawHistoryRepository: DrawHistoryRepository,
     private val telegramLinkService: TelegramLinkService,
     private val voteService: VoteService,
@@ -105,6 +107,10 @@ class FateGrpcService(
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .distinct()
+        val options = request.optionsList
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
 
         return runCatching {
             val vote = voteService.createVote(
@@ -114,28 +120,14 @@ class FateGrpcService(
                     description = request.description.takeIf { it.isNotBlank() },
                     mode = mode,
                     participantEmails = participantEmails,
+                    options = options,
                 ),
             )
 
             CreateVoteResponse.newBuilder()
                 .setSuccess(true)
                 .setMessage("Vote created")
-                .setVote(
-                    GetVoteDetailsResponse.newBuilder()
-                        .setVoteId(vote.id.toString())
-                        .setTitle(vote.title)
-                        .setDescription(vote.description ?: "")
-                        .setMode(vote.mode.toProto())
-                        .setStatus(vote.status.toProto())
-                        .setCurrentRound(vote.currentRound)
-                        .addAllParticipants(vote.participants.map {
-                            ParticipantInfo.newBuilder()
-                                .setEmail(it.email)
-                                .setDisplayName(it.displayName ?: "")
-                                .build()
-                        })
-                        .build()
-                )
+                .setVote(buildVoteDetailsResponse(vote))
                 .build()
         }.getOrElse { ex ->
             CreateVoteResponse.newBuilder()
@@ -159,6 +151,13 @@ class FateGrpcService(
                 .build()
         }
 
+        val options = voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id).map { o ->
+            VoteOptionInfo.newBuilder()
+                .setOptionId(o.id.toString())
+                .setTitle(o.title)
+                .build()
+        }
+
         val lastDraw = drawHistoryRepository.findTopByVoteIdOrderByDrawnAtDesc(vote.id)
         val builder = GetVoteDetailsResponse.newBuilder()
             .setVoteId(vote.id.toString())
@@ -168,16 +167,10 @@ class FateGrpcService(
             .setStatus(vote.status.toProto())
             .setCurrentRound(vote.currentRound)
             .addAllParticipants(participants)
+            .addAllOptions(options)
 
         lastDraw?.let {
-            builder.setLastResult(
-                DrawResultInfo.newBuilder()
-                    .setWinnerEmail(it.winnerEmail)
-                    .setWinnerDisplayName(it.winnerDisplayName ?: "")
-                    .setRound(it.round)
-                    .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(it.drawnAt))
-                    .build()
-            )
+            builder.setLastResult(it.toDrawResultInfo())
         }
 
         return builder.build()
@@ -198,11 +191,12 @@ class FateGrpcService(
             val result = voteService.draw(voteId, user.id)
             DrawVoteResponse.newBuilder()
                 .setSuccess(true)
-                .setWinnerEmail(result.winnerEmail)
+                .setWinnerEmail(result.winnerEmail ?: "")
                 .setWinnerDisplayName(result.winnerDisplayName ?: "")
+                .setWinnerOptionTitle(result.winnerOptionTitle ?: "")
                 .setRound(result.round)
                 .setNewRoundStarted(result.newRoundStarted)
-                .setMessage("✦ The Hand of Fate has chosen: ${result.winnerDisplayName ?: result.winnerEmail}")
+                .setMessage("✦ The Hand of Fate has chosen: ${result.winnerLabel}")
                 .build()
         }.getOrElse { ex ->
             DrawVoteResponse.newBuilder()
@@ -227,14 +221,7 @@ class FateGrpcService(
         } else {
             GetLastDrawResultResponse.newBuilder()
                 .setHasResult(true)
-                .setResult(
-                    DrawResultInfo.newBuilder()
-                        .setWinnerEmail(lastDraw.winnerEmail)
-                        .setWinnerDisplayName(lastDraw.winnerDisplayName ?: "")
-                        .setRound(lastDraw.round)
-                        .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(lastDraw.drawnAt))
-                        .build()
-                )
+                .setResult(lastDraw.toDrawResultInfo())
                 .build()
         }
     }
@@ -246,18 +233,42 @@ class FateGrpcService(
             .orElseThrow { StatusRuntimeException(Status.NOT_FOUND.withDescription("Vote not found")) }
         requireVoteAccess(vote.id, vote.creator.id, user.id, user.email)
 
-        val results = voteService.getHistory(voteId).map {
-            DrawResultInfo.newBuilder()
-                .setWinnerEmail(it.winnerEmail)
-                .setWinnerDisplayName(it.winnerDisplayName ?: "")
-                .setRound(it.round)
-                .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(it.drawnAt))
-                .build()
-        }
+        val results = voteService.getHistory(voteId).map { it.toDrawResultInfo() }
         return GetVoteHistoryResponse.newBuilder().addAllResults(results).build()
     }
 
-    // ── Proto enum conversions ──────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private fun buildVoteDetailsResponse(vote: com.juncevich.fate.web.vote.VoteDetailDto) =
+        GetVoteDetailsResponse.newBuilder()
+            .setVoteId(vote.id.toString())
+            .setTitle(vote.title)
+            .setDescription(vote.description ?: "")
+            .setMode(vote.mode.toProto())
+            .setStatus(vote.status.toProto())
+            .setCurrentRound(vote.currentRound)
+            .addAllParticipants(vote.participants.map {
+                ParticipantInfo.newBuilder()
+                    .setEmail(it.email)
+                    .setDisplayName(it.displayName ?: "")
+                    .build()
+            })
+            .addAllOptions(vote.options.map {
+                VoteOptionInfo.newBuilder()
+                    .setOptionId(it.id.toString())
+                    .setTitle(it.title)
+                    .build()
+            })
+            .build()
+
+    private fun com.juncevich.fate.domain.vote.DrawHistory.toDrawResultInfo(): DrawResultInfo =
+        DrawResultInfo.newBuilder()
+            .setWinnerEmail(winnerEmail ?: "")
+            .setWinnerDisplayName(winnerDisplayName ?: "")
+            .setWinnerOptionTitle(winnerOptionTitle ?: "")
+            .setRound(round)
+            .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(drawnAt))
+            .build()
 
     private fun linkedUser(telegramId: Long) = userRepository.findByTelegramId(telegramId)
         ?: throw StatusRuntimeException(Status.NOT_FOUND.withDescription("Telegram account not linked"))
@@ -272,6 +283,8 @@ class FateGrpcService(
             throw StatusRuntimeException(Status.PERMISSION_DENIED.withDescription("Vote is not available for this user"))
         }
     }
+
+    // ── Proto enum conversions ──────────────────────────────────────────────
 
     private fun DomainVoteStatus.toProto(): VoteStatus = when (this) {
         DomainVoteStatus.PENDING -> VoteStatus.VOTE_STATUS_PENDING

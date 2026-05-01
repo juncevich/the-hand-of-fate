@@ -16,6 +16,8 @@ export function CreateVoteDialog() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [mode, setMode] = useState<VoteMode>('SIMPLE')
+  const [optionInput, setOptionInput] = useState('')
+  const [options, setOptions] = useState<string[]>([])
   const [emailInput, setEmailInput] = useState('')
   const [emails, setEmails] = useState<string[]>([])
 
@@ -23,7 +25,13 @@ export function CreateVoteDialog() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: () =>
-      votesApi.create({ title, description: description || undefined, mode, participantEmails: emails }),
+      votesApi.create({
+        title,
+        description: description || undefined,
+        mode,
+        participantEmails: emails,
+        options,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['votes'] })
       toast('Голосование создано!', title)
@@ -31,6 +39,13 @@ export function CreateVoteDialog() {
     },
     onError: (e: Error) => toast('Ошибка', e.message, 'error'),
   })
+
+  const addOption = () => {
+    const o = optionInput.trim()
+    if (!o || options.includes(o)) return
+    setOptions([...options, o])
+    setOptionInput('')
+  }
 
   const addEmail = () => {
     const e = emailInput.trim().toLowerCase()
@@ -44,7 +59,13 @@ export function CreateVoteDialog() {
   }
 
   const resetAndClose = () => {
-    setTitle(''); setDescription(''); setMode('SIMPLE'); setEmails([]); setEmailInput('')
+    setTitle('')
+    setDescription('')
+    setMode('SIMPLE')
+    setOptions([])
+    setOptionInput('')
+    setEmails([])
+    setEmailInput('')
     setOpen(false)
   }
 
@@ -57,7 +78,7 @@ export function CreateVoteDialog() {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>✦ Новое голосование</DialogTitle>
         </DialogHeader>
@@ -111,6 +132,40 @@ export function CreateVoteDialog() {
             </div>
           </div>
 
+          {/* Options */}
+          <div className="space-y-1.5">
+            <Label>Варианты выбора</Label>
+            <p className="text-xs text-[var(--color-fate-muted)]">
+              Если варианты заданы — жеребьёвка выбирает из них, а не из участников
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Например: Пицца"
+                value={optionInput}
+                onChange={(e) => setOptionInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addOption())}
+              />
+              <Button type="button" variant="outline" size="icon" onClick={addOption}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+            {options.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {options.map((opt) => (
+                  <span
+                    key={opt}
+                    className="flex items-center gap-1 bg-[var(--color-fate-gold)]/10 border border-[var(--color-fate-gold)]/30 rounded-full px-3 py-1 text-xs text-[var(--color-fate-gold)]"
+                  >
+                    {opt}
+                    <button onClick={() => setOptions(options.filter((o) => o !== opt))}>
+                      <X className="w-3 h-3 hover:text-red-400" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Participants */}
           <div className="space-y-1.5">
             <Label>Участники</Label>
@@ -121,7 +176,7 @@ export function CreateVoteDialog() {
                 onChange={(e) => setEmailInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addEmail())}
               />
-              <Button type="button" variant="outline" size="icon" onClick={addEmail}>
+              <Button type="button" variant="outline" size="icon" onClick={addEmail} aria-label="Добавить участника">
                 <Plus className="w-4 h-4" />
               </Button>
             </div>

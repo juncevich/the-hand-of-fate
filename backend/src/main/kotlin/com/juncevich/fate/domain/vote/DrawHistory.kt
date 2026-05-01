@@ -15,11 +15,18 @@ class DrawHistory(
     @JoinColumn(name = "vote_id", nullable = false)
     val vote: Vote,
 
-    @Column(name = "winner_email", nullable = false, length = 255)
-    val winnerEmail: String,
+    @Column(name = "winner_email", length = 255)
+    val winnerEmail: String? = null,
 
     @Column(name = "winner_display_name", length = 100)
     val winnerDisplayName: String? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "winner_option_id")
+    val winnerOption: VoteOption? = null,
+
+    @Column(name = "winner_option_title", length = 255)
+    val winnerOptionTitle: String? = null,
 
     @Column(nullable = false)
     val round: Int,

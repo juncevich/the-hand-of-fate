@@ -65,6 +65,26 @@ class VoteController(private val voteService: VoteService) {
         return ResponseEntity.noContent().build()
     }
 
+    @PostMapping("/{id}/options")
+    fun addOption(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: AddOptionRequest,
+    ): ResponseEntity<Void> {
+        voteService.addOption(id, user.id, request.title)
+        return ResponseEntity.noContent().build()
+    }
+
+    @DeleteMapping("/{id}/options/{optionId}")
+    fun removeOption(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+        @PathVariable id: UUID,
+        @PathVariable optionId: UUID,
+    ): ResponseEntity<Void> {
+        voteService.removeOption(id, user.id, optionId)
+        return ResponseEntity.noContent().build()
+    }
+
     @PostMapping("/{id}/draw")
     fun draw(
         @AuthenticationPrincipal user: AuthenticatedUser,
@@ -74,6 +94,7 @@ class VoteController(private val voteService: VoteService) {
         return DrawResultResponse(
             winnerEmail = result.winnerEmail,
             winnerDisplayName = result.winnerDisplayName,
+            winnerOptionTitle = result.winnerOptionTitle,
             round = result.round,
             newRoundStarted = result.newRoundStarted,
         )

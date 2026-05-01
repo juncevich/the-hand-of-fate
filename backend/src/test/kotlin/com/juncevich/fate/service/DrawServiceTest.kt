@@ -16,11 +16,12 @@ class DrawServiceTest {
 
     private val voteRepository = mockk<VoteRepository>()
     private val participantRepository = mockk<VoteParticipantRepository>()
+    private val voteOptionRepository = mockk<VoteOptionRepository>()
     private val drawHistoryRepository = mockk<DrawHistoryRepository>()
     private val meterRegistry = mockk<MeterRegistry>()
     private val counter = mockk<Counter>(relaxed = true)
 
-    private val drawService = DrawService(voteRepository, participantRepository, drawHistoryRepository, meterRegistry)
+    private val drawService = DrawService(voteRepository, participantRepository, voteOptionRepository, drawHistoryRepository, meterRegistry)
 
     @BeforeEach
     fun setUp() {
@@ -56,6 +57,7 @@ class DrawServiceTest {
         val history = makeHistory(vote, p1.email)
 
         every { voteRepository.findById(vote.id) } returns Optional.of(vote)
+        every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
         every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1)
         every { drawHistoryRepository.save(any()) } returns history
         every { voteRepository.save(any()) } returns vote
@@ -76,6 +78,7 @@ class DrawServiceTest {
         val p1 = makeParticipant(vote, "a@a.com")
 
         every { voteRepository.findById(vote.id) } returns Optional.of(vote)
+        every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
         every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1)
         every { drawHistoryRepository.save(any()) } returns makeHistory(vote, p1.email)
         every { voteRepository.save(any()) } returns vote
@@ -98,10 +101,11 @@ class DrawServiceTest {
     fun `draw - throws when vote has no participants`() {
         val vote = makeVote()
         every { voteRepository.findById(vote.id) } returns Optional.of(vote)
+        every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
         every { participantRepository.findAllByVoteId(vote.id) } returns emptyList()
 
         val ex = assertThrows<IllegalStateException> { drawService.draw(vote.id) }
-        assertTrue(ex.message!!.contains("no participants"))
+        assertTrue(ex.message!!.contains("no options or participants"))
     }
 
     @Test
@@ -122,6 +126,7 @@ class DrawServiceTest {
         val history = makeHistory(vote, p2.email)
 
         every { voteRepository.findById(vote.id) } returns Optional.of(vote)
+        every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
         every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1, p2)
         every { participantRepository.findEligibleEmailsForRound(vote.id, 1) } returns listOf(p2.email)
         every { drawHistoryRepository.save(any()) } returns history
@@ -141,6 +146,7 @@ class DrawServiceTest {
         val history = makeHistory(vote, p1.email, round = 2)
 
         every { voteRepository.findById(vote.id) } returns Optional.of(vote)
+        every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
         every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1)
         every { participantRepository.findEligibleEmailsForRound(vote.id, 1) } returns emptyList()
         every { drawHistoryRepository.save(any()) } returns history

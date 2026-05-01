@@ -19,6 +19,7 @@ import java.util.UUID
 class VoteService(
     private val voteRepository: VoteRepository,
     private val participantRepository: VoteParticipantRepository,
+    private val voteOptionRepository: VoteOptionRepository,
     private val drawHistoryRepository: DrawHistoryRepository,
     private val userRepository: UserRepository,
     private val drawService: DrawService,
@@ -38,7 +39,6 @@ class VoteService(
             )
         )
 
-        // Add creator as first participant
         val allEmails = (setOf(creator.email) + request.participantEmails).distinct()
         val participants = allEmails.map { email ->
             val user = userRepository.findByEmail(email)
@@ -51,14 +51,21 @@ class VoteService(
             )
         }
 
+        val options = (request.options ?: emptyList())
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .mapIndexed { index, title ->
+                voteOptionRepository.save(VoteOption(vote = vote, title = title, position = index))
+            }
+
         meterRegistry.counter("vote.created", "mode", vote.mode.name).increment()
 
-        // Notify invited participants (async)
         request.participantEmails.forEach { email ->
             notificationService.notifyVoteInvitation(email, vote)
         }
 
-        return vote.toDetailDto(participants, null)
+        return vote.toDetailDto(participants, options, null)
     }
 
     @Transactional(readOnly = true)
@@ -73,8 +80,9 @@ class VoteService(
     fun getVote(voteId: UUID, requesterId: UUID): VoteDetailDto {
         val vote = voteRepository.findById(voteId).orElseThrow { NoSuchElementException("Vote not found") }
         val participants = participantRepository.findAllByVoteId(voteId)
+        val options = voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(voteId)
         val lastResult = drawHistoryRepository.findTopByVoteIdOrderByDrawnAtDesc(voteId)
-        return vote.toDetailDto(participants, lastResult, requesterId)
+        return vote.toDetailDto(participants, options, lastResult, requesterId)
     }
 
     fun addParticipant(voteId: UUID, requesterId: UUID, email: String) {
@@ -94,6 +102,21 @@ class VoteService(
         check(vote.creator.id == requesterId) { "Only the creator can remove participants" }
         check(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
         participantRepository.deleteByVoteIdAndEmail(voteId, email)
+    }
+
+    fun addOption(voteId: UUID, requesterId: UUID, title: String) {
+        val vote = voteRepository.findById(voteId).orElseThrow()
+        check(vote.creator.id == requesterId) { "Only the creator can add options" }
+        check(vote.status == VoteStatus.PENDING) { "Cannot add options to a non-pending vote" }
+        val position = voteOptionRepository.countByVoteId(voteId).toInt()
+        voteOptionRepository.save(VoteOption(vote = vote, title = title.trim(), position = position))
+    }
+
+    fun removeOption(voteId: UUID, requesterId: UUID, optionId: UUID) {
+        val vote = voteRepository.findById(voteId).orElseThrow()
+        check(vote.creator.id == requesterId) { "Only the creator can remove options" }
+        check(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
+        voteOptionRepository.deleteById(optionId)
     }
 
     fun draw(voteId: UUID, requesterId: UUID): DrawResult {

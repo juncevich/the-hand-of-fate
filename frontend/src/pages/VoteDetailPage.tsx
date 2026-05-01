@@ -6,15 +6,20 @@ import { toast } from '@/components/ui/toaster'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Crown, Sparkles, Trash2, UserPlus, RotateCcw, X } from 'lucide-react'
+import { ArrowLeft, Crown, Sparkles, Trash2, UserPlus, RotateCcw, X, ListChecks } from 'lucide-react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
+
+function winnerLabel(entry: { winnerOptionTitle?: string | null; winnerDisplayName?: string | null; winnerEmail?: string | null }) {
+  return entry.winnerOptionTitle ?? entry.winnerDisplayName ?? entry.winnerEmail ?? '—'
+}
 
 export function VoteDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [newEmail, setNewEmail] = useState('')
+  const [newOption, setNewOption] = useState('')
 
   const { data: vote, isLoading } = useQuery({
     queryKey: ['vote', id],
@@ -26,7 +31,7 @@ export function VoteDetailPage() {
     mutationFn: () => votesApi.draw(id!),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['vote', id] })
-      toast('✦ Рука Судьбы выбрала!', `Победитель: ${result.winnerDisplayName ?? result.winnerEmail}`)
+      toast('✦ Рука Судьбы выбрала!', `Победитель: ${winnerLabel(result)}`)
     },
     onError: (e: Error) => toast('Ошибка', e.message, 'error'),
   })
@@ -55,6 +60,25 @@ export function VoteDetailPage() {
     onError: (e: Error) => toast('Ошибка', e.message, 'error'),
   })
 
+  const addOptionMutation = useMutation({
+    mutationFn: () => votesApi.addOption(id!, newOption.trim()),
+    onSuccess: () => {
+      setNewOption('')
+      queryClient.invalidateQueries({ queryKey: ['vote', id] })
+      toast('Вариант добавлен')
+    },
+    onError: (e: Error) => toast('Ошибка', e.message, 'error'),
+  })
+
+  const removeOptionMutation = useMutation({
+    mutationFn: (optionId: string) => votesApi.removeOption(id!, optionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vote', id] })
+      toast('Вариант удалён')
+    },
+    onError: (e: Error) => toast('Ошибка', e.message, 'error'),
+  })
+
   const deleteMutation = useMutation({
     mutationFn: () => votesApi.delete(id!),
     onSuccess: () => navigate('/'),
@@ -66,7 +90,8 @@ export function VoteDetailPage() {
 
   if (!vote) return null
 
-  const canDraw = vote.isCreator && vote.status === 'PENDING' && vote.participants.length > 0
+  const hasOptions = vote.options.length > 0
+  const canDraw = vote.isCreator && vote.status === 'PENDING' && (hasOptions || vote.participants.length > 0)
   const canReopen = vote.isCreator && vote.status === 'DRAWN'
 
   return (
@@ -145,15 +170,72 @@ export function VoteDetailPage() {
             </div>
             <div>
               <p className="font-semibold text-[var(--color-fate-text)]">
-                {vote.lastResult.winnerDisplayName || vote.lastResult.winnerEmail}
+                {winnerLabel(vote.lastResult)}
               </p>
-              <p className="text-xs text-[var(--color-fate-muted)]">
-                {vote.lastResult.winnerEmail}
-              </p>
+              {vote.lastResult.winnerEmail && !vote.lastResult.winnerOptionTitle && (
+                <p className="text-xs text-[var(--color-fate-muted)]">
+                  {vote.lastResult.winnerEmail}
+                </p>
+              )}
             </div>
           </div>
         </div>
       )}
+
+      {/* Options */}
+      <div className="glass p-6 mb-4">
+        <h2 className="text-sm font-medium text-[var(--color-fate-muted)] mb-4 uppercase tracking-wider flex items-center gap-2">
+          <ListChecks className="w-4 h-4" />
+          Варианты ({vote.options.length})
+        </h2>
+
+        {vote.options.length === 0 && (
+          <p className="text-sm text-[var(--color-fate-muted)] mb-4">
+            Нет вариантов — жеребьёвка будет выбирать из участников
+          </p>
+        )}
+
+        {vote.options.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {vote.options.map((opt) => (
+              <span
+                key={opt.id}
+                className="flex items-center gap-1.5 bg-[var(--color-fate-gold)]/10 border border-[var(--color-fate-gold)]/30 rounded-full px-3 py-1.5 text-sm text-[var(--color-fate-gold)]"
+              >
+                {opt.title}
+                {vote.isCreator && vote.status === 'PENDING' && (
+                  <button
+                    onClick={() => removeOptionMutation.mutate(opt.id)}
+                    className="hover:text-red-400 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {vote.isCreator && vote.status === 'PENDING' && (
+          <div className="flex gap-2 pt-4 border-t border-[var(--color-fate-border)]">
+            <Input
+              placeholder="Добавить вариант"
+              value={newOption}
+              onChange={(e) => setNewOption(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && newOption.trim() && addOptionMutation.mutate()}
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => addOptionMutation.mutate()}
+              isLoading={addOptionMutation.isPending}
+              disabled={!newOption.trim()}
+            >
+              <X className="w-4 h-4 rotate-45" />
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Participants */}
       <div className="glass p-6 mb-4">
@@ -235,7 +317,7 @@ function HistorySection({ voteId }: { voteId: string }) {
               </div>
               <div>
                 <p className="text-sm text-[var(--color-fate-text)]">
-                  {h.winnerDisplayName ?? h.winnerEmail}
+                  {h.winnerOptionTitle ?? h.winnerDisplayName ?? h.winnerEmail}
                 </p>
                 <p className="text-xs text-[var(--color-fate-muted)]">Раунд {h.round}</p>
               </div>

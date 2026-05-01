@@ -12,6 +12,11 @@ export interface VoteSummary {
   createdAt: string
 }
 
+export interface VoteOption {
+  id: string
+  title: string
+}
+
 export interface VoteDetail {
   id: string
   title: string
@@ -20,6 +25,7 @@ export interface VoteDetail {
   status: VoteStatus
   currentRound: number
   participants: Participant[]
+  options: VoteOption[]
   lastResult: DrawHistoryEntry | null
   isCreator: boolean
   createdAt: string
@@ -32,15 +38,17 @@ export interface Participant {
 
 export interface DrawHistoryEntry {
   id: string
-  winnerEmail: string
+  winnerEmail: string | null
   winnerDisplayName: string | null
+  winnerOptionTitle: string | null
   round: number
   drawnAt: string
 }
 
 export interface DrawResult {
-  winnerEmail: string
+  winnerEmail: string | null
   winnerDisplayName: string | null
+  winnerOptionTitle: string | null
   round: number
   newRoundStarted: boolean
 }

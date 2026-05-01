@@ -36,6 +36,7 @@ function makeVote(overrides: Partial<VoteDetail> = {}): VoteDetail {
       { email: 'alice@example.com', displayName: 'Alice' },
       { email: 'bob@example.com', displayName: 'Bob' },
     ],
+    options: [],
     lastResult: null,
     isCreator: true,
     createdAt: new Date().toISOString(),
@@ -116,6 +117,7 @@ describe('VoteDetailPage', () => {
     vi.mocked(votesApi.draw).mockResolvedValueOnce({
       winnerEmail: 'alice@example.com',
       winnerDisplayName: 'Alice',
+      winnerOptionTitle: null,
       round: 1,
       newRoundStarted: false,
     })
@@ -232,6 +234,7 @@ describe('VoteDetailPage', () => {
         id: 'h1',
         winnerEmail: 'alice@example.com',
         winnerDisplayName: 'Alice',
+        winnerOptionTitle: null,
         round: 1,
         drawnAt: '2024-01-15T10:00:00Z',
       },
@@ -268,6 +271,7 @@ describe('VoteDetailPage', () => {
           id: 'h1',
           winnerEmail: 'alice@example.com',
           winnerDisplayName: 'Alice',
+          winnerOptionTitle: null,
           round: 1,
           drawnAt: '2024-01-15T10:00:00Z',
         },

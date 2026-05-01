@@ -20,7 +20,7 @@ const helpText = `✦ *The Hand of Fate Bot*
 
 /start — Приветствие
 /link <токен> — Привязать Telegram к аккаунту
-/newvote <название> | <email1,email2> | <simple|fair> — Создать голосование
+/newvote <название> | <email1,email2> | <simple|fair> | <вариант1,вариант2> — Создать голосование
 /votes — Посмотреть свои голосования
 /vote <id> — Информация о голосовании
 /draw <id> — Выполнить жеребьёвку
@@ -241,13 +241,17 @@ func (h *Handler) handleNewVote(ctx context.Context, msg *tgbotapi.Message, args
 	}
 
 	vote := resp.Vote
-	h.send(msg.Chat.ID, fmt.Sprintf(
-		"✅ *Голосование создано*\n\n*%s*\nID: `%s`\nУчастников: %d\nРежим: %s",
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("✅ *Голосование создано*\n\n*%s*\nID: `%s`\nУчастников: %d\nРежим: %s",
 		vote.Title,
 		vote.VoteId,
 		len(vote.Participants),
 		formatMode(vote.Mode),
-	), true)
+	))
+	if len(vote.Options) > 0 {
+		sb.WriteString(fmt.Sprintf("\nВариантов: %d", len(vote.Options)))
+	}
+	h.send(msg.Chat.ID, sb.String(), true)
 }
 
 func (h *Handler) handleVoteInfo(ctx context.Context, msg *tgbotapi.Message, voteID string) {
@@ -276,6 +280,14 @@ func (h *Handler) handleVoteInfo(ctx context.Context, msg *tgbotapi.Message, vot
 	if resp.Description != "" {
 		sb.WriteString(fmt.Sprintf("\n_%s_\n", resp.Description))
 	}
+
+	if len(resp.Options) > 0 {
+		sb.WriteString(fmt.Sprintf("\nВарианты (%d):\n", len(resp.Options)))
+		for _, o := range resp.Options {
+			sb.WriteString(fmt.Sprintf("• %s\n", o.Title))
+		}
+	}
+
 	sb.WriteString(fmt.Sprintf("\nУчастники (%d):\n", len(resp.Participants)))
 	for _, p := range resp.Participants {
 		name := p.DisplayName
@@ -285,11 +297,8 @@ func (h *Handler) handleVoteInfo(ctx context.Context, msg *tgbotapi.Message, vot
 		sb.WriteString(fmt.Sprintf("• %s (`%s`)\n", name, p.Email))
 	}
 	if resp.LastResult != nil {
-		name := resp.LastResult.WinnerDisplayName
-		if name == "" {
-			name = resp.LastResult.WinnerEmail
-		}
-		sb.WriteString(fmt.Sprintf("\nПоследний победитель: *%s*, раунд %d", name, resp.LastResult.Round))
+		label := drawResultLabel(resp.LastResult)
+		sb.WriteString(fmt.Sprintf("\nПоследний победитель: *%s*, раунд %d", label, resp.LastResult.Round))
 	}
 
 	h.send(msg.Chat.ID, sb.String(), true)
@@ -321,7 +330,7 @@ func (h *Handler) handleDraw(ctx context.Context, msg *tgbotapi.Message, voteID 
 	text := fmt.Sprintf("✨ *Рука Судьбы выбрала!*\n\n🏆 *Победитель раунда %d:*\n%s",
 		resp.Round, resp.Message)
 	if resp.NewRoundStarted {
-		text += "\n\n🔄 Все участники победили — начинается новый раунд!"
+		text += "\n\n🔄 Все варианты/участники выиграли — начинается новый раунд!"
 	}
 	h.send(msg.Chat.ID, text, true)
 }
@@ -350,14 +359,14 @@ func (h *Handler) handleResult(ctx context.Context, msg *tgbotapi.Message, voteI
 	}
 
 	r := resp.Result
-	name := r.WinnerDisplayName
-	if name == "" {
-		name = r.WinnerEmail
+	label := drawResultLabel(r)
+	text := fmt.Sprintf("✦ *Последний результат*\n\n🏆 Победитель раунда *%d*:\n*%s*\n\n_%s_",
+		r.Round, label, r.DrawnAt)
+	if r.WinnerEmail != "" && r.WinnerOptionTitle == "" {
+		text = fmt.Sprintf("✦ *Последний результат*\n\n🏆 Победитель раунда *%d*:\n*%s*\n`%s`\n\n_%s_",
+			r.Round, label, r.WinnerEmail, r.DrawnAt)
 	}
-	h.send(msg.Chat.ID,
-		fmt.Sprintf("✦ *Последний результат*\n\n🏆 Победитель раунда *%d*:\n*%s*\n`%s`\n\n_%s_",
-			r.Round, name, r.WinnerEmail, r.DrawnAt),
-		true)
+	h.send(msg.Chat.ID, text, true)
 }
 
 func (h *Handler) handleHistory(ctx context.Context, msg *tgbotapi.Message, voteID string) {
@@ -385,11 +394,12 @@ func (h *Handler) handleHistory(ctx context.Context, msg *tgbotapi.Message, vote
 	var sb strings.Builder
 	sb.WriteString("✦ *История результатов*\n\n")
 	for _, r := range resp.Results {
-		name := r.WinnerDisplayName
-		if name == "" {
-			name = r.WinnerEmail
+		label := drawResultLabel(r)
+		if r.WinnerEmail != "" && r.WinnerOptionTitle == "" {
+			sb.WriteString(fmt.Sprintf("Раунд *%d*: %s (`%s`)\n_%s_\n\n", r.Round, label, r.WinnerEmail, r.DrawnAt))
+		} else {
+			sb.WriteString(fmt.Sprintf("Раунд *%d*: %s\n_%s_\n\n", r.Round, label, r.DrawnAt))
 		}
-		sb.WriteString(fmt.Sprintf("Раунд *%d*: %s (`%s`)\n_%s_\n\n", r.Round, name, r.WinnerEmail, r.DrawnAt))
 	}
 	h.send(msg.Chat.ID, sb.String(), true)
 }
@@ -441,7 +451,7 @@ func (h *Handler) grpcErrMsg(err error) string {
 	}
 }
 
-var emailSeparator = regexp.MustCompile(`[,\s]+`)
+var itemSeparator = regexp.MustCompile(`[,\s]+`)
 
 func parseCreateVoteArgs(args string) (*fatev1.CreateVoteRequest, error) {
 	parts := strings.Split(args, "|")
@@ -459,10 +469,16 @@ func parseCreateVoteArgs(args string) (*fatev1.CreateVoteRequest, error) {
 		mode = parsedMode
 	}
 
+	var options []string
+	if len(parts) >= 4 {
+		options = parseItems(parts[3])
+	}
+
 	return &fatev1.CreateVoteRequest{
 		Title:             title,
 		Mode:              mode,
 		ParticipantEmails: parseEmails(participantPart(parts)),
+		Options:           options,
 	}, nil
 }
 
@@ -474,7 +490,7 @@ func participantPart(parts []string) string {
 }
 
 func parseEmails(raw string) []string {
-	fields := emailSeparator.Split(raw, -1)
+	fields := itemSeparator.Split(raw, -1)
 	emails := make([]string, 0, len(fields))
 	seen := make(map[string]struct{}, len(fields))
 	for _, field := range fields {
@@ -491,6 +507,24 @@ func parseEmails(raw string) []string {
 	return emails
 }
 
+func parseItems(raw string) []string {
+	fields := itemSeparator.Split(raw, -1)
+	items := make([]string, 0, len(fields))
+	seen := make(map[string]struct{}, len(fields))
+	for _, field := range fields {
+		item := strings.TrimSpace(field)
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		items = append(items, item)
+	}
+	return items
+}
+
 func parseMode(raw string) (fatev1.VoteMode, error) {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "", "simple", "обычный":
@@ -503,7 +537,7 @@ func parseMode(raw string) (fatev1.VoteMode, error) {
 }
 
 func newVoteUsage() string {
-	return "Формат: `/newvote Название | email1@example.com,email2@example.com | simple`\nРежимы: `simple` или `fair`."
+	return "Формат: `/newvote Название | email1,email2 | simple | вариант1,вариант2`\nРежимы: `simple` или `fair`.\nВарианты — необязательно."
 }
 
 func formatStatus(status fatev1.VoteStatus) string {
@@ -524,4 +558,14 @@ func formatMode(mode fatev1.VoteMode) string {
 		return "честная ротация"
 	}
 	return "обычный"
+}
+
+func drawResultLabel(r *fatev1.DrawResultInfo) string {
+	if r.WinnerOptionTitle != "" {
+		return r.WinnerOptionTitle
+	}
+	if r.WinnerDisplayName != "" {
+		return r.WinnerDisplayName
+	}
+	return r.WinnerEmail
 }

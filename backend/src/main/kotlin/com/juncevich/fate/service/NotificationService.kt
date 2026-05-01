@@ -33,8 +33,8 @@ class NotificationService(
                 emailService.sendDrawResult(
                     to = email,
                     voteTitle = vote.title,
-                    winnerName = result.winnerDisplayName ?: result.winnerEmail,
-                    winnerEmail = result.winnerEmail,
+                    winnerName = result.winnerOptionTitle ?: result.winnerDisplayName ?: result.winnerEmail ?: "",
+                    winnerEmail = result.winnerEmail ?: "",
                     round = result.round,
                     voteUrl = "$frontendUrl/votes/${vote.id}",
                 )
