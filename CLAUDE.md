@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**The Hand of Fate** — a voting/selection application with fair rotation support. Users create votes, invite participants by email, and let a random draw choose a winner. The "Fair Rotation" mode ensures every participant wins once per round before anyone wins again.
+**The Hand of Fate** — a voting/selection application with fair rotation support. Users create votes, invite participants by email or define a list of named options, and let a random draw choose a winner. The "Fair Rotation" mode ensures every participant/option wins once per round before anyone wins again.
 
 ## Monorepo Structure
 
@@ -109,6 +109,7 @@ go build -o fate-bot ./cmd/bot  # build binary
 | `/start`, `/help` | Welcome message and command list |
 | `/link <token>` | Link Telegram to app account (token from Settings page) |
 | `/votes` | List your votes with status and participant count |
+| `/newvote <title> \| <emails> \| <mode> [| <options>]` | Create a new vote; `<emails>` — comma-separated, `<mode>` — `simple`/`fair`, `<options>` — optional comma-separated named options |
 | `/draw <id>` | Perform a draw for a vote (creator only) |
 | `/result <id>` | Show last draw result for a vote |
 | `/unlink` | Unlink Telegram account |
@@ -128,14 +129,22 @@ go build -o fate-bot ./cmd/bot  # build binary
 - Custom Axios instance in `frontend/src/api/client.ts` handles token refresh with a retry queue so concurrent 401s only trigger one refresh call
 
 ### Vote Modes
-- **SIMPLE**: random draw from all participants, no history tracking
-- **FAIR_ROTATION**: tracks `draw_history` per round; only participants who haven't won in `currentRound` are eligible. When all have won, `currentRound` increments and the cycle restarts
+- **SIMPLE**: random draw from all participants or options, no history tracking
+- **FAIR_ROTATION**: tracks `draw_history` per round; only participants/options who haven't won in `currentRound` are eligible. When all have won, `currentRound` increments and the cycle restarts
+
+### Vote Draw Targets
+A vote can draw from two mutually exclusive sources — if options exist they take precedence:
+- **Participants** (default): draw winner from invited participants by email
+- **Options**: named entries (e.g., tasks, topics) stored in `vote_options` table; draw picks one option. Options are created at vote creation time or added/removed individually via REST API (`POST /{id}/options`, `DELETE /{id}/options/{optionId}`)
+
+`DrawWinner` is a sealed class with two subtypes: `Participant` and `Option`. `DrawHistory` stores the winner as either `winnerEmail` / `winnerDisplayName` (for participants) or `winnerOption` / `winnerOptionTitle` (for options — denormalized title for resilience to deletion).
 
 ### Key Backend Services
-- **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching
+- **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching for both participants and options; picks draw target automatically (options if any exist, otherwise participants)
+- **VoteService**: CRUD for votes including creating `VoteOption` entities from request; `addOption()` / `removeOption()` for post-creation management
 - **NotificationService**: async dispatcher — triggers email after draws/invitations, swallows errors so draw success is never blocked by notification failure
 - **EmailService**: sends styled HTML emails (dark theme) for vote invitations and draw results
-- **FateGrpcService**: gRPC server implementation; uses `runCatching` + `StatusRuntimeException` for error mapping
+- **FateGrpcService**: gRPC server implementation; uses `runCatching` + `StatusRuntimeException` for error mapping; maps `VoteOptionInfo` proto messages for options
 
 ### gRPC (Backend ↔ Bot)
 - Proto source: `proto/fate/v1/fate.proto` (package `fate.v1`)
@@ -143,6 +152,11 @@ go build -o fate-bot ./cmd/bot  # build binary
 - Backend generates Java/Kotlin stubs via `com.google.protobuf` Gradle plugin → `backend/build/generated/source/proto/main/`
 - Bot generates Go stubs via Buf → `bot/gen/fate/v1/`
 - `FateGrpcService.kt` implements the service; `bot/internal/grpcclient/` wraps the Go stub
+- **Key proto additions for vote options:**
+  - `VoteOptionInfo { option_id, title }` — returned in `GetVoteDetailsResponse.options`
+  - `CreateVoteRequest.options` — repeated string, optional; creates options server-side
+  - `DrawVoteResponse.winner_option_title` / `DrawResultInfo.winner_option_title` — winner label when draw picks an option
+  - Bot displays winner as: option title → display name → email (priority order)
 
 ### Telegram Bot Linking
 1. User opens Settings page → clicks "Get link token" → `GET /api/v1/telegram/link-token`
@@ -189,6 +203,7 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 - V5: refresh_tokens
 - V6: telegram_link_tokens
 - V7: demo user seed (`admin@admin.com` / `admin`, idempotent insert)
+- V8: vote_options table (title, position, unique per vote); adds `winner_option_id` / `winner_option_title` to draw_history; makes `winner_email` nullable
 
 ### Key Environment Variables
 | Variable | Default | Description |
