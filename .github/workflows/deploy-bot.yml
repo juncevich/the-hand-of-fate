@@ -1,0 +1,134 @@
+name: Deploy Bot
+
+on:
+  workflow_run:
+    workflows: [Bot CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+
+  gate:
+    name: CI Gate
+    runs-on: ubuntu-24.04
+    outputs:
+      ready:  ${{ steps.check.outputs.ready }}
+      run-id: ${{ steps.check.outputs.run_id }}
+
+    steps:
+      - name: Check Bot CI and resolve artifact run
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            run_id=$(gh run list --repo "${{ github.repository }}" --workflow "Bot CI" \
+              --branch main --status success --limit 1 --json databaseId -q '.[0].databaseId // ""')
+            if [ -z "$run_id" ]; then
+              echo "::error::No successful Bot CI run found on main"
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          else
+            conclusion="${{ github.event.workflow_run.conclusion }}"
+            if [ "$conclusion" != "success" ]; then
+              echo "::error::Deploy skipped: Bot CI concluded with «${conclusion}»"
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            run_id="${{ github.event.workflow_run.id }}"
+          fi
+
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Deploy Bot to VPS
+    runs-on: ubuntu-24.04
+    needs: gate
+    if: needs.gate.outputs.ready == 'true'
+    environment: staging
+
+    env:
+      HOST:              ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT:       ${{ secrets.DEPLOY_PORT || '22' }}
+      DEPLOY_DIR:        /opt/hand-of-fate
+      DEPLOY_SSH_KEY:    ${{ secrets.DEPLOY_SSH_KEY }}
+      BOT_TOKEN:         ${{ secrets.BOT_TOKEN }}
+      DB_URL:            ${{ secrets.DB_URL }}
+      DB_USERNAME:       ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD:       ${{ secrets.DB_PASSWORD }}
+      JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+      MAIL_HOST:         ${{ secrets.MAIL_HOST }}
+      MAIL_PORT:         ${{ secrets.MAIL_PORT }}
+      MAIL_USERNAME:     ${{ secrets.MAIL_USERNAME }}
+      MAIL_PASSWORD:     ${{ secrets.MAIL_PASSWORD }}
+      FRONTEND_URL:      ${{ secrets.FRONTEND_URL }}
+      GRPC_SERVER_ADDR:  ${{ secrets.GRPC_SERVER_ADDR }}
+
+    steps:
+      - name: Validate secrets
+        run: |
+          missing=()
+          for s in DEPLOY_SSH_KEY BOT_TOKEN GRPC_SERVER_ADDR; do
+            [ -z "${!s:-}" ] && missing+=("$s")
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf '::error::Missing secrets: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Download bot binary
+        uses: actions/download-artifact@v4
+        with:
+          name: bot-binary
+          path: artifacts/bot
+          run-id: ${{ needs.gate.outputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup SSH
+        run: |
+          sudo apt-get install -y ssh rsync
+          echo "$DEPLOY_SSH_KEY" > deploy_key.pem
+          chmod 600 deploy_key.pem
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
+            "mkdir -p $DEPLOY_DIR/bot"
+
+      - name: Deploy bot binary
+        run: |
+          chmod +x artifacts/bot/fate-bot
+          rsync -avz -e "ssh -i deploy_key.pem -p $DEPLOY_PORT -o StrictHostKeyChecking=no" \
+            artifacts/bot/fate-bot "$HOST:$DEPLOY_DIR/bot/"
+
+      - name: Create environment file on server
+        run: |
+          escape() { printf '%s' "$1" | sed "s/'/'\\\\''/g"; }
+          {
+            printf "BOT_TOKEN='%s'\n"         "$(escape "$BOT_TOKEN")"
+            printf "DB_URL='%s'\n"            "$(escape "$DB_URL")"
+            printf "DB_USERNAME='%s'\n"       "$(escape "$DB_USERNAME")"
+            printf "DB_PASSWORD='%s'\n"       "$(escape "$DB_PASSWORD")"
+            printf "JWT_ACCESS_SECRET='%s'\n" "$(escape "$JWT_ACCESS_SECRET")"
+            printf "MAIL_HOST='%s'\n"         "$(escape "$MAIL_HOST")"
+            printf "MAIL_PORT='%s'\n"         "$(escape "$MAIL_PORT")"
+            printf "MAIL_USERNAME='%s'\n"     "$(escape "$MAIL_USERNAME")"
+            printf "MAIL_PASSWORD='%s'\n"     "$(escape "$MAIL_PASSWORD")"
+            printf "FRONTEND_URL='%s'\n"      "$(escape "$FRONTEND_URL")"
+            printf "GRPC_SERVER_ADDR='%s'\n"  "$(escape "$GRPC_SERVER_ADDR")"
+          } | ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
+            "cat > $DEPLOY_DIR/.env && chmod 600 $DEPLOY_DIR/.env && chown fate:fate $DEPLOY_DIR/.env"
+
+      - name: Set file ownership and permissions
+        run: |
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
+            "chmod +x $DEPLOY_DIR/bot/fate-bot && chown fate:fate $DEPLOY_DIR/bot/fate-bot"
+
+      - name: Restart bot service
+        run: |
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
+            "systemctl daemon-reload && systemctl restart fate-bot"

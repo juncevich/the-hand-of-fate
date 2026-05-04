@@ -240,19 +240,20 @@ Each project has its own workflow file, triggered on PR and push to `main` via p
 - `frontend.yml`: `frontend-test` → `frontend-build` (artifact: `frontend-dist`)
 - `bot.yml`: `bot-test` → `build-bot` (artifact: `bot-binary`, built on `main` only)
 
-### deploy.yml
-Triggered when any of the three CI workflows completes, and via `workflow_dispatch`.
+### Deploy workflows (deploy-backend.yml / deploy-frontend.yml / deploy-bot.yml)
+Each component has its own deploy workflow triggered by its CI workflow completing and via `workflow_dispatch`.
 
-**`gate` job** — queries the GitHub API to confirm all three CI workflows passed for the same SHA. Skips deploy (`ready=false`) if not; the deploy fires when the last of the three finishes.
+**`gate` job** — checks if the triggering CI workflow succeeded; on `workflow_dispatch` finds the latest successful CI run. Skips deploy (`ready=false`) if not.
 
-**`deploy` job** — downloads artifacts from the corresponding run-ids, copies to the server, restarts services.
+**`deploy` job** — downloads the artifact, copies to the server, restarts the relevant service.
 
-**Flow:**
-1. Downloads the three artifacts from CI runs
-2. SCPs them to `/opt/hand-of-fate/{backend,frontend,bot}/` on the server
-3. Writes `/opt/hand-of-fate/.env` from GitHub Secrets (overwrites on every deploy)
-4. Restarts `fate-backend` and `fate-bot` systemd services, reloads Nginx
-5. Health-checks `/actuator/health`; on failure prints last 50 lines of `journalctl`
+| Workflow | Triggered by | Artifact | Service action |
+|---|---|---|---|
+| `deploy-backend.yml` | Backend CI | `backend-jar` | restart `fate-backend`, health-check |
+| `deploy-frontend.yml` | Frontend CI | `frontend-dist` | reload `nginx` |
+| `deploy-bot.yml` | Bot CI | `bot-binary` | restart `fate-bot` |
+
+Backend and bot deploys also write `/opt/hand-of-fate/.env` from GitHub Secrets.
 
 ### server-setup.yml
 One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first deploy. Steps:
