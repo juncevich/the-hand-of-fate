@@ -29,13 +29,16 @@ jobs:
         id: check
         run: |
           all_ok=true
+          failed_workflows=()
 
           REPO="${{ github.repository }}"
           SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
 
           if [ "${{ github.event_name }}" != "workflow_dispatch" ] && \
              [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
-            echo "::notice::Triggering workflow failed — деплой пропущен"
+            triggering="${{ github.event.workflow_run.name }}"
+            conclusion="${{ github.event.workflow_run.conclusion }}"
+            echo "::error::Деплой пропущен: «${triggering}» завершился со статусом «${conclusion}»"
             echo "ready=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -52,25 +55,28 @@ jobs:
               run_id=$(gh run list --repo "$REPO" --workflow "$workflow" --branch main --status success \
                 --limit 1 --json databaseId -q '.[0].databaseId // ""')
               if [ -n "$run_id" ]; then
-                echo "$workflow: latest successful run $run_id"
+                echo "✅ $workflow: последний успешный прогон $run_id"
                 echo "$output_name=$run_id" >> "$GITHUB_OUTPUT"
                 return
               fi
-              echo "::notice::$workflow has no successful main run"
+              echo "::error::❌ $workflow: нет ни одного успешного прогона на main"
+              failed_workflows+=("$workflow (нет артефакта)")
               all_ok=false
               return
             fi
 
             exact_run=$(gh run list --repo "$REPO" --workflow "$workflow" --branch main --commit "$SHA" \
-              --limit 1 --json databaseId,status,conclusion \
-              -q '.[0] // empty | [.databaseId, .status, (.conclusion // "")] | @tsv')
+              --limit 1 --json databaseId,status,conclusion,url \
+              -q '.[0] // empty | [.databaseId, .status, (.conclusion // ""), (.url // "")] | @tsv')
 
             if [ -n "$exact_run" ]; then
-              IFS=$'\t' read -r run_id status conclusion <<< "$exact_run"
-              echo "$workflow for $SHA: $status/$conclusion (run $run_id)"
+              IFS=$'\t' read -r run_id status conclusion run_url <<< "$exact_run"
               if [ "$status" = "completed" ] && [ "$conclusion" = "success" ]; then
+                echo "✅ $workflow: успешно (run $run_id)"
                 echo "$output_name=$run_id" >> "$GITHUB_OUTPUT"
               else
+                echo "::error::❌ $workflow завершился со статусом «${conclusion}» — $run_url"
+                failed_workflows+=("$workflow → $conclusion ($run_url)")
                 all_ok=false
               fi
               return
@@ -81,10 +87,11 @@ jobs:
             run_id=$(gh run list --repo "$REPO" --workflow "$workflow" --branch main --status success \
               --limit 1 --json databaseId -q '.[0].databaseId // ""')
             if [ -n "$run_id" ]; then
-              echo "$workflow did not run for $SHA; using latest successful run $run_id"
+              echo "⏭️  $workflow не запускался для $SHA; используем прогон $run_id"
               echo "$output_name=$run_id" >> "$GITHUB_OUTPUT"
             else
-              echo "::notice::$workflow did not run for $SHA and has no previous successful artifact"
+              echo "::error::❌ $workflow не запускался для $SHA и нет предыдущего успешного артефакта"
+              failed_workflows+=("$workflow (нет артефакта на main)")
               all_ok=false
             fi
           }
@@ -96,7 +103,11 @@ jobs:
           if $all_ok; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::Не все нужные CI-артефакты готовы — деплой пропущен"
+            echo ""
+            echo "::error::Деплой пропущен. Причины:"
+            for item in "${failed_workflows[@]}"; do
+              echo "::error::  • $item"
+            done
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
         env:
