@@ -112,6 +112,31 @@ describe('LoginPage', () => {
     })
   })
 
+  it('password field is hidden by default', () => {
+    render(<LoginPage />, { wrapper: createWrapper() })
+
+    expect(screen.getByLabelText('Пароль')).toHaveAttribute('type', 'password')
+  })
+
+  it('shows password when toggle button is clicked', async () => {
+    const user = userEvent.setup()
+    render(<LoginPage />, { wrapper: createWrapper() })
+
+    await user.click(screen.getByRole('button', { name: 'Показать пароль' }))
+
+    expect(screen.getByLabelText('Пароль')).toHaveAttribute('type', 'text')
+  })
+
+  it('hides password again on second click of toggle button', async () => {
+    const user = userEvent.setup()
+    render(<LoginPage />, { wrapper: createWrapper() })
+
+    await user.click(screen.getByRole('button', { name: 'Показать пароль' }))
+    await user.click(screen.getByRole('button', { name: 'Скрыть пароль' }))
+
+    expect(screen.getByLabelText('Пароль')).toHaveAttribute('type', 'password')
+  })
+
   it('submits on Enter key in the password field', async () => {
     const { authApi } = await import('@/api/auth')
     vi.mocked(authApi.login).mockResolvedValueOnce({
