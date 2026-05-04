@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       ready:           ${{ steps.check.outputs.ready }}
+      components:      ${{ steps.check.outputs.components }}
       backend-run-id:  ${{ steps.check.outputs.backend }}
       frontend-run-id: ${{ steps.check.outputs.frontend }}
       bot-run-id:      ${{ steps.check.outputs.bot }}
@@ -30,6 +31,7 @@ jobs:
         run: |
           all_ok=true
           failed_workflows=()
+          fresh_components=()
 
           REPO="${{ github.repository }}"
           SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
@@ -46,6 +48,7 @@ jobs:
           resolve_run_id() {
             local workflow="$1"
             local output_name="$2"
+            local label="$3"
             local exact_run=""
             local run_id=""
             local status=""
@@ -57,6 +60,7 @@ jobs:
               if [ -n "$run_id" ]; then
                 echo "✅ $workflow: последний успешный прогон $run_id"
                 echo "$output_name=$run_id" >> "$GITHUB_OUTPUT"
+                fresh_components+=("$label")
                 return
               fi
               echo "::error::❌ $workflow: нет ни одного успешного прогона на main"
@@ -74,6 +78,7 @@ jobs:
               if [ "$status" = "completed" ] && [ "$conclusion" = "success" ]; then
                 echo "✅ $workflow: успешно (run $run_id)"
                 echo "$output_name=$run_id" >> "$GITHUB_OUTPUT"
+                fresh_components+=("$label")
               else
                 echo "::error::❌ $workflow завершился со статусом «${conclusion}» — $run_url"
                 failed_workflows+=("$workflow → $conclusion ($run_url)")
@@ -96,11 +101,17 @@ jobs:
             fi
           }
 
-          resolve_run_id "Backend CI" backend
-          resolve_run_id "Frontend CI" frontend
-          resolve_run_id "Bot CI" bot
+          resolve_run_id "Backend CI" backend "Backend"
+          resolve_run_id "Frontend CI" frontend "Frontend"
+          resolve_run_id "Bot CI" bot "Bot"
 
           if $all_ok; then
+            if [ "${#fresh_components[@]}" -gt 0 ]; then
+              components=$(IFS=" + "; echo "${fresh_components[*]}")
+            else
+              components="all components"
+            fi
+            echo "components=$components" >> "$GITHUB_OUTPUT"
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo ""
@@ -114,7 +125,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy:
-    name: Deploy to VPS
+    name: Deploy ${{ needs.gate.outputs.components }} to VPS
     runs-on: ubuntu-24.04
     needs: gate
     if: needs.gate.outputs.ready == 'true'
