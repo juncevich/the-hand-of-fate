@@ -60,6 +60,9 @@ cd backend
 ./gradlew test --tests "*.DrawServiceTest"  # single test class
 ./gradlew generateProto          # regenerate gRPC stubs from proto/
 ./gradlew bootJar                # build fat JAR
+./gradlew detekt                 # static analysis (Detekt 1.23.8)
+./gradlew spotlessCheck          # formatting check (Spotless 8.4.0 / ktlint)
+./gradlew spotlessApply          # auto-fix formatting
 ```
 
 ### Frontend (React + Vite)
@@ -99,8 +102,8 @@ go build -o fate-bot ./cmd/bot  # build binary
 |------------------------------------|----------|---------------|
 | `telegram-bot-api/telegram-bot-api/v5` | v5.5.1  | Telegram API  |
 | `spf13/viper`                      | v1.21.0  | Config        |
-| `go.uber.org/zap`                  | v1.27.1  | Logging       |
-| `google.golang.org/grpc`           | v1.80.0  | gRPC client   |
+| `go.uber.org/zap`                  | v1.28.0  | Logging       |
+| `google.golang.org/grpc`           | v1.81.0  | gRPC client   |
 | `google.golang.org/protobuf`       | v1.36.11 | Proto runtime |
 
 ### Telegram Bot Commands
@@ -231,7 +234,7 @@ Services run directly on Ubuntu via systemd (no Docker). Nginx serves the fronte
 |-----------|--------------|
 | Runner OS | ubuntu-24.04 |
 | Java      | 21 (Temurin) |
-| Go        | 1.24         |
+| Go        | 1.25         |
 | Node.js   | 22           |
 
 ### CI workflows (backend.yml / frontend.yml / bot.yml)
