@@ -13,7 +13,6 @@ import java.util.Optional
 import java.util.UUID
 
 class DrawServiceTest {
-
     private val voteRepository = mockk<VoteRepository>()
     private val participantRepository = mockk<VoteParticipantRepository>()
     private val voteOptionRepository = mockk<VoteOptionRepository>()
@@ -30,23 +29,33 @@ class DrawServiceTest {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private fun makeUser(email: String = "creator@test.com") = User(
-        email = email,
-        passwordHash = "hash",
-        displayName = "Test User",
-    )
+    private fun makeUser(email: String = "creator@test.com") =
+        User(
+            email = email,
+            passwordHash = "hash",
+            displayName = "Test User"
+        )
 
-    private fun makeVote(mode: VoteMode = VoteMode.SIMPLE, status: VoteStatus = VoteStatus.PENDING) = Vote(
+    private fun makeVote(
+        mode: VoteMode = VoteMode.SIMPLE,
+        status: VoteStatus = VoteStatus.PENDING,
+    ) = Vote(
         title = "Test Vote",
         creator = makeUser(),
-        mode = mode,
+        mode = mode
     ).also { it.status = status }
 
-    private fun makeParticipant(vote: Vote, email: String, displayName: String? = null) =
-        VoteParticipant(vote = vote, email = email, displayName = displayName)
+    private fun makeParticipant(
+        vote: Vote,
+        email: String,
+        displayName: String? = null,
+    ) = VoteParticipant(vote = vote, email = email, displayName = displayName)
 
-    private fun makeHistory(vote: Vote, winnerEmail: String, round: Int = 1) =
-        DrawHistory(vote = vote, winnerEmail = winnerEmail, winnerDisplayName = null, round = round)
+    private fun makeHistory(
+        vote: Vote,
+        winnerEmail: String,
+        round: Int = 1,
+    ) = DrawHistory(vote = vote, winnerEmail = winnerEmail, winnerDisplayName = null, round = round)
 
     // ── draw: SIMPLE mode ─────────────────────────────────────────────────────
 

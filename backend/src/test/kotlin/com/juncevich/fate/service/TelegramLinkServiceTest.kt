@@ -13,23 +13,26 @@ import java.util.Optional
 import java.util.UUID
 
 class TelegramLinkServiceTest {
-
     private val linkTokenRepository = mockk<TelegramLinkTokenRepository>()
     private val userRepository = mockk<UserRepository>()
 
     private val service = TelegramLinkService(linkTokenRepository, userRepository)
 
-    private fun makeUser(id: UUID = UUID.randomUUID()) = User(
-        email = "user@test.com",
-        passwordHash = "hash",
-        displayName = "Test User",
-    ).also { u ->
-        val idField = u.javaClass.getDeclaredField("id")
-        idField.isAccessible = true
-        idField.set(u, id)
-    }
+    private fun makeUser(id: UUID = UUID.randomUUID()) =
+        User(
+            email = "user@test.com",
+            passwordHash = "hash",
+            displayName = "Test User"
+        ).also { u ->
+            val idField = u.javaClass.getDeclaredField("id")
+            idField.isAccessible = true
+            idField.set(u, id)
+        }
 
-    private fun makeLinkToken(user: User, expired: Boolean = false): TelegramLinkToken {
+    private fun makeLinkToken(
+        user: User,
+        expired: Boolean = false,
+    ): TelegramLinkToken {
         val expiresAt = if (expired) Instant.now().minusSeconds(60) else Instant.now().plusSeconds(300)
         return TelegramLinkToken(user = user, token = "token123", expiresAt = expiresAt)
     }
@@ -128,10 +131,11 @@ class TelegramLinkServiceTest {
 
     @Test
     fun `unlinkAccount - clears telegram fields`() {
-        val user = makeUser().also {
-            it.telegramId = 42L
-            it.telegramName = "old_name"
-        }
+        val user =
+            makeUser().also {
+                it.telegramId = 42L
+                it.telegramName = "old_name"
+            }
 
         every { userRepository.findByTelegramId(42L) } returns user
         every { userRepository.save(user) } returns user
@@ -155,10 +159,11 @@ class TelegramLinkServiceTest {
     @Test
     fun `unlinkByUserId - clears telegram fields for user`() {
         val userId = UUID.randomUUID()
-        val user = makeUser(userId).also {
-            it.telegramId = 42L
-            it.telegramName = "old_name"
-        }
+        val user =
+            makeUser(userId).also {
+                it.telegramId = 42L
+                it.telegramName = "old_name"
+            }
 
         every { userRepository.findById(userId) } returns Optional.of(user)
         every { userRepository.save(user) } returns user

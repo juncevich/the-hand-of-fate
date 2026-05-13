@@ -14,7 +14,6 @@ import java.util.UUID
 class JwtAuthFilter(
     private val jwtTokenProvider: JwtTokenProvider,
 ) : OncePerRequestFilter() {
-
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -28,9 +27,12 @@ class JwtAuthFilter(
                 val email = claims["email"] as String
 
                 val principal = AuthenticatedUser(userId, email)
-                val auth = UsernamePasswordAuthenticationToken(
-                    principal, null, listOf(SimpleGrantedAuthority("ROLE_USER"))
-                )
+                val auth =
+                    UsernamePasswordAuthenticationToken(
+                        principal,
+                        null,
+                        listOf(SimpleGrantedAuthority("ROLE_USER"))
+                    )
                 SecurityContextHolder.getContext().authentication = auth
             }
         }
@@ -44,4 +46,7 @@ class JwtAuthFilter(
     }
 }
 
-data class AuthenticatedUser(val id: UUID, val email: String)
+data class AuthenticatedUser(
+    val id: UUID,
+    val email: String,
+)

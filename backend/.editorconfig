@@ -1,0 +1,23 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.kt]
+max_line_length = 120
+
+# Wildcard imports are used intentionally (FateProto.*, domain.vote.*, mockk.*)
+ktlint_standard_no-wildcard-imports = disabled
+
+# Trailing commas — enforce on declarations, skip call sites to avoid noise in complex builders
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = false
+
+[*Test.kt]
+# Long mock expressions in tests are acceptable — don't enforce line length
+max_line_length = off

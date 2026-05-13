@@ -4,7 +4,6 @@ import com.juncevich.fate.domain.vote.*
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
-
 import java.time.Instant
 import java.util.UUID
 
@@ -78,7 +77,10 @@ data class DrawResultResponse(
 
 // ── Mapping extensions ───────────────────────────────────────────────────────
 
-fun Vote.toSummaryDto(participantCount: Long, isCreator: Boolean) = VoteSummaryDto(
+fun Vote.toSummaryDto(
+    participantCount: Long,
+    isCreator: Boolean,
+) = VoteSummaryDto(
     id = id,
     title = title,
     mode = mode,
@@ -86,7 +88,7 @@ fun Vote.toSummaryDto(participantCount: Long, isCreator: Boolean) = VoteSummaryD
     currentRound = currentRound,
     participantCount = participantCount,
     isCreator = isCreator,
-    createdAt = createdAt,
+    createdAt = createdAt
 )
 
 fun Vote.toDetailDto(
@@ -105,14 +107,15 @@ fun Vote.toDetailDto(
     options = options.map { VoteOptionDto(it.id, it.title) },
     lastResult = lastResult?.toDto(),
     isCreator = requesterId != null && creator.id == requesterId,
-    createdAt = createdAt,
+    createdAt = createdAt
 )
 
-fun DrawHistory.toDto() = DrawHistoryDto(
-    id = id,
-    winnerEmail = winnerEmail,
-    winnerDisplayName = winnerDisplayName,
-    winnerOptionTitle = winnerOptionTitle,
-    round = round,
-    drawnAt = drawnAt,
-)
+fun DrawHistory.toDto() =
+    DrawHistoryDto(
+        id = id,
+        winnerEmail = winnerEmail,
+        winnerDisplayName = winnerDisplayName,
+        winnerOptionTitle = winnerOptionTitle,
+        round = round,
+        drawnAt = drawnAt
+    )

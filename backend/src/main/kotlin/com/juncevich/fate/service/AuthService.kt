@@ -26,26 +26,31 @@ class AuthService(
     private val jwtTokenProvider: JwtTokenProvider,
     private val jwtProperties: JwtProperties,
 ) {
-
     fun register(request: RegisterRequest): AuthTokens {
         if (userRepository.existsByEmail(request.email)) {
             error("Email already registered")
         }
-        val user = userRepository.save(
-            User(
-                email = request.email.lowercase().trim(),
-                passwordHash = requireNotNull(passwordEncoder.encode(request.password)) {
-                    "Password encoding failed"
-                },
-                displayName = request.displayName,
+        val user =
+            userRepository.save(
+                User(
+                    email = request.email.lowercase().trim(),
+                    passwordHash =
+                        requireNotNull(passwordEncoder.encode(request.password)) {
+                            "Password encoding failed"
+                        },
+                    displayName = request.displayName
+                )
             )
-        )
         return issueTokens(user)
     }
 
-    fun login(email: String, password: String): AuthTokens {
-        val user = userRepository.findByEmail(email.lowercase().trim())
-            ?: error("Invalid credentials")
+    fun login(
+        email: String,
+        password: String,
+    ): AuthTokens {
+        val user =
+            userRepository.findByEmail(email.lowercase().trim())
+                ?: error("Invalid credentials")
         if (!passwordEncoder.matches(password, user.passwordHash)) {
             error("Invalid credentials")
         }
@@ -54,8 +59,9 @@ class AuthService(
 
     fun refresh(rawRefreshToken: String): AuthTokens {
         val hash = hashToken(rawRefreshToken)
-        val stored = refreshTokenRepository.findByTokenHash(hash)
-            ?: error("Refresh token not found")
+        val stored =
+            refreshTokenRepository.findByTokenHash(hash)
+                ?: error("Refresh token not found")
         if (stored.isExpired) {
             refreshTokenRepository.delete(stored)
             error("Refresh token expired")
@@ -84,17 +90,18 @@ class AuthService(
             RefreshToken(
                 user = user,
                 tokenHash = hashToken(rawRefresh),
-                expiresAt = expiresAt,
+                expiresAt = expiresAt
             )
         )
         return AuthTokens(
-            response = AuthResponse(
-                accessToken = accessToken,
-                userId = user.id.toString(),
-                email = user.email,
-                displayName = user.displayName,
-            ),
-            refreshToken = rawRefresh,
+            response =
+                AuthResponse(
+                    accessToken = accessToken,
+                    userId = user.id.toString(),
+                    email = user.email,
+                    displayName = user.displayName
+                ),
+            refreshToken = rawRefresh
         )
     }
 

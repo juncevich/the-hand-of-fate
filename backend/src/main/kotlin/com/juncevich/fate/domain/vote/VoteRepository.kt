@@ -7,8 +7,8 @@ import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
 interface VoteRepository : JpaRepository<Vote, UUID> {
-
-    @Query("""
+    @Query(
+        """
         SELECT DISTINCT v FROM Vote v
         LEFT JOIN FETCH v.creator
         WHERE v.creator.id = :userId
@@ -16,7 +16,8 @@ interface VoteRepository : JpaRepository<Vote, UUID> {
                SELECT 1 FROM VoteParticipant p WHERE p.vote = v AND p.email = :email
            )
         ORDER BY v.createdAt DESC
-    """)
+    """
+    )
     fun findAllByUserIdOrParticipantEmail(
         userId: UUID,
         email: String,

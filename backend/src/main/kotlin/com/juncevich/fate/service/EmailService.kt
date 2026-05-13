@@ -10,7 +10,6 @@ class EmailService(
     private val mailSender: JavaMailSender,
     @param:Value("\${spring.mail.username:noreply@handoffate.app}") private val from: String,
 ) {
-
     fun sendVoteInvitation(
         to: String,
         voteTitle: String,
@@ -20,7 +19,7 @@ class EmailService(
         send(
             to = to,
             subject = "✦ You've been invited to a vote: $voteTitle",
-            html = invitationHtml(voteTitle, creatorName, voteUrl),
+            html = invitationHtml(voteTitle, creatorName, voteUrl)
         )
     }
 
@@ -35,11 +34,15 @@ class EmailService(
         send(
             to = to,
             subject = "✦ Vote result: $voteTitle — Winner: $winnerName",
-            html = drawResultHtml(voteTitle, winnerName, winnerEmail, round, voteUrl),
+            html = drawResultHtml(voteTitle, winnerName, winnerEmail, round, voteUrl)
         )
     }
 
-    private fun send(to: String, subject: String, html: String) {
+    private fun send(
+        to: String,
+        subject: String,
+        html: String,
+    ) {
         val message = mailSender.createMimeMessage()
         MimeMessageHelper(message, true, "UTF-8").apply {
             setFrom(from)
@@ -50,7 +53,11 @@ class EmailService(
         mailSender.send(message)
     }
 
-    private fun invitationHtml(voteTitle: String, creatorName: String, voteUrl: String) = """
+    private fun invitationHtml(
+        voteTitle: String,
+        creatorName: String,
+        voteUrl: String,
+    ) = """
         <!DOCTYPE html>
         <html><body style="font-family:sans-serif;background:#0d0d1a;color:#f0f0f0;padding:24px">
         <h2 style="color:#f59e0b">✦ The Hand of Fate</h2>
@@ -61,7 +68,7 @@ class EmailService(
           View Vote
         </a>
         </body></html>
-    """.trimIndent()
+        """.trimIndent()
 
     private fun drawResultHtml(
         voteTitle: String,
@@ -82,5 +89,5 @@ class EmailService(
           View Results
         </a>
         </body></html>
-    """.trimIndent()
+        """.trimIndent()
 }

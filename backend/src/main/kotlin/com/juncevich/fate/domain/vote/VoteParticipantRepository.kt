@@ -5,14 +5,20 @@ import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
 interface VoteParticipantRepository : JpaRepository<VoteParticipant, UUID> {
-
     fun findAllByVoteId(voteId: UUID): List<VoteParticipant>
 
-    fun existsByVoteIdAndEmail(voteId: UUID, email: String): Boolean
+    fun existsByVoteIdAndEmail(
+        voteId: UUID,
+        email: String,
+    ): Boolean
 
-    fun deleteByVoteIdAndEmail(voteId: UUID, email: String)
+    fun deleteByVoteIdAndEmail(
+        voteId: UUID,
+        email: String,
+    )
 
-    @Query("""
+    @Query(
+        """
         SELECT p.email FROM VoteParticipant p
         WHERE p.vote.id = :voteId
           AND p.email NOT IN (
@@ -20,18 +26,24 @@ interface VoteParticipantRepository : JpaRepository<VoteParticipant, UUID> {
               WHERE h.vote.id = :voteId AND h.round = :round
               AND h.winnerEmail IS NOT NULL
           )
-    """)
-    fun findEligibleEmailsForRound(voteId: UUID, round: Int): List<String>
+    """
+    )
+    fun findEligibleEmailsForRound(
+        voteId: UUID,
+        round: Int,
+    ): List<String>
 
     @Query("SELECT COUNT(p) FROM VoteParticipant p WHERE p.vote.id = :voteId")
     fun countByVoteId(voteId: UUID): Long
 
-    @Query("""
+    @Query(
+        """
         SELECT p.vote.id AS voteId, COUNT(p) AS participantCount
         FROM VoteParticipant p
         WHERE p.vote.id IN :voteIds
         GROUP BY p.vote.id
-    """)
+    """
+    )
     fun countByVoteIds(voteIds: Collection<UUID>): List<VoteParticipantCount>
 }
 

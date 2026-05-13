@@ -16,8 +16,13 @@ data class DrawResult(
 }
 
 private sealed class DrawWinner {
-    data class Participant(val participant: VoteParticipant) : DrawWinner()
-    data class Option(val option: VoteOption) : DrawWinner()
+    data class Participant(
+        val participant: VoteParticipant,
+    ) : DrawWinner()
+
+    data class Option(
+        val option: VoteOption,
+    ) : DrawWinner()
 }
 
 @Service
@@ -28,7 +33,6 @@ class DrawService(
     private val drawHistoryRepository: DrawHistoryRepository,
     private val meterRegistry: MeterRegistry,
 ) {
-
     @Transactional
     fun draw(voteId: java.util.UUID): DrawResult {
         val vote = voteRepository.findById(voteId).orElseThrow { IllegalArgumentException("Vote not found") }
@@ -44,54 +48,68 @@ class DrawService(
             "Cannot draw: vote has no options or participants"
         }
 
-        val (drawWinner, newRoundStarted) = if (options.isNotEmpty()) {
-            when (vote.mode) {
-                VoteMode.SIMPLE -> DrawWinner.Option(options.random()) to false
-                VoteMode.FAIR_ROTATION -> drawFairRotationOption(vote, options)
-            }
-        } else {
-            when (vote.mode) {
-                VoteMode.SIMPLE -> DrawWinner.Participant(participants.random()) to false
-                VoteMode.FAIR_ROTATION -> {
-                    val (winner, newRound) = drawFairRotation(vote, participants)
-                    DrawWinner.Participant(winner) to newRound
+        val (drawWinner, newRoundStarted) =
+            if (options.isNotEmpty()) {
+                when (vote.mode) {
+                    VoteMode.SIMPLE -> DrawWinner.Option(options.random()) to false
+                    VoteMode.FAIR_ROTATION -> drawFairRotationOption(vote, options)
+                }
+            } else {
+                when (vote.mode) {
+                    VoteMode.SIMPLE -> {
+                        DrawWinner.Participant(participants.random()) to false
+                    }
+
+                    VoteMode.FAIR_ROTATION -> {
+                        val (winner, newRound) = drawFairRotation(vote, participants)
+                        DrawWinner.Participant(winner) to newRound
+                    }
                 }
             }
-        }
 
-        val history = when (drawWinner) {
-            is DrawWinner.Participant -> drawHistoryRepository.save(
-                DrawHistory(
-                    vote = vote,
-                    winnerEmail = drawWinner.participant.email,
-                    winnerDisplayName = drawWinner.participant.displayName,
-                    round = vote.currentRound,
-                )
-            )
-            is DrawWinner.Option -> drawHistoryRepository.save(
-                DrawHistory(
-                    vote = vote,
-                    winnerOption = drawWinner.option,
-                    winnerOptionTitle = drawWinner.option.title,
-                    round = vote.currentRound,
-                )
-            )
-        }
+        val history =
+            when (drawWinner) {
+                is DrawWinner.Participant -> {
+                    drawHistoryRepository.save(
+                        DrawHistory(
+                            vote = vote,
+                            winnerEmail = drawWinner.participant.email,
+                            winnerDisplayName = drawWinner.participant.displayName,
+                            round = vote.currentRound
+                        )
+                    )
+                }
+
+                is DrawWinner.Option -> {
+                    drawHistoryRepository.save(
+                        DrawHistory(
+                            vote = vote,
+                            winnerOption = drawWinner.option,
+                            winnerOptionTitle = drawWinner.option.title,
+                            round = vote.currentRound
+                        )
+                    )
+                }
+            }
 
         vote.status = VoteStatus.DRAWN
         voteRepository.save(vote)
 
-        meterRegistry.counter("vote.draw.performed",
-            "mode", vote.mode.name,
-            "round", vote.currentRound.toString()
-        ).increment()
+        meterRegistry
+            .counter(
+                "vote.draw.performed",
+                "mode",
+                vote.mode.name,
+                "round",
+                vote.currentRound.toString()
+            ).increment()
 
         return DrawResult(
             winnerEmail = history.winnerEmail,
             winnerDisplayName = history.winnerDisplayName,
             winnerOptionTitle = history.winnerOptionTitle,
             round = history.round,
-            newRoundStarted = newRoundStarted,
+            newRoundStarted = newRoundStarted
         )
     }
 
@@ -110,8 +128,9 @@ class DrawService(
     ): Pair<VoteParticipant, Boolean> {
         var newRoundStarted = false
 
-        var eligibleEmails = participantRepository
-            .findEligibleEmailsForRound(vote.id, vote.currentRound)
+        var eligibleEmails =
+            participantRepository
+                .findEligibleEmailsForRound(vote.id, vote.currentRound)
 
         if (eligibleEmails.isEmpty()) {
             vote.currentRound++

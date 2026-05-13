@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 
 class ErrorHandlerTest {
-
     private val handler = ErrorHandler()
 
     @Test

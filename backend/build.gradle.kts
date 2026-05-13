@@ -1,12 +1,16 @@
 import com.google.protobuf.gradle.*
+import io.gitlab.arturbosch.detekt.Detekt
+import io.gitlab.arturbosch.detekt.DetektCreateBaselineTask
 
 plugins {
-    kotlin("jvm")                         version "2.3.21"
-    kotlin("plugin.spring")               version "2.3.21"
-    kotlin("plugin.jpa")                  version "2.3.21"
-    id("org.springframework.boot")        version "4.0.6"
-    id("io.spring.dependency-management") version "1.1.7"
-    id("com.google.protobuf")             version "0.10.0"
+    kotlin("jvm")                              version "2.3.21"
+    kotlin("plugin.spring")                    version "2.3.21"
+    kotlin("plugin.jpa")                       version "2.3.21"
+    id("org.springframework.boot")             version "4.0.6"
+    id("io.spring.dependency-management")      version "1.1.7"
+    id("com.google.protobuf")                  version "0.10.0"
+    id("com.diffplug.spotless")                version "6.25.0"
+    id("io.gitlab.arturbosch.detekt")          version "1.23.8"
 }
 
 group   = "com.juncevich"
@@ -97,6 +101,9 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-junit-jupiter:2.0.5")
     testImplementation("io.mockk:mockk:1.14.9")
     testImplementation("com.ninja-squad:springmockk:5.0.1")
+
+    // ── Static analysis ───────────────────────────────────────────────────────
+    // detekt-formatting is intentionally excluded — spotless/ktlint owns all formatting
 }
 
 protobuf {
@@ -134,6 +141,41 @@ sourceSets {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+spotless {
+    kotlin {
+        ktlint("1.8.0")
+        target("src/**/*.kt")
+        targetExclude("**/build/**", "**/generated/**")
+    }
+    // .kts formatting is skipped: ktlint does not yet support Kotlin 2.3.x script parsing
+}
+
+// detekt 1.23.x was compiled with Kotlin 2.0.21; pin its classpath to avoid version mismatch
+configurations.matching { it.name.contains("detekt", ignoreCase = true) }.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin") {
+            useVersion("2.0.21")
+        }
+    }
+}
+
+detekt {
+    config.setFrom(file("detekt.yml"))
+    buildUponDefaultConfig = true
+    source.setFrom("src/main/kotlin", "src/test/kotlin")
+    baseline = file("detekt-baseline.xml")
+}
+
+// detekt's bundled IntelliJ runtime doesn't handle Java 26+ — run against a Java 17 JDK home
+val detektJdkHome = javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) }
+    .map { it.metadata.installationPath }
+tasks.withType<Detekt>().configureEach {
+    jdkHome.set(detektJdkHome)
+}
+tasks.withType<DetektCreateBaselineTask>().configureEach {
+    jdkHome.set(detektJdkHome)
 }
 
 // Ensure generated sources are on the compile classpath

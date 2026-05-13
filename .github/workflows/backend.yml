@@ -50,8 +50,14 @@ jobs:
       - name: Generate proto sources
         run: cd backend && ./gradlew generateProto --no-daemon -q --rerun-tasks
 
+      - name: Lint (spotless)
+        run: cd backend && ./gradlew spotlessCheck --no-daemon
+
+      - name: Static analysis (detekt)
+        run: cd backend && ./gradlew detekt --no-daemon
+
       - name: Run checks
-        run: cd backend && ./gradlew check --no-daemon
+        run: cd backend && ./gradlew check --no-daemon -x spotlessCheck -x detekt
         env:
           DB_URL: jdbc:postgresql://localhost:5432/fate_test
           DB_USERNAME: fate

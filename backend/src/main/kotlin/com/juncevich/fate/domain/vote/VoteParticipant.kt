@@ -13,21 +13,16 @@ import java.util.UUID
 )
 @EntityListeners(AuditingEntityListener::class)
 class VoteParticipant(
-
     @Id
     val id: UUID = UUID.randomUUID(),
-
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "vote_id", nullable = false)
     val vote: Vote,
-
     // Denormalized email — participant may not be registered yet at time of invite
     @Column(nullable = false, length = 255)
     val email: String,
-
     @Column(name = "display_name", length = 100)
     var displayName: String? = null,
-
     @CreatedDate
     @Column(name = "added_at", nullable = false, updatable = false)
     var addedAt: Instant = Instant.now(),

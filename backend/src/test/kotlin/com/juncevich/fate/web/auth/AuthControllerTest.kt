@@ -21,21 +21,21 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import java.util.UUID
 
 class AuthControllerTest {
-
     private val authService = mockk<AuthService>()
     private lateinit var mockMvc: MockMvc
 
     @BeforeEach
     fun setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(
-            AuthController(
-                authService,
-                JwtProperties("test-secret-that-is-definitely-long-enough-for-hmac-sha256"),
-            )
-        )
-            .setControllerAdvice(ErrorHandler())
-            .setCustomArgumentResolvers(AuthenticationPrincipalArgumentResolver())
-            .build()
+        mockMvc =
+            MockMvcBuilders
+                .standaloneSetup(
+                    AuthController(
+                        authService,
+                        JwtProperties("test-secret-that-is-definitely-long-enough-for-hmac-sha256")
+                    )
+                ).setControllerAdvice(ErrorHandler())
+                .setCustomArgumentResolvers(AuthenticationPrincipalArgumentResolver())
+                .build()
     }
 
     @AfterEach
@@ -43,15 +43,17 @@ class AuthControllerTest {
         SecurityContextHolder.clearContext()
     }
 
-    private fun authTokens() = AuthTokens(
-        response = AuthResponse(
-            accessToken = "access-token",
-            userId = UUID.randomUUID().toString(),
-            email = "user@test.com",
-            displayName = "User",
-        ),
-        refreshToken = "refresh-token",
-    )
+    private fun authTokens() =
+        AuthTokens(
+            response =
+                AuthResponse(
+                    accessToken = "access-token",
+                    userId = UUID.randomUUID().toString(),
+                    email = "user@test.com",
+                    displayName = "User"
+                ),
+            refreshToken = "refresh-token"
+        )
 
     private fun setAuth(id: UUID = UUID.randomUUID()) {
         val principal = AuthenticatedUser(id, "user@test.com")
@@ -65,47 +67,51 @@ class AuthControllerTest {
     fun `POST register - valid body - returns 201`() {
         every { authService.register(any()) } returns authTokens()
 
-        mockMvc.post("/api/v1/auth/register") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"email":"user@test.com","password":"password123","displayName":"User"}"""
-        }.andExpect {
-            status { isCreated() }
-            jsonPath("$.accessToken") { value("access-token") }
-            header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
-        }
+        mockMvc
+            .post("/api/v1/auth/register") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"email":"user@test.com","password":"password123","displayName":"User"}"""
+            }.andExpect {
+                status { isCreated() }
+                jsonPath("$.accessToken") { value("access-token") }
+                header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
+            }
     }
 
     @Test
     fun `POST register - invalid email - returns 400 with field errors`() {
-        mockMvc.post("/api/v1/auth/register") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"email":"not-an-email","password":"password123","displayName":"User"}"""
-        }.andExpect {
-            status { isBadRequest() }
-            jsonPath("$.errors.email") { exists() }
-        }
+        mockMvc
+            .post("/api/v1/auth/register") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"email":"not-an-email","password":"password123","displayName":"User"}"""
+            }.andExpect {
+                status { isBadRequest() }
+                jsonPath("$.errors.email") { exists() }
+            }
     }
 
     @Test
     fun `POST register - short password - returns 400`() {
-        mockMvc.post("/api/v1/auth/register") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"email":"user@test.com","password":"short","displayName":"User"}"""
-        }.andExpect {
-            status { isBadRequest() }
-            jsonPath("$.errors.password") { exists() }
-        }
+        mockMvc
+            .post("/api/v1/auth/register") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"email":"user@test.com","password":"short","displayName":"User"}"""
+            }.andExpect {
+                status { isBadRequest() }
+                jsonPath("$.errors.password") { exists() }
+            }
     }
 
     @Test
     fun `POST register - blank display name - returns 400`() {
-        mockMvc.post("/api/v1/auth/register") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"email":"user@test.com","password":"password123","displayName":""}"""
-        }.andExpect {
-            status { isBadRequest() }
-            jsonPath("$.errors.displayName") { exists() }
-        }
+        mockMvc
+            .post("/api/v1/auth/register") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"email":"user@test.com","password":"password123","displayName":""}"""
+            }.andExpect {
+                status { isBadRequest() }
+                jsonPath("$.errors.displayName") { exists() }
+            }
     }
 
     // ── POST /login ───────────────────────────────────────────────────────────
@@ -114,24 +120,26 @@ class AuthControllerTest {
     fun `POST login - valid credentials - returns 200`() {
         every { authService.login(any(), any()) } returns authTokens()
 
-        mockMvc.post("/api/v1/auth/login") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"email":"user@test.com","password":"password123"}"""
-        }.andExpect {
-            status { isOk() }
-            jsonPath("$.accessToken") { value("access-token") }
-            header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
-        }
+        mockMvc
+            .post("/api/v1/auth/login") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"email":"user@test.com","password":"password123"}"""
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.accessToken") { value("access-token") }
+                header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
+            }
     }
 
     @Test
     fun `POST login - blank password - returns 400`() {
-        mockMvc.post("/api/v1/auth/login") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"email":"user@test.com","password":""}"""
-        }.andExpect {
-            status { isBadRequest() }
-        }
+        mockMvc
+            .post("/api/v1/auth/login") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"email":"user@test.com","password":""}"""
+            }.andExpect {
+                status { isBadRequest() }
+            }
     }
 
     // ── POST /refresh ─────────────────────────────────────────────────────────
@@ -140,13 +148,14 @@ class AuthControllerTest {
     fun `POST refresh - valid token - returns 200`() {
         every { authService.refresh(any()) } returns authTokens()
 
-        mockMvc.post("/api/v1/auth/refresh") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"refreshToken":"some-token"}"""
-        }.andExpect {
-            status { isOk() }
-            header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
-        }
+        mockMvc
+            .post("/api/v1/auth/refresh") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"refreshToken":"some-token"}"""
+            }.andExpect {
+                status { isOk() }
+                header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
+            }
     }
 
     // ── POST /logout ──────────────────────────────────────────────────────────
@@ -155,12 +164,13 @@ class AuthControllerTest {
     fun `POST logout - valid token - returns 204`() {
         every { authService.logout(any()) } returns Unit
 
-        mockMvc.post("/api/v1/auth/logout") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"refreshToken":"some-token"}"""
-        }.andExpect {
-            status { isNoContent() }
-        }
+        mockMvc
+            .post("/api/v1/auth/logout") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"refreshToken":"some-token"}"""
+            }.andExpect {
+                status { isNoContent() }
+            }
     }
 
     // ── POST /logout-all ──────────────────────────────────────────────────────

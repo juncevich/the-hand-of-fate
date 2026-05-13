@@ -15,7 +15,6 @@ import java.util.Optional
 import java.util.UUID
 
 class VoteServiceTest {
-
     private val voteRepository = mockk<VoteRepository>()
     private val participantRepository = mockk<VoteParticipantRepository>()
     private val voteOptionRepository = mockk<VoteOptionRepository>()
@@ -26,10 +25,17 @@ class VoteServiceTest {
     private val meterRegistry = mockk<MeterRegistry>()
     private val counter = mockk<Counter>(relaxed = true)
 
-    private val voteService = VoteService(
-        voteRepository, participantRepository, voteOptionRepository, drawHistoryRepository,
-        userRepository, drawService, notificationService, meterRegistry,
-    )
+    private val voteService =
+        VoteService(
+            voteRepository,
+            participantRepository,
+            voteOptionRepository,
+            drawHistoryRepository,
+            userRepository,
+            drawService,
+            notificationService,
+            meterRegistry
+        )
 
     @BeforeEach
     fun setUp() {
@@ -38,11 +44,14 @@ class VoteServiceTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private fun makeUser(id: UUID = UUID.randomUUID(), email: String = "user@test.com") = User(
+    private fun makeUser(
+        id: UUID = UUID.randomUUID(),
+        email: String = "user@test.com",
+    ) = User(
         id = id,
         email = email,
         passwordHash = "hash",
-        displayName = "Test User",
+        displayName = "Test User"
     )
 
     private fun makeVote(
@@ -69,13 +78,14 @@ class VoteServiceTest {
         every { participantRepository.save(any()) } returns participant
         every { voteOptionRepository.save(any()) } answers { firstArg() }
 
-        val request = CreateVoteRequest(
-            title = "Vote",
-            description = null,
-            mode = VoteMode.SIMPLE,
-            participantEmails = listOf("p@test.com"),
-            options = listOf("Option A", "Option B"),
-        )
+        val request =
+            CreateVoteRequest(
+                title = "Vote",
+                description = null,
+                mode = VoteMode.SIMPLE,
+                participantEmails = listOf("p@test.com"),
+                options = listOf("Option A", "Option B")
+            )
 
         voteService.createVote(creator.id, request)
 

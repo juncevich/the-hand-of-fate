@@ -5,14 +5,17 @@ import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
 interface VoteOptionRepository : JpaRepository<VoteOption, UUID> {
-
     fun findAllByVoteIdOrderByPositionAscCreatedAtAsc(voteId: UUID): List<VoteOption>
 
     fun countByVoteId(voteId: UUID): Long
 
-    fun deleteByVoteIdAndId(voteId: UUID, id: UUID)
+    fun deleteByVoteIdAndId(
+        voteId: UUID,
+        id: UUID,
+    )
 
-    @Query("""
+    @Query(
+        """
         SELECT o FROM VoteOption o
         WHERE o.vote.id = :voteId
           AND o.id NOT IN (
@@ -21,6 +24,10 @@ interface VoteOptionRepository : JpaRepository<VoteOption, UUID> {
               AND h.winnerOption IS NOT NULL
           )
         ORDER BY o.position ASC, o.createdAt ASC
-    """)
-    fun findEligibleOptionsForRound(voteId: UUID, round: Int): List<VoteOption>
+    """
+    )
+    fun findEligibleOptionsForRound(
+        voteId: UUID,
+        round: Int,
+    ): List<VoteOption>
 }

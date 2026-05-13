@@ -29,7 +29,6 @@ import java.time.Instant
 import java.util.UUID
 
 class VoteControllerTest {
-
     private val voteService = mockk<VoteService>()
     private lateinit var mockMvc: MockMvc
 
@@ -38,13 +37,14 @@ class VoteControllerTest {
 
     @BeforeEach
     fun setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(VoteController(voteService))
-            .setControllerAdvice(ErrorHandler())
-            .setCustomArgumentResolvers(
-                AuthenticationPrincipalArgumentResolver(),
-                PageableHandlerMethodArgumentResolver(),
-            )
-            .build()
+        mockMvc =
+            MockMvcBuilders
+                .standaloneSetup(VoteController(voteService))
+                .setControllerAdvice(ErrorHandler())
+                .setCustomArgumentResolvers(
+                    AuthenticationPrincipalArgumentResolver(),
+                    PageableHandlerMethodArgumentResolver()
+                ).build()
 
         val principal = AuthenticatedUser(userId, "user@test.com")
         SecurityContextHolder.getContext().authentication =
@@ -56,30 +56,32 @@ class VoteControllerTest {
         SecurityContextHolder.clearContext()
     }
 
-    private fun summaryDto(id: UUID = voteId) = VoteSummaryDto(
-        id = id,
-        title = "Test Vote",
-        mode = VoteMode.SIMPLE,
-        status = VoteStatus.PENDING,
-        currentRound = 1,
-        participantCount = 2,
-        isCreator = true,
-        createdAt = Instant.now(),
-    )
+    private fun summaryDto(id: UUID = voteId) =
+        VoteSummaryDto(
+            id = id,
+            title = "Test Vote",
+            mode = VoteMode.SIMPLE,
+            status = VoteStatus.PENDING,
+            currentRound = 1,
+            participantCount = 2,
+            isCreator = true,
+            createdAt = Instant.now()
+        )
 
-    private fun detailDto(id: UUID = voteId) = VoteDetailDto(
-        id = id,
-        title = "Test Vote",
-        description = null,
-        mode = VoteMode.SIMPLE,
-        status = VoteStatus.PENDING,
-        currentRound = 1,
-        participants = listOf(ParticipantDto("user@test.com", "User")),
-        options = emptyList(),
-        lastResult = null,
-        isCreator = true,
-        createdAt = Instant.now(),
-    )
+    private fun detailDto(id: UUID = voteId) =
+        VoteDetailDto(
+            id = id,
+            title = "Test Vote",
+            description = null,
+            mode = VoteMode.SIMPLE,
+            status = VoteStatus.PENDING,
+            currentRound = 1,
+            participants = listOf(ParticipantDto("user@test.com", "User")),
+            options = emptyList(),
+            lastResult = null,
+            isCreator = true,
+            createdAt = Instant.now()
+        )
 
     // ── GET /votes ─────────────────────────────────────────────────────────────
 
@@ -101,25 +103,27 @@ class VoteControllerTest {
     fun `POST votes - valid request - returns 201`() {
         every { voteService.createVote(userId, any()) } returns detailDto()
 
-        mockMvc.post("/api/v1/votes") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"title":"Test Vote","mode":"SIMPLE","participantEmails":[]}"""
-        }.andExpect {
-            status { isCreated() }
-            jsonPath("$.id") { value(voteId.toString()) }
-            jsonPath("$.title") { value("Test Vote") }
-        }
+        mockMvc
+            .post("/api/v1/votes") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"title":"Test Vote","mode":"SIMPLE","participantEmails":[]}"""
+            }.andExpect {
+                status { isCreated() }
+                jsonPath("$.id") { value(voteId.toString()) }
+                jsonPath("$.title") { value("Test Vote") }
+            }
     }
 
     @Test
     fun `POST votes - blank title - returns 400`() {
-        mockMvc.post("/api/v1/votes") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"title":"","mode":"SIMPLE","participantEmails":[]}"""
-        }.andExpect {
-            status { isBadRequest() }
-            jsonPath("$.errors.title") { exists() }
-        }
+        mockMvc
+            .post("/api/v1/votes") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"title":"","mode":"SIMPLE","participantEmails":[]}"""
+            }.andExpect {
+                status { isBadRequest() }
+                jsonPath("$.errors.title") { exists() }
+            }
     }
 
     // ── GET /votes/{id} ────────────────────────────────────────────────────────
@@ -139,13 +143,14 @@ class VoteControllerTest {
 
     @Test
     fun `POST draw - returns draw result`() {
-        every { voteService.draw(voteId, userId) } returns DrawResult(
-            winnerEmail = "winner@test.com",
-            winnerDisplayName = "Winner",
-            winnerOptionTitle = null,
-            round = 1,
-            newRoundStarted = false,
-        )
+        every { voteService.draw(voteId, userId) } returns
+            DrawResult(
+                winnerEmail = "winner@test.com",
+                winnerDisplayName = "Winner",
+                winnerOptionTitle = null,
+                round = 1,
+                newRoundStarted = false
+            )
 
         mockMvc.post("/api/v1/votes/$voteId/draw").andExpect {
             status { isOk() }
@@ -174,24 +179,26 @@ class VoteControllerTest {
 
     @Test
     fun `POST participants - invalid email - returns 400`() {
-        mockMvc.post("/api/v1/votes/$voteId/participants") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"email":"not-an-email"}"""
-        }.andExpect {
-            status { isBadRequest() }
-        }
+        mockMvc
+            .post("/api/v1/votes/$voteId/participants") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"email":"not-an-email"}"""
+            }.andExpect {
+                status { isBadRequest() }
+            }
     }
 
     @Test
     fun `POST participants - valid email - returns 204`() {
         every { voteService.addParticipant(voteId, userId, "new@test.com") } returns Unit
 
-        mockMvc.post("/api/v1/votes/$voteId/participants") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"email":"new@test.com"}"""
-        }.andExpect {
-            status { isNoContent() }
-        }
+        mockMvc
+            .post("/api/v1/votes/$voteId/participants") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"email":"new@test.com"}"""
+            }.andExpect {
+                status { isNoContent() }
+            }
     }
 
     // ── POST /votes/{id}/close ─────────────────────────────────────────────────

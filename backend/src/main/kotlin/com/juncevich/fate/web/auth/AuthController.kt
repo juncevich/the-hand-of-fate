@@ -3,8 +3,8 @@ package com.juncevich.fate.web.auth
 import com.juncevich.fate.config.JwtProperties
 import com.juncevich.fate.security.AuthenticatedUser
 import com.juncevich.fate.service.AuthService
-import jakarta.validation.Valid
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.validation.Valid
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
@@ -20,19 +20,24 @@ class AuthController(
     private val jwtProperties: JwtProperties,
     @param:Value("\${app.refresh-cookie-secure:false}") private val refreshCookieSecure: Boolean = false,
 ) {
-
     @PostMapping("/register")
-    fun register(@Valid @RequestBody request: RegisterRequest): ResponseEntity<AuthResponse> {
+    fun register(
+        @Valid @RequestBody request: RegisterRequest,
+    ): ResponseEntity<AuthResponse> {
         val tokens = authService.register(request)
-        return ResponseEntity.status(201)
+        return ResponseEntity
+            .status(201)
             .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken).toString())
             .body(tokens.response)
     }
 
     @PostMapping("/login")
-    fun login(@Valid @RequestBody request: LoginRequest): ResponseEntity<AuthResponse> {
+    fun login(
+        @Valid @RequestBody request: LoginRequest,
+    ): ResponseEntity<AuthResponse> {
         val tokens = authService.login(request.email, request.password)
-        return ResponseEntity.ok()
+        return ResponseEntity
+            .ok()
             .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken).toString())
             .body(tokens.response)
     }
@@ -42,10 +47,12 @@ class AuthController(
         @RequestBody(required = false) request: RefreshRequest?,
         servletRequest: HttpServletRequest,
     ): ResponseEntity<AuthResponse> {
-        val refreshToken = request.refreshTokenOrCookie(servletRequest)
-            ?: error("Refresh token is required")
+        val refreshToken =
+            request.refreshTokenOrCookie(servletRequest)
+                ?: error("Refresh token is required")
         val tokens = authService.refresh(refreshToken)
-        return ResponseEntity.ok()
+        return ResponseEntity
+            .ok()
             .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken).toString())
             .body(tokens.response)
     }
@@ -59,21 +66,26 @@ class AuthController(
         if (!refreshToken.isNullOrBlank()) {
             authService.logout(refreshToken)
         }
-        return ResponseEntity.noContent()
+        return ResponseEntity
+            .noContent()
             .header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())
             .build()
     }
 
     @PostMapping("/logout-all")
-    fun logoutAll(@AuthenticationPrincipal user: AuthenticatedUser): ResponseEntity<Void> {
+    fun logoutAll(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+    ): ResponseEntity<Void> {
         authService.logoutAll(user.id)
-        return ResponseEntity.noContent()
+        return ResponseEntity
+            .noContent()
             .header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())
             .build()
     }
 
     private fun refreshCookie(value: String): ResponseCookie =
-        ResponseCookie.from(REFRESH_COOKIE_NAME, value)
+        ResponseCookie
+            .from(REFRESH_COOKIE_NAME, value)
             .httpOnly(true)
             .secure(refreshCookieSecure)
             .sameSite("Lax")
@@ -82,7 +94,8 @@ class AuthController(
             .build()
 
     private fun clearRefreshCookie(): ResponseCookie =
-        ResponseCookie.from(REFRESH_COOKIE_NAME, "")
+        ResponseCookie
+            .from(REFRESH_COOKIE_NAME, "")
             .httpOnly(true)
             .secure(refreshCookieSecure)
             .sameSite("Lax")

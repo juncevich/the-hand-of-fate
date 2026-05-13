@@ -9,12 +9,12 @@ import org.junit.jupiter.api.assertThrows
 import java.util.UUID
 
 class JwtTokenProviderTest {
-
-    private val props = JwtProperties(
-        accessSecret = "test-secret-that-is-at-least-256-bits-long-for-hmac-sha256",
-        accessTtlMinutes = 15,
-        refreshTtlDays = 30,
-    )
+    private val props =
+        JwtProperties(
+            accessSecret = "test-secret-that-is-at-least-256-bits-long-for-hmac-sha256",
+            accessTtlMinutes = 15,
+            refreshTtlDays = 30
+        )
 
     private val provider = JwtTokenProvider(props)
 
@@ -51,11 +51,12 @@ class JwtTokenProviderTest {
 
     @Test
     fun `validateAndGetClaims - throws on token signed with different key`() {
-        val otherProps = JwtProperties(
-            accessSecret = "completely-different-secret-key-that-is-256-bits-long-xxxxxx",
-            accessTtlMinutes = 15,
-            refreshTtlDays = 30,
-        )
+        val otherProps =
+            JwtProperties(
+                accessSecret = "completely-different-secret-key-that-is-256-bits-long-xxxxxx",
+                accessTtlMinutes = 15,
+                refreshTtlDays = 30
+            )
         val foreignToken = JwtTokenProvider(otherProps).createAccessToken(UUID.randomUUID(), "x@x.com")
 
         assertThrows<JwtException> { provider.validateAndGetClaims(foreignToken) }
@@ -63,11 +64,12 @@ class JwtTokenProviderTest {
 
     @Test
     fun `createAccessToken - expired token throws on validation`() {
-        val expiredProps = JwtProperties(
-            accessSecret = "test-secret-that-is-at-least-256-bits-long-for-hmac-sha256",
-            accessTtlMinutes = -1,
-            refreshTtlDays = 30,
-        )
+        val expiredProps =
+            JwtProperties(
+                accessSecret = "test-secret-that-is-at-least-256-bits-long-for-hmac-sha256",
+                accessTtlMinutes = -1,
+                refreshTtlDays = 30
+            )
         val expiredProvider = JwtTokenProvider(expiredProps)
         val token = expiredProvider.createAccessToken(UUID.randomUUID(), "user@test.com")
 

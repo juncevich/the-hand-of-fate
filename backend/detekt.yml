@@ -1,0 +1,70 @@
+build:
+  maxIssues: 0
+
+config:
+  validation: true
+  warningsAsErrors: false
+
+complexity:
+  CyclomaticComplexMethod:
+    threshold: 15
+  CognitiveComplexMethod:
+    threshold: 20
+  LongMethod:
+    threshold: 80
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 10  # JPA entities and Spring service constructors can be wide
+  TooManyFunctions:
+    thresholdInFiles: 30
+    thresholdInClasses: 20
+    thresholdInInterfaces: 20
+    thresholdInObjects: 20
+    thresholdInEnums: 20
+
+naming:
+  FunctionNaming:
+    # Allow backtick-quoted test names alongside regular camelCase
+    functionPattern: '[a-zA-Z][a-zA-Z0-9]*|`[^`]+`'
+
+style:
+  MagicNumber:
+    active: false             # Magic numbers are common in tests and proto field numbers
+  MaxLineLength:
+    active: false             # Handled by ktlint via spotless
+  WildcardImport:
+    active: false             # Allowed intentionally (FateProto.*, mockk.*, etc.)
+  ReturnCount:
+    max: 4
+  UnusedPrivateMember:
+    active: true
+  ForbiddenComment:
+    active: false             # TODO/FIXME comments are acceptable during development
+  UseDataClass:
+    active: false             # JPA entities cannot be data classes
+
+comments:
+  UndocumentedPublicClass:
+    active: false
+  UndocumentedPublicFunction:
+    active: false
+  UndocumentedPublicProperty:
+    active: false
+
+performance:
+  SpreadOperator:
+    active: false  # idiomatic in Spring Boot main() and MockK *anyVararg() stubs
+
+potential-bugs:
+  DontDowncastCollectionTypes:
+    active: true
+  EqualsAlwaysReturnsTrueOrFalse:
+    active: true
+  UnreachableCatchBlock:
+    active: true
+
+coroutines:
+  GlobalCoroutineUsage:
+    active: true
+  RedundantSuspendModifier:
+    active: true

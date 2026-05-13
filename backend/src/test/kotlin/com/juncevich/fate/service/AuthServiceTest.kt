@@ -16,26 +16,32 @@ import java.time.Instant
 import java.util.UUID
 
 class AuthServiceTest {
-
     private val userRepository = mockk<UserRepository>()
     private val refreshTokenRepository = mockk<RefreshTokenRepository>()
     private val passwordEncoder = mockk<PasswordEncoder>()
     private val jwtTokenProvider = mockk<JwtTokenProvider>()
-    private val jwtProperties = JwtProperties(
-        accessSecret = "test-secret-that-is-definitely-long-enough-for-hmac-sha256",
-        accessTtlMinutes = 15,
-        refreshTtlDays = 30,
-    )
+    private val jwtProperties =
+        JwtProperties(
+            accessSecret = "test-secret-that-is-definitely-long-enough-for-hmac-sha256",
+            accessTtlMinutes = 15,
+            refreshTtlDays = 30
+        )
 
-    private val authService = AuthService(
-        userRepository, refreshTokenRepository, passwordEncoder, jwtTokenProvider, jwtProperties
-    )
+    private val authService =
+        AuthService(
+            userRepository,
+            refreshTokenRepository,
+            passwordEncoder,
+            jwtTokenProvider,
+            jwtProperties
+        )
 
-    private fun makeUser(email: String = "user@test.com") = User(
-        email = email,
-        passwordHash = "hashedPassword",
-        displayName = "Test User",
-    )
+    private fun makeUser(email: String = "user@test.com") =
+        User(
+            email = email,
+            passwordHash = "hashedPassword",
+            displayName = "Test User"
+        )
 
     // ── register ──────────────────────────────────────────────────────────────
 
@@ -139,11 +145,12 @@ class AuthServiceTest {
     @Test
     fun `refresh - issues new tokens for valid non-expired token`() {
         val user = makeUser()
-        val storedToken = RefreshToken(
-            user = user,
-            tokenHash = "any-hash",
-            expiresAt = Instant.now().plusSeconds(3600),
-        )
+        val storedToken =
+            RefreshToken(
+                user = user,
+                tokenHash = "any-hash",
+                expiresAt = Instant.now().plusSeconds(3600)
+            )
 
         every { refreshTokenRepository.findByTokenHash(any()) } returns storedToken
         every { refreshTokenRepository.delete(storedToken) } just Runs
@@ -159,11 +166,12 @@ class AuthServiceTest {
     @Test
     fun `refresh - throws and deletes expired token`() {
         val user = makeUser()
-        val expiredToken = RefreshToken(
-            user = user,
-            tokenHash = "expired-hash",
-            expiresAt = Instant.now().minusSeconds(1),
-        )
+        val expiredToken =
+            RefreshToken(
+                user = user,
+                tokenHash = "expired-hash",
+                expiresAt = Instant.now().minusSeconds(1)
+            )
 
         every { refreshTokenRepository.findByTokenHash(any()) } returns expiredToken
         every { refreshTokenRepository.delete(expiredToken) } just Runs

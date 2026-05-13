@@ -10,17 +10,22 @@ import java.util.UUID
 import javax.crypto.SecretKey
 
 @Component
-class JwtTokenProvider(private val props: JwtProperties) {
-
+class JwtTokenProvider(
+    private val props: JwtProperties,
+) {
     private val signingKey: SecretKey by lazy {
         Keys.hmacShaKeyFor(props.accessSecret.toByteArray())
     }
 
-    fun createAccessToken(userId: UUID, email: String): String {
+    fun createAccessToken(
+        userId: UUID,
+        email: String,
+    ): String {
         val now = Date()
         val expiry = Date(now.time + props.accessTtlMinutes * 60 * 1000)
 
-        return Jwts.builder()
+        return Jwts
+            .builder()
             .subject(userId.toString())
             .claim("email", email)
             .issuedAt(now)
@@ -30,15 +35,14 @@ class JwtTokenProvider(private val props: JwtProperties) {
     }
 
     fun validateAndGetClaims(token: String): Claims =
-        Jwts.parser()
+        Jwts
+            .parser()
             .verifyWith(signingKey)
             .build()
             .parseSignedClaims(token)
             .payload
 
-    fun getUserId(token: String): UUID =
-        UUID.fromString(validateAndGetClaims(token).subject)
+    fun getUserId(token: String): UUID = UUID.fromString(validateAndGetClaims(token).subject)
 
-    fun getEmail(token: String): String =
-        validateAndGetClaims(token)["email"] as String
+    fun getEmail(token: String): String = validateAndGetClaims(token)["email"] as String
 }

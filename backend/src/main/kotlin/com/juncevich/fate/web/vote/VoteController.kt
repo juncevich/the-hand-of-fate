@@ -14,21 +14,20 @@ import java.util.UUID
 
 @RestController
 @RequestMapping("/api/v1/votes")
-class VoteController(private val voteService: VoteService) {
-
+class VoteController(
+    private val voteService: VoteService,
+) {
     @PostMapping
     fun createVote(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @Valid @RequestBody request: CreateVoteRequest,
-    ): ResponseEntity<VoteDetailDto> =
-        ResponseEntity.status(201).body(voteService.createVote(user.id, request))
+    ): ResponseEntity<VoteDetailDto> = ResponseEntity.status(201).body(voteService.createVote(user.id, request))
 
     @GetMapping
     fun listVotes(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PageableDefault(size = 20) pageable: Pageable,
-    ): Page<VoteSummaryDto> =
-        voteService.listVotes(user.id, user.email, pageable)
+    ): Page<VoteSummaryDto> = voteService.listVotes(user.id, user.email, pageable)
 
     @GetMapping("/{id}")
     fun getVote(
@@ -96,7 +95,7 @@ class VoteController(private val voteService: VoteService) {
             winnerDisplayName = result.winnerDisplayName,
             winnerOptionTitle = result.winnerOptionTitle,
             round = result.round,
-            newRoundStarted = result.newRoundStarted,
+            newRoundStarted = result.newRoundStarted
         )
     }
 
@@ -122,6 +121,5 @@ class VoteController(private val voteService: VoteService) {
     fun getHistory(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
-    ): List<DrawHistoryDto> =
-        voteService.getHistory(id, user.id, user.email).map { it.toDto() }
+    ): List<DrawHistoryDto> = voteService.getHistory(id, user.id, user.email).map { it.toDto() }
 }
