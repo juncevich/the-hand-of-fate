@@ -9,7 +9,7 @@ plugins {
     id("org.springframework.boot")             version "4.0.6"
     id("io.spring.dependency-management")      version "1.1.7"
     id("com.google.protobuf")                  version "0.10.0"
-    id("com.diffplug.spotless")                version "6.25.0"
+    id("com.diffplug.spotless")                version "8.4.0"
     id("io.gitlab.arturbosch.detekt")          version "1.23.8"
 }
 
