@@ -34,10 +34,11 @@ repositories {
     mavenCentral()
 }
 
-val grpcVersion        = "1.80.0"
+val grpcVersion        = "1.81.0"
 val grpcKotlinVersion  = "1.5.0"
 val protobufVersion    = "4.34.1"
 val jjwtVersion        = "0.13.0"
+val coroutinesVersion  = "1.11.0"
 
 configurations.all {
     resolutionStrategy.force(
@@ -62,7 +63,7 @@ dependencies {
     // ── Kotlin ───────────────────────────────────────────────────────────────
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
 
     // ── JWT ──────────────────────────────────────────────────────────────────
     implementation("io.jsonwebtoken:jjwt-api:$jjwtVersion")
@@ -75,10 +76,10 @@ dependencies {
     implementation("io.grpc:grpc-stub:$grpcVersion")
     implementation("io.grpc:grpc-kotlin-stub:$grpcKotlinVersion")
     implementation("com.google.protobuf:protobuf-kotlin:$protobufVersion")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:$coroutinesVersion")
 
     // ── Database ─────────────────────────────────────────────────────────────
-    runtimeOnly("org.postgresql:postgresql:42.7.10")
+    runtimeOnly("org.postgresql:postgresql:42.7.11")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
     // ── Observability ─────────────────────────────────────────────────────────
