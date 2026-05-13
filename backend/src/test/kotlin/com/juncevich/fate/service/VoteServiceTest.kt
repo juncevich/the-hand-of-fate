@@ -3,6 +3,7 @@ package com.juncevich.fate.service
 import com.juncevich.fate.domain.user.User
 import com.juncevich.fate.domain.user.UserRepository
 import com.juncevich.fate.domain.vote.*
+import com.juncevich.fate.web.vote.CreateVoteRequest
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import io.mockk.*
@@ -38,30 +39,79 @@ class VoteServiceTest {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private fun makeUser(id: UUID = UUID.randomUUID(), email: String = "user@test.com") = User(
+        id = id,
         email = email,
         passwordHash = "hash",
         displayName = "Test User",
-    ).also { field ->
-        // Set the id via reflection since it is val
-        val idField = field.javaClass.getDeclaredField("id")
-        idField.isAccessible = true
-        idField.set(field, id)
-    }
+    )
 
     private fun makeVote(
         id: UUID = UUID.randomUUID(),
         creator: User,
         mode: VoteMode = VoteMode.SIMPLE,
         status: VoteStatus = VoteStatus.PENDING,
-    ) = Vote(title = "Test Vote", creator = creator, mode = mode)
-        .also { v ->
-            v.status = status
-            val idField = v.javaClass.getDeclaredField("id")
-            idField.isAccessible = true
-            idField.set(v, id)
-        }
+    ) = Vote(id = id, title = "Test Vote", creator = creator, mode = mode).also { it.status = status }
 
     // ── addParticipant ────────────────────────────────────────────────────────
+
+    // ── createVote ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `createVote - creates vote, participants, options and sends invitations`() {
+        val creator = makeUser()
+        val vote = makeVote(creator = creator)
+        val participant = VoteParticipant(vote = vote, email = creator.email)
+
+        every { userRepository.findById(creator.id) } returns Optional.of(creator)
+        every { voteRepository.save(any()) } returns vote
+        every { userRepository.findByEmail(creator.email) } returns creator
+        every { userRepository.findByEmail("p@test.com") } returns null
+        every { participantRepository.save(any()) } returns participant
+        every { voteOptionRepository.save(any()) } answers { firstArg() }
+
+        val request = CreateVoteRequest(
+            title = "Vote",
+            description = null,
+            mode = VoteMode.SIMPLE,
+            participantEmails = listOf("p@test.com"),
+            options = listOf("Option A", "Option B"),
+        )
+
+        voteService.createVote(creator.id, request)
+
+        verify(exactly = 2) { participantRepository.save(any()) }
+        verify(exactly = 2) { voteOptionRepository.save(any()) }
+        verify { notificationService.notifyVoteInvitation("p@test.com", vote) }
+        verify(exactly = 0) { notificationService.notifyVoteInvitation(creator.email, any()) }
+    }
+
+    @Test
+    fun `getVote - throws when requester has no access`() {
+        val creator = makeUser()
+        val requester = makeUser(email = "other@test.com")
+        val vote = makeVote(creator = creator)
+
+        every { voteRepository.findById(vote.id) } returns Optional.of(vote)
+        every { participantRepository.existsByVoteIdAndEmail(vote.id, requester.email) } returns false
+
+        assertThrows<IllegalStateException> {
+            voteService.getVote(vote.id, requester.id, requester.email)
+        }
+    }
+
+    @Test
+    fun `getHistory - throws when requester has no access`() {
+        val creator = makeUser()
+        val requester = makeUser(email = "other@test.com")
+        val vote = makeVote(creator = creator)
+
+        every { voteRepository.findById(vote.id) } returns Optional.of(vote)
+        every { participantRepository.existsByVoteIdAndEmail(vote.id, requester.email) } returns false
+
+        assertThrows<IllegalStateException> {
+            voteService.getHistory(vote.id, requester.id, requester.email)
+        }
+    }
 
     @Test
     fun `addParticipant - throws when requester is not the creator`() {
@@ -268,5 +318,20 @@ class VoteServiceTest {
         voteService.reopen(vote.id, creator.id)
 
         verify { drawService.reopen(vote.id) }
+    }
+
+    @Test
+    fun `removeOption - deletes only option belonging to vote`() {
+        val creator = makeUser()
+        val vote = makeVote(creator = creator)
+        val optionId = UUID.randomUUID()
+
+        every { voteRepository.findById(vote.id) } returns Optional.of(vote)
+        every { voteOptionRepository.deleteByVoteIdAndId(vote.id, optionId) } just Runs
+
+        voteService.removeOption(vote.id, creator.id, optionId)
+
+        verify { voteOptionRepository.deleteByVoteIdAndId(vote.id, optionId) }
+        verify(exactly = 0) { voteOptionRepository.deleteById(any()) }
     }
 }

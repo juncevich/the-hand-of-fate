@@ -506,9 +506,9 @@ func TestHandleDraw(t *testing.T) {
 			wantContains: "Нет участников",
 		},
 		{
-			name:   "PERMISSION_DENIED",
-			voteID: "v1",
-			client: &fakeFateClient{drawErr: status.Error(codes.PermissionDenied, "x")},
+			name:         "PERMISSION_DENIED",
+			voteID:       "v1",
+			client:       &fakeFateClient{drawErr: status.Error(codes.PermissionDenied, "x")},
 			wantContains: "нет прав",
 		},
 		{

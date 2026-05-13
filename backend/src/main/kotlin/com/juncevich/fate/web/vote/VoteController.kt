@@ -34,7 +34,7 @@ class VoteController(private val voteService: VoteService) {
     fun getVote(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
-    ): VoteDetailDto = voteService.getVote(id, user.id)
+    ): VoteDetailDto = voteService.getVote(id, user.id, user.email)
 
     @DeleteMapping("/{id}")
     fun deleteVote(
@@ -119,6 +119,9 @@ class VoteController(private val voteService: VoteService) {
     }
 
     @GetMapping("/{id}/history")
-    fun getHistory(@PathVariable id: UUID): List<DrawHistoryDto> =
-        voteService.getHistory(id).map { it.toDto() }
+    fun getHistory(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+        @PathVariable id: UUID,
+    ): List<DrawHistoryDto> =
+        voteService.getHistory(id, user.id, user.email).map { it.toDto() }
 }

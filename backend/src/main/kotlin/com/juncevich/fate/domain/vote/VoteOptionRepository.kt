@@ -10,6 +10,8 @@ interface VoteOptionRepository : JpaRepository<VoteOption, UUID> {
 
     fun countByVoteId(voteId: UUID): Long
 
+    fun deleteByVoteIdAndId(voteId: UUID, id: UUID)
+
     @Query("""
         SELECT o FROM VoteOption o
         WHERE o.vote.id = :voteId

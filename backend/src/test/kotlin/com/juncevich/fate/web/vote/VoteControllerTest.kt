@@ -126,7 +126,7 @@ class VoteControllerTest {
 
     @Test
     fun `GET vote by id - returns vote detail`() {
-        every { voteService.getVote(voteId, userId) } returns detailDto()
+        every { voteService.getVote(voteId, userId, "user@test.com") } returns detailDto()
 
         mockMvc.get("/api/v1/votes/$voteId").andExpect {
             status { isOk() }
@@ -220,11 +220,13 @@ class VoteControllerTest {
 
     @Test
     fun `GET history - returns list`() {
-        every { voteService.getHistory(voteId) } returns emptyList()
+        every { voteService.getHistory(voteId, userId, "user@test.com") } returns emptyList()
 
         mockMvc.get("/api/v1/votes/$voteId/history").andExpect {
             status { isOk() }
             jsonPath("$") { isArray() }
         }
+
+        verify { voteService.getHistory(voteId, userId, "user@test.com") }
     }
 }

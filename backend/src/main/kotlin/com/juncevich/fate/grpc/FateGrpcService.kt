@@ -80,14 +80,17 @@ class FateGrpcService(
             pageable = PageRequest.of(0, 20),
         )
 
+        val voteIds = votes.content.map { it.id }
+        val participantCounts = if (voteIds.isEmpty()) emptyMap()
+            else participantRepository.countByVoteIds(voteIds).associate { it.voteId to it.participantCount }
+
         val summaries = votes.content.map { vote ->
-            val count = participantRepository.countByVoteId(vote.id)
             VoteSummary.newBuilder()
                 .setVoteId(vote.id.toString())
                 .setTitle(vote.title)
                 .setStatus(vote.status.toProto())
                 .setMode(vote.mode.toProto())
-                .setParticipantCount(count.toInt())
+                .setParticipantCount((participantCounts[vote.id] ?: 0).toInt())
                 .setIsCreator(vote.creator.id == user.id)
                 .setCurrentRound(vote.currentRound)
                 .build()
@@ -208,7 +211,9 @@ class FateGrpcService(
 
     override suspend fun getLastDrawResult(request: GetLastDrawResultRequest): GetLastDrawResultResponse {
         val voteId = parseVoteId(request.voteId)
-        if (request.telegramId != 0L) {
+        // proto3 default for int64 is 0; treat 0 as "no auth provided"
+        val hasCaller = request.telegramId != 0L
+        if (hasCaller) {
             val user = linkedUser(request.telegramId)
             val vote = voteRepository.findById(voteId)
                 .orElseThrow { StatusRuntimeException(Status.NOT_FOUND.withDescription("Vote not found")) }
@@ -233,7 +238,7 @@ class FateGrpcService(
             .orElseThrow { StatusRuntimeException(Status.NOT_FOUND.withDescription("Vote not found")) }
         requireVoteAccess(vote.id, vote.creator.id, user.id, user.email)
 
-        val results = voteService.getHistory(voteId).map { it.toDrawResultInfo() }
+        val results = voteService.getHistory(voteId, user.id, user.email).map { it.toDrawResultInfo() }
         return GetVoteHistoryResponse.newBuilder().addAllResults(results).build()
     }
 

@@ -49,10 +49,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
+        include: health,prometheus
   endpoint:
     health:
-      show-details: always
+      show-details: ${MANAGEMENT_HEALTH_SHOW_DETAILS:never}
       probes:
         enabled: true
   tracing:
@@ -79,3 +79,4 @@ jwt:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}

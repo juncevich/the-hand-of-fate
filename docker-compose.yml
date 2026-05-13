@@ -29,7 +29,8 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"   # HTTP REST
-      - "9090:9090"   # gRPC
+    expose:
+      - "9090"        # gRPC is internal-only for the Telegram bot
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/fate
       DB_USERNAME: fate
@@ -40,6 +41,7 @@ services:
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
       FRONTEND_URL: http://localhost:3000
+      REFRESH_COOKIE_SECURE: "false"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     depends_on:
       postgres:

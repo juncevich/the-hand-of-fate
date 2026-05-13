@@ -14,9 +14,11 @@ node_modules/
 
 # ── Go / Bot ──────────────────────────────────────────────────────────────────
 /bot/bot
+.gocache/
 
 # ── Gradle ────────────────────────────────────────────────────────────────────
 .gradle/
+.gradle-home/
 gradle-app.setting
 !gradle/wrapper/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.properties

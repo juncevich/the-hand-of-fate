@@ -16,13 +16,17 @@ data class LoginRequest(
 )
 
 data class RefreshRequest(
-    @field:NotBlank val refreshToken: String,
+    val refreshToken: String? = null,
 )
 
 data class AuthResponse(
     val accessToken: String,
-    val refreshToken: String,
     val userId: String,
     val email: String,
     val displayName: String,
+)
+
+data class AuthTokens(
+    val response: AuthResponse,
+    val refreshToken: String,
 )

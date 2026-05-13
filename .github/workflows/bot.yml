@@ -27,7 +27,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
           cache-dependency-path: bot/go.mod
 
       - uses: bufbuild/buf-setup-action@v1
@@ -43,7 +43,11 @@ jobs:
       - name: Download dependencies
         run: cd bot && go mod download
 
+      - name: Check formatting
+        run: test -z "$(gofmt -l bot)"
+
       - run: cd bot && go vet ./...
+      - run: cd bot && go run honnef.co/go/tools/cmd/staticcheck@latest ./...
       - run: cd bot && go test ./...
 
   build-bot:
@@ -57,7 +61,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
           cache-dependency-path: bot/go.mod
 
       - uses: bufbuild/buf-setup-action@v1

@@ -1,5 +1,6 @@
 package com.juncevich.fate.web.auth
 
+import com.juncevich.fate.config.JwtProperties
 import com.juncevich.fate.security.AuthenticatedUser
 import com.juncevich.fate.service.AuthService
 import com.juncevich.fate.web.common.ErrorHandler
@@ -26,7 +27,12 @@ class AuthControllerTest {
 
     @BeforeEach
     fun setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(AuthController(authService))
+        mockMvc = MockMvcBuilders.standaloneSetup(
+            AuthController(
+                authService,
+                JwtProperties("test-secret-that-is-definitely-long-enough-for-hmac-sha256"),
+            )
+        )
             .setControllerAdvice(ErrorHandler())
             .setCustomArgumentResolvers(AuthenticationPrincipalArgumentResolver())
             .build()
@@ -37,12 +43,14 @@ class AuthControllerTest {
         SecurityContextHolder.clearContext()
     }
 
-    private fun authResponse() = AuthResponse(
-        accessToken = "access-token",
+    private fun authTokens() = AuthTokens(
+        response = AuthResponse(
+            accessToken = "access-token",
+            userId = UUID.randomUUID().toString(),
+            email = "user@test.com",
+            displayName = "User",
+        ),
         refreshToken = "refresh-token",
-        userId = UUID.randomUUID().toString(),
-        email = "user@test.com",
-        displayName = "User",
     )
 
     private fun setAuth(id: UUID = UUID.randomUUID()) {
@@ -55,7 +63,7 @@ class AuthControllerTest {
 
     @Test
     fun `POST register - valid body - returns 201`() {
-        every { authService.register(any()) } returns authResponse()
+        every { authService.register(any()) } returns authTokens()
 
         mockMvc.post("/api/v1/auth/register") {
             contentType = MediaType.APPLICATION_JSON
@@ -63,6 +71,7 @@ class AuthControllerTest {
         }.andExpect {
             status { isCreated() }
             jsonPath("$.accessToken") { value("access-token") }
+            header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
         }
     }
 
@@ -103,7 +112,7 @@ class AuthControllerTest {
 
     @Test
     fun `POST login - valid credentials - returns 200`() {
-        every { authService.login(any(), any()) } returns authResponse()
+        every { authService.login(any(), any()) } returns authTokens()
 
         mockMvc.post("/api/v1/auth/login") {
             contentType = MediaType.APPLICATION_JSON
@@ -111,6 +120,7 @@ class AuthControllerTest {
         }.andExpect {
             status { isOk() }
             jsonPath("$.accessToken") { value("access-token") }
+            header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
         }
     }
 
@@ -128,13 +138,14 @@ class AuthControllerTest {
 
     @Test
     fun `POST refresh - valid token - returns 200`() {
-        every { authService.refresh(any()) } returns authResponse()
+        every { authService.refresh(any()) } returns authTokens()
 
         mockMvc.post("/api/v1/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """{"refreshToken":"some-token"}"""
         }.andExpect {
             status { isOk() }
+            header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
         }
     }
 

@@ -108,7 +108,7 @@ class FateGrpcServiceTest {
 
         every { userRepository.findByTelegramId(42) } returns user
         every { voteRepository.findById(vote.id) } returns Optional.of(vote)
-        every { voteService.getHistory(vote.id) } returns history
+        every { voteService.getHistory(vote.id, user.id, user.email) } returns history
 
         val response = service.getVoteHistory(
             GetVoteHistoryRequest.newBuilder()

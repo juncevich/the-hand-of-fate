@@ -76,7 +76,6 @@ describe('RegisterPage', () => {
     const { authApi } = await import('@/api/auth')
     vi.mocked(authApi.register).mockResolvedValueOnce({
       accessToken: 'tok',
-      refreshToken: 'refresh',
       userId: '1',
       email: 'ivan@example.com',
       displayName: 'Ivan',
@@ -143,7 +142,6 @@ describe('RegisterPage', () => {
     const { authApi } = await import('@/api/auth')
     vi.mocked(authApi.register).mockResolvedValueOnce({
       accessToken: 'tok',
-      refreshToken: 'refresh',
       userId: '1',
       email: 'ivan@example.com',
       displayName: 'Ivan',

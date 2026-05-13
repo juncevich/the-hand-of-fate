@@ -7,6 +7,7 @@ import com.juncevich.fate.domain.user.User
 import com.juncevich.fate.domain.user.UserRepository
 import com.juncevich.fate.security.JwtTokenProvider
 import com.juncevich.fate.web.auth.AuthResponse
+import com.juncevich.fate.web.auth.AuthTokens
 import com.juncevich.fate.web.auth.RegisterRequest
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -26,7 +27,7 @@ class AuthService(
     private val jwtProperties: JwtProperties,
 ) {
 
-    fun register(request: RegisterRequest): AuthResponse {
+    fun register(request: RegisterRequest): AuthTokens {
         if (userRepository.existsByEmail(request.email)) {
             error("Email already registered")
         }
@@ -42,7 +43,7 @@ class AuthService(
         return issueTokens(user)
     }
 
-    fun login(email: String, password: String): AuthResponse {
+    fun login(email: String, password: String): AuthTokens {
         val user = userRepository.findByEmail(email.lowercase().trim())
             ?: error("Invalid credentials")
         if (!passwordEncoder.matches(password, user.passwordHash)) {
@@ -51,7 +52,7 @@ class AuthService(
         return issueTokens(user)
     }
 
-    fun refresh(rawRefreshToken: String): AuthResponse {
+    fun refresh(rawRefreshToken: String): AuthTokens {
         val hash = hashToken(rawRefreshToken)
         val stored = refreshTokenRepository.findByTokenHash(hash)
             ?: error("Refresh token not found")
@@ -74,7 +75,7 @@ class AuthService(
         refreshTokenRepository.deleteAllByUserId(userId)
     }
 
-    private fun issueTokens(user: User): AuthResponse {
+    private fun issueTokens(user: User): AuthTokens {
         val accessToken = jwtTokenProvider.createAccessToken(user.id, user.email)
         val rawRefresh = UUID.randomUUID().toString()
         val expiresAt = Instant.now().plusSeconds(jwtProperties.refreshTtlDays * 24 * 3600)
@@ -86,12 +87,14 @@ class AuthService(
                 expiresAt = expiresAt,
             )
         )
-        return AuthResponse(
-            accessToken = accessToken,
+        return AuthTokens(
+            response = AuthResponse(
+                accessToken = accessToken,
+                userId = user.id.toString(),
+                email = user.email,
+                displayName = user.displayName,
+            ),
             refreshToken = rawRefresh,
-            userId = user.id.toString(),
-            email = user.email,
-            displayName = user.displayName,
         )
     }
 

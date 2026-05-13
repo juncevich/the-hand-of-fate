@@ -52,9 +52,9 @@ class AuthServiceTest {
 
         val result = authService.register(request)
 
-        assertEquals("access-token", result.accessToken)
+        assertEquals("access-token", result.response.accessToken)
         assertNotNull(result.refreshToken)
-        assertEquals(request.email, result.email)
+        assertEquals(request.email, result.response.email)
         verify { userRepository.save(any()) }
         verify { refreshTokenRepository.save(any()) }
     }
@@ -98,9 +98,9 @@ class AuthServiceTest {
 
         val result = authService.login("user@test.com", "correctPass")
 
-        assertEquals("access-token", result.accessToken)
+        assertEquals("access-token", result.response.accessToken)
         assertNotNull(result.refreshToken)
-        assertEquals("user@test.com", result.email)
+        assertEquals("user@test.com", result.response.email)
     }
 
     @Test
@@ -152,7 +152,7 @@ class AuthServiceTest {
 
         val result = authService.refresh("raw-token")
 
-        assertEquals("new-access-token", result.accessToken)
+        assertEquals("new-access-token", result.response.accessToken)
         verify { refreshTokenRepository.delete(storedToken) }
     }
 

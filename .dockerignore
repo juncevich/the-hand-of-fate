@@ -1,0 +1,13 @@
+.git
+.github
+.idea
+.claude
+**/.idea
+**/build
+**/dist
+**/node_modules
+**/.gradle-home
+**/.gradle
+**/coverage
+**/*.log
+.env

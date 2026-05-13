@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
 import { authApi } from '@/api/auth'
@@ -11,8 +11,15 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { VoteDetailPage } from '@/pages/VoteDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children, isAuthReady }: { children: React.ReactNode; isAuthReady: boolean }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  if (!isAuthReady) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-fate-gold)] border-t-transparent" />
+      </div>
+    )
+  }
   if (!isAuthenticated) return <Navigate to="/login" replace />
   return <>{children}</>
 }
@@ -20,6 +27,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   const setAuth = useAuthStore((s) => s.setAuth)
   const theme = useThemeStore((s) => s.theme)
+  const [isAuthReady, setIsAuthReady] = useState(false)
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light')
@@ -33,6 +41,7 @@ export default function App() {
       .catch(() => {
         /* not logged in — that's fine */
       })
+      .finally(() => setIsAuthReady(true))
   }, [setAuth])
 
   return (
@@ -51,7 +60,7 @@ export default function App() {
         <Route
           path="/"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute isAuthReady={isAuthReady}>
               <AppShell />
             </ProtectedRoute>
           }

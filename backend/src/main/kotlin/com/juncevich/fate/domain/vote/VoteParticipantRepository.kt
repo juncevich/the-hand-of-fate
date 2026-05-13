@@ -25,4 +25,17 @@ interface VoteParticipantRepository : JpaRepository<VoteParticipant, UUID> {
 
     @Query("SELECT COUNT(p) FROM VoteParticipant p WHERE p.vote.id = :voteId")
     fun countByVoteId(voteId: UUID): Long
+
+    @Query("""
+        SELECT p.vote.id AS voteId, COUNT(p) AS participantCount
+        FROM VoteParticipant p
+        WHERE p.vote.id IN :voteIds
+        GROUP BY p.vote.id
+    """)
+    fun countByVoteIds(voteIds: Collection<UUID>): List<VoteParticipantCount>
+}
+
+interface VoteParticipantCount {
+    val voteId: UUID
+    val participantCount: Long
 }
