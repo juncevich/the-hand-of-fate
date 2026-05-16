@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.Instant
-import java.util.Optional
 import java.util.UUID
 import com.juncevich.fate.vote.VoteMode as DomainVoteMode
 import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
@@ -21,7 +20,6 @@ class FateGrpcServiceTest {
     private val userRepository = mockk<UserRepository>()
     private val voteRepository = mockk<VoteRepository>()
     private val participantRepository = mockk<VoteParticipantRepository>()
-    private val voteOptionRepository = mockk<VoteOptionRepository>()
     private val drawHistoryRepository = mockk<DrawHistoryRepository>()
     private val telegramLinkService = mockk<TelegramLinkService>()
     private val voteService = mockk<VoteService>()
@@ -31,7 +29,6 @@ class FateGrpcServiceTest {
             userRepository = userRepository,
             voteRepository = voteRepository,
             participantRepository = participantRepository,
-            voteOptionRepository = voteOptionRepository,
             drawHistoryRepository = drawHistoryRepository,
             telegramLinkService = telegramLinkService,
             voteService = voteService
@@ -108,7 +105,6 @@ class FateGrpcServiceTest {
                 )
 
             every { userRepository.findByTelegramId(42) } returns user
-            every { voteRepository.findById(vote.id) } returns Optional.of(vote)
             every { voteService.getHistory(vote.id, user.id, user.email) } returns history
 
             val response =

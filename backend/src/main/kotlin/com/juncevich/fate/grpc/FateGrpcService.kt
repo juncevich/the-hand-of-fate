@@ -18,7 +18,6 @@ class FateGrpcService(
     private val userRepository: UserRepository,
     private val voteRepository: VoteRepository,
     private val participantRepository: VoteParticipantRepository,
-    private val voteOptionRepository: VoteOptionRepository,
     private val drawHistoryRepository: DrawHistoryRepository,
     private val telegramLinkService: TelegramLinkService,
     private val voteService: VoteService,
@@ -62,41 +61,21 @@ class FateGrpcService(
         }
 
     override suspend fun getMyVotes(request: GetMyVotesRequest): GetMyVotesResponse {
-        val user =
-            userRepository.findByTelegramId(request.telegramId)
-                ?: throw StatusRuntimeException(
-                    Status.NOT_FOUND.withDescription("Telegram account not linked. Use /link <token> first.")
-                )
-
-        val votes =
-            voteRepository.findAllByUserIdOrParticipantEmail(
-                userId = user.id,
-                email = user.email,
-                pageable = PageRequest.of(0, 20)
-            )
-
-        val voteIds = votes.content.map { it.id }
-        val participantCounts =
-            if (voteIds.isEmpty()) {
-                emptyMap()
-            } else {
-                participantRepository.countByVoteIds(voteIds).associate { it.voteId to it.participantCount }
-            }
-
+        val user = linkedUser(request.telegramId)
+        val page = voteService.listVotes(user.id, user.email, PageRequest.of(0, 20))
         val summaries =
-            votes.content.map { vote ->
+            page.content.map { dto ->
                 VoteSummary
                     .newBuilder()
-                    .setVoteId(vote.id.toString())
-                    .setTitle(vote.title)
-                    .setStatus(vote.status.toProto())
-                    .setMode(vote.mode.toProto())
-                    .setParticipantCount((participantCounts[vote.id] ?: 0).toInt())
-                    .setIsCreator(vote.creator.id == user.id)
-                    .setCurrentRound(vote.currentRound)
+                    .setVoteId(dto.id.toString())
+                    .setTitle(dto.title)
+                    .setStatus(dto.status.toProto())
+                    .setMode(dto.mode.toProto())
+                    .setParticipantCount(dto.participantCount.toInt())
+                    .setIsCreator(dto.isCreator)
+                    .setCurrentRound(dto.currentRound)
                     .build()
             }
-
         return GetMyVotesResponse.newBuilder().addAllVotes(summaries).build()
     }
 
@@ -171,17 +150,7 @@ class FateGrpcService(
 
     override suspend fun drawVote(request: DrawVoteRequest): DrawVoteResponse {
         val user = linkedUser(request.telegramId)
-
         val voteId = parseVoteId(request.voteId)
-        val vote =
-            voteRepository
-                .findById(voteId)
-                .orElseThrow { StatusRuntimeException(Status.NOT_FOUND.withDescription("Vote not found")) }
-
-        if (vote.creator.id != user.id) {
-            throw StatusRuntimeException(Status.PERMISSION_DENIED.withDescription("Only the vote creator can draw"))
-        }
-
         return runCatching {
             val result = voteService.draw(voteId, user.id)
             DrawVoteResponse
@@ -227,14 +196,23 @@ class FateGrpcService(
     override suspend fun getVoteHistory(request: GetVoteHistoryRequest): GetVoteHistoryResponse {
         val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
-        val vote =
-            voteRepository
-                .findById(voteId)
-                .orElseThrow { StatusRuntimeException(Status.NOT_FOUND.withDescription("Vote not found")) }
-        requireVoteAccess(vote.id, vote.creator.id, user.id, user.email)
+        val history =
+            runCatching {
+                voteService.getHistory(voteId, user.id, user.email)
+            }.getOrElse { ex ->
+                when (ex) {
+                    is NoSuchElementException -> throw StatusRuntimeException(
+                        Status.NOT_FOUND.withDescription(ex.message)
+                    )
 
-        val results = voteService.getHistory(voteId, user.id, user.email).map { it.toDrawResultInfo() }
-        return GetVoteHistoryResponse.newBuilder().addAllResults(results).build()
+                    is IllegalStateException -> throw StatusRuntimeException(
+                        Status.PERMISSION_DENIED.withDescription(ex.message)
+                    )
+
+                    else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+                }
+            }
+        return GetVoteHistoryResponse.newBuilder().addAllResults(history.map { it.toDrawResultInfo() }).build()
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
