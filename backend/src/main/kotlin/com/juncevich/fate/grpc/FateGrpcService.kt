@@ -1,22 +1,17 @@
 package com.juncevich.fate.grpc
 
-import com.juncevich.fate.domain.user.UserRepository
-import com.juncevich.fate.domain.vote.DrawHistoryRepository
-import com.juncevich.fate.domain.vote.VoteOptionRepository
-import com.juncevich.fate.domain.vote.VoteParticipantRepository
-import com.juncevich.fate.domain.vote.VoteRepository
+import com.juncevich.fate.auth.TelegramLinkService
+import com.juncevich.fate.auth.UserRepository
 import com.juncevich.fate.grpc.FateProto.*
-import com.juncevich.fate.service.TelegramLinkService
-import com.juncevich.fate.service.VoteService
+import com.juncevich.fate.vote.*
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import net.devh.boot.grpc.server.service.GrpcService
 import org.springframework.data.domain.PageRequest
 import java.time.format.DateTimeFormatter
 import java.util.UUID
-import com.juncevich.fate.domain.vote.VoteMode as DomainVoteMode
-import com.juncevich.fate.domain.vote.VoteStatus as DomainVoteStatus
-import com.juncevich.fate.web.vote.CreateVoteRequest as WebCreateVoteRequest
+import com.juncevich.fate.vote.VoteMode as DomainVoteMode
+import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 
 @GrpcService
 class FateGrpcService(
@@ -128,7 +123,7 @@ class FateGrpcService(
                 voteService.createVote(
                     creatorId = user.id,
                     request =
-                        WebCreateVoteRequest(
+                        com.juncevich.fate.vote.CreateVoteRequest(
                             title = title,
                             description = request.description.takeIf { it.isNotBlank() },
                             mode = mode,
@@ -155,48 +150,23 @@ class FateGrpcService(
     override suspend fun getVoteDetails(request: GetVoteDetailsRequest): GetVoteDetailsResponse {
         val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
-        val vote =
-            voteRepository
-                .findById(voteId)
-                .orElseThrow { StatusRuntimeException(Status.NOT_FOUND.withDescription("Vote not found")) }
-        requireVoteAccess(vote.id, vote.creator.id, user.id, user.email)
+        val voteDto =
+            runCatching {
+                voteService.getVote(voteId, user.id, user.email)
+            }.getOrElse { ex ->
+                when (ex) {
+                    is NoSuchElementException -> throw StatusRuntimeException(
+                        Status.NOT_FOUND.withDescription(ex.message)
+                    )
 
-        val participants =
-            participantRepository.findAllByVoteId(vote.id).map { p ->
-                ParticipantInfo
-                    .newBuilder()
-                    .setEmail(p.email)
-                    .setDisplayName(p.displayName ?: "")
-                    .build()
+                    is IllegalStateException -> throw StatusRuntimeException(
+                        Status.PERMISSION_DENIED.withDescription(ex.message)
+                    )
+
+                    else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+                }
             }
-
-        val options =
-            voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id).map { o ->
-                VoteOptionInfo
-                    .newBuilder()
-                    .setOptionId(o.id.toString())
-                    .setTitle(o.title)
-                    .build()
-            }
-
-        val lastDraw = drawHistoryRepository.findTopByVoteIdOrderByDrawnAtDesc(vote.id)
-        val builder =
-            GetVoteDetailsResponse
-                .newBuilder()
-                .setVoteId(vote.id.toString())
-                .setTitle(vote.title)
-                .setDescription(vote.description ?: "")
-                .setMode(vote.mode.toProto())
-                .setStatus(vote.status.toProto())
-                .setCurrentRound(vote.currentRound)
-                .addAllParticipants(participants)
-                .addAllOptions(options)
-
-        lastDraw?.let {
-            builder.setLastResult(it.toDrawResultInfo())
-        }
-
-        return builder.build()
+        return buildVoteDetailsResponse(voteDto)
     }
 
     override suspend fun drawVote(request: DrawVoteRequest): DrawVoteResponse {
@@ -234,19 +204,15 @@ class FateGrpcService(
     }
 
     override suspend fun getLastDrawResult(request: GetLastDrawResultRequest): GetLastDrawResultResponse {
+        val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
-        // proto3 default for int64 is 0; treat 0 as "no auth provided"
-        val hasCaller = request.telegramId != 0L
-        if (hasCaller) {
-            val user = linkedUser(request.telegramId)
-            val vote =
-                voteRepository
-                    .findById(voteId)
-                    .orElseThrow { StatusRuntimeException(Status.NOT_FOUND.withDescription("Vote not found")) }
-            requireVoteAccess(vote.id, vote.creator.id, user.id, user.email)
-        }
-        val lastDraw = drawHistoryRepository.findTopByVoteIdOrderByDrawnAtDesc(voteId)
+        val vote =
+            voteRepository
+                .findById(voteId)
+                .orElseThrow { StatusRuntimeException(Status.NOT_FOUND.withDescription("Vote not found")) }
+        requireVoteAccess(vote.id, vote.creator.id, user.id, user.email)
 
+        val lastDraw = drawHistoryRepository.findTopByVoteIdOrderByDrawnAtDesc(voteId)
         return if (lastDraw == null) {
             GetLastDrawResultResponse.newBuilder().setHasResult(false).build()
         } else {
@@ -273,34 +239,49 @@ class FateGrpcService(
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private fun buildVoteDetailsResponse(vote: com.juncevich.fate.web.vote.VoteDetailDto) =
-        GetVoteDetailsResponse
-            .newBuilder()
-            .setVoteId(vote.id.toString())
-            .setTitle(vote.title)
-            .setDescription(vote.description ?: "")
-            .setMode(vote.mode.toProto())
-            .setStatus(vote.status.toProto())
-            .setCurrentRound(vote.currentRound)
-            .addAllParticipants(
-                vote.participants.map {
-                    ParticipantInfo
-                        .newBuilder()
-                        .setEmail(it.email)
-                        .setDisplayName(it.displayName ?: "")
-                        .build()
-                }
-            ).addAllOptions(
-                vote.options.map {
-                    VoteOptionInfo
-                        .newBuilder()
-                        .setOptionId(it.id.toString())
-                        .setTitle(it.title)
-                        .build()
-                }
-            ).build()
+    private fun buildVoteDetailsResponse(vote: VoteDetailDto): GetVoteDetailsResponse {
+        val builder =
+            GetVoteDetailsResponse
+                .newBuilder()
+                .setVoteId(vote.id.toString())
+                .setTitle(vote.title)
+                .setDescription(vote.description ?: "")
+                .setMode(vote.mode.toProto())
+                .setStatus(vote.status.toProto())
+                .setCurrentRound(vote.currentRound)
+                .addAllParticipants(
+                    vote.participants.map {
+                        ParticipantInfo
+                            .newBuilder()
+                            .setEmail(it.email)
+                            .setDisplayName(it.displayName ?: "")
+                            .build()
+                    }
+                ).addAllOptions(
+                    vote.options.map {
+                        VoteOptionInfo
+                            .newBuilder()
+                            .setOptionId(it.id.toString())
+                            .setTitle(it.title)
+                            .build()
+                    }
+                )
+        vote.lastResult?.let { last ->
+            builder.setLastResult(
+                DrawResultInfo
+                    .newBuilder()
+                    .setWinnerEmail(last.winnerEmail ?: "")
+                    .setWinnerDisplayName(last.winnerDisplayName ?: "")
+                    .setWinnerOptionTitle(last.winnerOptionTitle ?: "")
+                    .setRound(last.round)
+                    .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(last.drawnAt))
+                    .build()
+            )
+        }
+        return builder.build()
+    }
 
-    private fun com.juncevich.fate.domain.vote.DrawHistory.toDrawResultInfo(): DrawResultInfo =
+    private fun DrawHistory.toDrawResultInfo(): DrawResultInfo =
         DrawResultInfo
             .newBuilder()
             .setWinnerEmail(winnerEmail ?: "")

@@ -1,17 +1,10 @@
 package com.juncevich.fate.grpc
 
-import com.juncevich.fate.domain.user.User
-import com.juncevich.fate.domain.user.UserRepository
-import com.juncevich.fate.domain.vote.DrawHistory
-import com.juncevich.fate.domain.vote.DrawHistoryRepository
-import com.juncevich.fate.domain.vote.Vote
-import com.juncevich.fate.domain.vote.VoteOptionRepository
-import com.juncevich.fate.domain.vote.VoteParticipantRepository
-import com.juncevich.fate.domain.vote.VoteRepository
-import com.juncevich.fate.service.TelegramLinkService
-import com.juncevich.fate.service.VoteService
-import com.juncevich.fate.web.vote.ParticipantDto
-import com.juncevich.fate.web.vote.VoteDetailDto
+import com.juncevich.fate.auth.TelegramLinkService
+import com.juncevich.fate.auth.User
+import com.juncevich.fate.auth.UserRepository
+import com.juncevich.fate.grpc.FateProto.*
+import com.juncevich.fate.vote.*
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -21,8 +14,8 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 import java.util.Optional
 import java.util.UUID
-import com.juncevich.fate.domain.vote.VoteMode as DomainVoteMode
-import com.juncevich.fate.domain.vote.VoteStatus as DomainVoteStatus
+import com.juncevich.fate.vote.VoteMode as DomainVoteMode
+import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 
 class FateGrpcServiceTest {
     private val userRepository = mockk<UserRepository>()

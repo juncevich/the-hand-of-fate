@@ -38,11 +38,12 @@ repositories {
     mavenCentral()
 }
 
-val grpcVersion        = "1.81.0"
-val grpcKotlinVersion  = "1.5.0"
-val protobufVersion    = "4.34.1"
-val jjwtVersion        = "0.13.0"
-val coroutinesVersion  = "1.11.0"
+val grpcVersion          = "1.81.0"
+val grpcKotlinVersion    = "1.5.0"
+val protobufVersion      = "4.34.1"
+val jjwtVersion          = "0.13.0"
+val coroutinesVersion    = "1.11.0"
+val modulithVersion      = "2.0.0"
 
 configurations.all {
     resolutionStrategy.force(
@@ -55,6 +56,12 @@ configurations.all {
 }
 
 dependencies {
+    // ── Spring Modulith ───────────────────────────────────────────────────────
+    implementation(platform("org.springframework.modulith:spring-modulith-bom:$modulithVersion"))
+    implementation("org.springframework.modulith:spring-modulith-starter-core")
+    implementation("org.springframework.modulith:spring-modulith-actuator")
+    testImplementation("org.springframework.modulith:spring-modulith-starter-test")
+
     // ── Spring Boot ─────────────────────────────────────────────────────────
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-security")
