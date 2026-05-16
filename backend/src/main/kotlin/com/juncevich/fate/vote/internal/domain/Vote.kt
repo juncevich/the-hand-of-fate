@@ -1,16 +1,14 @@
-package com.juncevich.fate.vote
+package com.juncevich.fate.vote.internal.domain
 
 import com.juncevich.fate.auth.User
+import com.juncevich.fate.vote.VoteMode
+import com.juncevich.fate.vote.VoteStatus
 import jakarta.persistence.*
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.Instant
 import java.util.UUID
-
-enum class VoteMode { SIMPLE, FAIR_ROTATION }
-
-enum class VoteStatus { PENDING, DRAWN, CLOSED }
 
 @Entity
 @Table(name = "votes")

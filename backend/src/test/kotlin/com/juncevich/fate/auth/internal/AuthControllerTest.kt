@@ -6,7 +6,7 @@ import com.juncevich.fate.auth.internal.service.AuthService
 import com.juncevich.fate.auth.internal.service.AuthTokens
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.web.AuthController
-import com.juncevich.fate.shared.ErrorHandler
+import com.juncevich.fate.shared.internal.config.ErrorHandler
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify

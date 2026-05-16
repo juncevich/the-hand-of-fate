@@ -1,14 +1,14 @@
 package com.juncevich.fate.vote.internal.persistence
 
-import com.juncevich.fate.vote.DrawHistory
 import com.juncevich.fate.vote.DrawHistoryDto
 import com.juncevich.fate.vote.ParticipantDto
-import com.juncevich.fate.vote.Vote
 import com.juncevich.fate.vote.VoteDetailDto
-import com.juncevich.fate.vote.VoteOption
 import com.juncevich.fate.vote.VoteOptionDto
-import com.juncevich.fate.vote.VoteParticipant
 import com.juncevich.fate.vote.VoteSummaryDto
+import com.juncevich.fate.vote.internal.domain.DrawHistory
+import com.juncevich.fate.vote.internal.domain.Vote
+import com.juncevich.fate.vote.internal.domain.VoteOption
+import com.juncevich.fate.vote.internal.domain.VoteParticipant
 import java.util.UUID
 
 fun Vote.toSummaryDto(

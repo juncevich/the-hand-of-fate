@@ -1,7 +1,11 @@
 package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.User
-import com.juncevich.fate.auth.UserRepository
+import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.vote.internal.DrawService
+import com.juncevich.fate.vote.internal.domain.Vote
+import com.juncevich.fate.vote.internal.domain.VoteOption
+import com.juncevich.fate.vote.internal.domain.VoteParticipant
 import com.juncevich.fate.vote.internal.notification.NotificationService
 import com.juncevich.fate.vote.internal.persistence.DrawHistoryRepository
 import com.juncevich.fate.vote.internal.persistence.VoteOptionRepository
@@ -22,7 +26,7 @@ class VoteServiceTest {
     private val participantRepository = mockk<VoteParticipantRepository>()
     private val voteOptionRepository = mockk<VoteOptionRepository>()
     private val drawHistoryRepository = mockk<DrawHistoryRepository>()
-    private val userRepository = mockk<UserRepository>()
+    private val userQueryService = mockk<UserQueryService>()
     private val drawService = mockk<DrawService>()
     private val notificationService = mockk<NotificationService>(relaxed = true)
     private val meterRegistry = mockk<MeterRegistry>()
@@ -34,7 +38,7 @@ class VoteServiceTest {
             participantRepository,
             voteOptionRepository,
             drawHistoryRepository,
-            userRepository,
+            userQueryService,
             drawService,
             notificationService,
             meterRegistry
@@ -63,9 +67,9 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
         val participant = VoteParticipant(vote = vote, email = creator.email)
 
-        every { userRepository.findById(creator.id) } returns Optional.of(creator)
+        every { userQueryService.findById(creator.id) } returns creator
         every { voteRepository.save(any()) } returns vote
-        every { userRepository.findAllByEmailIn(any()) } returns listOf(creator)
+        every { userQueryService.findAllByEmailIn(any()) } returns listOf(creator)
         every { participantRepository.saveAll(any<List<VoteParticipant>>()) } returns listOf(participant)
         every { voteOptionRepository.saveAll(any<List<VoteOption>>()) } answers { firstArg() }
 
@@ -160,7 +164,7 @@ class VoteServiceTest {
 
         every { voteRepository.findById(vote.id) } returns Optional.of(vote)
         every { participantRepository.existsByVoteIdAndEmail(vote.id, "new@test.com") } returns false
-        every { userRepository.findByEmail("new@test.com") } returns null
+        every { userQueryService.findByEmail("new@test.com") } returns null
         every { participantRepository.save(any()) } returns participant
 
         voteService.addParticipant(vote.id, creator.id, "new@test.com")

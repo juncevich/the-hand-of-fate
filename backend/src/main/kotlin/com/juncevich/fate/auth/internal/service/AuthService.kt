@@ -1,9 +1,9 @@
 package com.juncevich.fate.auth.internal.service
 
 import com.juncevich.fate.auth.User
-import com.juncevich.fate.auth.UserRepository
 import com.juncevich.fate.auth.internal.persistence.RefreshToken
 import com.juncevich.fate.auth.internal.persistence.RefreshTokenRepository
+import com.juncevich.fate.auth.internal.persistence.UserRepository
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
 import org.springframework.security.authentication.BadCredentialsException

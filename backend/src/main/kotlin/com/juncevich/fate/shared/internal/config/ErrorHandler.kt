@@ -1,4 +1,4 @@
-package com.juncevich.fate.shared
+package com.juncevich.fate.shared.internal.config
 
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus

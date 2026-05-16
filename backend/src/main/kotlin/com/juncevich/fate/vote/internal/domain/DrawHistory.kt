@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote
+package com.juncevich.fate.vote.internal.domain
 
 import jakarta.persistence.*
 import java.time.Instant

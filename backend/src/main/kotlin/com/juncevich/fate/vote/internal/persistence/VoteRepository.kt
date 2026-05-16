@@ -1,6 +1,6 @@
 package com.juncevich.fate.vote.internal.persistence
 
-import com.juncevich.fate.vote.Vote
+import com.juncevich.fate.vote.internal.domain.Vote
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository

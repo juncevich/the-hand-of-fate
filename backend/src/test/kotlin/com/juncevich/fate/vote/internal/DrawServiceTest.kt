@@ -2,6 +2,11 @@ package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.vote.*
+import com.juncevich.fate.vote.internal.DrawService
+import com.juncevich.fate.vote.internal.domain.DrawHistory
+import com.juncevich.fate.vote.internal.domain.Vote
+import com.juncevich.fate.vote.internal.domain.VoteOption
+import com.juncevich.fate.vote.internal.domain.VoteParticipant
 import com.juncevich.fate.vote.internal.persistence.DrawHistoryRepository
 import com.juncevich.fate.vote.internal.persistence.VoteOptionRepository
 import com.juncevich.fate.vote.internal.persistence.VoteParticipantRepository

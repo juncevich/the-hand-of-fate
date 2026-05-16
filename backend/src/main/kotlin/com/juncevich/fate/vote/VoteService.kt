@@ -1,6 +1,11 @@
 package com.juncevich.fate.vote
 
-import com.juncevich.fate.auth.UserRepository
+import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.vote.internal.DrawService
+import com.juncevich.fate.vote.internal.domain.DrawHistory
+import com.juncevich.fate.vote.internal.domain.Vote
+import com.juncevich.fate.vote.internal.domain.VoteOption
+import com.juncevich.fate.vote.internal.domain.VoteParticipant
 import com.juncevich.fate.vote.internal.notification.NotificationService
 import com.juncevich.fate.vote.internal.persistence.DrawHistoryRepository
 import com.juncevich.fate.vote.internal.persistence.VoteOptionRepository
@@ -23,7 +28,7 @@ class VoteService(
     private val participantRepository: VoteParticipantRepository,
     private val voteOptionRepository: VoteOptionRepository,
     private val drawHistoryRepository: DrawHistoryRepository,
-    private val userRepository: UserRepository,
+    private val userQueryService: UserQueryService,
     private val drawService: DrawService,
     private val notificationService: NotificationService,
     private val meterRegistry: MeterRegistry,
@@ -32,7 +37,7 @@ class VoteService(
         creatorId: UUID,
         request: CreateVoteCommand,
     ): VoteDetailDto {
-        val creator = userRepository.findById(creatorId).orElseThrow { NoSuchElementException("User not found") }
+        val creator = userQueryService.findById(creatorId) ?: throw NoSuchElementException("User not found")
 
         val vote =
             voteRepository.save(
@@ -45,7 +50,7 @@ class VoteService(
             )
 
         val allEmails = setOf(creator.email) + request.participantEmails
-        val existingUsers = userRepository.findAllByEmailIn(allEmails).associateBy { it.email }
+        val existingUsers = userQueryService.findAllByEmailIn(allEmails).associateBy { it.email }
         val participants =
             participantRepository.saveAll(
                 allEmails.map { email ->
@@ -120,7 +125,7 @@ class VoteService(
         check(vote.status == VoteStatus.PENDING) { "Cannot add participants to a non-pending vote" }
         check(!participantRepository.existsByVoteIdAndEmail(voteId, email)) { "Participant already exists" }
 
-        val user = userRepository.findByEmail(email)
+        val user = userQueryService.findByEmail(email)
         participantRepository.save(VoteParticipant(vote = vote, email = email, displayName = user?.displayName))
 
         notificationService.notifyVoteInvitation(email, vote)

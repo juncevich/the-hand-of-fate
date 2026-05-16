@@ -1,5 +1,6 @@
-package com.juncevich.fate.auth
+package com.juncevich.fate.auth.internal.persistence
 
+import com.juncevich.fate.auth.User
 import org.springframework.data.jpa.repository.JpaRepository
 import java.util.UUID
 

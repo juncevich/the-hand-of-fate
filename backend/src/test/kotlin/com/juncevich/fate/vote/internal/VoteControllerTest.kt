@@ -1,7 +1,7 @@
 package com.juncevich.fate.vote.internal
 
 import com.juncevich.fate.auth.AuthenticatedUser
-import com.juncevich.fate.shared.ErrorHandler
+import com.juncevich.fate.shared.internal.config.ErrorHandler
 import com.juncevich.fate.vote.*
 import com.juncevich.fate.vote.internal.web.VoteController
 import io.mockk.every

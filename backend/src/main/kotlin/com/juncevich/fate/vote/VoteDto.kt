@@ -3,6 +3,10 @@ package com.juncevich.fate.vote
 import java.time.Instant
 import java.util.UUID
 
+enum class VoteMode { SIMPLE, FAIR_ROTATION }
+
+enum class VoteStatus { PENDING, DRAWN, CLOSED }
+
 data class CreateVoteCommand(
     val title: String,
     val description: String? = null,

@@ -1,7 +1,7 @@
 package com.juncevich.fate.vote.internal.notification
 
 import com.juncevich.fate.vote.DrawResult
-import com.juncevich.fate.vote.Vote
+import com.juncevich.fate.vote.internal.domain.Vote
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Async

@@ -1,5 +1,12 @@
-package com.juncevich.fate.vote
+package com.juncevich.fate.vote.internal
 
+import com.juncevich.fate.vote.DrawResult
+import com.juncevich.fate.vote.VoteMode
+import com.juncevich.fate.vote.VoteStatus
+import com.juncevich.fate.vote.internal.domain.DrawHistory
+import com.juncevich.fate.vote.internal.domain.Vote
+import com.juncevich.fate.vote.internal.domain.VoteOption
+import com.juncevich.fate.vote.internal.domain.VoteParticipant
 import com.juncevich.fate.vote.internal.persistence.DrawHistoryRepository
 import com.juncevich.fate.vote.internal.persistence.VoteOptionRepository
 import com.juncevich.fate.vote.internal.persistence.VoteParticipantRepository
@@ -116,7 +123,6 @@ class DrawService(
         participants: List<VoteParticipant>,
     ): Pair<VoteParticipant, Boolean> {
         var newRoundStarted = false
-
         var eligibleEmails = participantRepository.findEligibleEmailsForRound(vote.id, vote.currentRound)
 
         if (eligibleEmails.isEmpty()) {
@@ -137,7 +143,6 @@ class DrawService(
         options: List<VoteOption>,
     ): Pair<DrawWinner.Option, Boolean> {
         var newRoundStarted = false
-
         var eligibleOptions = voteOptionRepository.findEligibleOptionsForRound(vote.id, vote.currentRound)
 
         if (eligibleOptions.isEmpty()) {

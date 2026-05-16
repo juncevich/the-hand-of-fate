@@ -1,5 +1,6 @@
 package com.juncevich.fate.shared
 
+import com.juncevich.fate.shared.internal.config.ErrorHandler
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test

@@ -1,7 +1,7 @@
 package com.juncevich.fate.grpc
 
 import com.juncevich.fate.auth.TelegramLinkService
-import com.juncevich.fate.auth.UserRepository
+import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.grpc.FateProto.*
 import com.juncevich.fate.vote.*
 import io.grpc.Status
@@ -15,7 +15,7 @@ import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 
 @GrpcService
 class FateGrpcService(
-    private val userRepository: UserRepository,
+    private val userQueryService: UserQueryService,
     private val telegramLinkService: TelegramLinkService,
     private val voteService: VoteService,
 ) : FateServiceGrpcKt.FateServiceCoroutineImplBase() {
@@ -269,7 +269,7 @@ class FateGrpcService(
             .build()
 
     private fun linkedUser(telegramId: Long) =
-        userRepository.findByTelegramId(telegramId)
+        userQueryService.findByTelegramId(telegramId)
             ?: throw StatusRuntimeException(Status.NOT_FOUND.withDescription("Telegram account not linked"))
 
     private fun parseVoteId(value: String): UUID =

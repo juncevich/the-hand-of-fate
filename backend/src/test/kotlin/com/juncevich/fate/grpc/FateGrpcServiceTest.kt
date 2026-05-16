@@ -2,9 +2,10 @@ package com.juncevich.fate.grpc
 
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.User
-import com.juncevich.fate.auth.UserRepository
+import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.grpc.FateProto.*
 import com.juncevich.fate.vote.*
+import com.juncevich.fate.vote.internal.domain.Vote
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -17,13 +18,13 @@ import com.juncevich.fate.vote.VoteMode as DomainVoteMode
 import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 
 class FateGrpcServiceTest {
-    private val userRepository = mockk<UserRepository>()
+    private val userQueryService = mockk<UserQueryService>()
     private val telegramLinkService = mockk<TelegramLinkService>()
     private val voteService = mockk<VoteService>()
 
     private val service =
         FateGrpcService(
-            userRepository = userRepository,
+            userQueryService = userQueryService,
             telegramLinkService = telegramLinkService,
             voteService = voteService
         )
@@ -52,7 +53,7 @@ class FateGrpcServiceTest {
                     createdAt = Instant.parse("2026-04-25T00:00:00Z")
                 )
 
-            every { userRepository.findByTelegramId(42) } returns user
+            every { userQueryService.findByTelegramId(42) } returns user
             every {
                 voteService.createVote(
                     creatorId = user.id,
@@ -99,7 +100,7 @@ class FateGrpcServiceTest {
                     )
                 )
 
-            every { userRepository.findByTelegramId(42) } returns user
+            every { userQueryService.findByTelegramId(42) } returns user
             every { voteService.getHistory(vote.id, user.id, user.email) } returns history
 
             val response =

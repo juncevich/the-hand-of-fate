@@ -2,6 +2,7 @@ package com.juncevich.fate.auth
 
 import com.juncevich.fate.auth.internal.persistence.TelegramLinkToken
 import com.juncevich.fate.auth.internal.persistence.TelegramLinkTokenRepository
+import com.juncevich.fate.auth.internal.persistence.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
