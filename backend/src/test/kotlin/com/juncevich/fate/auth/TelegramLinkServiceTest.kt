@@ -1,7 +1,7 @@
 package com.juncevich.fate.auth
 
-import com.juncevich.fate.auth.internal.TelegramLinkToken
-import com.juncevich.fate.auth.internal.TelegramLinkTokenRepository
+import com.juncevich.fate.auth.internal.persistence.TelegramLinkToken
+import com.juncevich.fate.auth.internal.persistence.TelegramLinkTokenRepository
 import io.mockk.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test

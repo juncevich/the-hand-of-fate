@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote.internal
+package com.juncevich.fate.vote.internal.notification
 
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.mail.javamail.JavaMailSender

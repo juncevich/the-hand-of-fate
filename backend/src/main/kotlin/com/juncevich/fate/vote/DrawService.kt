@@ -1,5 +1,9 @@
 package com.juncevich.fate.vote
 
+import com.juncevich.fate.vote.internal.persistence.DrawHistoryRepository
+import com.juncevich.fate.vote.internal.persistence.VoteOptionRepository
+import com.juncevich.fate.vote.internal.persistence.VoteParticipantRepository
+import com.juncevich.fate.vote.internal.persistence.VoteRepository
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

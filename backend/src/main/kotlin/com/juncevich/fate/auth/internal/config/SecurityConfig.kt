@@ -1,5 +1,6 @@
-package com.juncevich.fate.auth.internal
+package com.juncevich.fate.auth.internal.config
 
+import com.juncevich.fate.auth.internal.token.JwtAuthFilter
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

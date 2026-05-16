@@ -1,7 +1,6 @@
-package com.juncevich.fate.auth.internal
+package com.juncevich.fate.auth.internal.token
 
 import com.juncevich.fate.auth.AuthenticatedUser
-import com.juncevich.fate.auth.JwtTokenProvider
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse

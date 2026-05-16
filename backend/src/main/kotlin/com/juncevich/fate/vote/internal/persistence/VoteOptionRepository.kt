@@ -1,5 +1,6 @@
-package com.juncevich.fate.vote
+package com.juncevich.fate.vote.internal.persistence
 
+import com.juncevich.fate.vote.VoteOption
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import java.util.UUID

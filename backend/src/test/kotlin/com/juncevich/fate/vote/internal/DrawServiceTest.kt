@@ -2,6 +2,10 @@ package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.vote.*
+import com.juncevich.fate.vote.internal.persistence.DrawHistoryRepository
+import com.juncevich.fate.vote.internal.persistence.VoteOptionRepository
+import com.juncevich.fate.vote.internal.persistence.VoteParticipantRepository
+import com.juncevich.fate.vote.internal.persistence.VoteRepository
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import io.mockk.*

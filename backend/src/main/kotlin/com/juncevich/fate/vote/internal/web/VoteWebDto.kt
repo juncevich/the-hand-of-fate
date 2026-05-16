@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote.internal
+package com.juncevich.fate.vote.internal.web
 
 import com.juncevich.fate.vote.CreateVoteCommand
 import com.juncevich.fate.vote.VoteMode

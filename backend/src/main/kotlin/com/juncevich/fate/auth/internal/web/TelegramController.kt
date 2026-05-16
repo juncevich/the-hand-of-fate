@@ -1,4 +1,4 @@
-package com.juncevich.fate.auth.internal
+package com.juncevich.fate.auth.internal.web
 
 import com.juncevich.fate.auth.AuthenticatedUser
 import com.juncevich.fate.auth.TelegramLinkService

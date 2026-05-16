@@ -1,4 +1,4 @@
-package com.juncevich.fate.auth.internal
+package com.juncevich.fate.auth.internal.persistence
 
 import com.juncevich.fate.auth.User
 import jakarta.persistence.*

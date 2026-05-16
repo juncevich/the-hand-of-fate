@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote.internal
+package com.juncevich.fate.vote.internal.notification
 
 import com.juncevich.fate.vote.DrawResult
 import com.juncevich.fate.vote.Vote

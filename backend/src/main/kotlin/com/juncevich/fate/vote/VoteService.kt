@@ -1,7 +1,14 @@
 package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.UserRepository
-import com.juncevich.fate.vote.internal.NotificationService
+import com.juncevich.fate.vote.internal.notification.NotificationService
+import com.juncevich.fate.vote.internal.persistence.DrawHistoryRepository
+import com.juncevich.fate.vote.internal.persistence.VoteOptionRepository
+import com.juncevich.fate.vote.internal.persistence.VoteParticipantRepository
+import com.juncevich.fate.vote.internal.persistence.VoteRepository
+import com.juncevich.fate.vote.internal.persistence.toDetailDto
+import com.juncevich.fate.vote.internal.persistence.toDto
+import com.juncevich.fate.vote.internal.persistence.toSummaryDto
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable

@@ -1,10 +1,11 @@
 package com.juncevich.fate.auth
 
-import com.juncevich.fate.auth.internal.AuthService
-import com.juncevich.fate.auth.internal.JwtProperties
-import com.juncevich.fate.auth.internal.RefreshToken
-import com.juncevich.fate.auth.internal.RefreshTokenRepository
-import com.juncevich.fate.auth.internal.RegisterRequest
+import com.juncevich.fate.auth.internal.persistence.RefreshToken
+import com.juncevich.fate.auth.internal.persistence.RefreshTokenRepository
+import com.juncevich.fate.auth.internal.service.AuthService
+import com.juncevich.fate.auth.internal.service.RegisterRequest
+import com.juncevich.fate.auth.internal.token.JwtProperties
+import com.juncevich.fate.auth.internal.token.JwtTokenProvider
 import io.mockk.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test

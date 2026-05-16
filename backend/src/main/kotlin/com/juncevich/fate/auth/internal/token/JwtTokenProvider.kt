@@ -1,6 +1,5 @@
-package com.juncevich.fate.auth
+package com.juncevich.fate.auth.internal.token
 
-import com.juncevich.fate.auth.internal.JwtProperties
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys

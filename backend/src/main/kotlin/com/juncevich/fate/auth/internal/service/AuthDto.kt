@@ -1,4 +1,4 @@
-package com.juncevich.fate.auth.internal
+package com.juncevich.fate.auth.internal.service
 
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank

@@ -1,4 +1,4 @@
-package com.juncevich.fate.auth.internal
+package com.juncevich.fate.auth.internal.token
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 

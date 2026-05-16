@@ -1,6 +1,13 @@
-package com.juncevich.fate.auth.internal
+package com.juncevich.fate.auth.internal.web
 
 import com.juncevich.fate.auth.AuthenticatedUser
+import com.juncevich.fate.auth.internal.service.AuthResponse
+import com.juncevich.fate.auth.internal.service.AuthService
+import com.juncevich.fate.auth.internal.service.AuthTokens
+import com.juncevich.fate.auth.internal.service.LoginRequest
+import com.juncevich.fate.auth.internal.service.RefreshRequest
+import com.juncevich.fate.auth.internal.service.RegisterRequest
+import com.juncevich.fate.auth.internal.token.JwtProperties
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.beans.factory.annotation.Value

@@ -1,6 +1,7 @@
 package com.juncevich.fate.auth
 
-import com.juncevich.fate.auth.internal.JwtProperties
+import com.juncevich.fate.auth.internal.token.JwtProperties
+import com.juncevich.fate.auth.internal.token.JwtTokenProvider
 import io.jsonwebtoken.JwtException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
