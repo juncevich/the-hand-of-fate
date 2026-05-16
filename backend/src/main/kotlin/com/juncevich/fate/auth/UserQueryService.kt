@@ -1,18 +1,19 @@
 package com.juncevich.fate.auth
 
-import com.juncevich.fate.auth.internal.persistence.UserRepository
+import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import org.springframework.stereotype.Service
 import java.util.UUID
 
 @Service
 class UserQueryService(
-    private val userRepository: UserRepository,
+    private val userRepositoryPort: UserRepositoryPort,
 ) {
-    fun findById(id: UUID): User? = userRepository.findById(id).orElse(null)
+    fun findById(id: UUID): User? = userRepositoryPort.findById(id)
 
-    fun findByEmail(email: String): User? = userRepository.findByEmail(email)
+    fun findByEmail(email: String): User? = userRepositoryPort.findByEmail(email)
 
-    fun findAllByEmailIn(emails: Collection<String>): List<User> = userRepository.findAllByEmailIn(emails)
+    fun findAllByEmailIn(emails: Collection<String>): List<User> =
+        userRepositoryPort.findAllByEmailIn(emails)
 
-    fun findByTelegramId(telegramId: Long): User? = userRepository.findByTelegramId(telegramId)
+    fun findByTelegramId(telegramId: Long): User? = userRepositoryPort.findByTelegramId(telegramId)
 }

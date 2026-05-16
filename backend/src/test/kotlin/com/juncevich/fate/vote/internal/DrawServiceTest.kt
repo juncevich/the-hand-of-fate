@@ -7,10 +7,10 @@ import com.juncevich.fate.vote.internal.domain.DrawHistory
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
 import com.juncevich.fate.vote.internal.domain.VoteParticipant
-import com.juncevich.fate.vote.internal.persistence.DrawHistoryRepository
-import com.juncevich.fate.vote.internal.persistence.VoteOptionRepository
-import com.juncevich.fate.vote.internal.persistence.VoteParticipantRepository
-import com.juncevich.fate.vote.internal.persistence.VoteRepository
+import com.juncevich.fate.vote.internal.port.DrawHistoryRepositoryPort
+import com.juncevich.fate.vote.internal.port.ParticipantRepositoryPort
+import com.juncevich.fate.vote.internal.port.VoteOptionRepositoryPort
+import com.juncevich.fate.vote.internal.port.VoteRepositoryPort
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import io.mockk.*
@@ -20,21 +20,28 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class DrawServiceTest {
-    private val voteRepository = mockk<VoteRepository>()
-    private val participantRepository = mockk<VoteParticipantRepository>()
-    private val voteOptionRepository = mockk<VoteOptionRepository>()
-    private val drawHistoryRepository = mockk<DrawHistoryRepository>()
+    private val voteRepositoryPort = mockk<VoteRepositoryPort>()
+    private val participantRepositoryPort = mockk<ParticipantRepositoryPort>()
+    private val voteOptionRepositoryPort = mockk<VoteOptionRepositoryPort>()
+    private val drawHistoryRepositoryPort = mockk<DrawHistoryRepositoryPort>()
     private val meterRegistry = mockk<MeterRegistry>()
     private val counter = mockk<Counter>(relaxed = true)
 
-    private val drawService = DrawService(voteRepository, participantRepository, voteOptionRepository, drawHistoryRepository, meterRegistry)
+    private val drawService = DrawService(
+        voteRepositoryPort,
+        participantRepositoryPort,
+        voteOptionRepositoryPort,
+        drawHistoryRepositoryPort,
+        meterRegistry,
+    )
 
     @BeforeEach
     fun setUp() {
         every { meterRegistry.counter(any<String>(), *anyVararg<String>()) } returns counter
     }
 
-    private fun makeUser(email: String = "creator@test.com") = User(email = email, passwordHash = "hash", displayName = "Test User")
+    private fun makeUser(email: String = "creator@test.com") =
+        User(email = email, passwordHash = "hash", displayName = "Test User")
 
     private fun makeVote(
         mode: VoteMode = VoteMode.SIMPLE,
@@ -45,13 +52,13 @@ class DrawServiceTest {
         vote: Vote,
         email: String,
         displayName: String? = null,
-    ) = VoteParticipant(vote = vote, email = email, displayName = displayName)
+    ) = VoteParticipant(voteId = vote.id, email = email, displayName = displayName)
 
     private fun makeHistory(
         vote: Vote,
         winnerEmail: String,
         round: Int = 1,
-    ) = DrawHistory(vote = vote, winnerEmail = winnerEmail, winnerDisplayName = null, round = round)
+    ) = DrawHistory(voteId = vote.id, winnerEmail = winnerEmail, winnerDisplayName = null, round = round)
 
     @Test
     fun `draw SIMPLE - picks the only participant as winner`() {
@@ -59,10 +66,10 @@ class DrawServiceTest {
         val p1 = makeParticipant(vote, "winner@test.com", "Winner")
         val history = makeHistory(vote, p1.email)
 
-        every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
-        every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1)
-        every { drawHistoryRepository.save(any()) } returns history
-        every { voteRepository.save(any()) } returns vote
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
+        every { participantRepositoryPort.findAllByVoteId(vote.id) } returns listOf(p1)
+        every { drawHistoryRepositoryPort.save(any()) } returns history
+        every { voteRepositoryPort.save(any()) } returns vote
 
         val result = drawService.draw(vote)
 
@@ -70,8 +77,8 @@ class DrawServiceTest {
         assertEquals(1, result.round)
         assertFalse(result.newRoundStarted)
         assertEquals(VoteStatus.DRAWN, vote.status)
-        verify { drawHistoryRepository.save(any()) }
-        verify { voteRepository.save(vote) }
+        verify { drawHistoryRepositoryPort.save(any()) }
+        verify { voteRepositoryPort.save(vote) }
     }
 
     @Test
@@ -79,10 +86,10 @@ class DrawServiceTest {
         val vote = makeVote(VoteMode.SIMPLE)
         val p1 = makeParticipant(vote, "a@a.com")
 
-        every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
-        every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1)
-        every { drawHistoryRepository.save(any()) } returns makeHistory(vote, p1.email)
-        every { voteRepository.save(any()) } returns vote
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
+        every { participantRepositoryPort.findAllByVoteId(vote.id) } returns listOf(p1)
+        every { drawHistoryRepositoryPort.save(any()) } returns makeHistory(vote, p1.email)
+        every { voteRepositoryPort.save(any()) } returns vote
 
         drawService.draw(vote)
 
@@ -100,8 +107,8 @@ class DrawServiceTest {
     @Test
     fun `draw - throws when vote has no participants`() {
         val vote = makeVote()
-        every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
-        every { participantRepository.findAllByVoteId(vote.id) } returns emptyList()
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
+        every { participantRepositoryPort.findAllByVoteId(vote.id) } returns emptyList()
 
         val ex = assertThrows<IllegalStateException> { drawService.draw(vote) }
         assertTrue(ex.message!!.contains("no options or participants"))
@@ -114,11 +121,11 @@ class DrawServiceTest {
         val p2 = makeParticipant(vote, "eligible@test.com")
         val history = makeHistory(vote, p2.email)
 
-        every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
-        every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1, p2)
-        every { participantRepository.findEligibleEmailsForRound(vote.id, 1) } returns listOf(p2.email)
-        every { drawHistoryRepository.save(any()) } returns history
-        every { voteRepository.save(any()) } returns vote
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
+        every { participantRepositoryPort.findAllByVoteId(vote.id) } returns listOf(p1, p2)
+        every { participantRepositoryPort.findEligibleEmailsForRound(vote.id, 1) } returns listOf(p2.email)
+        every { drawHistoryRepositoryPort.save(any()) } returns history
+        every { voteRepositoryPort.save(any()) } returns vote
 
         val result = drawService.draw(vote)
 
@@ -133,11 +140,11 @@ class DrawServiceTest {
         val p1 = makeParticipant(vote, "sole@test.com")
         val history = makeHistory(vote, p1.email, round = 2)
 
-        every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
-        every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1)
-        every { participantRepository.findEligibleEmailsForRound(vote.id, 1) } returns emptyList()
-        every { drawHistoryRepository.save(any()) } returns history
-        every { voteRepository.save(any()) } returns vote
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
+        every { participantRepositoryPort.findAllByVoteId(vote.id) } returns listOf(p1)
+        every { participantRepositoryPort.findEligibleEmailsForRound(vote.id, 1) } returns emptyList()
+        every { drawHistoryRepositoryPort.save(any()) } returns history
+        every { voteRepositoryPort.save(any()) } returns vote
 
         val result = drawService.draw(vote)
 
@@ -148,12 +155,12 @@ class DrawServiceTest {
     @Test
     fun `reopen - changes status from DRAWN to PENDING`() {
         val vote = makeVote(status = VoteStatus.DRAWN)
-        every { voteRepository.save(any()) } returns vote
+        every { voteRepositoryPort.save(any()) } returns vote
 
         drawService.reopen(vote)
 
         assertEquals(VoteStatus.PENDING, vote.status)
-        verify { voteRepository.save(vote) }
+        verify { voteRepositoryPort.save(vote) }
     }
 
     @Test

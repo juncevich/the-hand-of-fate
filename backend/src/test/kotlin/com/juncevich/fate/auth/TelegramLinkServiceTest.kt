@@ -1,37 +1,29 @@
 package com.juncevich.fate.auth
 
-import com.juncevich.fate.auth.internal.persistence.TelegramLinkToken
-import com.juncevich.fate.auth.internal.persistence.TelegramLinkTokenRepository
-import com.juncevich.fate.auth.internal.persistence.UserRepository
+import com.juncevich.fate.auth.internal.domain.TelegramLinkToken
+import com.juncevich.fate.auth.internal.port.TelegramLinkTokenRepositoryPort
+import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import io.mockk.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.time.Instant
-import java.util.Optional
 import java.util.UUID
 
 class TelegramLinkServiceTest {
-    private val linkTokenRepository = mockk<TelegramLinkTokenRepository>()
-    private val userRepository = mockk<UserRepository>()
+    private val linkTokenRepositoryPort = mockk<TelegramLinkTokenRepositoryPort>()
+    private val userRepositoryPort = mockk<UserRepositoryPort>()
 
-    private val service = TelegramLinkService(linkTokenRepository, userRepository)
+    private val service = TelegramLinkService(linkTokenRepositoryPort, userRepositoryPort)
 
-    private fun makeUser(id: UUID = UUID.randomUUID()) =
-        User(
-            email = "user@test.com",
-            passwordHash = "hash",
-            displayName = "Test User"
-        ).also { u ->
-            val idField = u.javaClass.getDeclaredField("id")
-            idField.isAccessible = true
-            idField.set(u, id)
-        }
+    private fun makeUser(id: UUID = UUID.randomUUID()) = User(
+        id = id,
+        email = "user@test.com",
+        passwordHash = "hash",
+        displayName = "Test User",
+    )
 
-    private fun makeLinkToken(
-        user: User,
-        expired: Boolean = false,
-    ): TelegramLinkToken {
+    private fun makeLinkToken(user: User, expired: Boolean = false): TelegramLinkToken {
         val expiresAt = if (expired) Instant.now().minusSeconds(60) else Instant.now().plusSeconds(300)
         return TelegramLinkToken(user = user, token = "token123", expiresAt = expiresAt)
     }
@@ -41,16 +33,16 @@ class TelegramLinkServiceTest {
         val userId = UUID.randomUUID()
         val user = makeUser(userId)
 
-        every { linkTokenRepository.deleteAllByUserId(userId) } just Runs
-        every { userRepository.findById(userId) } returns Optional.of(user)
-        every { linkTokenRepository.save(any()) } answers { firstArg() }
+        every { linkTokenRepositoryPort.deleteAllByUserId(userId) } just Runs
+        every { userRepositoryPort.findById(userId) } returns user
+        every { linkTokenRepositoryPort.save(any()) } answers { firstArg() }
 
         val token = service.generateLinkToken(userId)
 
         assertNotNull(token)
         assertTrue(token.isNotBlank())
-        verify { linkTokenRepository.deleteAllByUserId(userId) }
-        verify { linkTokenRepository.save(any()) }
+        verify { linkTokenRepositoryPort.deleteAllByUserId(userId) }
+        verify { linkTokenRepositoryPort.save(any()) }
     }
 
     @Test
@@ -58,9 +50,9 @@ class TelegramLinkServiceTest {
         val userId = UUID.randomUUID()
         val user = makeUser(userId)
 
-        every { linkTokenRepository.deleteAllByUserId(userId) } just Runs
-        every { userRepository.findById(userId) } returns Optional.of(user)
-        every { linkTokenRepository.save(any()) } answers { firstArg() }
+        every { linkTokenRepositoryPort.deleteAllByUserId(userId) } just Runs
+        every { userRepositoryPort.findById(userId) } returns user
+        every { linkTokenRepositoryPort.save(any()) } answers { firstArg() }
 
         val token = service.generateLinkToken(userId)
 
@@ -72,22 +64,22 @@ class TelegramLinkServiceTest {
         val user = makeUser()
         val linkToken = makeLinkToken(user)
 
-        every { linkTokenRepository.findByToken("token123") } returns linkToken
-        every { userRepository.findByTelegramId(42L) } returns null
-        every { userRepository.save(user) } returns user
-        every { linkTokenRepository.delete(linkToken) } just Runs
+        every { linkTokenRepositoryPort.findByToken("token123") } returns linkToken
+        every { userRepositoryPort.findByTelegramId(42L) } returns null
+        every { userRepositoryPort.save(user) } returns user
+        every { linkTokenRepositoryPort.delete(linkToken) } just Runs
 
         val result = service.linkAccount("token123", 42L, "telegram_user")
 
         assertEquals(42L, result.telegramId)
         assertEquals("telegram_user", result.telegramName)
-        verify { userRepository.save(user) }
-        verify { linkTokenRepository.delete(linkToken) }
+        verify { userRepositoryPort.save(user) }
+        verify { linkTokenRepositoryPort.delete(linkToken) }
     }
 
     @Test
     fun `linkAccount - throws for unknown token`() {
-        every { linkTokenRepository.findByToken("bad-token") } returns null
+        every { linkTokenRepositoryPort.findByToken("bad-token") } returns null
 
         assertThrows<IllegalStateException> {
             service.linkAccount("bad-token", 42L, "user")
@@ -99,13 +91,13 @@ class TelegramLinkServiceTest {
         val user = makeUser()
         val expiredToken = makeLinkToken(user, expired = true)
 
-        every { linkTokenRepository.findByToken("token123") } returns expiredToken
-        every { linkTokenRepository.delete(expiredToken) } just Runs
+        every { linkTokenRepositoryPort.findByToken("token123") } returns expiredToken
+        every { linkTokenRepositoryPort.delete(expiredToken) } just Runs
 
         assertThrows<IllegalStateException> {
             service.linkAccount("token123", 42L, "user")
         }
-        verify { linkTokenRepository.delete(expiredToken) }
+        verify { linkTokenRepositoryPort.delete(expiredToken) }
     }
 
     @Test
@@ -114,8 +106,8 @@ class TelegramLinkServiceTest {
         val otherUser = makeUser()
         val linkToken = makeLinkToken(user)
 
-        every { linkTokenRepository.findByToken("token123") } returns linkToken
-        every { userRepository.findByTelegramId(42L) } returns otherUser
+        every { linkTokenRepositoryPort.findByToken("token123") } returns linkToken
+        every { userRepositoryPort.findByTelegramId(42L) } returns otherUser
 
         assertThrows<IllegalStateException> {
             service.linkAccount("token123", 42L, "user")
@@ -124,25 +116,24 @@ class TelegramLinkServiceTest {
 
     @Test
     fun `unlinkAccount - clears telegram fields`() {
-        val user =
-            makeUser().also {
-                it.telegramId = 42L
-                it.telegramName = "old_name"
-            }
+        val user = makeUser().also {
+            it.telegramId = 42L
+            it.telegramName = "old_name"
+        }
 
-        every { userRepository.findByTelegramId(42L) } returns user
-        every { userRepository.save(user) } returns user
+        every { userRepositoryPort.findByTelegramId(42L) } returns user
+        every { userRepositoryPort.save(user) } returns user
 
         service.unlinkAccount(42L)
 
         assertNull(user.telegramId)
         assertNull(user.telegramName)
-        verify { userRepository.save(user) }
+        verify { userRepositoryPort.save(user) }
     }
 
     @Test
     fun `unlinkAccount - throws when telegram id not linked`() {
-        every { userRepository.findByTelegramId(99L) } returns null
+        every { userRepositoryPort.findByTelegramId(99L) } returns null
 
         assertThrows<IllegalStateException> { service.unlinkAccount(99L) }
     }
@@ -150,20 +141,19 @@ class TelegramLinkServiceTest {
     @Test
     fun `unlinkByUserId - clears telegram fields for user`() {
         val userId = UUID.randomUUID()
-        val user =
-            makeUser(userId).also {
-                it.telegramId = 42L
-                it.telegramName = "old_name"
-            }
+        val user = makeUser(userId).also {
+            it.telegramId = 42L
+            it.telegramName = "old_name"
+        }
 
-        every { userRepository.findById(userId) } returns Optional.of(user)
-        every { userRepository.save(user) } returns user
+        every { userRepositoryPort.findById(userId) } returns user
+        every { userRepositoryPort.save(user) } returns user
 
         service.unlinkByUserId(userId)
 
         assertNull(user.telegramId)
         assertNull(user.telegramName)
-        verify { userRepository.save(user) }
+        verify { userRepositoryPort.save(user) }
     }
 
     @Test
@@ -171,7 +161,7 @@ class TelegramLinkServiceTest {
         val userId = UUID.randomUUID()
         val user = makeUser(userId)
 
-        every { userRepository.findById(userId) } returns Optional.of(user)
+        every { userRepositoryPort.findById(userId) } returns user
 
         assertThrows<IllegalStateException> { service.unlinkByUserId(userId) }
     }
@@ -179,7 +169,7 @@ class TelegramLinkServiceTest {
     @Test
     fun `unlinkByUserId - throws when user not found`() {
         val userId = UUID.randomUUID()
-        every { userRepository.findById(userId) } returns Optional.empty()
+        every { userRepositoryPort.findById(userId) } returns null
 
         assertThrows<NoSuchElementException> { service.unlinkByUserId(userId) }
     }

@@ -13,14 +13,13 @@ data class CreateVoteWebRequest(
     val participantEmails: List<@Email String> = emptyList(),
     val options: List<String>? = null,
 ) {
-    fun toCommand() =
-        CreateVoteCommand(
-            title = title,
-            description = description,
-            mode = mode,
-            participantEmails = participantEmails,
-            options = options
-        )
+    fun toCommand() = CreateVoteCommand(
+        title = title,
+        description = description,
+        mode = mode,
+        participantEmails = participantEmails,
+        options = options,
+    )
 }
 
 data class AddParticipantRequest(

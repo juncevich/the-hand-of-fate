@@ -2,39 +2,33 @@ package com.juncevich.fate.vote.internal.notification
 
 import com.juncevich.fate.vote.DrawResult
 import com.juncevich.fate.vote.internal.domain.Vote
+import com.juncevich.fate.vote.internal.port.NotificationPort
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Async
-import org.springframework.stereotype.Service
+import org.springframework.stereotype.Component
 
-@Service
-class NotificationService(
+@Component
+class NotificationAdapter(
     private val emailService: EmailService,
     @param:Value("\${app.frontend-url}") private val frontendUrl: String,
-) {
-    private val log = LoggerFactory.getLogger(NotificationService::class.java)
+) : NotificationPort {
+    private val log = LoggerFactory.getLogger(NotificationAdapter::class.java)
 
     @Async
-    fun notifyVoteInvitation(
-        recipientEmail: String,
-        vote: Vote,
-    ) {
+    override fun notifyVoteInvitation(recipientEmail: String, vote: Vote) {
         runCatching {
             emailService.sendVoteInvitation(
                 to = recipientEmail,
                 voteTitle = vote.title,
                 creatorName = vote.creator.displayName,
-                voteUrl = "$frontendUrl/votes/${vote.id}"
+                voteUrl = "$frontendUrl/votes/${vote.id}",
             )
         }.onFailure { log.error("Failed to send invitation email to $recipientEmail", it) }
     }
 
     @Async
-    fun notifyDrawResult(
-        vote: Vote,
-        result: DrawResult,
-        participantEmails: List<String>,
-    ) {
+    override fun notifyDrawResult(vote: Vote, result: DrawResult, participantEmails: List<String>) {
         participantEmails.forEach { email ->
             runCatching {
                 emailService.sendDrawResult(
@@ -43,7 +37,7 @@ class NotificationService(
                     winnerName = result.winnerOptionTitle ?: result.winnerDisplayName ?: result.winnerEmail ?: "",
                     winnerEmail = result.winnerEmail ?: "",
                     round = result.round,
-                    voteUrl = "$frontendUrl/votes/${vote.id}"
+                    voteUrl = "$frontendUrl/votes/${vote.id}",
                 )
             }.onFailure { log.error("Failed to send draw result email to $email", it) }
         }

@@ -1,9 +1,9 @@
 package com.juncevich.fate.auth.internal.service
 
 import com.juncevich.fate.auth.User
-import com.juncevich.fate.auth.internal.persistence.RefreshToken
-import com.juncevich.fate.auth.internal.persistence.RefreshTokenRepository
-import com.juncevich.fate.auth.internal.persistence.UserRepository
+import com.juncevich.fate.auth.internal.domain.RefreshToken
+import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
+import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
 import org.springframework.security.authentication.BadCredentialsException
@@ -18,37 +18,31 @@ import java.util.UUID
 @Service
 @Transactional
 class AuthService(
-    private val userRepository: UserRepository,
-    private val refreshTokenRepository: RefreshTokenRepository,
+    private val userRepositoryPort: UserRepositoryPort,
+    private val refreshTokenRepositoryPort: RefreshTokenRepositoryPort,
     private val passwordEncoder: PasswordEncoder,
     private val jwtTokenProvider: JwtTokenProvider,
     private val jwtProperties: JwtProperties,
 ) {
     fun register(request: RegisterRequest): AuthTokens {
-        if (userRepository.existsByEmail(request.email)) {
+        if (userRepositoryPort.existsByEmail(request.email)) {
             error("Email already registered")
         }
-        val user =
-            userRepository.save(
-                User(
-                    email = request.email.lowercase().trim(),
-                    passwordHash =
-                        requireNotNull(passwordEncoder.encode(request.password)) {
-                            "Password encoding failed"
-                        },
-                    displayName = request.displayName
-                )
+        val user = userRepositoryPort.save(
+            User(
+                email = request.email.lowercase().trim(),
+                passwordHash = requireNotNull(passwordEncoder.encode(request.password)) {
+                    "Password encoding failed"
+                },
+                displayName = request.displayName,
             )
+        )
         return issueTokens(user)
     }
 
-    fun login(
-        email: String,
-        password: String,
-    ): AuthTokens {
-        val user =
-            userRepository.findByEmail(email.lowercase().trim())
-                ?: throw BadCredentialsException("Invalid credentials")
+    fun login(email: String, password: String): AuthTokens {
+        val user = userRepositoryPort.findByEmail(email.lowercase().trim())
+            ?: throw BadCredentialsException("Invalid credentials")
         if (!passwordEncoder.matches(password, user.passwordHash)) {
             throw BadCredentialsException("Invalid credentials")
         }
@@ -57,26 +51,25 @@ class AuthService(
 
     fun refresh(rawRefreshToken: String): AuthTokens {
         val hash = hashToken(rawRefreshToken)
-        val stored =
-            refreshTokenRepository.findByTokenHash(hash)
-                ?: throw BadCredentialsException("Refresh token not found")
+        val stored = refreshTokenRepositoryPort.findByTokenHash(hash)
+            ?: throw BadCredentialsException("Refresh token not found")
         if (stored.isExpired) {
-            refreshTokenRepository.delete(stored)
+            refreshTokenRepositoryPort.delete(stored)
             throw BadCredentialsException("Refresh token expired")
         }
-        refreshTokenRepository.delete(stored)
+        refreshTokenRepositoryPort.delete(stored)
         return issueTokens(stored.user)
     }
 
     fun logout(rawRefreshToken: String) {
         val hash = hashToken(rawRefreshToken)
-        refreshTokenRepository.findByTokenHash(hash)?.let {
-            refreshTokenRepository.delete(it)
+        refreshTokenRepositoryPort.findByTokenHash(hash)?.let {
+            refreshTokenRepositoryPort.delete(it)
         }
     }
 
     fun logoutAll(userId: UUID) {
-        refreshTokenRepository.deleteAllByUserId(userId)
+        refreshTokenRepositoryPort.deleteAllByUserId(userId)
     }
 
     private fun issueTokens(user: User): AuthTokens {
@@ -84,22 +77,21 @@ class AuthService(
         val rawRefresh = UUID.randomUUID().toString()
         val expiresAt = Instant.now().plusSeconds(jwtProperties.refreshTtlDays * 24 * 3600)
 
-        refreshTokenRepository.save(
+        refreshTokenRepositoryPort.save(
             RefreshToken(
                 user = user,
                 tokenHash = hashToken(rawRefresh),
-                expiresAt = expiresAt
+                expiresAt = expiresAt,
             )
         )
         return AuthTokens(
-            response =
-                AuthResponse(
-                    accessToken = accessToken,
-                    userId = user.id.toString(),
-                    email = user.email,
-                    displayName = user.displayName
-                ),
-            refreshToken = rawRefresh
+            response = AuthResponse(
+                accessToken = accessToken,
+                userId = user.id.toString(),
+                email = user.email,
+                displayName = user.displayName,
+            ),
+            refreshToken = rawRefresh,
         )
     }
 
