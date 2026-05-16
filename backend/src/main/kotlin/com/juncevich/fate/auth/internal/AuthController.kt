@@ -1,6 +1,5 @@
 package com.juncevich.fate.auth.internal
 
-import com.juncevich.fate.auth.AuthService
 import com.juncevich.fate.auth.AuthenticatedUser
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid

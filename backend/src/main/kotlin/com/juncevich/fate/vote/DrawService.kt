@@ -1,6 +1,5 @@
-package com.juncevich.fate.vote.internal
+package com.juncevich.fate.vote
 
-import com.juncevich.fate.vote.*
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -24,15 +23,13 @@ class DrawService(
     private val meterRegistry: MeterRegistry,
 ) {
     @Transactional
-    fun draw(voteId: java.util.UUID): DrawResult {
-        val vote = voteRepository.findById(voteId).orElseThrow { IllegalArgumentException("Vote not found") }
-
+    fun draw(vote: Vote): DrawResult {
         check(vote.status == VoteStatus.PENDING) {
             "Vote must be in PENDING status to draw. Current status: ${vote.status}"
         }
 
-        val options = voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(voteId)
-        val participants = if (options.isEmpty()) participantRepository.findAllByVoteId(voteId) else emptyList()
+        val options = voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id)
+        val participants = if (options.isEmpty()) participantRepository.findAllByVoteId(vote.id) else emptyList()
 
         check(options.isNotEmpty() || participants.isNotEmpty()) {
             "Cannot draw: vote has no options or participants"
@@ -104,8 +101,7 @@ class DrawService(
     }
 
     @Transactional
-    fun reopen(voteId: java.util.UUID) {
-        val vote = voteRepository.findById(voteId).orElseThrow { IllegalArgumentException("Vote not found") }
+    fun reopen(vote: Vote) {
         check(vote.status == VoteStatus.DRAWN) { "Only DRAWN votes can be reopened" }
         vote.status = VoteStatus.PENDING
         voteRepository.save(vote)
@@ -117,9 +113,7 @@ class DrawService(
     ): Pair<VoteParticipant, Boolean> {
         var newRoundStarted = false
 
-        var eligibleEmails =
-            participantRepository
-                .findEligibleEmailsForRound(vote.id, vote.currentRound)
+        var eligibleEmails = participantRepository.findEligibleEmailsForRound(vote.id, vote.currentRound)
 
         if (eligibleEmails.isEmpty()) {
             vote.currentRound++

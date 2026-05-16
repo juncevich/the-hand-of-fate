@@ -1,8 +1,27 @@
 package com.juncevich.fate.vote.internal
 
+import com.juncevich.fate.vote.CreateVoteCommand
+import com.juncevich.fate.vote.VoteMode
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
+
+data class CreateVoteWebRequest(
+    @field:NotBlank @field:Size(max = 255) val title: String,
+    val description: String? = null,
+    val mode: VoteMode = VoteMode.SIMPLE,
+    val participantEmails: List<@Email String> = emptyList(),
+    val options: List<String>? = null,
+) {
+    fun toCommand() =
+        CreateVoteCommand(
+            title = title,
+            description = description,
+            mode = mode,
+            participantEmails = participantEmails,
+            options = options
+        )
+}
 
 data class AddParticipantRequest(
     @field:Email @field:NotBlank val email: String,

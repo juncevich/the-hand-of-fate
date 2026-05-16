@@ -19,8 +19,9 @@ class VoteController(
     @PostMapping
     fun createVote(
         @AuthenticationPrincipal user: AuthenticatedUser,
-        @Valid @RequestBody request: CreateVoteRequest,
-    ): ResponseEntity<VoteDetailDto> = ResponseEntity.status(201).body(voteService.createVote(user.id, request))
+        @Valid @RequestBody request: CreateVoteWebRequest,
+    ): ResponseEntity<VoteDetailDto> =
+        ResponseEntity.status(201).body(voteService.createVote(user.id, request.toCommand()))
 
     @GetMapping
     fun listVotes(
@@ -120,5 +121,5 @@ class VoteController(
     fun getHistory(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
-    ): List<DrawHistoryDto> = voteService.getHistory(id, user.id, user.email).map { it.toDto() }
+    ): List<DrawHistoryDto> = voteService.getHistory(id, user.id, user.email)
 }

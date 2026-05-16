@@ -18,18 +18,12 @@ import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 
 class FateGrpcServiceTest {
     private val userRepository = mockk<UserRepository>()
-    private val voteRepository = mockk<VoteRepository>()
-    private val participantRepository = mockk<VoteParticipantRepository>()
-    private val drawHistoryRepository = mockk<DrawHistoryRepository>()
     private val telegramLinkService = mockk<TelegramLinkService>()
     private val voteService = mockk<VoteService>()
 
     private val service =
         FateGrpcService(
             userRepository = userRepository,
-            voteRepository = voteRepository,
-            participantRepository = participantRepository,
-            drawHistoryRepository = drawHistoryRepository,
             telegramLinkService = telegramLinkService,
             voteService = voteService
         )
@@ -95,10 +89,11 @@ class FateGrpcServiceTest {
             val vote = vote(creator = user)
             val history =
                 listOf(
-                    DrawHistory(
-                        vote = vote,
+                    DrawHistoryDto(
+                        id = UUID.randomUUID(),
                         winnerEmail = "friend@example.com",
                         winnerDisplayName = "Friend",
+                        winnerOptionTitle = null,
                         round = 2,
                         drawnAt = Instant.parse("2026-04-25T00:00:00Z")
                     )

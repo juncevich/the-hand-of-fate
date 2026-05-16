@@ -1,11 +1,8 @@
-package com.juncevich.fate.auth
+package com.juncevich.fate.auth.internal
 
-import com.juncevich.fate.auth.internal.AuthResponse
-import com.juncevich.fate.auth.internal.AuthTokens
-import com.juncevich.fate.auth.internal.JwtProperties
-import com.juncevich.fate.auth.internal.RefreshToken
-import com.juncevich.fate.auth.internal.RefreshTokenRepository
-import com.juncevich.fate.auth.internal.RegisterRequest
+import com.juncevich.fate.auth.JwtTokenProvider
+import com.juncevich.fate.auth.User
+import com.juncevich.fate.auth.UserRepository
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service

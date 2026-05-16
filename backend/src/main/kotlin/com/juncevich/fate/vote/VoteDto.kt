@@ -1,16 +1,13 @@
 package com.juncevich.fate.vote
 
-import jakarta.validation.constraints.Email
-import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.Size
 import java.time.Instant
 import java.util.UUID
 
-data class CreateVoteRequest(
-    @field:NotBlank @field:Size(max = 255) val title: String,
+data class CreateVoteCommand(
+    val title: String,
     val description: String? = null,
     val mode: VoteMode = VoteMode.SIMPLE,
-    val participantEmails: List<@Email String> = emptyList(),
+    val participantEmails: List<String> = emptyList(),
     val options: List<String>? = null,
 )
 

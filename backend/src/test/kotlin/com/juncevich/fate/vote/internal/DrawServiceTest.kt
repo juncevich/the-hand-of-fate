@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote.internal
+package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.vote.*
@@ -9,8 +9,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import java.util.Optional
-import java.util.UUID
 
 class DrawServiceTest {
     private val voteRepository = mockk<VoteRepository>()
@@ -52,13 +50,12 @@ class DrawServiceTest {
         val p1 = makeParticipant(vote, "winner@test.com", "Winner")
         val history = makeHistory(vote, p1.email)
 
-        every { voteRepository.findById(vote.id) } returns Optional.of(vote)
         every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
         every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1)
         every { drawHistoryRepository.save(any()) } returns history
         every { voteRepository.save(any()) } returns vote
 
-        val result = drawService.draw(vote.id)
+        val result = drawService.draw(vote)
 
         assertEquals(p1.email, result.winnerEmail)
         assertEquals(1, result.round)
@@ -73,13 +70,12 @@ class DrawServiceTest {
         val vote = makeVote(VoteMode.SIMPLE)
         val p1 = makeParticipant(vote, "a@a.com")
 
-        every { voteRepository.findById(vote.id) } returns Optional.of(vote)
         every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
         every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1)
         every { drawHistoryRepository.save(any()) } returns makeHistory(vote, p1.email)
         every { voteRepository.save(any()) } returns vote
 
-        drawService.draw(vote.id)
+        drawService.draw(vote)
 
         verify { meterRegistry.counter("vote.draw.performed", "mode", "SIMPLE", "round", "1") }
         verify { counter.increment() }
@@ -88,28 +84,18 @@ class DrawServiceTest {
     @Test
     fun `draw - throws when vote is not PENDING`() {
         val vote = makeVote(status = VoteStatus.DRAWN)
-        every { voteRepository.findById(vote.id) } returns Optional.of(vote)
 
-        assertThrows<IllegalStateException> { drawService.draw(vote.id) }
+        assertThrows<IllegalStateException> { drawService.draw(vote) }
     }
 
     @Test
     fun `draw - throws when vote has no participants`() {
         val vote = makeVote()
-        every { voteRepository.findById(vote.id) } returns Optional.of(vote)
         every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
         every { participantRepository.findAllByVoteId(vote.id) } returns emptyList()
 
-        val ex = assertThrows<IllegalStateException> { drawService.draw(vote.id) }
+        val ex = assertThrows<IllegalStateException> { drawService.draw(vote) }
         assertTrue(ex.message!!.contains("no options or participants"))
-    }
-
-    @Test
-    fun `draw - throws when vote not found`() {
-        val unknownId = UUID.randomUUID()
-        every { voteRepository.findById(unknownId) } returns Optional.empty()
-
-        assertThrows<IllegalArgumentException> { drawService.draw(unknownId) }
     }
 
     @Test
@@ -119,14 +105,13 @@ class DrawServiceTest {
         val p2 = makeParticipant(vote, "eligible@test.com")
         val history = makeHistory(vote, p2.email)
 
-        every { voteRepository.findById(vote.id) } returns Optional.of(vote)
         every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
         every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1, p2)
         every { participantRepository.findEligibleEmailsForRound(vote.id, 1) } returns listOf(p2.email)
         every { drawHistoryRepository.save(any()) } returns history
         every { voteRepository.save(any()) } returns vote
 
-        val result = drawService.draw(vote.id)
+        val result = drawService.draw(vote)
 
         assertEquals(p2.email, result.winnerEmail)
         assertFalse(result.newRoundStarted)
@@ -139,14 +124,13 @@ class DrawServiceTest {
         val p1 = makeParticipant(vote, "sole@test.com")
         val history = makeHistory(vote, p1.email, round = 2)
 
-        every { voteRepository.findById(vote.id) } returns Optional.of(vote)
         every { voteOptionRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(vote.id) } returns emptyList()
         every { participantRepository.findAllByVoteId(vote.id) } returns listOf(p1)
         every { participantRepository.findEligibleEmailsForRound(vote.id, 1) } returns emptyList()
         every { drawHistoryRepository.save(any()) } returns history
         every { voteRepository.save(any()) } returns vote
 
-        val result = drawService.draw(vote.id)
+        val result = drawService.draw(vote)
 
         assertTrue(result.newRoundStarted)
         assertEquals(2, vote.currentRound)
@@ -155,10 +139,9 @@ class DrawServiceTest {
     @Test
     fun `reopen - changes status from DRAWN to PENDING`() {
         val vote = makeVote(status = VoteStatus.DRAWN)
-        every { voteRepository.findById(vote.id) } returns Optional.of(vote)
         every { voteRepository.save(any()) } returns vote
 
-        drawService.reopen(vote.id)
+        drawService.reopen(vote)
 
         assertEquals(VoteStatus.PENDING, vote.status)
         verify { voteRepository.save(vote) }
@@ -167,16 +150,7 @@ class DrawServiceTest {
     @Test
     fun `reopen - throws when vote is not DRAWN`() {
         val vote = makeVote(status = VoteStatus.PENDING)
-        every { voteRepository.findById(vote.id) } returns Optional.of(vote)
 
-        assertThrows<IllegalStateException> { drawService.reopen(vote.id) }
-    }
-
-    @Test
-    fun `reopen - throws when vote not found`() {
-        val unknownId = UUID.randomUUID()
-        every { voteRepository.findById(unknownId) } returns Optional.empty()
-
-        assertThrows<IllegalArgumentException> { drawService.reopen(unknownId) }
+        assertThrows<IllegalStateException> { drawService.reopen(vote) }
     }
 }

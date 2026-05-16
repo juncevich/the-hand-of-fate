@@ -1,5 +1,6 @@
 package com.juncevich.fate.auth
 
+import com.juncevich.fate.auth.internal.AuthService
 import com.juncevich.fate.auth.internal.JwtProperties
 import com.juncevich.fate.auth.internal.RefreshToken
 import com.juncevich.fate.auth.internal.RefreshTokenRepository

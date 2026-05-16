@@ -1,7 +1,6 @@
 package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.UserRepository
-import com.juncevich.fate.vote.internal.DrawService
 import com.juncevich.fate.vote.internal.NotificationService
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.data.domain.Page
@@ -24,7 +23,7 @@ class VoteService(
 ) {
     fun createVote(
         creatorId: UUID,
-        request: CreateVoteRequest,
+        request: CreateVoteCommand,
     ): VoteDetailDto {
         val creator = userRepository.findById(creatorId).orElseThrow { NoSuchElementException("User not found") }
 
@@ -41,24 +40,24 @@ class VoteService(
         val allEmails = setOf(creator.email) + request.participantEmails
         val existingUsers = userRepository.findAllByEmailIn(allEmails).associateBy { it.email }
         val participants =
-            allEmails.map { email ->
-                participantRepository.save(
+            participantRepository.saveAll(
+                allEmails.map { email ->
                     VoteParticipant(
                         vote = vote,
                         email = email,
                         displayName = existingUsers[email]?.displayName
                     )
-                )
-            }
+                }
+            )
 
         val options =
-            (request.options ?: emptyList())
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .distinct()
-                .mapIndexed { index, title ->
-                    voteOptionRepository.save(VoteOption(vote = vote, title = title, position = index))
-                }
+            voteOptionRepository.saveAll(
+                (request.options ?: emptyList())
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .mapIndexed { index, title -> VoteOption(vote = vote, title = title, position = index) }
+            )
 
         meterRegistry.counter("vote.created", "mode", vote.mode.name).increment()
 
@@ -161,7 +160,7 @@ class VoteService(
         val vote = voteRepository.findById(voteId).orElseThrow { NoSuchElementException("Vote not found") }
         check(vote.creator.id == requesterId) { "Only the creator can perform a draw" }
 
-        val result = drawService.draw(voteId)
+        val result = drawService.draw(vote)
 
         val participants = participantRepository.findAllByVoteId(voteId)
         notificationService.notifyDrawResult(vote, result, participants.map { it.email })
@@ -175,7 +174,7 @@ class VoteService(
     ) {
         val vote = voteRepository.findById(voteId).orElseThrow { NoSuchElementException("Vote not found") }
         check(vote.creator.id == requesterId) { "Only the creator can reopen a vote" }
-        drawService.reopen(voteId)
+        drawService.reopen(vote)
     }
 
     fun closeVote(
@@ -202,10 +201,21 @@ class VoteService(
         voteId: UUID,
         requesterId: UUID,
         requesterEmail: String,
-    ): List<DrawHistory> {
+    ): List<DrawHistoryDto> {
         val vote = voteRepository.findById(voteId).orElseThrow { NoSuchElementException("Vote not found") }
         checkCanView(vote, requesterId, requesterEmail)
-        return drawHistoryRepository.findAllByVoteIdOrderByDrawnAtDesc(voteId)
+        return drawHistoryRepository.findAllByVoteIdOrderByDrawnAtDesc(voteId).map { it.toDto() }
+    }
+
+    @Transactional(readOnly = true)
+    fun getLastResult(
+        voteId: UUID,
+        requesterId: UUID,
+        requesterEmail: String,
+    ): DrawHistoryDto? {
+        val vote = voteRepository.findById(voteId).orElseThrow { NoSuchElementException("Vote not found") }
+        checkCanView(vote, requesterId, requesterEmail)
+        return drawHistoryRepository.findTopByVoteIdOrderByDrawnAtDesc(voteId)?.toDto()
     }
 
     private fun checkCanView(

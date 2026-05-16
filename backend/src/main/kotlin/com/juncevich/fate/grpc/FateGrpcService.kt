@@ -16,9 +16,6 @@ import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 @GrpcService
 class FateGrpcService(
     private val userRepository: UserRepository,
-    private val voteRepository: VoteRepository,
-    private val participantRepository: VoteParticipantRepository,
-    private val drawHistoryRepository: DrawHistoryRepository,
     private val telegramLinkService: TelegramLinkService,
     private val voteService: VoteService,
 ) : FateServiceGrpcKt.FateServiceCoroutineImplBase() {
@@ -102,7 +99,7 @@ class FateGrpcService(
                 voteService.createVote(
                     creatorId = user.id,
                     request =
-                        com.juncevich.fate.vote.CreateVoteRequest(
+                        CreateVoteCommand(
                             title = title,
                             description = request.description.takeIf { it.isNotBlank() },
                             mode = mode,
@@ -175,13 +172,24 @@ class FateGrpcService(
     override suspend fun getLastDrawResult(request: GetLastDrawResultRequest): GetLastDrawResultResponse {
         val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
-        val vote =
-            voteRepository
-                .findById(voteId)
-                .orElseThrow { StatusRuntimeException(Status.NOT_FOUND.withDescription("Vote not found")) }
-        requireVoteAccess(vote.id, vote.creator.id, user.id, user.email)
 
-        val lastDraw = drawHistoryRepository.findTopByVoteIdOrderByDrawnAtDesc(voteId)
+        val lastDraw =
+            runCatching {
+                voteService.getLastResult(voteId, user.id, user.email)
+            }.getOrElse { ex ->
+                when (ex) {
+                    is NoSuchElementException -> throw StatusRuntimeException(
+                        Status.NOT_FOUND.withDescription(ex.message)
+                    )
+
+                    is IllegalStateException -> throw StatusRuntimeException(
+                        Status.PERMISSION_DENIED.withDescription(ex.message)
+                    )
+
+                    else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+                }
+            }
+
         return if (lastDraw == null) {
             GetLastDrawResultResponse.newBuilder().setHasResult(false).build()
         } else {
@@ -245,21 +253,12 @@ class FateGrpcService(
                     }
                 )
         vote.lastResult?.let { last ->
-            builder.setLastResult(
-                DrawResultInfo
-                    .newBuilder()
-                    .setWinnerEmail(last.winnerEmail ?: "")
-                    .setWinnerDisplayName(last.winnerDisplayName ?: "")
-                    .setWinnerOptionTitle(last.winnerOptionTitle ?: "")
-                    .setRound(last.round)
-                    .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(last.drawnAt))
-                    .build()
-            )
+            builder.setLastResult(last.toDrawResultInfo())
         }
         return builder.build()
     }
 
-    private fun DrawHistory.toDrawResultInfo(): DrawResultInfo =
+    private fun DrawHistoryDto.toDrawResultInfo(): DrawResultInfo =
         DrawResultInfo
             .newBuilder()
             .setWinnerEmail(winnerEmail ?: "")
@@ -276,20 +275,6 @@ class FateGrpcService(
     private fun parseVoteId(value: String): UUID =
         runCatching { UUID.fromString(value) }
             .getOrElse { throw StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription("Invalid vote id")) }
-
-    private fun requireVoteAccess(
-        voteId: UUID,
-        creatorId: UUID,
-        userId: UUID,
-        email: String,
-    ) {
-        val hasAccess = creatorId == userId || participantRepository.existsByVoteIdAndEmail(voteId, email)
-        if (!hasAccess) {
-            throw StatusRuntimeException(
-                Status.PERMISSION_DENIED.withDescription("Vote is not available for this user")
-            )
-        }
-    }
 
     // ── Proto enum conversions ──────────────────────────────────────────────
 

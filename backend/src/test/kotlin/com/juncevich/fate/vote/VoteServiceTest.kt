@@ -2,7 +2,6 @@ package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.auth.UserRepository
-import com.juncevich.fate.vote.internal.DrawService
 import com.juncevich.fate.vote.internal.NotificationService
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
@@ -63,11 +62,11 @@ class VoteServiceTest {
         every { userRepository.findById(creator.id) } returns Optional.of(creator)
         every { voteRepository.save(any()) } returns vote
         every { userRepository.findAllByEmailIn(any()) } returns listOf(creator)
-        every { participantRepository.save(any()) } returns participant
-        every { voteOptionRepository.save(any()) } answers { firstArg() }
+        every { participantRepository.saveAll(any<List<VoteParticipant>>()) } returns listOf(participant)
+        every { voteOptionRepository.saveAll(any<List<VoteOption>>()) } answers { firstArg() }
 
         val request =
-            CreateVoteRequest(
+            CreateVoteCommand(
                 title = "Vote",
                 description = null,
                 mode = VoteMode.SIMPLE,
@@ -77,8 +76,8 @@ class VoteServiceTest {
 
         voteService.createVote(creator.id, request)
 
-        verify(exactly = 2) { participantRepository.save(any()) }
-        verify(exactly = 2) { voteOptionRepository.save(any()) }
+        verify { participantRepository.saveAll(any<List<VoteParticipant>>()) }
+        verify { voteOptionRepository.saveAll(any<List<VoteOption>>()) }
         verify { notificationService.notifyVoteInvitation("p@test.com", vote) }
         verify(exactly = 0) { notificationService.notifyVoteInvitation(creator.email, any()) }
     }
@@ -225,13 +224,13 @@ class VoteServiceTest {
         val participant = VoteParticipant(vote = vote, email = "winner@test.com")
 
         every { voteRepository.findById(vote.id) } returns Optional.of(vote)
-        every { drawService.draw(vote.id) } returns drawResult
+        every { drawService.draw(vote) } returns drawResult
         every { participantRepository.findAllByVoteId(vote.id) } returns listOf(participant)
 
         val result = voteService.draw(vote.id, creator.id)
 
         assertEquals(drawResult.winnerEmail, result.winnerEmail)
-        verify { drawService.draw(vote.id) }
+        verify { drawService.draw(vote) }
         verify { notificationService.notifyDrawResult(vote, drawResult, listOf("winner@test.com")) }
     }
 
@@ -301,11 +300,11 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator, status = VoteStatus.DRAWN)
 
         every { voteRepository.findById(vote.id) } returns Optional.of(vote)
-        every { drawService.reopen(vote.id) } just Runs
+        every { drawService.reopen(vote) } just Runs
 
         voteService.reopen(vote.id, creator.id)
 
-        verify { drawService.reopen(vote.id) }
+        verify { drawService.reopen(vote) }
     }
 
     @Test
