@@ -7,7 +7,14 @@ import java.util.UUID
 
 interface VoteRepositoryPort {
     fun save(vote: Vote): Vote
+
     fun findById(id: UUID): Vote?
-    fun findAllByUserIdOrParticipantEmail(userId: UUID, email: String, pageable: Pageable): Page<Vote>
+
+    fun findAllByUserIdOrParticipantEmail(
+        userId: UUID,
+        email: String,
+        pageable: Pageable,
+    ): Page<Vote>
+
     fun delete(vote: Vote)
 }

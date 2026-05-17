@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 
+private const val MAX_SEND_ATTEMPTS = 3
+
 @Component
 class NotificationAdapter(
     private val emailService: EmailService,
@@ -16,30 +18,49 @@ class NotificationAdapter(
     private val log = LoggerFactory.getLogger(NotificationAdapter::class.java)
 
     @Async
-    override fun notifyVoteInvitation(recipientEmail: String, vote: Vote) {
-        runCatching {
+    override fun notifyVoteInvitation(
+        recipientEmail: String,
+        vote: Vote,
+    ) {
+        withRetry("invitation email to $recipientEmail") {
             emailService.sendVoteInvitation(
                 to = recipientEmail,
                 voteTitle = vote.title,
                 creatorName = vote.creator.displayName,
-                voteUrl = "$frontendUrl/votes/${vote.id}",
+                voteUrl = "$frontendUrl/votes/${vote.id}"
             )
-        }.onFailure { log.error("Failed to send invitation email to $recipientEmail", it) }
+        }
     }
 
     @Async
-    override fun notifyDrawResult(vote: Vote, result: DrawResult, participantEmails: List<String>) {
+    override fun notifyDrawResult(
+        vote: Vote,
+        result: DrawResult,
+        participantEmails: List<String>,
+    ) {
         participantEmails.forEach { email ->
-            runCatching {
+            withRetry("draw result email to $email") {
                 emailService.sendDrawResult(
                     to = email,
                     voteTitle = vote.title,
                     winnerName = result.winnerOptionTitle ?: result.winnerDisplayName ?: result.winnerEmail ?: "",
                     winnerEmail = result.winnerEmail ?: "",
                     round = result.round,
-                    voteUrl = "$frontendUrl/votes/${vote.id}",
+                    voteUrl = "$frontendUrl/votes/${vote.id}"
                 )
-            }.onFailure { log.error("Failed to send draw result email to $email", it) }
+            }
         }
+    }
+
+    private fun withRetry(
+        description: String,
+        action: () -> Unit,
+    ) {
+        var lastError: Throwable? = null
+        repeat(MAX_SEND_ATTEMPTS) { attempt ->
+            runCatching(action).onSuccess { return }.onFailure { lastError = it }
+            if (attempt < MAX_SEND_ATTEMPTS - 1) Thread.sleep(1000L * (attempt + 1))
+        }
+        log.error("Failed to send $description after $MAX_SEND_ATTEMPTS attempts", lastError)
     }
 }

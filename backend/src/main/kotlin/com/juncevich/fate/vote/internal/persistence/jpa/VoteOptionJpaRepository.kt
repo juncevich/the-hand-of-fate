@@ -10,7 +10,10 @@ interface VoteOptionJpaRepository : JpaRepository<VoteOptionJpaEntity, UUID> {
 
     fun countByVoteId(voteId: UUID): Long
 
-    fun deleteByVoteIdAndId(voteId: UUID, id: UUID)
+    fun deleteByVoteIdAndId(
+        voteId: UUID,
+        id: UUID,
+    )
 
     @Query(
         """
@@ -24,5 +27,8 @@ interface VoteOptionJpaRepository : JpaRepository<VoteOptionJpaEntity, UUID> {
         ORDER BY o.position ASC, o.createdAt ASC
         """
     )
-    fun findEligibleOptionsForRound(voteId: UUID, round: Int): List<VoteOptionJpaEntity>
+    fun findEligibleOptionsForRound(
+        voteId: UUID,
+        round: Int,
+    ): List<VoteOptionJpaEntity>
 }

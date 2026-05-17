@@ -5,6 +5,8 @@ import java.util.UUID
 
 interface DrawHistoryRepositoryPort {
     fun save(history: DrawHistory): DrawHistory
+
     fun findTopByVoteIdOrderByDrawnAtDesc(voteId: UUID): DrawHistory?
+
     fun findAllByVoteIdOrderByDrawnAtDesc(voteId: UUID): List<DrawHistory>
 }

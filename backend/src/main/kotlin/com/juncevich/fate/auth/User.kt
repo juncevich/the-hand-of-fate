@@ -3,7 +3,7 @@ package com.juncevich.fate.auth
 import java.time.Instant
 import java.util.UUID
 
-class User(
+data class User(
     val id: UUID = UUID.randomUUID(),
     var email: String,
     var passwordHash: String,

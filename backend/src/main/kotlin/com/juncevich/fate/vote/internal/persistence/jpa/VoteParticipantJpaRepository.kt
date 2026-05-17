@@ -8,9 +8,15 @@ import java.util.UUID
 interface VoteParticipantJpaRepository : JpaRepository<VoteParticipantJpaEntity, UUID> {
     fun findAllByVoteId(voteId: UUID): List<VoteParticipantJpaEntity>
 
-    fun existsByVoteIdAndEmail(voteId: UUID, email: String): Boolean
+    fun existsByVoteIdAndEmail(
+        voteId: UUID,
+        email: String,
+    ): Boolean
 
-    fun deleteByVoteIdAndEmail(voteId: UUID, email: String)
+    fun deleteByVoteIdAndEmail(
+        voteId: UUID,
+        email: String,
+    )
 
     @Query(
         """
@@ -23,7 +29,10 @@ interface VoteParticipantJpaRepository : JpaRepository<VoteParticipantJpaEntity,
           )
         """
     )
-    fun findEligibleEmailsForRound(voteId: UUID, round: Int): List<String>
+    fun findEligibleEmailsForRound(
+        voteId: UUID,
+        round: Int,
+    ): List<String>
 
     @Query(
         """

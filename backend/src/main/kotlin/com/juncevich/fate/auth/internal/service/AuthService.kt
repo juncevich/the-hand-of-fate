@@ -15,6 +15,8 @@ import java.time.Instant
 import java.util.Base64
 import java.util.UUID
 
+private const val SECONDS_PER_DAY = 24L * 3600
+
 @Service
 @Transactional
 class AuthService(
@@ -25,24 +27,28 @@ class AuthService(
     private val jwtProperties: JwtProperties,
 ) {
     fun register(request: RegisterRequest): AuthTokens {
-        if (userRepositoryPort.existsByEmail(request.email)) {
-            error("Email already registered")
-        }
-        val user = userRepositoryPort.save(
-            User(
-                email = request.email.lowercase().trim(),
-                passwordHash = requireNotNull(passwordEncoder.encode(request.password)) {
-                    "Password encoding failed"
-                },
-                displayName = request.displayName,
+        check(!userRepositoryPort.existsByEmail(request.email)) { "Email already registered" }
+        val user =
+            userRepositoryPort.save(
+                User(
+                    email = request.email.lowercase().trim(),
+                    passwordHash =
+                        requireNotNull(passwordEncoder.encode(request.password)) {
+                            "Password encoding failed"
+                        },
+                    displayName = request.displayName
+                )
             )
-        )
         return issueTokens(user)
     }
 
-    fun login(email: String, password: String): AuthTokens {
-        val user = userRepositoryPort.findByEmail(email.lowercase().trim())
-            ?: throw BadCredentialsException("Invalid credentials")
+    fun login(
+        email: String,
+        password: String,
+    ): AuthTokens {
+        val user =
+            userRepositoryPort.findByEmail(email.lowercase().trim())
+                ?: throw BadCredentialsException("Invalid credentials")
         if (!passwordEncoder.matches(password, user.passwordHash)) {
             throw BadCredentialsException("Invalid credentials")
         }
@@ -51,8 +57,9 @@ class AuthService(
 
     fun refresh(rawRefreshToken: String): AuthTokens {
         val hash = hashToken(rawRefreshToken)
-        val stored = refreshTokenRepositoryPort.findByTokenHash(hash)
-            ?: throw BadCredentialsException("Refresh token not found")
+        val stored =
+            refreshTokenRepositoryPort.findByTokenHash(hash)
+                ?: throw BadCredentialsException("Refresh token not found")
         if (stored.isExpired) {
             refreshTokenRepositoryPort.delete(stored)
             throw BadCredentialsException("Refresh token expired")
@@ -75,23 +82,24 @@ class AuthService(
     private fun issueTokens(user: User): AuthTokens {
         val accessToken = jwtTokenProvider.createAccessToken(user.id, user.email)
         val rawRefresh = UUID.randomUUID().toString()
-        val expiresAt = Instant.now().plusSeconds(jwtProperties.refreshTtlDays * 24 * 3600)
+        val expiresAt = Instant.now().plusSeconds(jwtProperties.refreshTtlDays * SECONDS_PER_DAY)
 
         refreshTokenRepositoryPort.save(
             RefreshToken(
                 user = user,
                 tokenHash = hashToken(rawRefresh),
-                expiresAt = expiresAt,
+                expiresAt = expiresAt
             )
         )
         return AuthTokens(
-            response = AuthResponse(
-                accessToken = accessToken,
-                userId = user.id.toString(),
-                email = user.email,
-                displayName = user.displayName,
-            ),
-            refreshToken = rawRefresh,
+            response =
+                AuthResponse(
+                    accessToken = accessToken,
+                    userId = user.id.toString(),
+                    email = user.email,
+                    displayName = user.displayName
+                ),
+            refreshToken = rawRefresh
         )
     }
 

@@ -29,28 +29,34 @@ class VoteService(
     private val notificationPort: NotificationPort,
     private val meterRegistry: MeterRegistry,
 ) {
-    fun createVote(creatorId: UUID, request: CreateVoteCommand): VoteDetailDto {
+    fun createVote(
+        creatorId: UUID,
+        request: CreateVoteCommand,
+    ): VoteDetailDto {
         val creator = userQueryService.findById(creatorId) ?: throw NoSuchElementException("User not found")
 
-        val vote = voteRepositoryPort.save(
-            Vote(title = request.title, description = request.description, creator = creator, mode = request.mode)
-        )
+        val vote =
+            voteRepositoryPort.save(
+                Vote(title = request.title, description = request.description, creator = creator, mode = request.mode)
+            )
 
         val allEmails = setOf(creator.email) + request.participantEmails
         val existingUsers = userQueryService.findAllByEmailIn(allEmails).associateBy { it.email }
-        val participants = participantRepositoryPort.saveAll(
-            allEmails.map { email ->
-                VoteParticipant(voteId = vote.id, email = email, displayName = existingUsers[email]?.displayName)
-            }
-        )
+        val participants =
+            participantRepositoryPort.saveAll(
+                allEmails.map { email ->
+                    VoteParticipant(voteId = vote.id, email = email, displayName = existingUsers[email]?.displayName)
+                }
+            )
 
-        val options = voteOptionRepositoryPort.saveAll(
-            (request.options ?: emptyList())
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .distinct()
-                .mapIndexed { index, title -> VoteOption(voteId = vote.id, title = title, position = index) }
-        )
+        val options =
+            voteOptionRepositoryPort.saveAll(
+                (request.options ?: emptyList())
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .mapIndexed { index, title -> VoteOption(voteId = vote.id, title = title, position = index) }
+            )
 
         meterRegistry.counter("vote.created", "mode", vote.mode.name).increment()
 
@@ -62,22 +68,31 @@ class VoteService(
     }
 
     @Transactional(readOnly = true)
-    fun listVotes(userId: UUID, email: String, pageable: Pageable): Page<VoteSummaryDto> {
+    fun listVotes(
+        userId: UUID,
+        email: String,
+        pageable: Pageable,
+    ): Page<VoteSummaryDto> {
         val votes = voteRepositoryPort.findAllByUserIdOrParticipantEmail(userId, email, pageable)
         val voteIds = votes.content.map { it.id }
-        val participantCounts = if (voteIds.isEmpty()) {
-            emptyMap()
-        } else {
-            participantRepositoryPort.countByVoteIds(voteIds).associate { it.voteId to it.participantCount }
-        }
+        val participantCounts =
+            if (voteIds.isEmpty()) {
+                emptyMap()
+            } else {
+                participantRepositoryPort.countByVoteIds(voteIds).associate { it.voteId to it.participantCount }
+            }
         return votes.map { vote ->
             vote.toSummaryDto(participantCounts[vote.id] ?: 0, vote.creator.id == userId)
         }
     }
 
     @Transactional(readOnly = true)
-    fun getVote(voteId: UUID, requesterId: UUID, requesterEmail: String): VoteDetailDto {
-        val vote = voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
+    fun getVote(
+        voteId: UUID,
+        requesterId: UUID,
+        requesterEmail: String,
+    ): VoteDetailDto {
+        val vote = getVoteOrThrow(voteId)
         checkCanView(vote, requesterId, requesterEmail)
         val participants = participantRepositoryPort.findAllByVoteId(voteId)
         val options = voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(voteId)
@@ -85,9 +100,13 @@ class VoteService(
         return vote.toDetailDto(participants, options, lastResult, requesterId)
     }
 
-    fun addParticipant(voteId: UUID, requesterId: UUID, email: String) {
-        val vote = voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
-        check(vote.creator.id == requesterId) { "Only the creator can add participants" }
+    fun addParticipant(
+        voteId: UUID,
+        requesterId: UUID,
+        email: String,
+    ) {
+        val vote = getVoteOrThrow(voteId)
+        checkIsCreator(vote, requesterId)
         check(vote.status == VoteStatus.PENDING) { "Cannot add participants to a non-pending vote" }
         check(!participantRepositoryPort.existsByVoteIdAndEmail(voteId, email)) { "Participant already exists" }
 
@@ -97,31 +116,46 @@ class VoteService(
         notificationPort.notifyVoteInvitation(email, vote)
     }
 
-    fun removeParticipant(voteId: UUID, requesterId: UUID, email: String) {
-        val vote = voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
-        check(vote.creator.id == requesterId) { "Only the creator can remove participants" }
+    fun removeParticipant(
+        voteId: UUID,
+        requesterId: UUID,
+        email: String,
+    ) {
+        val vote = getVoteOrThrow(voteId)
+        checkIsCreator(vote, requesterId)
         check(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
         participantRepositoryPort.deleteByVoteIdAndEmail(voteId, email)
     }
 
-    fun addOption(voteId: UUID, requesterId: UUID, title: String) {
-        val vote = voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
-        check(vote.creator.id == requesterId) { "Only the creator can add options" }
+    fun addOption(
+        voteId: UUID,
+        requesterId: UUID,
+        title: String,
+    ) {
+        val vote = getVoteOrThrow(voteId)
+        checkIsCreator(vote, requesterId)
         check(vote.status == VoteStatus.PENDING) { "Cannot add options to a non-pending vote" }
         val position = voteOptionRepositoryPort.countByVoteId(voteId).toInt()
         voteOptionRepositoryPort.save(VoteOption(voteId = voteId, title = title.trim(), position = position))
     }
 
-    fun removeOption(voteId: UUID, requesterId: UUID, optionId: UUID) {
-        val vote = voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
-        check(vote.creator.id == requesterId) { "Only the creator can remove options" }
+    fun removeOption(
+        voteId: UUID,
+        requesterId: UUID,
+        optionId: UUID,
+    ) {
+        val vote = getVoteOrThrow(voteId)
+        checkIsCreator(vote, requesterId)
         check(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
         voteOptionRepositoryPort.deleteByVoteIdAndId(voteId, optionId)
     }
 
-    fun draw(voteId: UUID, requesterId: UUID): DrawResult {
-        val vote = voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
-        check(vote.creator.id == requesterId) { "Only the creator can perform a draw" }
+    fun draw(
+        voteId: UUID,
+        requesterId: UUID,
+    ): DrawResult {
+        val vote = getVoteOrThrow(voteId)
+        checkIsCreator(vote, requesterId)
 
         val result = drawService.draw(vote)
 
@@ -131,42 +165,74 @@ class VoteService(
         return result
     }
 
-    fun reopen(voteId: UUID, requesterId: UUID) {
-        val vote = voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
-        check(vote.creator.id == requesterId) { "Only the creator can reopen a vote" }
+    fun reopen(
+        voteId: UUID,
+        requesterId: UUID,
+    ) {
+        val vote = getVoteOrThrow(voteId)
+        checkIsCreator(vote, requesterId)
         drawService.reopen(vote)
     }
 
-    fun closeVote(voteId: UUID, requesterId: UUID) {
-        val vote = voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
-        check(vote.creator.id == requesterId) { "Only the creator can close a vote" }
+    fun closeVote(
+        voteId: UUID,
+        requesterId: UUID,
+    ) {
+        val vote = getVoteOrThrow(voteId)
+        checkIsCreator(vote, requesterId)
         vote.status = VoteStatus.CLOSED
         voteRepositoryPort.save(vote)
     }
 
-    fun deleteVote(voteId: UUID, requesterId: UUID) {
-        val vote = voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
-        check(vote.creator.id == requesterId) { "Only the creator can delete a vote" }
+    fun deleteVote(
+        voteId: UUID,
+        requesterId: UUID,
+    ) {
+        val vote = getVoteOrThrow(voteId)
+        checkIsCreator(vote, requesterId)
         voteRepositoryPort.delete(vote)
     }
 
     @Transactional(readOnly = true)
-    fun getHistory(voteId: UUID, requesterId: UUID, requesterEmail: String): List<DrawHistoryDto> {
-        val vote = voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
+    fun getHistory(
+        voteId: UUID,
+        requesterId: UUID,
+        requesterEmail: String,
+    ): List<DrawHistoryDto> {
+        val vote = getVoteOrThrow(voteId)
         checkCanView(vote, requesterId, requesterEmail)
         return drawHistoryRepositoryPort.findAllByVoteIdOrderByDrawnAtDesc(voteId).map { it.toDto() }
     }
 
     @Transactional(readOnly = true)
-    fun getLastResult(voteId: UUID, requesterId: UUID, requesterEmail: String): DrawHistoryDto? {
-        val vote = voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
+    fun getLastResult(
+        voteId: UUID,
+        requesterId: UUID,
+        requesterEmail: String,
+    ): DrawHistoryDto? {
+        val vote = getVoteOrThrow(voteId)
         checkCanView(vote, requesterId, requesterEmail)
         return drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDesc(voteId)?.toDto()
     }
 
-    private fun checkCanView(vote: Vote, requesterId: UUID, requesterEmail: String) {
-        val hasAccess = vote.creator.id == requesterId ||
-            participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requesterEmail)
+    private fun getVoteOrThrow(voteId: UUID): Vote =
+        voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
+
+    private fun checkIsCreator(
+        vote: Vote,
+        requesterId: UUID,
+    ) {
+        check(vote.creator.id == requesterId) { "Only the creator can perform this action" }
+    }
+
+    private fun checkCanView(
+        vote: Vote,
+        requesterId: UUID,
+        requesterEmail: String,
+    ) {
+        val hasAccess =
+            vote.creator.id == requesterId ||
+                participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requesterEmail)
         check(hasAccess) { "Vote is not available for this user" }
     }
 }

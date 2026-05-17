@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote
+package com.juncevich.fate.vote.internal
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.vote.*
@@ -27,21 +27,21 @@ class DrawServiceTest {
     private val meterRegistry = mockk<MeterRegistry>()
     private val counter = mockk<Counter>(relaxed = true)
 
-    private val drawService = DrawService(
-        voteRepositoryPort,
-        participantRepositoryPort,
-        voteOptionRepositoryPort,
-        drawHistoryRepositoryPort,
-        meterRegistry,
-    )
+    private val drawService =
+        DrawService(
+            voteRepositoryPort,
+            participantRepositoryPort,
+            voteOptionRepositoryPort,
+            drawHistoryRepositoryPort,
+            meterRegistry
+        )
 
     @BeforeEach
     fun setUp() {
         every { meterRegistry.counter(any<String>(), *anyVararg<String>()) } returns counter
     }
 
-    private fun makeUser(email: String = "creator@test.com") =
-        User(email = email, passwordHash = "hash", displayName = "Test User")
+    private fun makeUser(email: String = "creator@test.com") = User(email = email, passwordHash = "hash", displayName = "Test User")
 
     private fun makeVote(
         mode: VoteMode = VoteMode.SIMPLE,
@@ -58,7 +58,7 @@ class DrawServiceTest {
         vote: Vote,
         winnerEmail: String,
         round: Int = 1,
-    ) = DrawHistory(voteId = vote.id, winnerEmail = winnerEmail, winnerDisplayName = null, round = round)
+    ) = DrawHistory.ParticipantWinner(voteId = vote.id, email = winnerEmail, round = round)
 
     @Test
     fun `draw SIMPLE - picks the only participant as winner`() {

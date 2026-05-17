@@ -10,69 +10,96 @@ import com.juncevich.fate.vote.internal.persistence.entity.VoteJpaEntity
 import com.juncevich.fate.vote.internal.persistence.entity.VoteOptionJpaEntity
 import com.juncevich.fate.vote.internal.persistence.entity.VoteParticipantJpaEntity
 
-fun VoteJpaEntity.toDomain(creator: User) = Vote(
-    id = id,
-    title = title,
-    description = description,
-    creator = creator,
-    mode = mode,
-    status = status,
-    currentRound = currentRound,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-)
+fun VoteJpaEntity.toDomain(creator: User) =
+    Vote(
+        id = id,
+        title = title,
+        description = description,
+        creator = creator,
+        mode = mode,
+        status = status,
+        currentRound = currentRound,
+        createdAt = createdAt,
+        updatedAt = updatedAt
+    )
 
-fun Vote.toJpaEntity() = VoteJpaEntity(
-    id = id,
-    title = title,
-    description = description,
-    creatorId = creator.id,
-    mode = mode,
-    status = status,
-    currentRound = currentRound,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-)
+fun Vote.toJpaEntity() =
+    VoteJpaEntity(
+        id = id,
+        title = title,
+        description = description,
+        creatorId = creator.id,
+        mode = mode,
+        status = status,
+        currentRound = currentRound,
+        createdAt = createdAt,
+        updatedAt = updatedAt
+    )
 
-fun VoteParticipantJpaEntity.toDomain() = VoteParticipant(
-    id = id,
-    voteId = vote.id,
-    email = email,
-    displayName = displayName,
-    addedAt = addedAt,
-)
+fun VoteParticipantJpaEntity.toDomain() =
+    VoteParticipant(
+        id = id,
+        voteId = vote.id,
+        email = email,
+        displayName = displayName,
+        addedAt = addedAt
+    )
 
-fun VoteParticipant.toJpaEntity(voteEntity: VoteJpaEntity) = VoteParticipantJpaEntity(
-    id = id,
-    vote = voteEntity,
-    email = email,
-    displayName = displayName,
-    addedAt = addedAt,
-)
+fun VoteParticipant.toJpaEntity(voteEntity: VoteJpaEntity) =
+    VoteParticipantJpaEntity(
+        id = id,
+        vote = voteEntity,
+        email = email,
+        displayName = displayName,
+        addedAt = addedAt
+    )
 
-fun VoteOptionJpaEntity.toDomain() = VoteOption(
-    id = id,
-    voteId = vote.id,
-    title = title,
-    position = position,
-    createdAt = createdAt,
-)
+fun VoteOptionJpaEntity.toDomain() =
+    VoteOption(
+        id = id,
+        voteId = vote.id,
+        title = title,
+        position = position,
+        createdAt = createdAt
+    )
 
-fun VoteOption.toJpaEntity(voteEntity: VoteJpaEntity) = VoteOptionJpaEntity(
-    id = id,
-    vote = voteEntity,
-    title = title,
-    position = position,
-    createdAt = createdAt,
-)
+fun VoteOption.toJpaEntity(voteEntity: VoteJpaEntity) =
+    VoteOptionJpaEntity(
+        id = id,
+        vote = voteEntity,
+        title = title,
+        position = position,
+        createdAt = createdAt
+    )
 
-fun DrawHistoryJpaEntity.toDomain() = DrawHistory(
-    id = id,
-    voteId = vote.id,
-    winnerEmail = winnerEmail,
-    winnerDisplayName = winnerDisplayName,
-    winnerOptionId = winnerOption?.id,
-    winnerOptionTitle = winnerOptionTitle,
-    round = round,
-    drawnAt = drawnAt,
-)
+fun DrawHistoryJpaEntity.toDomain(): DrawHistory {
+    val email = winnerEmail
+    val optionTitle = winnerOptionTitle
+    return when {
+        email != null -> {
+            DrawHistory.ParticipantWinner(
+                id = id,
+                voteId = vote.id,
+                email = email,
+                displayName = winnerDisplayName,
+                round = round,
+                drawnAt = drawnAt
+            )
+        }
+
+        optionTitle != null -> {
+            DrawHistory.OptionWinner(
+                id = id,
+                voteId = vote.id,
+                optionId = checkNotNull(winnerOption?.id) { "winnerOption missing for OptionWinner history $id" },
+                optionTitle = optionTitle,
+                round = round,
+                drawnAt = drawnAt
+            )
+        }
+
+        else -> {
+            error("DrawHistoryJpaEntity $id has neither winnerEmail nor winnerOptionTitle")
+        }
+    }
+}

@@ -21,11 +21,8 @@ class TelegramController(
     fun getLinkToken(
         @AuthenticationPrincipal user: AuthenticatedUser,
     ): LinkTokenResponse {
-        val token = telegramLinkService.generateLinkToken(user.id)
-        return LinkTokenResponse(
-            token = token,
-            expiresAt = Instant.now().plusSeconds(5 * 60)
-        )
+        val result = telegramLinkService.generateLinkToken(user.id)
+        return LinkTokenResponse(token = result.token, expiresAt = result.expiresAt)
     }
 
     @DeleteMapping("/unlink")

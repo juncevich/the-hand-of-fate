@@ -6,5 +6,6 @@ import java.util.UUID
 
 interface DrawHistoryJpaRepository : JpaRepository<DrawHistoryJpaEntity, UUID> {
     fun findAllByVoteIdOrderByDrawnAtDesc(voteId: UUID): List<DrawHistoryJpaEntity>
+
     fun findTopByVoteIdOrderByDrawnAtDesc(voteId: UUID): DrawHistoryJpaEntity?
 }

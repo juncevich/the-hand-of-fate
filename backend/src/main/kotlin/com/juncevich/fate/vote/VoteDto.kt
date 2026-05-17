@@ -65,7 +65,10 @@ data class VoteDetailDto(
 
 // ── Domain → DTO mappings ──────────────────────────────────────────────────────
 
-fun Vote.toSummaryDto(participantCount: Long, isCreator: Boolean) = VoteSummaryDto(
+fun Vote.toSummaryDto(
+    participantCount: Long,
+    isCreator: Boolean,
+) = VoteSummaryDto(
     id = id,
     title = title,
     mode = mode,
@@ -73,7 +76,7 @@ fun Vote.toSummaryDto(participantCount: Long, isCreator: Boolean) = VoteSummaryD
     currentRound = currentRound,
     participantCount = participantCount,
     isCreator = isCreator,
-    createdAt = createdAt,
+    createdAt = createdAt
 )
 
 fun Vote.toDetailDto(
@@ -92,14 +95,30 @@ fun Vote.toDetailDto(
     options = options.map { VoteOptionDto(it.id, it.title) },
     lastResult = lastResult?.toDto(),
     isCreator = requesterId != null && creator.id == requesterId,
-    createdAt = createdAt,
+    createdAt = createdAt
 )
 
-fun DrawHistory.toDto() = DrawHistoryDto(
-    id = id,
-    winnerEmail = winnerEmail,
-    winnerDisplayName = winnerDisplayName,
-    winnerOptionTitle = winnerOptionTitle,
-    round = round,
-    drawnAt = drawnAt,
-)
+fun DrawHistory.toDto() =
+    when (this) {
+        is DrawHistory.ParticipantWinner -> {
+            DrawHistoryDto(
+                id = id,
+                winnerEmail = email,
+                winnerDisplayName = displayName,
+                winnerOptionTitle = null,
+                round = round,
+                drawnAt = drawnAt
+            )
+        }
+
+        is DrawHistory.OptionWinner -> {
+            DrawHistoryDto(
+                id = id,
+                winnerEmail = null,
+                winnerDisplayName = null,
+                winnerOptionTitle = optionTitle,
+                round = round,
+                drawnAt = drawnAt
+            )
+        }
+    }

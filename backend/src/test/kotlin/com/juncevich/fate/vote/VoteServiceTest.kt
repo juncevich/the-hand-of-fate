@@ -40,7 +40,7 @@ class VoteServiceTest {
             userQueryService,
             drawService,
             notificationPort,
-            meterRegistry,
+            meterRegistry
         )
 
     @BeforeEach
@@ -78,7 +78,7 @@ class VoteServiceTest {
                 description = null,
                 mode = VoteMode.SIMPLE,
                 participantEmails = listOf("p@test.com"),
-                options = listOf("Option A", "Option B"),
+                options = listOf("Option A", "Option B")
             )
 
         voteService.createVote(creator.id, request)

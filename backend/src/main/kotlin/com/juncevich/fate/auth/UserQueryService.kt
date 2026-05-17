@@ -12,8 +12,9 @@ class UserQueryService(
 
     fun findByEmail(email: String): User? = userRepositoryPort.findByEmail(email)
 
-    fun findAllByEmailIn(emails: Collection<String>): List<User> =
-        userRepositoryPort.findAllByEmailIn(emails)
+    fun findAllByEmailIn(emails: Collection<String>): List<User> = userRepositoryPort.findAllByEmailIn(emails)
+
+    fun findAllByIdIn(ids: Collection<UUID>): List<User> = userRepositoryPort.findAllByIdIn(ids)
 
     fun findByTelegramId(telegramId: Long): User? = userRepositoryPort.findByTelegramId(telegramId)
 }
