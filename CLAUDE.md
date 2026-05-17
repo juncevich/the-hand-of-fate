@@ -133,6 +133,18 @@ go build -o fate-bot ./cmd/bot  # build binary
 - **React Query** (`@tanstack/react-query`) handles all server state — queries, mutations, cache invalidation
 - Custom Axios instance in `frontend/src/api/client.ts` handles token refresh with a retry queue so concurrent 401s only trigger one refresh call
 
+**Custom hooks** (`frontend/src/hooks/`) encapsulate all React Query logic; pages import hooks rather than calling API directly:
+- `useVoteList(page)` — paginated vote list query
+- `useVoteDetail(id)` — vote query + all mutations (draw, reopen, addParticipant, removeParticipant, addOption, removeOption, deleteVote)
+- `useTelegramLink()` — get/copy link token flow
+
+**Vote detail sub-components** (`frontend/src/components/vote/`):
+- `VoteHeader` — title, status/mode badges, draw and reopen buttons
+- `VoteParticipants` — participant list with add/remove
+- `VoteOptions` — options list with add/remove
+- `VoteLastResult` — last draw result display
+- `VoteHistory` — full draw history list
+
 ### Vote Modes
 - **SIMPLE**: random draw from all participants or options, no history tracking
 - **FAIR_ROTATION**: tracks `draw_history` per round; only participants/options who haven't won in `currentRound` are eligible. When all have won, `currentRound` increments and the cycle restarts
@@ -144,9 +156,29 @@ A vote can draw from two mutually exclusive sources — if options exist they ta
 
 `DrawWinner` is a sealed class with two subtypes: `Participant` and `Option`. `DrawHistory` stores the winner as either `winnerEmail` / `winnerDisplayName` (for participants) or `winnerOption` / `winnerOptionTitle` (for options — denormalized title for resilience to deletion).
 
+### Backend Module Architecture (Hexagonal / Ports & Adapters)
+
+The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**. Modules are: `auth`, `vote`, `shared`, `grpc`. Each module has an `internal/` subtree that is private to the module.
+
+```
+<module>/
+  internal/
+    domain/        — domain entities (plain Kotlin classes, no JPA annotations)
+    port/          — repository/notification interfaces (ports)
+    persistence/
+      entity/      — JPA entities
+      jpa/         — Spring Data JPA repositories
+      adapter/     — JPA adapter implementations of port interfaces
+      mapper/      — domain ↔ entity mappers
+    web/           — REST controllers and DTOs
+    notification/  — notification adapters (email via NotificationPort)
+```
+
+`ModularityTest` (`backend/src/test/kotlin/com/juncevich/fate/ModularityTest.kt`) verifies module boundaries are respected and generates PlantUML diagrams.
+
 ### Key Backend Services
 - **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching for both participants and options; picks draw target automatically (options if any exist, otherwise participants)
-- **VoteService**: CRUD for votes including creating `VoteOption` entities from request; `addOption()` / `removeOption()` for post-creation management
+- **VoteService**: CRUD for votes including creating `VoteOption` entities from request; `addOption()` / `removeOption()` for post-creation management; votes use optimistic locking (`@Version`) to prevent concurrent draw conflicts
 - **NotificationService**: async dispatcher — triggers email after draws/invitations, swallows errors so draw success is never blocked by notification failure
 - **EmailService**: sends styled HTML emails (dark theme) for vote invitations and draw results
 - **FateGrpcService**: gRPC server implementation; uses `runCatching` + `StatusRuntimeException` for error mapping; maps `VoteOptionInfo` proto messages for options
@@ -171,11 +203,12 @@ A vote can draw from two mutually exclusive sources — if options exist they ta
 5. Bot notifies via Telegram; backend sends emails for invitations and draw results
 
 ### Testing
-- **Backend**: MockK for unit tests. TestContainers dependency is declared but no integration tests exist yet. Tests live in `backend/src/test/kotlin/`
+- **Backend**: MockK for unit tests. Tests live in `backend/src/test/kotlin/`
 - **Frontend**: Vitest + `@testing-library/react` + jest-dom
 
 #### Backend Testing Patterns
-- Test files mirror main source layout: `service/`, `web/auth/`, `web/vote/`, `grpc/`, `security/`
+- Test files mirror the module structure: `auth/`, `vote/internal/`, `grpc/`, `shared/`
+- `ModularityTest` verifies Spring Modulith boundaries — run it after any package restructuring
 - All service tests are pure unit tests using MockK — no Spring context needed
 - Controller tests use `MockMvcBuilders.standaloneSetup()` — Spring Boot 4.0 removed `@WebMvcTest`
   - Register `AuthenticationPrincipalArgumentResolver` and `PageableHandlerMethodArgumentResolver` explicitly
