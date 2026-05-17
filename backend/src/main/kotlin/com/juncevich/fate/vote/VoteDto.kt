@@ -1,5 +1,6 @@
 package com.juncevich.fate.vote
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.juncevich.fate.vote.internal.domain.DrawHistory
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
@@ -26,7 +27,7 @@ data class VoteSummaryDto(
     val status: VoteStatus,
     val currentRound: Int,
     val participantCount: Long,
-    val isCreator: Boolean,
+    @get:JsonProperty("isCreator") val isCreator: Boolean,
     val createdAt: Instant,
 )
 
@@ -59,7 +60,7 @@ data class VoteDetailDto(
     val participants: List<ParticipantDto>,
     val options: List<VoteOptionDto>,
     val lastResult: DrawHistoryDto?,
-    val isCreator: Boolean,
+    @get:JsonProperty("isCreator") val isCreator: Boolean,
     val createdAt: Instant,
 )
 

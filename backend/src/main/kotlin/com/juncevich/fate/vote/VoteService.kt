@@ -241,9 +241,11 @@ class VoteService(
 
     private fun afterCommit(action: () -> Unit) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
-            TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
-                override fun afterCommit() = action()
-            })
+            TransactionSynchronizationManager.registerSynchronization(
+                object : TransactionSynchronization {
+                    override fun afterCommit() = action()
+                }
+            )
         } else {
             action()
         }

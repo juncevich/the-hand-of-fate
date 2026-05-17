@@ -118,9 +118,18 @@ class FateGrpcService(
                 .build()
         }.getOrElse { ex ->
             when (ex) {
-                is NoSuchElementException, is IllegalStateException, is IllegalArgumentException ->
-                    CreateVoteResponse.newBuilder().setSuccess(false).setMessage(ex.message ?: "Vote creation failed").build()
-                else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+                is NoSuchElementException, is IllegalStateException, is IllegalArgumentException -> {
+                    CreateVoteResponse
+                        .newBuilder()
+                        .setSuccess(
+                            false
+                        ).setMessage(ex.message ?: "Vote creation failed")
+                        .build()
+                }
+
+                else -> {
+                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+                }
             }
         }
     }
@@ -164,9 +173,17 @@ class FateGrpcService(
                 .build()
         }.getOrElse { ex ->
             when (ex) {
-                is NoSuchElementException, is IllegalStateException, is IllegalArgumentException ->
-                    DrawVoteResponse.newBuilder().setSuccess(false).setMessage(ex.message ?: "Draw failed").build()
-                else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+                is NoSuchElementException, is IllegalStateException, is IllegalArgumentException -> {
+                    DrawVoteResponse
+                        .newBuilder()
+                        .setSuccess(false)
+                        .setMessage(ex.message ?: "Draw failed")
+                        .build()
+                }
+
+                else -> {
+                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+                }
             }
         }
     }

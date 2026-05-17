@@ -146,8 +146,31 @@ sourceSets {
     }
 }
 
+val integrationTestSourceSet = sourceSets.create("integrationTest") {
+    kotlin.srcDir("src/integrationTest/kotlin")
+    resources.srcDir("src/integrationTest/resources")
+    compileClasspath += sourceSets.main.get().output
+    runtimeClasspath += output + compileClasspath
+}
+
+configurations["integrationTestImplementation"].extendsFrom(configurations["testImplementation"])
+configurations["integrationTestRuntimeOnly"].extendsFrom(configurations["testRuntimeOnly"])
+
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+val integrationTest by tasks.registering(Test::class) {
+    description = "Runs integration tests (spin up PostgreSQL via TestContainers)"
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    useJUnitPlatform()
+    shouldRunAfter(tasks.test)
+    testClassesDirs = integrationTestSourceSet.output.classesDirs
+    classpath = integrationTestSourceSet.runtimeClasspath
+}
+
+tasks.check {
+    dependsOn(integrationTest)
 }
 
 spotless {
@@ -171,7 +194,7 @@ configurations.matching { it.name.contains("detekt", ignoreCase = true) }.config
 detekt {
     config.setFrom(file("detekt.yml"))
     buildUponDefaultConfig = true
-    source.setFrom("src/main/kotlin", "src/test/kotlin")
+    source.setFrom("src/main/kotlin", "src/test/kotlin", "src/integrationTest/kotlin")
     baseline = file("detekt-baseline.xml")
 }
 

@@ -26,11 +26,10 @@ import java.util.UUID
 
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.NONE,
-    properties = ["grpc.server.port=-1"],
+    properties = ["grpc.server.port=-1"]
 )
 @Testcontainers
 class VoteVersioningIntegrationTest {
-
     companion object {
         @Container
         @JvmField
@@ -68,10 +67,11 @@ class VoteVersioningIntegrationTest {
     @BeforeEach
     fun fetchAdminId() {
         // V7 migration seeds admin@admin.com — use it to satisfy the creator_id FK.
-        adminId = jdbcTemplate.queryForObject(
-            "SELECT id FROM users WHERE email = 'admin@admin.com'",
-            UUID::class.java,
-        )!!
+        adminId =
+            jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = 'admin@admin.com'",
+                UUID::class.java
+            )!!
     }
 
     private fun tx(block: () -> Unit) = TransactionTemplate(txManager).execute { block() }
@@ -146,6 +146,6 @@ class VoteVersioningIntegrationTest {
             title = "test vote",
             creatorId = adminId,
             mode = VoteMode.SIMPLE,
-            status = VoteStatus.PENDING,
+            status = VoteStatus.PENDING
         )
 }

@@ -69,7 +69,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-test-results
-          path: backend/build/reports/tests/
+          path: |
+            backend/build/reports/tests/test/
+            backend/build/reports/tests/integrationTest/
 
   backend-build:
     name: Backend — Build JAR
