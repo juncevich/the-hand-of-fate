@@ -146,14 +146,12 @@ class DrawService(
         vote: Vote,
         participants: List<VoteParticipant>,
     ): Pair<VoteParticipant, Boolean> {
-        var newRoundStarted = false
         var eligibleEmails = participantRepositoryPort.findEligibleEmailsForRound(vote.id, vote.currentRound)
+        val newRoundStarted = eligibleEmails.isEmpty()
 
-        if (eligibleEmails.isEmpty()) {
+        if (newRoundStarted) {
             vote.currentRound++
-            voteRepositoryPort.save(vote)
             eligibleEmails = participants.map { it.email }
-            newRoundStarted = true
         }
 
         val winnerEmail = eligibleEmails.random()
@@ -165,14 +163,12 @@ class DrawService(
         vote: Vote,
         options: List<VoteOption>,
     ): Pair<DrawWinner.Option, Boolean> {
-        var newRoundStarted = false
         var eligibleOptions = voteOptionRepositoryPort.findEligibleOptionsForRound(vote.id, vote.currentRound)
+        val newRoundStarted = eligibleOptions.isEmpty()
 
-        if (eligibleOptions.isEmpty()) {
+        if (newRoundStarted) {
             vote.currentRound++
-            voteRepositoryPort.save(vote)
             eligibleOptions = options
-            newRoundStarted = true
         }
 
         return DrawWinner.Option(eligibleOptions.random()) to newRoundStarted

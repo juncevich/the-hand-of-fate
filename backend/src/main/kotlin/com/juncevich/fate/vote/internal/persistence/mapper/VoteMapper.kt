@@ -20,7 +20,8 @@ fun VoteJpaEntity.toDomain(creator: User) =
         status = status,
         currentRound = currentRound,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        version = version
     )
 
 fun Vote.toJpaEntity() =
@@ -33,7 +34,8 @@ fun Vote.toJpaEntity() =
         status = status,
         currentRound = currentRound,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        version = version
     )
 
 fun VoteParticipantJpaEntity.toDomain() =

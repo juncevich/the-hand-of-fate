@@ -16,4 +16,5 @@ class Vote(
     var currentRound: Int = 1,
     val createdAt: Instant = Instant.now(),
     var updatedAt: Instant = Instant.now(),
+    val version: Int = 0,
 )

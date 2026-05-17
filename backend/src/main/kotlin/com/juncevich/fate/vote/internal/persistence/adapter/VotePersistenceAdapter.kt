@@ -40,6 +40,14 @@ class VotePersistenceAdapter(
         return entity.toDomain(creator)
     }
 
+    override fun findByIdForDraw(id: UUID): Vote? {
+        val entity = voteJpaRepository.findByIdWithPessimisticLock(id) ?: return null
+        val creator =
+            userQueryService.findById(entity.creatorId)
+                ?: throw NoSuchElementException("Creator not found for vote $id")
+        return entity.toDomain(creator)
+    }
+
     override fun findAllByUserIdOrParticipantEmail(
         userId: UUID,
         email: String,
@@ -127,8 +135,6 @@ class VoteOptionPersistenceAdapter(
 
     override fun findAllByVoteIdOrderedByPosition(voteId: UUID): List<VoteOption> =
         voteOptionJpaRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(voteId).map { it.toDomain() }
-
-    override fun countByVoteId(voteId: UUID): Long = voteOptionJpaRepository.countByVoteId(voteId)
 
     override fun deleteByVoteIdAndId(
         voteId: UUID,

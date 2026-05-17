@@ -35,4 +35,6 @@ class VoteJpaEntity(
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    var version: Int = 0,
 )

@@ -10,8 +10,6 @@ interface VoteOptionRepositoryPort {
 
     fun findAllByVoteIdOrderedByPosition(voteId: UUID): List<VoteOption>
 
-    fun countByVoteId(voteId: UUID): Long
-
     fun deleteByVoteIdAndId(
         voteId: UUID,
         optionId: UUID,

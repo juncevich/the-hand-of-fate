@@ -15,6 +15,8 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.UUID
 
 @Service
@@ -61,7 +63,7 @@ class VoteService(
         meterRegistry.counter("vote.created", "mode", vote.mode.name).increment()
 
         request.participantEmails.forEach { email ->
-            notificationPort.notifyVoteInvitation(email, vote)
+            afterCommit { notificationPort.notifyVoteInvitation(email, vote) }
         }
 
         return vote.toDetailDto(participants, options, null, creator.id)
@@ -113,7 +115,7 @@ class VoteService(
         val user = userQueryService.findByEmail(email)
         participantRepositoryPort.save(VoteParticipant(voteId = voteId, email = email, displayName = user?.displayName))
 
-        notificationPort.notifyVoteInvitation(email, vote)
+        afterCommit { notificationPort.notifyVoteInvitation(email, vote) }
     }
 
     fun removeParticipant(
@@ -135,8 +137,8 @@ class VoteService(
         val vote = getVoteOrThrow(voteId)
         checkIsCreator(vote, requesterId)
         check(vote.status == VoteStatus.PENDING) { "Cannot add options to a non-pending vote" }
-        val position = voteOptionRepositoryPort.countByVoteId(voteId).toInt()
-        voteOptionRepositoryPort.save(VoteOption(voteId = voteId, title = title.trim(), position = position))
+        // Use Int.MAX_VALUE so new options always sort after batch-created ones (ordered by createdAt as tiebreaker).
+        voteOptionRepositoryPort.save(VoteOption(voteId = voteId, title = title.trim(), position = Int.MAX_VALUE))
     }
 
     fun removeOption(
@@ -154,13 +156,13 @@ class VoteService(
         voteId: UUID,
         requesterId: UUID,
     ): DrawResult {
-        val vote = getVoteOrThrow(voteId)
+        val vote = voteRepositoryPort.findByIdForDraw(voteId) ?: throw NoSuchElementException("Vote not found")
         checkIsCreator(vote, requesterId)
 
         val result = drawService.draw(vote)
 
         val participants = participantRepositoryPort.findAllByVoteId(voteId)
-        notificationPort.notifyDrawResult(vote, result, participants.map { it.email })
+        afterCommit { notificationPort.notifyDrawResult(vote, result, participants.map { it.email }) }
 
         return result
     }
@@ -180,6 +182,7 @@ class VoteService(
     ) {
         val vote = getVoteOrThrow(voteId)
         checkIsCreator(vote, requesterId)
+        check(vote.status != VoteStatus.CLOSED) { "Vote is already closed" }
         vote.status = VoteStatus.CLOSED
         voteRepositoryPort.save(vote)
     }
@@ -234,5 +237,15 @@ class VoteService(
             vote.creator.id == requesterId ||
                 participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requesterEmail)
         check(hasAccess) { "Vote is not available for this user" }
+    }
+
+    private fun afterCommit(action: () -> Unit) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+                override fun afterCommit() = action()
+            })
+        } else {
+            action()
+        }
     }
 }

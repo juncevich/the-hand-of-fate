@@ -1,9 +1,11 @@
 package com.juncevich.fate.vote.internal.persistence.jpa
 
 import com.juncevich.fate.vote.internal.persistence.entity.VoteJpaEntity
+import jakarta.persistence.LockModeType
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
@@ -23,4 +25,8 @@ interface VoteJpaRepository : JpaRepository<VoteJpaEntity, UUID> {
         email: String,
         pageable: Pageable,
     ): Page<VoteJpaEntity>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT v FROM VoteJpaEntity v WHERE v.id = :id")
+    fun findByIdWithPessimisticLock(id: UUID): VoteJpaEntity?
 }

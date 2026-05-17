@@ -13,6 +13,8 @@ import java.util.UUID
 import com.juncevich.fate.vote.VoteMode as DomainVoteMode
 import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 
+private const val GRPC_DEFAULT_PAGE_SIZE = 20
+
 @GrpcService
 class FateGrpcService(
     private val userQueryService: UserQueryService,
@@ -59,7 +61,7 @@ class FateGrpcService(
 
     override suspend fun getMyVotes(request: GetMyVotesRequest): GetMyVotesResponse {
         val user = linkedUser(request.telegramId)
-        val page = voteService.listVotes(user.id, user.email, PageRequest.of(0, 20))
+        val page = voteService.listVotes(user.id, user.email, PageRequest.of(0, GRPC_DEFAULT_PAGE_SIZE))
         val summaries =
             page.content.map { dto ->
                 VoteSummary
@@ -115,11 +117,11 @@ class FateGrpcService(
                 .setVote(buildVoteDetailsResponse(vote))
                 .build()
         }.getOrElse { ex ->
-            CreateVoteResponse
-                .newBuilder()
-                .setSuccess(false)
-                .setMessage(ex.message ?: "Vote creation failed")
-                .build()
+            when (ex) {
+                is NoSuchElementException, is IllegalStateException, is IllegalArgumentException ->
+                    CreateVoteResponse.newBuilder().setSuccess(false).setMessage(ex.message ?: "Vote creation failed").build()
+                else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+            }
         }
     }
 
@@ -161,11 +163,11 @@ class FateGrpcService(
                 .setMessage("✦ The Hand of Fate has chosen: ${result.winnerLabel}")
                 .build()
         }.getOrElse { ex ->
-            DrawVoteResponse
-                .newBuilder()
-                .setSuccess(false)
-                .setMessage(ex.message ?: "Draw failed")
-                .build()
+            when (ex) {
+                is NoSuchElementException, is IllegalStateException, is IllegalArgumentException ->
+                    DrawVoteResponse.newBuilder().setSuccess(false).setMessage(ex.message ?: "Draw failed").build()
+                else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+            }
         }
     }
 

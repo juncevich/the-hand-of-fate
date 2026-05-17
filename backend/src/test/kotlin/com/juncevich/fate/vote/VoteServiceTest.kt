@@ -216,7 +216,7 @@ class VoteServiceTest {
         val other = makeUser()
         val vote = makeVote(creator = creator)
 
-        every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForDraw(vote.id) } returns vote
 
         assertThrows<IllegalStateException> {
             voteService.draw(vote.id, other.id)
@@ -230,7 +230,7 @@ class VoteServiceTest {
         val drawResult = DrawResult("winner@test.com", "Winner", null, 1, false)
         val participant = VoteParticipant(voteId = vote.id, email = "winner@test.com")
 
-        every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForDraw(vote.id) } returns vote
         every { drawService.draw(vote) } returns drawResult
         every { participantRepositoryPort.findAllByVoteId(vote.id) } returns listOf(participant)
 
@@ -238,6 +238,7 @@ class VoteServiceTest {
 
         assertEquals(drawResult.winnerEmail, result.winnerEmail)
         verify { drawService.draw(vote) }
+        // afterCommit falls back to synchronous call in unit tests (no active transaction)
         verify { notificationPort.notifyDrawResult(vote, drawResult, listOf("winner@test.com")) }
     }
 
@@ -264,6 +265,16 @@ class VoteServiceTest {
 
         assertEquals(VoteStatus.CLOSED, vote.status)
         verify { voteRepositoryPort.save(vote) }
+    }
+
+    @Test
+    fun `closeVote - throws when vote is already closed`() {
+        val creator = makeUser()
+        val vote = makeVote(creator = creator, status = VoteStatus.CLOSED)
+
+        every { voteRepositoryPort.findById(vote.id) } returns vote
+
+        assertThrows<IllegalStateException> { voteService.closeVote(vote.id, creator.id) }
     }
 
     @Test
