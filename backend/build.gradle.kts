@@ -9,7 +9,7 @@ plugins {
     id("org.springframework.boot")             version "4.0.6"
     id("io.spring.dependency-management")      version "1.1.7"
     id("com.google.protobuf")                  version "0.10.0"
-    id("com.diffplug.spotless")                version "8.4.0"
+    id("com.diffplug.spotless")                version "8.5.0"
     id("io.gitlab.arturbosch.detekt")          version "1.23.8"
 }
 
@@ -40,10 +40,10 @@ repositories {
 
 val grpcVersion          = "1.81.0"
 val grpcKotlinVersion    = "1.5.0"
-val protobufVersion      = "4.34.1"
+val protobufVersion      = "4.35.0"
 val jjwtVersion          = "0.13.0"
 val coroutinesVersion    = "1.11.0"
-val modulithVersion      = "2.0.0"
+val modulithVersion      = "2.0.1"
 
 configurations.all {
     resolutionStrategy.force(
