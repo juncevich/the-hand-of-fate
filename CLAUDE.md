@@ -176,6 +176,11 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 
 `ModularityTest` (`backend/src/test/kotlin/com/juncevich/fate/ModularityTest.kt`) verifies module boundaries are respected and generates PlantUML diagrams.
 
+### Threading Model
+- **Virtual threads (Project Loom)** enabled via `spring.threads.virtual.enabled: true`
+- Tomcat uses `VirtualThreadExecutor` for all HTTP request threads
+- `@Async` tasks (`NotificationAdapter`) run on virtual threads — `Thread.sleep()` in retry logic parks the virtual thread correctly
+
 ### Key Backend Services
 - **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching for both participants and options; picks draw target automatically (options if any exist, otherwise participants)
 - **VoteService**: CRUD for votes including creating `VoteOption` entities from request; `addOption()` / `removeOption()` for post-creation management; votes use optimistic locking (`@Version`) to prevent concurrent draw conflicts

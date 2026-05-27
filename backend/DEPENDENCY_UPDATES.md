@@ -1,5 +1,13 @@
 # Dependency Updates
 
+## 2026-05-27
+
+### Включены виртуальные потоки Java 21 (Project Loom)
+- Добавлено `spring.threads.virtual.enabled: true` в `application.yml`
+- Tomcat переключён на `VirtualThreadExecutor` для обработки HTTP-запросов
+- `@Async`-задачи (отправка email в `NotificationAdapter`) теперь исполняются на виртуальных потоках
+- `Thread.sleep()` в `withRetry()` паркует виртуальный поток вместо блокировки платформенного
+
 ## 2026-05-25
 
 ### com.google.protobuf:protobuf-kotlin `4.34.1 → 4.35.0`
