@@ -10,6 +10,7 @@ import { RegisterPage } from '@/pages/RegisterPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { VoteDetailPage } from '@/pages/VoteDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { BackendStatusIndicator } from '@/components/layout/BackendStatusIndicator'
 
 function ProtectedRoute({ children, isAuthReady }: { children: React.ReactNode; isAuthReady: boolean }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -47,7 +48,8 @@ export default function App() {
   return (
     <BrowserRouter>
       {import.meta.env.DEV && (
-        <div className="fixed top-3 right-3 z-[9999] pointer-events-none select-none">
+        <div className="fixed top-3 right-3 z-[9999] pointer-events-none select-none flex items-center gap-2">
+          <BackendStatusIndicator />
           <span className="text-xs font-mono tracking-widest uppercase opacity-30 text-[var(--color-fate-gold)]">
             dev mode
           </span>
