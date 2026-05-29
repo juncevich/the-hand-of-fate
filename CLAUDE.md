@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 backend/     Kotlin 2.3.21 + Spring Boot 4.0.6, PostgreSQL, gRPC server
 frontend/    React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4 + shadcn/ui
 bot/         Go 1.25.0 Telegram bot, gRPC client to backend
+perf/        Gatling 3.13.5 + Kotlin load/smoke tests
 proto/       Shared protobuf definitions (proto/fate/v1/fate.proto)
 infra/
   nginx/     Nginx reverse proxy configs
@@ -95,6 +96,19 @@ go run ./cmd/bot           # run
 go test ./...              # test
 go build -o fate-bot ./cmd/bot  # build binary
 ```
+
+### Performance Tests (Gatling)
+```bash
+cd perf
+./gradlew gatlingRun                                              # all simulations
+./gradlew gatlingRun --simulation simulations.SmokeSimulation    # smoke (1 user, all key endpoints)
+./gradlew gatlingRun --simulation simulations.AuthSimulation     # register + login + refresh load
+./gradlew gatlingRun --simulation simulations.VoteSimulation     # CRUD + draw load (assertions: p100 < 2s, >95% success)
+./gradlew gatlingRun -DbaseUrl=https://your-server.com           # target non-local env
+```
+- Reports: `perf/build/reports/gatling/<simulation-name-timestamp>/index.html`
+- JVM: requires Java 17+ to run Gradle; configured via `gradle.properties` (`org.gradle.java.home`)
+- Simulations: `src/gatling/kotlin/simulations/`
 
 **Direct dependencies** (from `bot/go.mod`):
 
