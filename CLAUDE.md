@@ -13,6 +13,7 @@ backend/     Kotlin 2.3.21 + Spring Boot 4.0.6, PostgreSQL, gRPC server
 frontend/    React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4 + shadcn/ui
 bot/         Go 1.25.0 Telegram bot, gRPC client to backend
 perf/        Gatling 3.13.5 + Kotlin load/smoke tests
+simulation/  Go 1.25.0 user-behaviour simulator (functional end-to-end flows)
 proto/       Shared protobuf definitions (proto/fate/v1/fate.proto)
 infra/
   nginx/     Nginx reverse proxy configs
@@ -96,6 +97,18 @@ go run ./cmd/bot           # run
 go test ./...              # test
 go build -o fate-bot ./cmd/bot  # build binary
 ```
+
+### Simulation (Go)
+```bash
+cd simulation
+go run ./cmd/simulate                          # all scenarios against localhost:8080
+go run ./cmd/simulate -scenario simple         # single scenario: simple | fair | options | session
+go run ./cmd/simulate -url https://host.com    # target non-local backend
+go build -o fate-sim ./cmd/simulate            # build binary
+```
+- Scenarios: `session` (auth lifecycle), `simple` (options-based vote), `fair` (FAIR_ROTATION + round tracking), `options` (dynamic option add/remove)
+- Each run registers fresh random users; no fixtures or seed data required
+- Exits with code 1 and prints `FAIL <scenario>: <error>` on the first failure
 
 ### Performance Tests (Gatling)
 ```bash
