@@ -20,13 +20,19 @@ simulation/
     client/
       models.go                 — all API DTOs (Auth, Vote, Draw, Telegram)
       client.go                 — typed HTTP client wrapping every REST endpoint
+      client_test.go            — unit tests for every client method (httptest)
     scenario/
       helpers.go                — random name / email / option generators
+      helpers_test.go           — unit tests for all generator functions
       register_login.go         — RegisterAndLogin(), LoginExisting() helpers
       session_lifecycle.go      — full auth lifecycle scenario
       simple_vote.go            — SIMPLE vote with named options scenario
+      simple_vote_test.go       — winnerLabel tests + SimpleVoteScenario mock tests
       fair_rotation.go          — FAIR_ROTATION vote scenario
+      fair_rotation_test.go     — FairRotationScenario mock tests (draw loop, errors)
       options_vote.go           — dynamic option management scenario
+      options_vote_test.go      — OptionsVoteScenario mock tests
+      testutil_test.go          — shared test helpers (logger, client, writeJSON)
 ```
 
 ## Prerequisites
@@ -146,6 +152,33 @@ Tests adding and removing options via the REST API after vote creation:
 | GET | `/api/v1/votes/{id}/history` | `GetHistory` |
 | GET | `/api/v1/telegram/link-token` | `GetLinkToken` |
 | DELETE | `/api/v1/telegram/unlink` | `UnlinkTelegram` |
+
+## Testing
+
+The package has unit tests that run without a backend — all HTTP interactions go through `net/http/httptest` servers.
+
+```bash
+# Run all tests
+cd simulation
+go test ./...
+
+# With verbose output
+go test -v ./...
+
+# Single package
+go test ./internal/client/...
+go test ./internal/scenario/...
+```
+
+### What is covered
+
+| Package | Tests | What is verified |
+|---------|-------|-----------------|
+| `internal/client` | 31 | Every client method: correct HTTP method + path, JSON decoding, refresh-token cookie extraction, error propagation on 4xx/5xx |
+| `internal/scenario` (helpers) | 12 | `randomEmail` format + uniqueness, `randomName` word structure, `randomVoteTitle`, `randomOptions` count/uniqueness/clamping, `ptr[T]` |
+| `internal/scenario` (scenarios) | 19 | `winnerLabel` priority logic; happy-path + error cases for `SimpleVoteScenario`, `OptionsVoteScenario`, `FairRotationScenario` (including round-flip loop via `atomic.Int32` counter) |
+
+The `SessionLifecycleScenario` is an integration-only flow (it verifies that the backend correctly rejects a used refresh token after logout) and is not covered by unit tests.
 
 ## Adding a New Scenario
 
