@@ -26,6 +26,7 @@ simulation/
       helpers_test.go           — unit tests for all generator functions
       register_login.go         — RegisterAndLogin(), LoginExisting() helpers
       session_lifecycle.go      — full auth lifecycle scenario
+      session_lifecycle_test.go — SessionLifecycleScenario mock tests (happy path + error cases)
       simple_vote.go            — SIMPLE vote with named options scenario
       simple_vote_test.go       — winnerLabel tests + SimpleVoteScenario mock tests
       fair_rotation.go          — FAIR_ROTATION vote scenario
@@ -38,7 +39,7 @@ simulation/
 ## Prerequisites
 
 - Go 1.25+
-- A running backend (`./gradlew bootRun` or `docker compose up -d`)
+- A running backend — start with `docker compose up -d` or `./dev-start.sh` (see repo root)
 
 ## Running
 
@@ -176,9 +177,7 @@ go test ./internal/scenario/...
 |---------|-------|-----------------|
 | `internal/client` | 31 | Every client method: correct HTTP method + path, JSON decoding, refresh-token cookie extraction, error propagation on 4xx/5xx |
 | `internal/scenario` (helpers) | 12 | `randomEmail` format + uniqueness, `randomName` word structure, `randomVoteTitle`, `randomOptions` count/uniqueness/clamping, `ptr[T]` |
-| `internal/scenario` (scenarios) | 19 | `winnerLabel` priority logic; happy-path + error cases for `SimpleVoteScenario`, `OptionsVoteScenario`, `FairRotationScenario` (including round-flip loop via `atomic.Int32` counter) |
-
-The `SessionLifecycleScenario` is an integration-only flow (it verifies that the backend correctly rejects a used refresh token after logout) and is not covered by unit tests.
+| `internal/scenario` (scenarios) | 37 | `winnerLabel` priority logic; happy-path + error cases for all four scenarios — `SimpleVoteScenario`, `FairRotationScenario`, `OptionsVoteScenario`, `SessionLifecycleScenario` (including round-flip loop via `atomic.Int32`, logout-failure non-fatal path) |
 
 ## Adding a New Scenario
 

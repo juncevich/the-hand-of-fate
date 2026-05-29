@@ -145,3 +145,175 @@ func TestSimpleVoteScenario_DrawError(t *testing.T) {
 		t.Fatal("expected error when Draw fails")
 	}
 }
+
+func TestSimpleVoteScenario_ListVotesError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
+			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			writeJSON(w, map[string]string{"error": "db error"})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	c := testClient(t, srv)
+	if err := SimpleVoteScenario(c, testLogger(t)); err == nil {
+		t.Fatal("expected error when ListVotes fails")
+	}
+}
+
+func TestSimpleVoteScenario_GetVoteError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
+			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
+			writeJSON(w, client.Page[client.VoteSummary]{Content: []client.VoteSummary{{ID: "v1"}}})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			writeJSON(w, map[string]string{"error": "not found"})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	c := testClient(t, srv)
+	if err := SimpleVoteScenario(c, testLogger(t)); err == nil {
+		t.Fatal("expected error when GetVote fails")
+	}
+}
+
+func TestSimpleVoteScenario_GetHistoryError(t *testing.T) {
+	optTitle := "Option Alpha"
+	draw := client.DrawResultResponse{WinnerOptionTitle: &optTitle, Round: 1}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
+			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
+			writeJSON(w, client.Page[client.VoteSummary]{Content: []client.VoteSummary{{ID: "v1"}}})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
+			writeJSON(w, client.VoteDetail{ID: "v1"})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
+			writeJSON(w, draw)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			writeJSON(w, map[string]string{"error": "db error"})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	c := testClient(t, srv)
+	if err := SimpleVoteScenario(c, testLogger(t)); err == nil {
+		t.Fatal("expected error when GetHistory fails")
+	}
+}
+
+func TestSimpleVoteScenario_ReopenError(t *testing.T) {
+	optTitle := "Option Alpha"
+	draw := client.DrawResultResponse{WinnerOptionTitle: &optTitle, Round: 1}
+	email := "winner@example.com"
+	history := []client.DrawHistoryDto{{ID: "h1", WinnerEmail: &email, Round: 1}}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
+			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
+			writeJSON(w, client.Page[client.VoteSummary]{Content: []client.VoteSummary{{ID: "v1"}}})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
+			writeJSON(w, client.VoteDetail{ID: "v1"})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
+			writeJSON(w, draw)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history":
+			writeJSON(w, history)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/reopen":
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	c := testClient(t, srv)
+	if err := SimpleVoteScenario(c, testLogger(t)); err == nil {
+		t.Fatal("expected error when Reopen fails")
+	}
+}
+
+func TestSimpleVoteScenario_CloseError(t *testing.T) {
+	optTitle := "Option Alpha"
+	draw := client.DrawResultResponse{WinnerOptionTitle: &optTitle, Round: 1}
+	email := "winner@example.com"
+	history := []client.DrawHistoryDto{{ID: "h1", WinnerEmail: &email, Round: 1}}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
+			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
+			writeJSON(w, client.Page[client.VoteSummary]{Content: []client.VoteSummary{{ID: "v1"}}})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
+			writeJSON(w, client.VoteDetail{ID: "v1"})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
+			writeJSON(w, draw)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history":
+			writeJSON(w, history)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/reopen":
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/close":
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	c := testClient(t, srv)
+	if err := SimpleVoteScenario(c, testLogger(t)); err == nil {
+		t.Fatal("expected error when Close fails")
+	}
+}
+
+func TestSimpleVoteScenario_DeleteError(t *testing.T) {
+	optTitle := "Option Alpha"
+	draw := client.DrawResultResponse{WinnerOptionTitle: &optTitle, Round: 1}
+	email := "winner@example.com"
+	history := []client.DrawHistoryDto{{ID: "h1", WinnerEmail: &email, Round: 1}}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
+			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
+			writeJSON(w, client.Page[client.VoteSummary]{Content: []client.VoteSummary{{ID: "v1"}}})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
+			writeJSON(w, client.VoteDetail{ID: "v1"})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
+			writeJSON(w, draw)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history":
+			writeJSON(w, history)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/reopen":
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/close":
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodDelete && r.URL.Path == "/api/v1/votes/v1":
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	c := testClient(t, srv)
+	if err := SimpleVoteScenario(c, testLogger(t)); err == nil {
+		t.Fatal("expected error when DeleteVote fails")
+	}
+}
