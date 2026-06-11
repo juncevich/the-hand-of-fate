@@ -1,6 +1,6 @@
 plugins {
-    kotlin("jvm") version "2.1.21"
-    id("io.gatling.gradle") version "3.13.5.1"
+    kotlin("jvm") version "2.4.0"
+    id("io.gatling.gradle") version "3.15.1"
 }
 
 repositories {
@@ -8,7 +8,7 @@ repositories {
 }
 
 dependencies {
-    gatling("io.gatling.highcharts:gatling-charts-highcharts:3.13.5")
+    gatling("io.gatling.highcharts:gatling-charts-highcharts:3.15.1")
 }
 
 gatling {

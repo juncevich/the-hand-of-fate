@@ -1,5 +1,36 @@
 # Dependency Updates
 
+## 2026-06-11
+
+### Kotlin `2.3.21 → 2.4.0`
+- Стабилизированы context parameters, explicit backing fields и annotation use-site targets
+- Экспериментальная поддержка collection literals (`[1, 2, 3]` вместо `listOf(...)`)
+- Стабилизирован UUID API в стандартной библиотеке; добавлены функции проверки порядка коллекций
+- Kotlin/JVM: поддержка Java 26 и включена по умолчанию запись аннотаций в метаданные классов
+
+### org.springframework.boot `4.0.6 → 4.1.0`
+- Добавлена нативная auto-configuration для gRPC серверов и клиентов (актуально, хотя проект использует `net.devh` стартер)
+- Клиенты HTTP (`RestClient`, `WebClient`) получили `InetAddressFilter` для защиты от SSRF-атак
+- Автоматическая регистрация `RedisMessageListenerContainer` при наличии listener-методов
+- Обновлена базовая платформа: Spring Framework 7.1, Micrometer 1.16
+
+### io.grpc:grpc-java `1.81.0 → 1.82.0`
+- Исправлен jitter диапазона backoff ретраев до `[0.8, 1.2]` (соответствие gRPC A6)
+- Исправлено состояние гонки в `RetriableStream` — счётчик `inFlightSubStreams` мог стать рассогласованным при конкурентных retry/deadline, вызывая зависание вызовов
+
+### org.springframework.modulith:spring-modulith-bom `2.0.1 → 2.1.0`
+- `@ModuleSlicing` теперь предпочитает явно объявленные классы с `@SpringBootApplication`
+- Улучшена обработка транзакций в интеграции с JobRunr
+- Обновлена платформа: Spring Boot 4.1.0, Spring Framework 7.1
+
+### io.mockk:mockk `1.14.9 → 1.14.11`
+- `1.14.10`: Исправления совместимости с Kotlin 2.4.0
+- `1.14.11`: Параметр `clear = true` в `confirmVerified()` — сбрасывает флаги верификации и записанные вызовы после подтверждения
+
+### com.diffplug.spotless (Gradle plugin) `8.5.0 → 8.6.0`
+- Исправлена `predeclareDepsFromBuildscript()` для Gradle 9.x (устранена оставшаяся несовместимость)
+- Обновлены встроенные версии инструментов форматирования по умолчанию
+
 ## 2026-05-27
 
 ### Включены виртуальные потоки Java 21 (Project Loom)

@@ -1,5 +1,47 @@
 # Dependency Updates
 
+## 2026-06-11
+
+### react `19.2.6 → 19.2.7`, react-dom `19.2.6 → 19.2.7`
+- Патч-исправления; breaking changes отсутствуют
+
+### react-router-dom `7.15.1 → 7.17.0`
+- Улучшена типизация `useNavigate` и `Link`; исправления edge-cases в `createBrowserRouter`
+
+### @tanstack/react-query `5.100.14 → 5.101.0`, @tanstack/react-query-devtools `5.100.14 → 5.101.0`
+- Улучшена стабильность ссылок в хуках при частых ре-рендерах
+
+### zustand `5.0.13 → 5.0.14`
+- Исправление внутренней типизации; API не изменился
+
+### axios `1.16.1 → 1.17.0`
+- Улучшена обработка ошибок в `AbortController`; исправлены edge-cases в multipart-запросах
+
+### @radix-ui (пакетное обновление патч-версий)
+- `react-avatar 1.1.11→1.1.12`, `react-dialog 1.1.15→1.1.16`, `react-dropdown-menu 2.1.16→2.1.17`
+- `react-label 2.1.8→2.1.9`, `react-separator 1.1.8→1.1.9`, `react-tabs 1.1.13→1.1.14`
+- `react-toast 1.2.15→1.2.16`, `react-tooltip 1.2.8→1.2.9`
+- `react-select 2.2.6→2.3.0`: улучшена типизация value/onChange для controlled-режима
+- Все обновления: патч-исправления совместимости; breaking changes отсутствуют
+
+### lucide-react `1.16.0 → 1.17.0`
+- Добавлены новые иконки; обновления существующих иконок
+
+### date-fns `4.3.0 → 4.4.0`
+- Исправления локалей и улучшения форматирования
+
+### vite `8.0.14 → 8.0.16`
+- Исправления стабильности dev-сервера и HMR; обновлён rolldown
+
+### vitest `4.1.7 → 4.1.8`
+- Исправления в concurrency-режиме тестирования
+
+### eslint `10.4.0 → 10.4.1`, @typescript-eslint `8.60.0 → 8.61.0`
+- Патч-исправления; breaking changes отсутствуют
+
+### @types/react `19.2.15 → 19.2.17`
+- Дополнены типы DOM-атрибутов для React 19.2
+
 ## 2026-05-25
 
 ### react-router-dom `7.15.0 → 7.15.1`

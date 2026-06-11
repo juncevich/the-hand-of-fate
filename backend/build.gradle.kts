@@ -3,13 +3,13 @@ import io.gitlab.arturbosch.detekt.Detekt
 import io.gitlab.arturbosch.detekt.DetektCreateBaselineTask
 
 plugins {
-    kotlin("jvm")                              version "2.3.21"
-    kotlin("plugin.spring")                    version "2.3.21"
-    kotlin("plugin.jpa")                       version "2.3.21"
-    id("org.springframework.boot")             version "4.0.6"
+    kotlin("jvm")                              version "2.4.0"
+    kotlin("plugin.spring")                    version "2.4.0"
+    kotlin("plugin.jpa")                       version "2.4.0"
+    id("org.springframework.boot")             version "4.1.0"
     id("io.spring.dependency-management")      version "1.1.7"
     id("com.google.protobuf")                  version "0.10.0"
-    id("com.diffplug.spotless")                version "8.5.0"
+    id("com.diffplug.spotless")                version "8.6.0"
     id("io.gitlab.arturbosch.detekt")          version "1.23.8"
 }
 
@@ -18,7 +18,7 @@ version = "0.1.0-SNAPSHOT"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(23)
     }
 }
 
@@ -38,12 +38,12 @@ repositories {
     mavenCentral()
 }
 
-val grpcVersion          = "1.81.0"
+val grpcVersion          = "1.82.0"
 val grpcKotlinVersion    = "1.5.0"
 val protobufVersion      = "4.35.0"
 val jjwtVersion          = "0.13.0"
 val coroutinesVersion    = "1.11.0"
-val modulithVersion      = "2.0.1"
+val modulithVersion      = "2.1.0"
 
 configurations.all {
     resolutionStrategy.force(
@@ -53,6 +53,15 @@ configurations.all {
         "io.grpc:grpc-protobuf:$grpcVersion",
         "io.grpc:grpc-stub:$grpcVersion",
     )
+}
+
+// Spring Boot 4.1.0 BOM includes protobuf-java at an older version;
+// override here so the runtime matches our generated code version (4.35.0)
+dependencyManagement {
+    dependencies {
+        dependency("com.google.protobuf:protobuf-java:$protobufVersion")
+        dependency("com.google.protobuf:protobuf-kotlin:$protobufVersion")
+    }
 }
 
 dependencies {
@@ -106,7 +115,7 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter:2.0.5")
-    testImplementation("io.mockk:mockk:1.14.9")
+    testImplementation("io.mockk:mockk:1.14.11")
     testImplementation("com.ninja-squad:springmockk:5.0.1")
 
     // ── Static analysis ───────────────────────────────────────────────────────
@@ -118,21 +127,21 @@ protobuf {
         artifact = "com.google.protobuf:protoc:$protobufVersion"
     }
     plugins {
-        id("grpc") {
+        if (findByName("grpc") == null) id("grpc") {
             artifact = "io.grpc:protoc-gen-grpc-java:$grpcVersion"
         }
-        id("grpckt") {
+        if (findByName("grpckt") == null) id("grpckt") {
             artifact = "io.grpc:protoc-gen-grpc-kotlin:$grpcKotlinVersion:jdk8@jar"
         }
     }
     generateProtoTasks {
         all().forEach { task ->
             task.plugins {
-                id("grpc")
-                id("grpckt")
+                if (findByName("grpc") == null) id("grpc")
+                if (findByName("grpckt") == null) id("grpckt")
             }
             task.builtins {
-                id("kotlin")
+                if (findByName("kotlin") == null) id("kotlin")
             }
         }
     }
@@ -201,10 +210,13 @@ detekt {
 // detekt's bundled IntelliJ runtime doesn't handle Java 26+ — run against a Java 17 JDK home
 val detektJdkHome = javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) }
     .map { it.metadata.installationPath }
+// detekt 1.23.x only supports --jvm-target up to 22; cap it regardless of the project toolchain
 tasks.withType<Detekt>().configureEach {
+    jvmTarget = "22"
     jdkHome.set(detektJdkHome)
 }
 tasks.withType<DetektCreateBaselineTask>().configureEach {
+    jvmTarget = "22"
     jdkHome.set(detektJdkHome)
 }
 

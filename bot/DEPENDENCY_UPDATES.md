@@ -1,5 +1,22 @@
 # Dependency Updates
 
+## 2026-06-11
+
+### golang.org/x/net `v0.55.0 → v0.56.0`
+- Дополнительные исправления безопасности в HTML-парсере; обновления QUIC-транспорта
+
+### golang.org/x/sys `v0.45.0 → v0.46.0`
+- Обновлены константы и syscall-определения; улучшена поддержка новых платформ
+
+### golang.org/x/text `v0.37.0 → v0.38.0`
+- Обновления Unicode-таблиц и локализации
+
+### google.golang.org/genproto/googleapis/rpc (псевдо-версия обновлена)
+- Синхронизация с последними proto-определениями googleapis
+
+### go.uber.org/multierr `v1.10.0 → v1.11.0` (indirect)
+- Исправление обработки пустых error-слайсов
+
 ## 2026-05-25
 
 ### google.golang.org/grpc `v1.81.0 → v1.81.1`
