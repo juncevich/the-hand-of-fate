@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>LongParameterList:Vote.kt$Vote$( val id: UUID = UUID.randomUUID(), var title: String, var description: String? = null, val creator: User, var mode: VoteMode = VoteMode.SIMPLE, var status: VoteStatus = VoteStatus.PENDING, var currentRound: Int = 1, val createdAt: Instant = Instant.now(), var updatedAt: Instant = Instant.now(), val version: Int = 0, )</ID>
+    <ID>LongParameterList:VoteJpaEntity.kt$VoteJpaEntity$( @Id val id: UUID = UUID.randomUUID(), @Column(nullable = false, length = 255) var title: String, @Column(columnDefinition = "TEXT") var description: String? = null, @Column(name = "creator_id", nullable = false) val creatorId: UUID, @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) var mode: VoteMode = VoteMode.SIMPLE, @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) var status: VoteStatus = VoteStatus.PENDING, @Column(name = "current_round", nullable = false) var currentRound: Int = 1, @CreatedDate @Column(name = "created_at", nullable = false, updatable = false) var createdAt: Instant = Instant.now(), @LastModifiedDate @Column(name = "updated_at", nullable = false) var updatedAt: Instant = Instant.now(), @Version var version: Int = 0, )</ID>
+    <ID>TooManyFunctions:VoteApiIntegrationTest.kt$VoteApiIntegrationTest : AbstractApiIntegrationTest</ID>
+  </CurrentIssues>
+</SmellBaseline>

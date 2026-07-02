@@ -9,7 +9,7 @@ plugins {
     id("org.springframework.boot")             version "4.1.0"
     id("io.spring.dependency-management")      version "1.1.7"
     id("com.google.protobuf")                  version "0.10.0"
-    id("com.diffplug.spotless")                version "8.6.0"
+    id("com.diffplug.spotless")                version "8.8.0"
     id("io.gitlab.arturbosch.detekt")          version "1.23.8"
 }
 
@@ -38,9 +38,9 @@ repositories {
     mavenCentral()
 }
 
-val grpcVersion          = "1.82.0"
+val grpcVersion          = "1.82.1"
 val grpcKotlinVersion    = "1.5.0"
-val protobufVersion      = "4.35.0"
+val protobufVersion      = "4.35.1"
 val jjwtVersion          = "0.13.0"
 val coroutinesVersion    = "1.11.0"
 val modulithVersion      = "2.1.0"
@@ -99,7 +99,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:$coroutinesVersion")
 
     // ── Database ─────────────────────────────────────────────────────────────
-    runtimeOnly("org.postgresql:postgresql:42.7.11")
+    runtimeOnly("org.postgresql:postgresql:42.7.12")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
     // ── Observability ─────────────────────────────────────────────────────────

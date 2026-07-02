@@ -1,5 +1,45 @@
 # Dependency Updates
 
+## 2026-07-03
+
+Проверено против реального npm registry (`dist-tags.latest`) для каждого пакета в `package.json`. Мажорных обновлений нет — все пакеты либо не изменились, либо получили minor/patch-бамп. Код изменений не потребовал; `npm run lint`, `npm run build`, `npm test` прошли без ошибок.
+
+### react-router-dom `7.17.0 → 7.18.1`
+- Рутинное minor-обновление
+
+### @tanstack/react-query `5.101.0 → 5.101.2`, @tanstack/react-query-devtools `5.101.0 → 5.101.2`
+- Рутинное patch-обновление
+
+### axios `1.17.0 → 1.18.1`
+- Рутинное minor-обновление
+
+### @radix-ui (пакетное обновление)
+- `react-avatar 1.1.12→1.2.1` (minor), `react-dialog 1.1.16→1.1.18` (patch), `react-dropdown-menu 2.1.17→2.1.19` (patch)
+- `react-label 2.1.9→2.1.11` (patch), `react-select 2.3.0→2.3.2` (patch), `react-separator 1.1.9→1.1.11` (patch)
+- `react-tabs 1.1.14→1.1.16` (patch), `react-toast 1.2.16→1.2.18` (patch), `react-tooltip 1.2.9→1.2.11` (patch)
+- Рутинные обновления, версии остаются в тех же major-линиях
+
+### lucide-react `1.17.0 → 1.23.0`
+- Рутинное minor-обновление (новые/обновлённые иконки, точный список не проверялся)
+
+### vite `8.0.16 → 8.1.3`, @vitejs/plugin-react `6.0.2 → 6.0.3`
+- Рутинное обновление
+
+### tailwindcss `4.3.0 → 4.3.2`, @tailwindcss/vite `4.3.0 → 4.3.2`
+- Рутинное patch-обновление
+
+### vitest `4.1.8 → 4.1.9`
+- Рутинное patch-обновление
+
+### eslint `10.4.1 → 10.6.0`, @typescript-eslint/eslint-plugin `8.61.0 → 8.62.1`, @typescript-eslint/parser `8.61.0 → 8.62.1`
+- Рутинное minor-обновление
+
+### Без изменений (уже на latest)
+- react/react-dom `19.2.7`, zustand `5.0.14`, class-variance-authority `0.7.1`, clsx `2.1.1`, tailwind-merge `3.6.0`
+- date-fns `4.4.0`, typescript `6.0.3`, @types/react `19.2.17`, @types/react-dom `19.2.3`
+- @testing-library/react `16.3.2`, @testing-library/jest-dom `6.9.1`, @testing-library/user-event `14.6.1`
+- jsdom `29.1.1`, msw `2.14.6`
+
 ## 2026-06-11
 
 ### react `19.2.6 → 19.2.7`, react-dom `19.2.6 → 19.2.7`

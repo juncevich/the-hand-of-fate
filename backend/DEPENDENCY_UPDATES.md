@@ -1,5 +1,30 @@
 # Dependency Updates
 
+## 2026-07-03
+
+Full audit of every explicit version in `build.gradle.kts` and the Gradle wrapper against Maven Central / Gradle Plugin Portal `maven-metadata.xml` (source of truth, not `search.maven.org`, which lags). Most dependencies were already at the latest stable release; the following had newer stable versions available:
+
+### Gradle wrapper `9.4.1 → 9.6.1`
+- Routine version bump (latest stable per `https://services.gradle.org/versions/current`)
+
+### com.diffplug.spotless (Gradle plugin) `8.6.0 → 8.8.0`
+- Routine version bump (two patch/minor releases since 8.6.0; no changelog specifics verified)
+
+### io.grpc (`grpcVersion`) `1.82.0 → 1.82.1`
+- Routine patch bump
+
+### com.google.protobuf (`protobufVersion`, protobuf-java/protobuf-kotlin/protoc) `4.35.0 → 4.35.1`
+- Routine patch bump
+
+### org.postgresql:postgresql `42.7.11 → 42.7.12`
+- Routine patch bump
+
+No compilation or test changes were required — `./gradlew build -x test`, `./gradlew test`, `./gradlew detekt spotlessCheck` all pass unchanged.
+
+Everything else declared in `build.gradle.kts` was already at the latest stable release as of this audit and was left unchanged: Kotlin `2.4.0`, Spring Boot `4.1.0`, `io.spring.dependency-management` `1.1.7`, `com.google.protobuf` Gradle plugin `0.10.0`, detekt `1.23.8`, `grpc-kotlin-stub` `1.5.0`, `jjwt` `0.13.0`, `kotlinx-coroutines` `1.11.0`, `spring-modulith-bom` `2.1.0`, `net.devh:grpc-server-spring-boot-starter` `3.1.0.RELEASE`, `springdoc-openapi-starter-webmvc-ui` `3.0.3`, `testcontainers` `2.0.5`, `mockk` `1.14.11`, `springmockk` `5.0.1`, ktlint `1.8.0`.
+
+Note: `backend/gradle.properties` (untracked, machine-local `org.gradle.java.home` pointing at a personal JDK install) and `backend/detekt-baseline.xml` (untracked detekt baseline) were left untouched as instructed — they were absent from this worktree checkout and were copied over from the main working tree only so the build/detekt/test commands above could run; their content was not modified.
+
 ## 2026-06-11
 
 ### Kotlin `2.3.21 → 2.4.0`
