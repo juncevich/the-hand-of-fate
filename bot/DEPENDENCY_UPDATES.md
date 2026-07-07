@@ -1,5 +1,34 @@
 # Dependency Updates
 
+## 2026-07-07
+
+Проверено против реального Go module proxy (`go list -m -u all`, `go list -m -versions <module>`) для всех прямых зависимостей (`telegram-bot-api/v5`, `spf13/viper`, `go.uber.org/zap`, `google.golang.org/grpc`, `google.golang.org/protobuf`). Явно проверено наличие новых major-веток по отдельным module path (`telegram-bot-api/v6`, `zap/v2`, `viper/v2`, `grpc/v2`, `protobuf/v2`) — ни один из этих путей не существует в module proxy, так что мажорных апгрейдов среди прямых зависимостей нет; все они уже на последней стабильной версии (`grpc` v1.82.0 — новее есть только `v1.83.0-dev`, pre-release, пропущен намеренно). `go get -u ./...` + `go mod tidy` подтянули обновления только по трём косвенным зависимостям.
+
+### github.com/pelletier/go-toml/v2 `v2.4.2 → v2.4.3` (indirect, via spf13/viper)
+- **Безопасность:** ограничена глубина вложенности массивов и inline-таблиц — предотвращает stack-overflow DoS при парсинге вредоносного TOML
+- Исправлен паник при nil unexported embedded pointer — теперь возвращается ошибка вместо паники
+- Исправлена некорректная генерация TOML для закомментированных multi-line значений
+- Исправлена бесконечная рекурсия при рекурсивно вложенных embedded-структурах
+- Гарантировано, что корневой `Unmarshaler` получает весь документ целиком
+- Добавлена поддержка `RawMessage` marshal (unstable API)
+- Улучшены сообщения об ошибках для некорректного размещения таблиц (позиция, ключ)
+- Оптимизировано декодирование дат/времени (устранено boxing в интерфейсы)
+- Источник: релиз-ноуты `github.com/pelletier/go-toml` на GitHub (tag v2.4.3)
+
+### golang.org/x/text `v0.38.0 → v0.39.0` (indirect)
+- Рутинное обновление — синхронизация внутренних golang.org/x зависимостей до последних тегированных версий. Изменений API/поведения в релиз-ноутах не указано.
+
+### google.golang.org/genproto/googleapis/rpc (indirect, псевдо-версия)
+- `v0.0.0-20260630182238-925bb5da69e7 → v0.0.0-20260706201446-f0a921348800`. Синхронизация сгенерированных `.pb.go` с последними proto-определениями googleapis; технических деталей содержимого коммита не проверял (как и в предыдущих записях, GitHub commit history для этого репозитория не даёт человекочитаемого changelog per pseudo-version).
+
+### Без изменений (уже на последней доступной версии, включая проверку major-веток)
+`github.com/go-telegram-bot-api/telegram-bot-api/v5` (v5.5.1, нет `/v6`), `github.com/spf13/viper` (v1.21.0, нет `/v2`), `go.uber.org/zap` (v1.28.0, нет `/v2`), `google.golang.org/grpc` (v1.82.0, нет `/v2`, только `v1.83.0-dev` pre-release), `google.golang.org/protobuf` (v1.36.11, нет `/v2`), `github.com/fsnotify/fsnotify`, `github.com/go-viper/mapstructure/v2`, `github.com/sagikazarmark/locafero`, `github.com/spf13/afero`, `github.com/spf13/cast`, `github.com/spf13/pflag`, `github.com/subosito/gotenv`, `go.uber.org/multierr`, `go.yaml.in/yaml/v3`, `golang.org/x/net`, `golang.org/x/sys`, `gopkg.in/check.v1`.
+
+Ряд транзитивных модулей, попадающих в `go list -m -u all` (`cel.dev/expr`, `opentelemetry-operations-go/detectors/gcp`, `rogpeppe/go-internal`, `spiffe/go-spiffe/v2`, `go.opentelemetry.io/*`, `golang.org/x/mod`, `golang.org/x/tools`, `google.golang.org/genproto/googleapis/api`, `gopkg.in/check.v1` newer pre-release), не появляются в фактическом графе зависимостей `go.mod` этого модуля (тестовые/build-only транзитивные зависимости чужих go.sum, не используемые в `bot`) — `go mod tidy` не подтянул их, они не входят в реальный dependency graph бинарника.
+
+### Проверка сборки
+`go build ./...` — OK. `go vet ./...` — OK. `go test ./...` — все пакеты с тестами (`internal/config`, `internal/handler`) проходят. Изменений в коде для совместимости не потребовалось.
+
 ## 2026-07-03
 
 Проверено против реального Go module proxy (`proxy.golang.org/<module>/@latest` и `@v/list`) для каждой зависимости в `go.mod` (прямой и косвенной). Мажорных апгрейдов не потребовалось — ни для одного модуля нет новой major-версии, совместимой с текущим кодом (`telegram-bot-api/v5` остаётся последней веткой, `go.uber.org/zap`, `github.com/spf13/viper` не имеют `/v2`).

@@ -99,7 +99,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:$coroutinesVersion")
 
     // ── Database ─────────────────────────────────────────────────────────────
-    runtimeOnly("org.postgresql:postgresql:42.7.12")
+    runtimeOnly("org.postgresql:postgresql:42.7.13")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
     // ── Observability ─────────────────────────────────────────────────────────

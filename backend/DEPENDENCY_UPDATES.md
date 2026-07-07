@@ -1,5 +1,24 @@
 # Dependency Updates
 
+## 2026-07-07
+
+Re-audited every explicit version in `build.gradle.kts` and the Gradle wrapper against Maven Central / Gradle Plugin Portal `maven-metadata.xml`, per the user's request to check and update, including majors. Almost everything was already at the latest stable release (four days after the previous audit); only one patch bump was available:
+
+### org.postgresql:postgresql `42.7.12 → 42.7.13`
+- Released 2026-07-06. Notable changes from the pgjdbc changelog:
+  - `reWriteBatchedInserts` now merges up to 32768 rows into one multi-values `INSERT` (bounded by the 65535 bind-parameter limit), instead of capping at 128; new `reWriteBatchedInsertsSize` property lowers the cap if needed
+  - Prepared-statement cache is now invalidated after CREATE/DROP/ALTER (new `flushCacheOnDdl` property, default `true`) and after a `search_path` change reported via GUC_REPORT (PostgreSQL 18+)
+  - `PGXAConnection` no longer saves/restores the underlying connection's `autoCommit` flag around XA-protocol SQL, fixing "2nd phase commit must be issued using an idle connection" failures during recovery on managed datasources (TomEE, WildFly, WebSphere Liberty)
+  - `PGXAConnection.prepare()` now mutates XA state only after `PREPARE TRANSACTION` succeeds, fixing a `rollback(xid)` mishandling case that Narayana escalated to `HeuristicMixedException`
+  - Empty `timestamp`/`timestamptz`/`date` text now raises a clear `SQLException` (`22007`) instead of an `ArrayIndexOutOfBoundsException`
+  - Various other fixes: `LargeObject.close()` now flushes buffered writes before closing; `classLoaderStrategy` connection property added for non-flat classpaths (Quarkus, OSGi); FIPS JVM support for building PKIX trust anchors without a `KeyStore`
+
+No compilation or test changes were required — `./gradlew build -x test`, `./gradlew test`, `./gradlew detekt spotlessCheck` all pass unchanged.
+
+Everything else was verified as already at the latest stable release and left unchanged: Gradle wrapper `9.6.1` (confirmed current via `services.gradle.org/versions/current`), Kotlin `2.4.0` (the only newer entries on the Gradle Plugin Portal are pre-release: `2.4.0-RC2`, `2.4.10-RC`, `2.4.20-Beta1`), Spring Boot `4.1.0`, `io.spring.dependency-management` `1.1.7`, `com.google.protobuf` Gradle plugin `0.10.0`, `com.diffplug.spotless` Gradle plugin `8.8.0`, detekt `1.23.8`, `io.grpc` `1.82.1`, `com.google.protobuf:protobuf-java`/`protobuf-kotlin` `4.35.1`, `jjwt` `0.13.0`, `kotlinx-coroutines` `1.11.0`, `spring-modulith-bom` `2.1.0`, `net.devh:grpc-server-spring-boot-starter` `3.1.0.RELEASE`, `springdoc-openapi-starter-webmvc-ui` `3.0.3`, `testcontainers` `2.0.5`, `mockk` `1.14.11`, `springmockk` `5.0.1`, ktlint `1.8.0`.
+
+Note on `grpc-kotlin-stub`: Maven Central's `maven-metadata.xml` `<latest>`/`<release>` fields report a raw git-commit-hash "version" (`6f774052d1d6923f8af2e0023886d69949b695ee`) published after `1.5.0`. That is not a semver release (no corresponding GitHub release/tag was found) and was treated as a stray/dev publish rather than a real stable version — `grpc-kotlin-stub` was left at `1.5.0`, the newest proper release.
+
 ## 2026-07-03
 
 Full audit of every explicit version in `build.gradle.kts` and the Gradle wrapper against Maven Central / Gradle Plugin Portal `maven-metadata.xml` (source of truth, not `search.maven.org`, which lags). Most dependencies were already at the latest stable release; the following had newer stable versions available:

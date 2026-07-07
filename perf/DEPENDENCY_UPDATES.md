@@ -1,5 +1,23 @@
 # Dependency Updates
 
+## 2026-07-07
+
+Re-checked every version in `perf/build.gradle.kts` and `perf/gradle/wrapper/gradle-wrapper.properties` against Maven Central / the Gradle Plugin Portal / the Gradle services API. No changes were needed — all still latest.
+
+### Kotlin `2.4.0` — no change
+- Confirmed against `org/jetbrains/kotlin/kotlin-gradle-plugin/maven-metadata.xml`: `2.4.0` remains the latest **stable** release. `2.4.10-RC`/`2.4.10-RC2` and `2.4.20-Beta1` exist but are pre-release only.
+
+### io.gatling.gradle (plugin) `3.15.1` — no change
+- Confirmed against the Gradle Plugin Portal metadata (`io/gatling/gradle/io.gatling.gradle.gradle.plugin/maven-metadata.xml`): `3.15.1` is still the latest published version.
+
+### io.gatling.highcharts:gatling-charts-highcharts `3.15.1` — no change
+- Confirmed against Maven Central metadata: `3.15.1` is still the latest release.
+
+### Gradle wrapper `9.6.1` — no change
+- Confirmed via `https://services.gradle.org/versions/current`: current stable Gradle release is still `9.6.1`.
+
+Re-verified with `./gradlew compileGatlingKotlin` and `./gradlew build -x gatlingRun` — both succeed with no source changes required.
+
 ## 2026-07-03
 
 Verified every version in `perf/build.gradle.kts` and `perf/gradle/wrapper/gradle-wrapper.properties` directly against Maven Central / the Gradle Plugin Portal / the Gradle services API. The previous entry below (2026-06-11) contains unverified, likely fabricated release-note claims (e.g. HTTP/3 support, `httpConcurrentRequests()`, `logActualValueInError()`) that could not be confirmed from any real source in this session — treat that section as unreliable.
