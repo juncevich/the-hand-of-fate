@@ -1,0 +1,678 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI definition
+  version: v0
+servers:
+  - url: "http://localhost:8080"
+    description: Generated server url
+paths:
+  /api/v1/votes:
+    get:
+      tags:
+        - vote-controller
+      operationId: listVotes
+      parameters:
+        - name: pageable
+          in: query
+          required: true
+          schema:
+            "$ref": "#/components/schemas/Pageable"
+      responses:
+        200:
+          description: OK
+          content:
+            "*/*":
+              schema:
+                "$ref": "#/components/schemas/PageVoteSummaryDto"
+    post:
+      tags:
+        - vote-controller
+      operationId: createVote
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CreateVoteWebRequest"
+        required: true
+      responses:
+        200:
+          description: OK
+          content:
+            "*/*":
+              schema:
+                "$ref": "#/components/schemas/VoteDetailDto"
+  "/api/v1/votes/{id}/reopen":
+    post:
+      tags:
+        - vote-controller
+      operationId: reopen
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+  "/api/v1/votes/{id}/participants":
+    post:
+      tags:
+        - vote-controller
+      operationId: addParticipant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AddParticipantRequest"
+        required: true
+      responses:
+        200:
+          description: OK
+  "/api/v1/votes/{id}/options":
+    post:
+      tags:
+        - vote-controller
+      operationId: addOption
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AddOptionRequest"
+        required: true
+      responses:
+        200:
+          description: OK
+  "/api/v1/votes/{id}/draw":
+    post:
+      tags:
+        - vote-controller
+      operationId: draw
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            "*/*":
+              schema:
+                "$ref": "#/components/schemas/DrawResultResponse"
+  "/api/v1/votes/{id}/close":
+    post:
+      tags:
+        - vote-controller
+      operationId: closeVote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+  /api/v1/auth/register:
+    post:
+      tags:
+        - auth-controller
+      operationId: register
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/RegisterRequest"
+        required: true
+      responses:
+        200:
+          description: OK
+          content:
+            "*/*":
+              schema:
+                "$ref": "#/components/schemas/AuthResponse"
+  /api/v1/auth/refresh:
+    post:
+      tags:
+        - auth-controller
+      operationId: refresh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/RefreshRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            "*/*":
+              schema:
+                "$ref": "#/components/schemas/AuthResponse"
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - auth-controller
+      operationId: logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/RefreshRequest"
+      responses:
+        200:
+          description: OK
+  /api/v1/auth/logout-all:
+    post:
+      tags:
+        - auth-controller
+      operationId: logoutAll
+      responses:
+        200:
+          description: OK
+  /api/v1/auth/login:
+    post:
+      tags:
+        - auth-controller
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        200:
+          description: OK
+          content:
+            "*/*":
+              schema:
+                "$ref": "#/components/schemas/AuthResponse"
+  "/api/v1/votes/{id}":
+    get:
+      tags:
+        - vote-controller
+      operationId: getVote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            "*/*":
+              schema:
+                "$ref": "#/components/schemas/VoteDetailDto"
+    delete:
+      tags:
+        - vote-controller
+      operationId: deleteVote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+  "/api/v1/votes/{id}/history":
+    get:
+      tags:
+        - vote-controller
+      operationId: getHistory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            "*/*":
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/DrawHistoryDto"
+  /api/v1/telegram/link-token:
+    get:
+      tags:
+        - telegram-controller
+      operationId: getLinkToken
+      responses:
+        200:
+          description: OK
+          content:
+            "*/*":
+              schema:
+                "$ref": "#/components/schemas/LinkTokenResponse"
+  "/api/v1/votes/{id}/participants/{email}":
+    delete:
+      tags:
+        - vote-controller
+      operationId: removeParticipant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: OK
+  "/api/v1/votes/{id}/options/{optionId}":
+    delete:
+      tags:
+        - vote-controller
+      operationId: removeOption
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: optionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+  /api/v1/telegram/unlink:
+    delete:
+      tags:
+        - telegram-controller
+      operationId: unlink
+      responses:
+        200:
+          description: OK
+components:
+  schemas:
+    CreateVoteWebRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          minLength: 0
+        description:
+          type:
+            - string
+            - "null"
+        mode:
+          type: string
+          enum:
+            - SIMPLE
+            - FAIR_ROTATION
+        participantEmails:
+          type: array
+          items:
+            type: string
+        options:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+      required:
+        - mode
+        - participantEmails
+        - title
+    DrawHistoryDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        winnerEmail:
+          type:
+            - string
+            - "null"
+        winnerDisplayName:
+          type:
+            - string
+            - "null"
+        winnerOptionTitle:
+          type:
+            - string
+            - "null"
+        round:
+          type: integer
+          format: int32
+        drawnAt:
+          type: string
+          format: date-time
+      required:
+        - drawnAt
+        - id
+        - round
+    ParticipantDto:
+      type: object
+      properties:
+        email:
+          type: string
+        displayName:
+          type:
+            - string
+            - "null"
+      required:
+        - email
+    VoteDetailDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type:
+            - string
+            - "null"
+        mode:
+          type: string
+          enum:
+            - SIMPLE
+            - FAIR_ROTATION
+        status:
+          type: string
+          enum:
+            - PENDING
+            - DRAWN
+            - CLOSED
+        currentRound:
+          type: integer
+          format: int32
+        participants:
+          type: array
+          items:
+            "$ref": "#/components/schemas/ParticipantDto"
+        options:
+          type: array
+          items:
+            "$ref": "#/components/schemas/VoteOptionDto"
+        lastResult:
+          oneOf:
+            - "$ref": "#/components/schemas/DrawHistoryDto"
+            - type: "null"
+        isCreator:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - createdAt
+        - currentRound
+        - id
+        - isCreator
+        - mode
+        - options
+        - participants
+        - status
+        - title
+    VoteOptionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+      required:
+        - id
+        - title
+    AddParticipantRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+        - email
+    AddOptionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          minLength: 0
+      required:
+        - title
+    DrawResultResponse:
+      type: object
+      properties:
+        winnerEmail:
+          type:
+            - string
+            - "null"
+        winnerDisplayName:
+          type:
+            - string
+            - "null"
+        winnerOptionTitle:
+          type:
+            - string
+            - "null"
+        round:
+          type: integer
+          format: int32
+        newRoundStarted:
+          type: boolean
+      required:
+        - newRoundStarted
+        - round
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          maxLength: 100
+          minLength: 8
+        displayName:
+          type: string
+          maxLength: 100
+          minLength: 0
+      required:
+        - displayName
+        - email
+        - password
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        userId:
+          type: string
+        email:
+          type: string
+        displayName:
+          type: string
+      required:
+        - accessToken
+        - displayName
+        - email
+        - userId
+    RefreshRequest:
+      type: object
+      properties:
+        refreshToken:
+          type:
+            - string
+            - "null"
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+      required:
+        - email
+        - password
+    Pageable:
+      type: object
+      properties:
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+        sort:
+          type: array
+          items:
+            type: string
+    PageVoteSummaryDto:
+      type: object
+      properties:
+        totalPages:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        pageable:
+          "$ref": "#/components/schemas/PageableObject"
+        first:
+          type: boolean
+        last:
+          type: boolean
+        numberOfElements:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        content:
+          type: array
+          items:
+            "$ref": "#/components/schemas/VoteSummaryDto"
+        number:
+          type: integer
+          format: int32
+        sort:
+          "$ref": "#/components/schemas/SortObject"
+        empty:
+          type: boolean
+    PageableObject:
+      type: object
+      properties:
+        paged:
+          type: boolean
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        unpaged:
+          type: boolean
+        offset:
+          type: integer
+          format: int64
+        sort:
+          "$ref": "#/components/schemas/SortObject"
+    SortObject:
+      type: object
+      properties:
+        unsorted:
+          type: boolean
+        sorted:
+          type: boolean
+        empty:
+          type: boolean
+    VoteSummaryDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        mode:
+          type: string
+          enum:
+            - SIMPLE
+            - FAIR_ROTATION
+        status:
+          type: string
+          enum:
+            - PENDING
+            - DRAWN
+            - CLOSED
+        currentRound:
+          type: integer
+          format: int32
+        participantCount:
+          type: integer
+          format: int64
+        isCreator:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - createdAt
+        - currentRound
+        - id
+        - isCreator
+        - mode
+        - participantCount
+        - status
+        - title
+    LinkTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - expiresAt
+        - token
