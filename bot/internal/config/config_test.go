@@ -79,6 +79,27 @@ func TestLoad(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "default GRPCSharedSecret is flagged as default",
+			env:  map[string]string{"BOT_TOKEN": "tok"},
+			check: func(t *testing.T, cfg *Config) {
+				if !cfg.GRPCSharedSecretIsDefault {
+					t.Fatal("GRPCSharedSecretIsDefault = false, want true")
+				}
+			},
+		},
+		{
+			name: "custom GRPCSharedSecret is not flagged as default",
+			env:  map[string]string{"BOT_TOKEN": "tok", "GRPC_SHARED_SECRET": "custom-secret"},
+			check: func(t *testing.T, cfg *Config) {
+				if cfg.GRPCSharedSecretIsDefault {
+					t.Fatal("GRPCSharedSecretIsDefault = true, want false")
+				}
+				if cfg.GRPCSharedSecret != "custom-secret" {
+					t.Fatalf("GRPCSharedSecret = %q, want %q", cfg.GRPCSharedSecret, "custom-secret")
+				}
+			},
+		},
 	}
 
 	for _, tc := range tests {

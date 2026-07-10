@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
+import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.security.authentication.BadCredentialsException
 
 class ErrorHandlerTest {
@@ -34,6 +35,23 @@ class ErrorHandlerTest {
 
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
         assertEquals("Conflict", response.body?.title)
+    }
+
+    @Test
+    fun `handleForbidden - returns 403`() {
+        val response = handler.handleForbidden(ForbiddenException("Only the creator can perform this action"))
+
+        assertEquals(HttpStatus.FORBIDDEN, response.statusCode)
+        assertEquals("Only the creator can perform this action", response.body?.title)
+    }
+
+    @Test
+    fun `handleOptimisticLocking - returns 409`() {
+        val response =
+            handler.handleOptimisticLocking(ObjectOptimisticLockingFailureException("Vote", 1L))
+
+        assertEquals(HttpStatus.CONFLICT, response.statusCode)
+        assertEquals("The resource was modified concurrently, please retry", response.body?.title)
     }
 
     @Test

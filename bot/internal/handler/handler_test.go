@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,24 +18,39 @@ import (
 )
 
 type fakeTelegram struct {
+	mu       sync.Mutex
 	messages []tgbotapi.MessageConfig
 	requests []tgbotapi.Chattable
+	updates  chan tgbotapi.Update
 }
 
 func (f *fakeTelegram) GetUpdatesChan(tgbotapi.UpdateConfig) tgbotapi.UpdatesChannel {
+	if f.updates != nil {
+		return f.updates
+	}
 	return make(tgbotapi.UpdatesChannel)
 }
 
 func (f *fakeTelegram) Request(c tgbotapi.Chattable) (*tgbotapi.APIResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.requests = append(f.requests, c)
 	return &tgbotapi.APIResponse{Ok: true}, nil
 }
 
 func (f *fakeTelegram) Send(c tgbotapi.Chattable) (tgbotapi.Message, error) {
 	if msg, ok := c.(tgbotapi.MessageConfig); ok {
+		f.mu.Lock()
 		f.messages = append(f.messages, msg)
+		f.mu.Unlock()
 	}
 	return tgbotapi.Message{}, nil
+}
+
+func (f *fakeTelegram) messageCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.messages)
 }
 
 type fakeFateClient struct {
@@ -647,6 +664,130 @@ func TestParseCreateVoteArgsErrors(t *testing.T) {
 				t.Fatalf("mode = %v, want %v", req.Mode, tc.wantMode)
 			}
 		})
+	}
+}
+
+// concurrencyTrackingClient wraps fakeFateClient and blocks GetMyVotes calls
+// on release, tracking how many run concurrently.
+type concurrencyTrackingClient struct {
+	*fakeFateClient
+	current int32
+	maxSeen int32
+	release chan struct{}
+}
+
+func (c *concurrencyTrackingClient) GetMyVotes(_ context.Context, _ *fatev1.GetMyVotesRequest, _ ...grpc.CallOption) (*fatev1.GetMyVotesResponse, error) {
+	n := atomic.AddInt32(&c.current, 1)
+	for {
+		old := atomic.LoadInt32(&c.maxSeen)
+		if n <= old {
+			break
+		}
+		if atomic.CompareAndSwapInt32(&c.maxSeen, old, n) {
+			break
+		}
+	}
+	<-c.release
+	atomic.AddInt32(&c.current, -1)
+	return &fatev1.GetMyVotesResponse{}, nil
+}
+
+func TestRunBoundsConcurrentMessageHandling(t *testing.T) {
+	client := &concurrencyTrackingClient{fakeFateClient: &fakeFateClient{}, release: make(chan struct{})}
+	updates := make(chan tgbotapi.Update, maxConcurrentMessages*2)
+	bot := &fakeTelegram{updates: updates}
+	h := New(bot, client, zaptest.NewLogger(t))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		h.Run(ctx)
+		close(done)
+	}()
+
+	total := maxConcurrentMessages + 5
+	for i := 0; i < total; i++ {
+		updates <- tgbotapi.Update{Message: makeCommandMsg(int64(i), "votes")}
+	}
+
+	deadline := time.After(2 * time.Second)
+	for {
+		if atomic.LoadInt32(&client.current) == maxConcurrentMessages {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("in-flight calls never reached the concurrency cap: current=%d", atomic.LoadInt32(&client.current))
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	if got := atomic.LoadInt32(&client.maxSeen); got > maxConcurrentMessages {
+		t.Fatalf("maxSeen concurrent calls = %d, want <= %d", got, maxConcurrentMessages)
+	}
+
+	close(client.release)
+
+	deadline = time.After(2 * time.Second)
+	for bot.messageCount() < total {
+		select {
+		case <-deadline:
+			t.Fatalf("not all messages were handled: got %d, want %d", bot.messageCount(), total)
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	if got := atomic.LoadInt32(&client.maxSeen); got > maxConcurrentMessages {
+		t.Fatalf("maxSeen concurrent calls = %d, want <= %d", got, maxConcurrentMessages)
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run() did not return after context cancellation")
+	}
+}
+
+func TestRunDrainsInFlightHandlerBeforeReturning(t *testing.T) {
+	client := &concurrencyTrackingClient{fakeFateClient: &fakeFateClient{}, release: make(chan struct{})}
+	updates := make(chan tgbotapi.Update, 1)
+	bot := &fakeTelegram{updates: updates}
+	h := New(bot, client, zaptest.NewLogger(t))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		h.Run(ctx)
+		close(done)
+	}()
+
+	updates <- tgbotapi.Update{Message: makeCommandMsg(1, "votes")}
+
+	deadline := time.After(2 * time.Second)
+	for atomic.LoadInt32(&client.current) != 1 {
+		select {
+		case <-deadline:
+			t.Fatal("in-flight handler never started")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	cancel()
+
+	select {
+	case <-done:
+		t.Fatal("Run() returned while a handler was still in flight")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(client.release)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run() did not return after the in-flight handler finished")
 	}
 }
 

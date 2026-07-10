@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toaster'
+import { extractErrorMessage } from '@/lib/errors'
 import { Moon, Sparkles, Sun } from 'lucide-react'
 import { useThemeStore } from '@/store/themeStore'
 
@@ -33,10 +34,7 @@ export function RegisterPage() {
       if (axios.isAxiosError(e) && e.response?.data?.errors) {
         setFieldErrors(e.response.data.errors as FieldErrors)
       }
-      const detail = axios.isAxiosError(e)
-        ? (e.response?.data?.title ?? e.response?.data?.detail ?? e.message)
-        : e.message
-      toast('Ошибка регистрации', detail, 'error')
+      toast('Ошибка регистрации', extractErrorMessage(e), 'error')
     },
   })
 

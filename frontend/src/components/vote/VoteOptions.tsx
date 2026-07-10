@@ -1,7 +1,5 @@
-import { useState } from 'react'
-import { ListChecks, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { ListChecks, Plus, X } from 'lucide-react'
+import { InlineAddForm } from '@/components/vote/InlineAddForm'
 import type { VoteOption, VoteStatus } from '@/types/vote'
 
 interface Props {
@@ -14,15 +12,7 @@ interface Props {
 }
 
 export function VoteOptions({ options, isCreator, status, onAdd, onRemove, isAddLoading }: Props) {
-  const [newOption, setNewOption] = useState('')
   const canEdit = isCreator && status === 'PENDING'
-
-  const handleAdd = () => {
-    const trimmed = newOption.trim()
-    if (!trimmed) return
-    setNewOption('')
-    onAdd(trimmed)
-  }
 
   return (
     <div className="glass p-6 mb-4">
@@ -56,23 +46,12 @@ export function VoteOptions({ options, isCreator, status, onAdd, onRemove, isAdd
       )}
 
       {canEdit && (
-        <div className="flex gap-2 pt-4 border-t border-[var(--color-fate-border)]">
-          <Input
-            placeholder="Добавить вариант"
-            value={newOption}
-            onChange={(e) => setNewOption(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-          />
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleAdd}
-            isLoading={isAddLoading}
-            disabled={!newOption.trim()}
-          >
-            <X className="w-4 h-4 rotate-45" />
-          </Button>
-        </div>
+        <InlineAddForm
+          placeholder="Добавить вариант"
+          onAdd={onAdd}
+          isLoading={isAddLoading}
+          icon={<Plus className="w-4 h-4" />}
+        />
       )}
     </div>
   )

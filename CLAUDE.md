@@ -285,6 +285,7 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTLP HTTP endpoint |
 | `BOT_TOKEN` | — | Required; from @BotFather |
 | `GRPC_SERVER_ADDR` | `localhost:9090` | Bot → backend gRPC address |
+| `GRPC_SHARED_SECRET` | (dev default set) | Shared secret authenticating bot → backend gRPC calls; must match on both sides, change before any real deployment |
 | `JWT_ACCESS_TTL_MINUTES` | `15` | Access token lifetime |
 | `JWT_REFRESH_TTL_DAYS` | `30` | Refresh token lifetime |
 | `LOG_LEVEL` | `info` | Bot log level |
@@ -348,3 +349,4 @@ One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first depl
 | `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` | SMTP credentials |
 | `FRONTEND_URL` | Public URL for CORS and email links |
 | `GRPC_SERVER_ADDR` | gRPC address for bot → backend (`localhost:9090`) |
+| `GRPC_SHARED_SECRET` | Shared secret authenticating bot → backend gRPC calls; same value on both deploy workflows |

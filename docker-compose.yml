@@ -43,6 +43,7 @@ services:
       FRONTEND_URL: http://localhost:3000
       REFRESH_COOKIE_SECURE: "false"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      GRPC_SHARED_SECRET: ${GRPC_SHARED_SECRET:-dev-grpc-shared-secret-for-testing-only}
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,6 +75,7 @@ services:
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
       GRPC_SERVER_ADDR: backend:9090
+      GRPC_SHARED_SECRET: ${GRPC_SHARED_SECRET:-dev-grpc-shared-secret-for-testing-only}
       LOG_LEVEL: info
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
     depends_on:
@@ -140,10 +142,9 @@ services:
     ports:
       - "3001:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
     volumes:
       - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana

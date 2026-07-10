@@ -3,6 +3,7 @@ package com.juncevich.fate.grpc
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.grpc.FateProto.*
+import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.*
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
@@ -36,11 +37,23 @@ class FateGrpcService(
                 .setMessage("Account linked successfully!")
                 .build()
         }.getOrElse { ex ->
-            LinkTelegramAccountResponse
-                .newBuilder()
-                .setSuccess(false)
-                .setMessage(ex.message ?: "Failed to link account")
-                .build()
+            when (ex) {
+                is NoSuchElementException,
+                is IllegalStateException,
+                is IllegalArgumentException,
+                is ForbiddenException,
+                -> {
+                    LinkTelegramAccountResponse
+                        .newBuilder()
+                        .setSuccess(false)
+                        .setMessage(ex.message ?: "Failed to link account")
+                        .build()
+                }
+
+                else -> {
+                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+                }
+            }
         }
 
     override suspend fun unlinkTelegramAccount(request: UnlinkTelegramAccountRequest): UnlinkTelegramAccountResponse =
@@ -52,11 +65,23 @@ class FateGrpcService(
                 .setMessage("Account unlinked.")
                 .build()
         }.getOrElse { ex ->
-            UnlinkTelegramAccountResponse
-                .newBuilder()
-                .setSuccess(false)
-                .setMessage(ex.message ?: "Failed to unlink")
-                .build()
+            when (ex) {
+                is NoSuchElementException,
+                is IllegalStateException,
+                is IllegalArgumentException,
+                is ForbiddenException,
+                -> {
+                    UnlinkTelegramAccountResponse
+                        .newBuilder()
+                        .setSuccess(false)
+                        .setMessage(ex.message ?: "Failed to unlink")
+                        .build()
+                }
+
+                else -> {
+                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+                }
+            }
         }
 
     override suspend fun getMyVotes(request: GetMyVotesRequest): GetMyVotesResponse {
@@ -118,7 +143,11 @@ class FateGrpcService(
                 .build()
         }.getOrElse { ex ->
             when (ex) {
-                is NoSuchElementException, is IllegalStateException, is IllegalArgumentException -> {
+                is NoSuchElementException,
+                is IllegalStateException,
+                is IllegalArgumentException,
+                is ForbiddenException,
+                -> {
                     CreateVoteResponse
                         .newBuilder()
                         .setSuccess(
@@ -150,6 +179,10 @@ class FateGrpcService(
                         Status.PERMISSION_DENIED.withDescription(ex.message)
                     )
 
+                    is ForbiddenException -> throw StatusRuntimeException(
+                        Status.PERMISSION_DENIED.withDescription(ex.message)
+                    )
+
                     else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
                 }
             }
@@ -173,7 +206,11 @@ class FateGrpcService(
                 .build()
         }.getOrElse { ex ->
             when (ex) {
-                is NoSuchElementException, is IllegalStateException, is IllegalArgumentException -> {
+                is NoSuchElementException,
+                is IllegalStateException,
+                is IllegalArgumentException,
+                is ForbiddenException,
+                -> {
                     DrawVoteResponse
                         .newBuilder()
                         .setSuccess(false)
@@ -205,6 +242,10 @@ class FateGrpcService(
                         Status.PERMISSION_DENIED.withDescription(ex.message)
                     )
 
+                    is ForbiddenException -> throw StatusRuntimeException(
+                        Status.PERMISSION_DENIED.withDescription(ex.message)
+                    )
+
                     else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
                 }
             }
@@ -233,6 +274,10 @@ class FateGrpcService(
                     )
 
                     is IllegalStateException -> throw StatusRuntimeException(
+                        Status.PERMISSION_DENIED.withDescription(ex.message)
+                    )
+
+                    is ForbiddenException -> throw StatusRuntimeException(
                         Status.PERMISSION_DENIED.withDescription(ex.message)
                     )
 

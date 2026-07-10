@@ -48,6 +48,7 @@ grpc:
     port: 9090
     security:
       enabled: false
+  shared-secret: ${GRPC_SHARED_SECRET:changeme-dev-grpc-shared-secret}
 
 management:
   endpoints:

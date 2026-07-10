@@ -70,6 +70,7 @@ jobs:
       MAIL_PASSWORD:     ${{ secrets.MAIL_PASSWORD }}
       FRONTEND_URL:      ${{ secrets.FRONTEND_URL }}
       GRPC_SERVER_ADDR:  ${{ secrets.GRPC_SERVER_ADDR }}
+      GRPC_SHARED_SECRET: ${{ secrets.GRPC_SHARED_SECRET }}
       BACKEND_HEALTHCHECK_URL: http://127.0.0.1:8080/actuator/health
 
     steps:
@@ -78,7 +79,7 @@ jobs:
           missing=()
           for s in DEPLOY_SSH_KEY BOT_TOKEN DB_URL DB_USERNAME DB_PASSWORD \
                    JWT_ACCESS_SECRET MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD \
-                   FRONTEND_URL GRPC_SERVER_ADDR; do
+                   FRONTEND_URL GRPC_SERVER_ADDR GRPC_SHARED_SECRET; do
             [ -z "${!s:-}" ] && missing+=("$s")
           done
           if [ "${#missing[@]}" -gt 0 ]; then
@@ -102,6 +103,11 @@ jobs:
           ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
             "mkdir -p $DEPLOY_DIR/backend"
 
+      - name: Backup previous backend JAR
+        run: |
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
+            "[ -f $DEPLOY_DIR/backend/app.jar ] && cp $DEPLOY_DIR/backend/app.jar $DEPLOY_DIR/backend/app.jar.bak || true"
+
       - name: Deploy backend JAR
         run: |
           mv artifacts/backend/*.jar artifacts/backend/app.jar
@@ -123,6 +129,7 @@ jobs:
             printf "MAIL_PASSWORD='%s'\n"     "$(escape "$MAIL_PASSWORD")"
             printf "FRONTEND_URL='%s'\n"      "$(escape "$FRONTEND_URL")"
             printf "GRPC_SERVER_ADDR='%s'\n"  "$(escape "$GRPC_SERVER_ADDR")"
+            printf "GRPC_SHARED_SECRET='%s'\n" "$(escape "$GRPC_SHARED_SECRET")"
           } | ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
             "cat > $DEPLOY_DIR/.env && chmod 600 $DEPLOY_DIR/.env && chown fate:fate $DEPLOY_DIR/.env"
 
@@ -140,16 +147,38 @@ jobs:
         run: |
           ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" "
           set -eu
+          healthy=false
           for attempt in \$(seq 1 24); do
             if curl --silent --show-error --fail $BACKEND_HEALTHCHECK_URL | grep -q '\"status\":\"UP\"'; then
               echo 'Application is healthy'
-              exit 0
+              healthy=true
+              break
             fi
             echo \"Attempt \${attempt}/24...\"
             sleep 5
           done
+
+          if [ \"\$healthy\" = true ]; then
+            rm -f $DEPLOY_DIR/backend/app.jar.bak
+            exit 0
+          fi
+
           echo 'Application did not become healthy in time'
           systemctl status fate-backend --no-pager || true
           journalctl -u fate-backend -n 100 --no-pager || true
+
+          if [ -f $DEPLOY_DIR/backend/app.jar.bak ]; then
+            echo 'Rolling back to previous JAR...'
+            cp $DEPLOY_DIR/backend/app.jar.bak $DEPLOY_DIR/backend/app.jar
+            systemctl restart fate-backend
+            sleep 5
+            if curl --silent --show-error --fail $BACKEND_HEALTHCHECK_URL | grep -q '\"status\":\"UP\"'; then
+              echo 'Rollback successful, previous version is healthy'
+            else
+              echo 'Rollback failed - service is still unhealthy!'
+            fi
+          else
+            echo 'No previous JAR available to roll back to'
+          fi
           exit 1
           "

@@ -9,7 +9,7 @@ import (
 func TestNewReturnsClientAndConn(t *testing.T) {
 	log := zap.NewNop()
 
-	client, conn, err := New("localhost:9090", log)
+	client, conn, err := New("localhost:9090", "test-secret", log)
 	if err != nil {
 		t.Fatalf("New() returned unexpected error: %v", err)
 	}

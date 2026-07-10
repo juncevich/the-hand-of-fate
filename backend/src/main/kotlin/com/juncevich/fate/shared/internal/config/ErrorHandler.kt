@@ -1,9 +1,11 @@
 package com.juncevich.fate.shared.internal.config
 
+import com.juncevich.fate.shared.ForbiddenException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
+import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.security.core.AuthenticationException
 import org.springframework.validation.FieldError
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -56,6 +58,28 @@ class ErrorHandler {
         val detail =
             ProblemDetail.forStatus(HttpStatus.CONFLICT).apply {
                 title = ex.message ?: "Conflict"
+                setProperty("timestamp", Instant.now())
+            }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(detail)
+    }
+
+    @ExceptionHandler(ForbiddenException::class)
+    fun handleForbidden(ex: ForbiddenException): ResponseEntity<ProblemDetail> {
+        log.warn("Forbidden: {}", ex.message)
+        val detail =
+            ProblemDetail.forStatus(HttpStatus.FORBIDDEN).apply {
+                title = ex.message ?: "Forbidden"
+                setProperty("timestamp", Instant.now())
+            }
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(detail)
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
+    fun handleOptimisticLocking(ex: ObjectOptimisticLockingFailureException): ResponseEntity<ProblemDetail> {
+        log.warn("Concurrent modification: {}", ex.message)
+        val detail =
+            ProblemDetail.forStatus(HttpStatus.CONFLICT).apply {
+                title = "The resource was modified concurrently, please retry"
                 setProperty("timestamp", Instant.now())
             }
         return ResponseEntity.status(HttpStatus.CONFLICT).body(detail)

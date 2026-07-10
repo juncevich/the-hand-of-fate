@@ -1,6 +1,7 @@
 package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.internal.DrawService
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
@@ -225,7 +226,9 @@ class VoteService(
         vote: Vote,
         requesterId: UUID,
     ) {
-        check(vote.creator.id == requesterId) { "Only the creator can perform this action" }
+        if (vote.creator.id != requesterId) {
+            throw ForbiddenException("Only the creator can perform this action")
+        }
     }
 
     private fun checkCanView(
@@ -236,7 +239,9 @@ class VoteService(
         val hasAccess =
             vote.creator.id == requesterId ||
                 participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requesterEmail)
-        check(hasAccess) { "Vote is not available for this user" }
+        if (!hasAccess) {
+            throw ForbiddenException("Vote is not available for this user")
+        }
     }
 
     private fun afterCommit(action: () -> Unit) {

@@ -3,6 +3,7 @@ import { Plus, X } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { votesApi } from '@/api/votes'
 import { toast } from '@/components/ui/toaster'
+import { onMutationError } from '@/lib/errors'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,7 +38,7 @@ export function CreateVoteDialog() {
       toast('Голосование создано!', title)
       resetAndClose()
     },
-    onError: (e: Error) => toast('Ошибка', e.message, 'error'),
+    onError: onMutationError,
   })
 
   const addOption = () => {

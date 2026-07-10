@@ -70,12 +70,13 @@ jobs:
       MAIL_PASSWORD:     ${{ secrets.MAIL_PASSWORD }}
       FRONTEND_URL:      ${{ secrets.FRONTEND_URL }}
       GRPC_SERVER_ADDR:  ${{ secrets.GRPC_SERVER_ADDR }}
+      GRPC_SHARED_SECRET: ${{ secrets.GRPC_SHARED_SECRET }}
 
     steps:
       - name: Validate secrets
         run: |
           missing=()
-          for s in DEPLOY_SSH_KEY BOT_TOKEN GRPC_SERVER_ADDR; do
+          for s in DEPLOY_SSH_KEY BOT_TOKEN GRPC_SERVER_ADDR GRPC_SHARED_SECRET; do
             [ -z "${!s:-}" ] && missing+=("$s")
           done
           if [ "${#missing[@]}" -gt 0 ]; then
@@ -99,6 +100,11 @@ jobs:
           ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
             "mkdir -p $DEPLOY_DIR/bot"
 
+      - name: Backup previous bot binary
+        run: |
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
+            "[ -f $DEPLOY_DIR/bot/fate-bot ] && cp $DEPLOY_DIR/bot/fate-bot $DEPLOY_DIR/bot/fate-bot.bak || true"
+
       - name: Deploy bot binary
         run: |
           chmod +x artifacts/bot/fate-bot
@@ -120,6 +126,7 @@ jobs:
             printf "MAIL_PASSWORD='%s'\n"     "$(escape "$MAIL_PASSWORD")"
             printf "FRONTEND_URL='%s'\n"      "$(escape "$FRONTEND_URL")"
             printf "GRPC_SERVER_ADDR='%s'\n"  "$(escape "$GRPC_SERVER_ADDR")"
+            printf "GRPC_SHARED_SECRET='%s'\n" "$(escape "$GRPC_SHARED_SECRET")"
           } | ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
             "cat > $DEPLOY_DIR/.env && chmod 600 $DEPLOY_DIR/.env && chown fate:fate $DEPLOY_DIR/.env"
 
@@ -132,3 +139,43 @@ jobs:
         run: |
           ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
             "systemctl daemon-reload && systemctl restart fate-bot"
+
+      - name: Verify bot is running
+        run: |
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" "
+          set -eu
+          healthy=false
+          for attempt in \$(seq 1 6); do
+            if systemctl is-active --quiet fate-bot; then
+              echo 'Bot service is active'
+              healthy=true
+              break
+            fi
+            echo \"Attempt \${attempt}/6...\"
+            sleep 5
+          done
+
+          if [ \"\$healthy\" = true ]; then
+            rm -f $DEPLOY_DIR/bot/fate-bot.bak
+            exit 0
+          fi
+
+          echo 'Bot service did not stay active after restart'
+          systemctl status fate-bot --no-pager || true
+          journalctl -u fate-bot -n 100 --no-pager || true
+
+          if [ -f $DEPLOY_DIR/bot/fate-bot.bak ]; then
+            echo 'Rolling back to previous bot binary...'
+            cp $DEPLOY_DIR/bot/fate-bot.bak $DEPLOY_DIR/bot/fate-bot
+            systemctl restart fate-bot
+            sleep 5
+            if systemctl is-active --quiet fate-bot; then
+              echo 'Rollback successful, previous version is active'
+            else
+              echo 'Rollback failed - service is still not active!'
+            fi
+          else
+            echo 'No previous binary available to roll back to'
+          fi
+          exit 1
+          "

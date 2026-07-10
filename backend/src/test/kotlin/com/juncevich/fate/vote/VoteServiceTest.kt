@@ -2,6 +2,7 @@ package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.internal.DrawService
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
@@ -98,7 +99,7 @@ class VoteServiceTest {
         every { voteRepositoryPort.findById(vote.id) } returns vote
         every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requester.email) } returns false
 
-        assertThrows<IllegalStateException> {
+        assertThrows<ForbiddenException> {
             voteService.getVote(vote.id, requester.id, requester.email)
         }
     }
@@ -112,7 +113,7 @@ class VoteServiceTest {
         every { voteRepositoryPort.findById(vote.id) } returns vote
         every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requester.email) } returns false
 
-        assertThrows<IllegalStateException> {
+        assertThrows<ForbiddenException> {
             voteService.getHistory(vote.id, requester.id, requester.email)
         }
     }
@@ -125,7 +126,7 @@ class VoteServiceTest {
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
 
-        assertThrows<IllegalStateException> {
+        assertThrows<ForbiddenException> {
             voteService.addParticipant(vote.id, otherUser.id, "new@test.com")
         }
     }
@@ -180,7 +181,7 @@ class VoteServiceTest {
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
 
-        assertThrows<IllegalStateException> {
+        assertThrows<ForbiddenException> {
             voteService.removeParticipant(vote.id, other.id, "p@test.com")
         }
     }
@@ -218,7 +219,7 @@ class VoteServiceTest {
 
         every { voteRepositoryPort.findByIdForDraw(vote.id) } returns vote
 
-        assertThrows<IllegalStateException> {
+        assertThrows<ForbiddenException> {
             voteService.draw(vote.id, other.id)
         }
     }
@@ -250,7 +251,7 @@ class VoteServiceTest {
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
 
-        assertThrows<IllegalStateException> { voteService.closeVote(vote.id, other.id) }
+        assertThrows<ForbiddenException> { voteService.closeVote(vote.id, other.id) }
     }
 
     @Test
@@ -285,7 +286,7 @@ class VoteServiceTest {
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
 
-        assertThrows<IllegalStateException> { voteService.deleteVote(vote.id, other.id) }
+        assertThrows<ForbiddenException> { voteService.deleteVote(vote.id, other.id) }
     }
 
     @Test
@@ -309,7 +310,7 @@ class VoteServiceTest {
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
 
-        assertThrows<IllegalStateException> { voteService.reopen(vote.id, other.id) }
+        assertThrows<ForbiddenException> { voteService.reopen(vote.id, other.id) }
     }
 
     @Test

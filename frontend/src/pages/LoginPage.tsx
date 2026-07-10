@@ -24,6 +24,8 @@ export function LoginPage() {
       setAuth(data)
       navigate('/')
     },
+    // Deliberately a fixed generic message rather than onMutationError/extractErrorMessage:
+    // login failures shouldn't reveal backend error detail (e.g. whether the account exists).
     onError: () => toast('Ошибка входа', 'Неверный email или пароль', 'error'),
   })
 

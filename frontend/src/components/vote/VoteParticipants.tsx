@@ -1,7 +1,6 @@
-import { useState } from 'react'
 import { UserPlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { InlineAddForm } from '@/components/vote/InlineAddForm'
 import type { Participant, VoteStatus } from '@/types/vote'
 
 interface Props {
@@ -14,15 +13,7 @@ interface Props {
 }
 
 export function VoteParticipants({ participants, isCreator, status, onAdd, onRemove, isAddLoading }: Props) {
-  const [newEmail, setNewEmail] = useState('')
   const canEdit = isCreator && status === 'PENDING'
-
-  const handleAdd = () => {
-    const trimmed = newEmail.trim()
-    if (!trimmed) return
-    setNewEmail('')
-    onAdd(trimmed)
-  }
 
   return (
     <div className="glass p-6 mb-4">
@@ -57,17 +48,12 @@ export function VoteParticipants({ participants, isCreator, status, onAdd, onRem
       </div>
 
       {canEdit && (
-        <div className="flex gap-2 pt-4 border-t border-[var(--color-fate-border)]">
-          <Input
-            placeholder="Добавить участника по email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-          />
-          <Button variant="outline" size="icon" onClick={handleAdd} isLoading={isAddLoading}>
-            <UserPlus className="w-4 h-4" />
-          </Button>
-        </div>
+        <InlineAddForm
+          placeholder="Добавить участника по email"
+          onAdd={onAdd}
+          isLoading={isAddLoading}
+          icon={<UserPlus className="w-4 h-4" />}
+        />
       )}
     </div>
   )

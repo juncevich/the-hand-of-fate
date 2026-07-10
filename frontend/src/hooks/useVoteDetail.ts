@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { votesApi } from '@/api/votes'
 import { toast } from '@/components/ui/toaster'
+import { onMutationError } from '@/lib/errors'
 import { winnerLabel } from '@/lib/utils'
 
 export function useVoteDetail(id: string) {
@@ -23,12 +24,13 @@ export function useVoteDetail(id: string) {
       queryClient.invalidateQueries({ queryKey: ['vote-history', id] })
       toast('✦ Рука Судьбы выбрала!', `Победитель: ${winnerLabel(result)}`)
     },
-    onError: (e: Error) => toast('Ошибка', e.message, 'error'),
+    onError: onMutationError,
   })
 
   const reopen = useMutation({
     mutationFn: () => votesApi.reopen(id),
     onSuccess: invalidate,
+    onError: onMutationError,
   })
 
   const addParticipant = useMutation({
@@ -37,7 +39,7 @@ export function useVoteDetail(id: string) {
       invalidate()
       toast('Участник добавлен')
     },
-    onError: (e: Error) => toast('Ошибка', e.message, 'error'),
+    onError: onMutationError,
   })
 
   const removeParticipant = useMutation({
@@ -46,7 +48,7 @@ export function useVoteDetail(id: string) {
       invalidate()
       toast('Участник удалён')
     },
-    onError: (e: Error) => toast('Ошибка', e.message, 'error'),
+    onError: onMutationError,
   })
 
   const addOption = useMutation({
@@ -55,7 +57,7 @@ export function useVoteDetail(id: string) {
       invalidate()
       toast('Вариант добавлен')
     },
-    onError: (e: Error) => toast('Ошибка', e.message, 'error'),
+    onError: onMutationError,
   })
 
   const removeOption = useMutation({
@@ -64,12 +66,13 @@ export function useVoteDetail(id: string) {
       invalidate()
       toast('Вариант удалён')
     },
-    onError: (e: Error) => toast('Ошибка', e.message, 'error'),
+    onError: onMutationError,
   })
 
   const deleteVote = useMutation({
     mutationFn: () => votesApi.delete(id),
     onSuccess: () => navigate('/'),
+    onError: onMutationError,
   })
 
   return {

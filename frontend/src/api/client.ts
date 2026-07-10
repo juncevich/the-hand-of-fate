@@ -18,7 +18,7 @@ apiClient.interceptors.request.use((config) => {
 
 // On 401 try one silent refresh, then retry
 let isRefreshing = false
-let queue: Array<(token: string) => void> = []
+let queue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = []
 
 apiClient.interceptors.response.use(
   (res) => res,
@@ -29,10 +29,13 @@ apiClient.interceptors.response.use(
     }
 
     if (isRefreshing) {
-      return new Promise((resolve) => {
-        queue.push((token: string) => {
-          original.headers.Authorization = `Bearer ${token}`
-          resolve(apiClient(original))
+      return new Promise((resolve, reject) => {
+        queue.push({
+          resolve: (token: string) => {
+            original.headers.Authorization = `Bearer ${token}`
+            resolve(apiClient(original))
+          },
+          reject,
         })
       })
     }
@@ -47,11 +50,13 @@ apiClient.interceptors.response.use(
         { withCredentials: true }
       )
       useAuthStore.getState().updateAccessToken(data.accessToken)
-      queue.forEach((cb) => cb(data.accessToken))
+      queue.forEach((cb) => cb.resolve(data.accessToken))
       queue = []
       original.headers.Authorization = `Bearer ${data.accessToken}`
       return apiClient(original)
-    } catch {
+    } catch (refreshError) {
+      queue.forEach((cb) => cb.reject(refreshError))
+      queue = []
       useAuthStore.getState().clearAuth()
       window.location.href = '/login'
       return Promise.reject(error)

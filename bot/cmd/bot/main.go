@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"go.uber.org/zap"
@@ -13,6 +14,11 @@ import (
 	"github.com/juncevich/the-hand-of-fate/bot/internal/grpcclient"
 	"github.com/juncevich/the-hand-of-fate/bot/internal/handler"
 )
+
+// shutdownGracePeriod bounds how long we wait for in-flight message handlers
+// to drain before exiting anyway, so a stuck Telegram/gRPC call can't block
+// the process from ever terminating on SIGTERM.
+const shutdownGracePeriod = 15 * time.Second
 
 func main() {
 	// ── Logger ────────────────────────────────────────────────────────────────
@@ -24,9 +30,12 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to load config", zap.Error(err))
 	}
+	if cfg.GRPCSharedSecretIsDefault {
+		log.Warn("GRPC_SHARED_SECRET is not set, using the well-known dev default - do not use this in any shared or public environment")
+	}
 
 	// ── gRPC client ───────────────────────────────────────────────────────────
-	fateClient, conn, err := grpcclient.New(cfg.GRPCServerAddr, log)
+	fateClient, conn, err := grpcclient.New(cfg.GRPCServerAddr, cfg.GRPCSharedSecret, log)
 	if err != nil {
 		log.Fatal("failed to connect to backend gRPC", zap.Error(err))
 	}
@@ -49,8 +58,18 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	go h.Run(ctx)
+	runDone := make(chan struct{})
+	go func() {
+		h.Run(ctx)
+		close(runDone)
+	}()
 
 	<-ctx.Done()
 	log.Info("shutting down")
+
+	select {
+	case <-runDone:
+	case <-time.After(shutdownGracePeriod):
+		log.Warn("shutdown grace period elapsed, exiting with handlers still in flight")
+	}
 }

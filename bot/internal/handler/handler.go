@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -39,10 +40,16 @@ type Handler struct {
 	bot    TelegramAPI
 	client fatev1.FateServiceClient
 	log    *zap.Logger
+	sem    chan struct{}
+	wg     sync.WaitGroup
 }
 
+// maxConcurrentMessages bounds how many Telegram messages are handled at once,
+// so a burst/flood of updates can't spawn unbounded goroutines and gRPC calls.
+const maxConcurrentMessages = 20
+
 func New(bot TelegramAPI, client fatev1.FateServiceClient, log *zap.Logger) *Handler {
-	return &Handler{bot: bot, client: client, log: log}
+	return &Handler{bot: bot, client: client, log: log, sem: make(chan struct{}, maxConcurrentMessages)}
 }
 
 const grpcTimeout = 5 * time.Second
@@ -82,12 +89,26 @@ func (h *Handler) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			h.wg.Wait()
 			return
 		case update := <-updates:
 			if update.Message == nil {
 				continue
 			}
-			go h.handleMessage(ctx, update.Message)
+			msg := update.Message
+			select {
+			case h.sem <- struct{}{}:
+				h.wg.Add(1)
+				go func() {
+					defer h.wg.Done()
+					defer func() { <-h.sem }()
+					h.handleMessage(ctx, msg)
+				}()
+			case <-ctx.Done():
+				h.log.Warn("dropping message received during shutdown", zap.Int64("chat_id", msg.Chat.ID))
+				h.wg.Wait()
+				return
+			}
 		}
 	}
 }
@@ -99,13 +120,13 @@ func (h *Handler) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		}
 	}()
 
-	h.log.Info("message received",
-		zap.Int64("chat_id", msg.Chat.ID),
-		zap.String("text", msg.Text),
-	)
-
 	cmd := msg.Command()
 	args := strings.TrimSpace(msg.CommandArguments())
+
+	h.log.Info("message received",
+		zap.Int64("chat_id", msg.Chat.ID),
+		zap.String("command", cmd),
+	)
 
 	switch cmd {
 	case "start", "help":
@@ -175,6 +196,12 @@ func (h *Handler) handleLink(ctx context.Context, msg *tgbotapi.Message, token s
 	}
 }
 
+var voteStatusEmoji = map[fatev1.VoteStatus]string{
+	fatev1.VoteStatus_VOTE_STATUS_PENDING: "🔵",
+	fatev1.VoteStatus_VOTE_STATUS_DRAWN:   "✅",
+	fatev1.VoteStatus_VOTE_STATUS_CLOSED:  "🔒",
+}
+
 func (h *Handler) handleVotes(ctx context.Context, msg *tgbotapi.Message) {
 	gctx, cancel := grpcCtx(ctx)
 	defer cancel()
@@ -193,11 +220,7 @@ func (h *Handler) handleVotes(ctx context.Context, msg *tgbotapi.Message) {
 	var sb strings.Builder
 	sb.WriteString("✦ *Ваши голосования:*\n\n")
 	for _, v := range resp.Votes {
-		statusEmoji := map[fatev1.VoteStatus]string{
-			fatev1.VoteStatus_VOTE_STATUS_PENDING: "🔵",
-			fatev1.VoteStatus_VOTE_STATUS_DRAWN:   "✅",
-			fatev1.VoteStatus_VOTE_STATUS_CLOSED:  "🔒",
-		}[v.Status]
+		statusEmoji := voteStatusEmoji[v.Status]
 		modeEmoji := "⚡"
 		if v.Mode == fatev1.VoteMode_VOTE_MODE_FAIR_ROTATION {
 			modeEmoji = "🔄"
