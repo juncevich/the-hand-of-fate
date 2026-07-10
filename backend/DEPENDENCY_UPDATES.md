@@ -1,5 +1,16 @@
 # Dependency Updates
 
+## 2026-07-10
+
+Re-audited every explicit version in `build.gradle.kts` against Maven Central `maven-metadata.xml` (`<release>` field, not the lagging `search.maven.org` Solr index — cross-checked and confirmed the Solr index under-reports several packages already at their true latest, e.g. `springdoc-openapi-starter-webmvc-ui`, `mockk`, `springmockk`, `spotless-plugin-gradle`, `kotlinx-coroutines-core`, `protobuf-java`, which the XML metadata confirmed were already current). Per explicit user request, majors were in scope too — none were available/compatible.
+
+### io.grpc (`grpcVersion`) `1.82.1 → 1.82.2`
+- Routine patch bump (`grpc-core` `<release>` on Maven Central)
+
+Verified with `./gradlew compileKotlin compileTestKotlin` and `./gradlew test` — both pass with no code changes.
+
+Everything else confirmed already at the latest stable release (no change): Gradle wrapper `9.6.1`, Kotlin `2.4.0` (newer `2.4.20-Beta1` is pre-release only), Spring Boot `4.1.0`, `com.google.protobuf` Gradle plugin `0.10.0`, `com.diffplug.spotless` Gradle plugin `8.8.0`, detekt `1.23.8`, `com.google.protobuf:protobuf-java`/`protobuf-kotlin` `4.35.1` (newer `4.36.0-RC1` is a release candidate, intentionally skipped), `grpc-kotlin-stub` `1.5.0`, `jjwt` `0.13.0`, `kotlinx-coroutines` `1.11.0`, `spring-modulith-bom` `2.1.0`, `net.devh:grpc-server-spring-boot-starter` `3.1.0.RELEASE`, `springdoc-openapi-starter-webmvc-ui` `3.0.3`, `testcontainers` `2.0.5`, `mockk` `1.14.11`, `springmockk` `5.0.1`, `org.postgresql:postgresql` `42.7.13`, ktlint `1.8.0`.
+
 ## 2026-07-07
 
 Re-audited every explicit version in `build.gradle.kts` and the Gradle wrapper against Maven Central / Gradle Plugin Portal `maven-metadata.xml`, per the user's request to check and update, including majors. Almost everything was already at the latest stable release (four days after the previous audit); only one patch bump was available:

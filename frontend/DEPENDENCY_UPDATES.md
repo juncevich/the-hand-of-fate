@@ -1,5 +1,25 @@
 # Dependency Updates
 
+## 2026-07-10
+
+Checked every package in `package.json` against the real npm registry (`npm outdated`, `npm view <pkg> versions`), per explicit user request to include majors this time.
+
+### lucide-react `1.23.0 → 1.24.0`
+- Routine minor bump
+
+### msw `2.14.7 → 2.15.0`
+- Routine minor bump
+
+### vite `8.1.3 → 8.1.4`
+- Routine patch bump
+
+### typescript `6.0.3` — major bump to `7.0.2` attempted, then reverted
+- `npm install typescript@latest` pulled `7.0.2`. `tsc -b && vite build` and `vitest run` succeeded, but `npm run lint` crashed (`TypeError: Cannot read properties of undefined (reading 'Cjs')` inside `@typescript-eslint/typescript-estree`) — confirmed via `npm view @typescript-eslint/parser@latest peerDependencies` that the latest published `@typescript-eslint` (`8.63.x`) caps support at `typescript: >=4.8.4 <6.1.0`; there is no released `@typescript-eslint` version compatible with TS 7 yet. Reverted to `typescript@6.0.3`, which is itself still the latest `6.x` release (confirmed via `npm view typescript versions`) — `package.json` is unchanged from before this session for this package. Re-verified lint/test/build all pass after the revert.
+
+Verified with `npm run lint`, `npm test` (57/57 passed), and `npm run build` — all green after the revert.
+
+Everything else confirmed already at the latest compatible version (no change): react/react-dom `19.2.7`, react-router-dom `7.18.1`, @tanstack/react-query(-devtools) `5.101.2`, zustand `5.0.14`, axios `1.18.1`, all `@radix-ui/*` packages, class-variance-authority `0.7.1`, clsx `2.1.1`, tailwind-merge `3.6.0`, date-fns `4.4.0`, @vitejs/plugin-react `6.0.3`, tailwindcss/@tailwindcss/vite `4.3.2`, @types/react `19.2.17`, @types/react-dom `19.2.3`, vitest `4.1.10`, @testing-library/* packages, jsdom `29.1.1`, eslint `10.6.0`, @typescript-eslint/eslint-plugin`/`parser `8.63.0` (pinned by the TS7 incompatibility above).
+
 ## 2026-07-07
 
 Проверено против реального npm registry (`npm view <pkg> version` / `npm outdated`) для каждого пакета в `package.json`, плюс пакеты, не отмеченные `npm outdated` (react, react-dom, zustand, class-variance-authority, clsx, tailwind-merge, date-fns, typescript, @types/react, @types/react-dom, @testing-library/*, jsdom) — у них диапазон в `package.json` уже совпадал с latest, изменений не потребовалось. Мажорных обновлений нет — все изменения minor/patch, в тех же major-линиях. После `npm install` дополнительно устранены 2 high-severity транзитивные уязвимости (`form-data`, `undici`, приходят через `msw`) через `npm audit fix` — прямых записей в `package.json` это не потребовало. `npm run lint`, `npm test` (57/57 passed) и `npm run build` прошли без ошибок, код изменений не потребовал.

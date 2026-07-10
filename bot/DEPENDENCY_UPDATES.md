@@ -1,5 +1,20 @@
 # Dependency Updates
 
+## 2026-07-10
+
+Re-checked against the Go module proxy via `go list -u -m all`, per explicit user request to include majors this time. No new major branches exist for any direct dependency (`telegram-bot-api/v5`, `spf13/viper`, `go.uber.org/zap`, `google.golang.org/grpc`, `google.golang.org/protobuf` all remain the newest major line). Ran `go get -u` on all five direct deps + `go mod tidy`.
+
+### golang.org/x/net `v0.56.0 → v0.57.0` (indirect)
+- Routine sync of internal `golang.org/x` dependencies
+
+### golang.org/x/sys `v0.46.0 → v0.47.0` (indirect)
+- Routine sync
+
+### golang.org/x/text `v0.39.0 → v0.40.0` (indirect)
+- Routine sync
+
+Direct dependencies (`telegram-bot-api/v5` `v5.5.1`, `spf13/viper` `v1.21.0`, `go.uber.org/zap` `v1.28.0`, `google.golang.org/grpc` `v1.82.0`, `google.golang.org/protobuf` `v1.36.11`) were already at their latest stable versions and unchanged. `go build ./...` and `go test ./...` pass with no code changes.
+
 ## 2026-07-07
 
 Проверено против реального Go module proxy (`go list -m -u all`, `go list -m -versions <module>`) для всех прямых зависимостей (`telegram-bot-api/v5`, `spf13/viper`, `go.uber.org/zap`, `google.golang.org/grpc`, `google.golang.org/protobuf`). Явно проверено наличие новых major-веток по отдельным module path (`telegram-bot-api/v6`, `zap/v2`, `viper/v2`, `grpc/v2`, `protobuf/v2`) — ни один из этих путей не существует в module proxy, так что мажорных апгрейдов среди прямых зависимостей нет; все они уже на последней стабильной версии (`grpc` v1.82.0 — новее есть только `v1.83.0-dev`, pre-release, пропущен намеренно). `go get -u ./...` + `go mod tidy` подтянули обновления только по трём косвенным зависимостям.

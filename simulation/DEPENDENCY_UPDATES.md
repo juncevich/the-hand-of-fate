@@ -1,5 +1,11 @@
 # Dependency Updates
 
+## 2026-07-10
+
+Re-checked every module in `go.mod` (direct and transitive) via `go list -u -m all`, per explicit user request to include majors this time. No new major branches exist for either direct dependency. Ran `go get -u` on both direct deps + `go mod tidy` — no changes were pulled; `go.mod`/`go.sum` are byte-identical to before this session.
+
+Already at latest, confirmed unchanged: `github.com/google/uuid` `v1.6.0`, `go.uber.org/zap` `v1.28.0`, `github.com/stretchr/testify` `v1.11.1`, `go.uber.org/multierr` `v1.11.0`, `go.yaml.in/yaml/v3` `v3.0.4`, `gopkg.in/yaml.v3` `v3.0.1`, and the other transitive test-only deps (`davecgh/go-spew`, `pmezard/go-difflib`, `kr/text`, `go.uber.org/goleak`). `go build ./...` and `go test ./...` pass.
+
 ## 2026-07-07
 
 Checked every dependency in `simulation/go.mod` (direct and transitive) via
