@@ -1,0 +1,13 @@
+# Integration-test profile (Testcontainers). Keeps the demo-user seed so tests
+# that reference admin@admin.com as a FK target keep working, and disables the
+# production secret guard (SecretsValidator is @Profile("!dev & !test")).
+spring:
+  flyway:
+    placeholders:
+      seedDemoUser: "true"
+
+app:
+  # Tests fire many auth requests from a single (loopback) client; the limiter
+  # would otherwise trip and turn expected 200s into 429s.
+  rate-limit:
+    enabled: false

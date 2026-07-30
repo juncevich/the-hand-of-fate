@@ -1,16 +1,19 @@
+# Build context is the repository ROOT (so the shared proto tree is reachable).
+# docker-compose sets `context: .` + `dockerfile: backend/Dockerfile`.
 FROM eclipse-temurin:21-jdk-alpine AS build
 
 WORKDIR /app
 
-COPY gradle/           gradle/
-COPY gradlew           gradlew
-COPY build.gradle.kts  build.gradle.kts
-COPY settings.gradle.kts settings.gradle.kts
+COPY backend/gradle/           gradle/
+COPY backend/gradlew           gradlew
+COPY backend/build.gradle.kts  build.gradle.kts
+COPY backend/settings.gradle.kts settings.gradle.kts
 
 RUN chmod +x gradlew && ./gradlew dependencies --no-daemon -q
 
-COPY src/ src/
-COPY ../proto/ ../proto/
+COPY backend/src/ src/
+# build.gradle.kts sources protos from ${rootProject.projectDir}/../proto → /proto
+COPY proto/ /proto/
 
 RUN ./gradlew bootJar --no-daemon -x test
 

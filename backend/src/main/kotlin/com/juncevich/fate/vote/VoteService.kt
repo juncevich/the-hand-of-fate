@@ -2,6 +2,7 @@ package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.shared.ForbiddenException
+import com.juncevich.fate.shared.requireValidEmail
 import com.juncevich.fate.vote.internal.DrawService
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
@@ -37,6 +38,8 @@ class VoteService(
         request: CreateVoteCommand,
     ): VoteDetailDto {
         val creator = userQueryService.findById(creatorId) ?: throw NoSuchElementException("User not found")
+
+        request.participantEmails.forEach { requireValidEmail(it.trim()) }
 
         val vote =
             voteRepositoryPort.save(
@@ -110,6 +113,7 @@ class VoteService(
     ) {
         val vote = getVoteOrThrow(voteId)
         checkIsCreator(vote, requesterId)
+        requireValidEmail(email.trim())
         check(vote.status == VoteStatus.PENDING) { "Cannot add participants to a non-pending vote" }
         check(!participantRepositoryPort.existsByVoteIdAndEmail(voteId, email)) { "Participant already exists" }
 

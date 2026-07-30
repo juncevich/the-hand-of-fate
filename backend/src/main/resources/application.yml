@@ -29,6 +29,10 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
+    placeholders:
+      # Prod-safe default: the demo user (admin@admin.com) is NOT seeded.
+      # Enabled only under the dev/test profiles.
+      seedDemoUser: "false"
 
   mail:
     host: ${MAIL_HOST:localhost}
@@ -46,6 +50,10 @@ server:
 grpc:
   server:
     port: 9090
+    # Bind to loopback by default so the shared-secret-only (plaintext) gRPC
+    # channel is not exposed off-host. Override to 0.0.0.0 only on a trusted
+    # internal network (e.g. the Docker bridge).
+    address: ${GRPC_BIND_ADDRESS:127.0.0.1}
     security:
       enabled: false
   shared-secret: ${GRPC_SHARED_SECRET:changeme-dev-grpc-shared-secret}
@@ -72,9 +80,13 @@ management:
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
 
 springdoc:
+  # Disabled by default so the API surface/schemas are not exposed in production;
+  # the dev profile re-enables it (see application-dev.yml).
   api-docs:
+    enabled: ${SPRINGDOC_ENABLED:false}
     path: /v3/api-docs
   swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:false}
     path: /swagger-ui.html
 
 jwt:

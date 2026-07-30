@@ -216,7 +216,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     @Test
-    fun `GET votes by id - non-participant - returns 409`() {
+    fun `GET votes by id - non-participant - returns 403`() {
         val (creatorToken) = createUser()
         val (strangerToken) = createUser()
         val voteId = createSimpleVote(creatorToken, "Private Vote")
@@ -224,7 +224,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
         mockMvc
             .get("/api/v1/votes/$voteId") {
                 header("Authorization", "Bearer $strangerToken")
-            }.andExpect { status { isConflict() } }
+            }.andExpect { status { isForbidden() } }
     }
 
     @Test
@@ -257,7 +257,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     @Test
-    fun `DELETE votes by id - non-creator - returns 409`() {
+    fun `DELETE votes by id - non-creator - returns 403`() {
         val (creatorToken) = createUser()
         val (otherToken, otherEmail) = createUser()
         val voteId = createSimpleVote(creatorToken, "Protected Vote", listOf(otherEmail))
@@ -265,7 +265,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
         mockMvc
             .delete("/api/v1/votes/$voteId") {
                 header("Authorization", "Bearer $otherToken")
-            }.andExpect { status { isConflict() } }
+            }.andExpect { status { isForbidden() } }
     }
 
     // ── Participants ──────────────────────────────────────────────────────────
@@ -412,7 +412,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     @Test
-    fun `POST votes draw - non-creator - returns 409`() {
+    fun `POST votes draw - non-creator - returns 403`() {
         val (creatorToken) = createUser()
         val (otherToken, otherEmail) = createUser()
         val voteId = createSimpleVote(creatorToken, participants = listOf(otherEmail))
@@ -420,7 +420,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
         mockMvc
             .post("/api/v1/votes/$voteId/draw") {
                 header("Authorization", "Bearer $otherToken")
-            }.andExpect { status { isConflict() } }
+            }.andExpect { status { isForbidden() } }
     }
 
     @Test

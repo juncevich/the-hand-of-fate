@@ -2,6 +2,7 @@ package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.internal.DrawService
 import com.juncevich.fate.vote.internal.domain.Vote
@@ -88,6 +89,24 @@ class VoteServiceTest {
         verify { voteOptionRepositoryPort.saveAll(any<List<VoteOption>>()) }
         verify { notificationPort.notifyVoteInvitation("p@test.com", vote) }
         verify(exactly = 0) { notificationPort.notifyVoteInvitation(creator.email, any()) }
+    }
+
+    @Test
+    fun `createVote - rejects malformed participant email`() {
+        val creator = makeUser()
+        every { userQueryService.findById(creator.id) } returns creator
+
+        val request =
+            CreateVoteCommand(
+                title = "Vote",
+                description = null,
+                mode = VoteMode.SIMPLE,
+                participantEmails = listOf("not-an-email"),
+                options = null
+            )
+
+        assertThrows<BadRequestException> { voteService.createVote(creator.id, request) }
+        verify(exactly = 0) { voteRepositoryPort.save(any()) }
     }
 
     @Test

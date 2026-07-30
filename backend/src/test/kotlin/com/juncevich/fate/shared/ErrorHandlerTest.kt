@@ -38,6 +38,30 @@ class ErrorHandlerTest {
     }
 
     @Test
+    fun `handleBadRequest - returns 400 with message as title`() {
+        val response = handler.handleBadRequest(BadRequestException("Invalid email address: nope"))
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        assertEquals("Invalid email address: nope", response.body?.title)
+    }
+
+    @Test
+    fun `handleNotFoundDomain - returns 404`() {
+        val response = handler.handleNotFoundDomain(NotFoundException("Vote not found"))
+
+        assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
+        assertEquals("Vote not found", response.body?.title)
+    }
+
+    @Test
+    fun `handleConflict - returns 409`() {
+        val response = handler.handleConflict(ConflictException("Vote is already closed"))
+
+        assertEquals(HttpStatus.CONFLICT, response.statusCode)
+        assertEquals("Vote is already closed", response.body?.title)
+    }
+
+    @Test
     fun `handleForbidden - returns 403`() {
         val response = handler.handleForbidden(ForbiddenException("Only the creator can perform this action"))
 

@@ -23,8 +23,8 @@ services:
   # ── Backend ────────────────────────────────────────────────────────────────
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     image: ghcr.io/juncevich/fate-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
@@ -32,6 +32,7 @@ services:
     expose:
       - "9090"        # gRPC is internal-only for the Telegram bot
     environment:
+      SPRING_PROFILES_ACTIVE: dev
       DB_URL: jdbc:postgresql://postgres:5432/fate
       DB_USERNAME: fate
       DB_PASSWORD: fate
@@ -42,6 +43,9 @@ services:
       MAIL_PORT: 1025
       FRONTEND_URL: http://localhost:3000
       REFRESH_COOKIE_SECURE: "false"
+      # gRPC is reached by the bot across the Docker bridge network, so bind to
+      # all interfaces here (the shared secret still authenticates callers).
+      GRPC_BIND_ADDRESS: 0.0.0.0
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       GRPC_SHARED_SECRET: ${GRPC_SHARED_SECRET:-dev-grpc-shared-secret-for-testing-only}
     depends_on:

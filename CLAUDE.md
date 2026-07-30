@@ -52,7 +52,7 @@ make infra-down               # stop infrastructure
 - MailHog:   http://localhost:8025
 - Grafana:   http://localhost:3001  (admin/admin)
 
-**Default demo user** (seeded by migration V7): `admin@admin.com` / `admin`
+**Default demo user** (seeded by migration V7, **dev/test profiles only**): `admin@admin.com` / `admin`. The seed is gated behind the Flyway placeholder `seedDemoUser`, which defaults to `false` and is set to `true` only by the `dev`/`test` profiles — so it is never created in production.
 
 ### Backend (Kotlin + Gradle)
 ```bash
@@ -154,6 +154,8 @@ cd perf
 - Frontend keeps `accessToken` in Zustand (memory only); `refreshToken` is sent via JSON body; all requests use `withCredentials: true`
 - On app mount, `authApi.silentRefresh()` attempts to restore session via httpOnly cookie (`withCredentials: true`, empty body); failure is silently ignored (user stays logged out)
 - On 401, Axios interceptor silently calls `/api/v1/auth/refresh`, queues concurrent requests, and retries once
+- **Brute-force protection**: `RateLimitFilter` (in-memory fixed-window, per client IP) throttles `/api/v1/auth/{login,register,refresh}` — returns `429` with `Retry-After` past `app.rate-limit.capacity` per `app.rate-limit.window-seconds`. Single-instance only; move to a shared store (Redis) if scaled horizontally.
+- **Fail-fast secrets**: `SecretsValidator` (`@Profile("!dev & !test")`) aborts startup if `JWT_ACCESS_SECRET` / `GRPC_SHARED_SECRET` are missing, too short, or left at a checked-in dev default — so production cannot boot with insecure secrets. Local runs use the `dev` profile to bypass this.
 
 ### Frontend State & Data Fetching
 - **Zustand** manages auth state (`authStore`) and dark/light theme (`themeStore`; persisted to localStorage)
@@ -221,6 +223,8 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 - Backend generates Java/Kotlin stubs via `com.google.protobuf` Gradle plugin → `backend/build/generated/source/proto/main/`
 - Bot generates Go stubs via Buf → `bot/gen/fate/v1/`
 - `FateGrpcService.kt` implements the service; `bot/internal/grpcclient/` wraps the Go stub
+- **Transport security:** the channel is plaintext (no TLS) authenticated only by `SharedSecretAuthInterceptor` (constant-time compare of `x-grpc-shared-secret`). The server binds to `127.0.0.1` by default (`GRPC_BIND_ADDRESS`) so it is not reachable off-host; only set `0.0.0.0` on a trusted network. For a topology where the bot and backend run on different hosts, add mTLS.
+- `getMyVotes` aggregates **all** of the caller's votes by paging server-side (up to `GRPC_MAX_PAGES` × 50), rather than returning only the first page.
 - **Key proto additions for vote options:**
   - `VoteOptionInfo { option_id, title }` — returned in `GetVoteDetailsResponse.options`
   - `CreateVoteRequest.options` — repeated string, optional; creates options server-side
@@ -272,7 +276,7 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 - V4: draw_history
 - V5: refresh_tokens
 - V6: telegram_link_tokens
-- V7: demo user seed (`admin@admin.com` / `admin`, idempotent insert)
+- V7: demo user seed (`admin@admin.com` / `admin`, idempotent insert) — **gated by the `seedDemoUser` Flyway placeholder (dev/test only, default off)**
 - V8: vote_options table (title, position, unique per vote); adds `winner_option_id` / `winner_option_title` to draw_history; makes `winner_email` nullable
 
 ### Key Environment Variables
@@ -286,9 +290,14 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 | `BOT_TOKEN` | — | Required; from @BotFather |
 | `GRPC_SERVER_ADDR` | `localhost:9090` | Bot → backend gRPC address |
 | `GRPC_SHARED_SECRET` | (dev default set) | Shared secret authenticating bot → backend gRPC calls; must match on both sides, change before any real deployment |
+| `GRPC_BIND_ADDRESS` | `127.0.0.1` | Interface the backend gRPC server binds to. Loopback by default (plaintext + shared-secret only); set `0.0.0.0` on a trusted internal network (Docker compose already does) |
 | `JWT_ACCESS_TTL_MINUTES` | `15` | Access token lifetime |
 | `JWT_REFRESH_TTL_DAYS` | `30` | Refresh token lifetime |
 | `LOG_LEVEL` | `info` | Bot log level |
+| `SPRING_PROFILES_ACTIVE` | (none) | Set to `dev` for local runs (seeds demo user, disables Secure cookies, skips the production secret guard). Unset in production so `SecretsValidator` enforces non-default secrets |
+| `REFRESH_COOKIE_SECURE` | `true` | Secure flag on the refresh cookie; forced to `false` by the `dev` profile for local HTTP |
+| `SPRINGDOC_ENABLED` | `false` | Swagger UI + `/v3/api-docs`. Off in prod; the `dev` profile turns it on for local use |
+| `app.rate-limit.capacity` / `app.rate-limit.window-seconds` | `10` / `60` | Per-IP request budget on `/api/v1/auth/{login,register,refresh}` |
 
 ## CI/CD
 
@@ -325,14 +334,17 @@ Each component has its own deploy workflow triggered by its CI workflow completi
 Backend and bot deploys also write `/opt/hand-of-fate/.env` from GitHub Secrets.
 
 ### server-setup.yml
-One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first deploy. Steps:
+One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first deploy. Optional inputs `domain` + `email` enable TLS. Steps:
 1. Updates packages
 2. Installs Java 21 (Temurin)
 3. Installs and enables Nginx
 4. Installs PostgreSQL 17, creates `fate` DB user and `fate` database
 5. Creates `fate` system user and `/opt/hand-of-fate/{backend,frontend,bot}/` directories
 6. Registers `fate-backend` and `fate-bot` systemd units with `EnvironmentFile=/opt/hand-of-fate/.env`
-7. Writes Nginx site config: SPA routing (`/`), API proxy (`/api/`), Swagger UI (`/swagger-ui/`, `/v3/api-docs`), static asset caching
+7. Writes Nginx site config: SPA routing (`/`), API proxy (`/api/`), per-IP `limit_req` on `/api/v1/auth/`, security headers (CSP, HSTS, X-Frame-Options, nosniff, Referrer-Policy), static asset caching. **Swagger/OpenAPI is not proxied in prod** (also disabled server-side unless `SPRINGDOC_ENABLED=true`).
+8. **TLS**: if `domain` + `email` inputs are provided, installs certbot and runs `certbot --nginx --redirect` (Let's Encrypt cert + 80→443 redirect). Without them it serves HTTP only and warns that the `Secure` refresh cookie will be dropped — provide a domain or terminate TLS upstream for a real deployment.
+
+> **Docker note:** the backend image builds with the **repository root** as context (`docker-compose` sets `context: .` + `dockerfile: backend/Dockerfile`) so the shared `proto/` tree is reachable.
 
 **Required GitHub Secrets:**
 | Secret | Description |

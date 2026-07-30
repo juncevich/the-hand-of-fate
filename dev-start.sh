@@ -3,6 +3,10 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Run the backend under the dev Spring profile: seeds the demo user, disables
+# Secure cookies (local HTTP) and skips the production secret guard.
+export SPRING_PROFILES_ACTIVE=dev
+
 # Load .env if present (for BOT_TOKEN etc.)
 if [[ -f "$ROOT/.env" ]]; then
   set -a

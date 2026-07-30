@@ -165,8 +165,29 @@ val integrationTestSourceSet = sourceSets.create("integrationTest") {
 configurations["integrationTestImplementation"].extendsFrom(configurations["testImplementation"])
 configurations["integrationTestRuntimeOnly"].extendsFrom(configurations["testRuntimeOnly"])
 
+// The integrationTest source set lists src/integrationTest/resources both by
+// convention and via the explicit srcDir above, so files there are enumerated
+// twice; collapse the duplicates instead of failing the resources task.
+tasks.named<ProcessResources>("processIntegrationTestResources") {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// `./gradlew bootRun` is a local-dev entry point: default it to the `dev`
+// profile (relaxes the production secret guard, seeds the demo user, disables
+// Secure cookies) unless the developer explicitly selects another profile.
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    // Deterministically set the profile on the forked JVM (defaulting to `dev`),
+    // rather than relying on the env reaching the fork through the Gradle daemon.
+    val explicitProfile =
+        System.getProperty("spring.profiles.active") ?: System.getenv("SPRING_PROFILES_ACTIVE")
+    jvmArgs("-Dspring.profiles.active=${explicitProfile ?: "dev"}")
+    (project.findProperty("jvmArgs") as String?)?.let { extra ->
+        jvmArgs(extra.split(" ").filter { it.isNotBlank() })
+    }
 }
 
 val integrationTest by tasks.registering(Test::class) {

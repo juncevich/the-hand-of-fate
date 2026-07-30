@@ -14,7 +14,11 @@ import java.util.UUID
 import com.juncevich.fate.vote.VoteMode as DomainVoteMode
 import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 
-private const val GRPC_DEFAULT_PAGE_SIZE = 20
+private const val GRPC_DEFAULT_PAGE_SIZE = 50
+
+// Upper bound on pages fetched for a single bot listing, so a user with an
+// unusually large number of votes can't force an unbounded aggregation.
+private const val GRPC_MAX_PAGES = 20
 
 @GrpcService
 class FateGrpcService(
@@ -86,9 +90,22 @@ class FateGrpcService(
 
     override suspend fun getMyVotes(request: GetMyVotesRequest): GetMyVotesResponse {
         val user = linkedUser(request.telegramId)
-        val page = voteService.listVotes(user.id, user.email, PageRequest.of(0, GRPC_DEFAULT_PAGE_SIZE))
+        val votes =
+            buildList {
+                var pageNumber = 0
+                do {
+                    val page =
+                        voteService.listVotes(
+                            user.id,
+                            user.email,
+                            PageRequest.of(pageNumber, GRPC_DEFAULT_PAGE_SIZE)
+                        )
+                    addAll(page.content)
+                    pageNumber++
+                } while (page.hasNext() && pageNumber < GRPC_MAX_PAGES)
+            }
         val summaries =
-            page.content.map { dto ->
+            votes.map { dto ->
                 VoteSummary
                     .newBuilder()
                     .setVoteId(dto.id.toString())

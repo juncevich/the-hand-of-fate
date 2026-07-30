@@ -1,0 +1,20 @@
+# Local development profile.
+# Activated by `./gradlew bootRun` (see build.gradle.kts), dev-start.sh and
+# docker-compose. Relaxes production-only guards for a smooth local workflow.
+spring:
+  flyway:
+    placeholders:
+      # Seed the demo user (admin@admin.com / admin) for convenience.
+      seedDemoUser: "true"
+
+app:
+  # Cookies are served over plain HTTP locally, so the Secure flag must be off
+  # or the browser will silently drop the refresh cookie.
+  refresh-cookie-secure: false
+
+springdoc:
+  # Swagger UI / OpenAPI docs are a local-dev convenience only.
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true

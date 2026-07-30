@@ -2,6 +2,7 @@ package com.juncevich.fate.auth.internal.config
 
 import com.juncevich.fate.auth.internal.token.JwtAuthFilter
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -24,6 +25,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 @EnableMethodSecurity
 class SecurityConfig(
     private val jwtAuthFilter: JwtAuthFilter,
+    private val rateLimitFilter: RateLimitFilter,
     @param:Value("\${app.frontend-url}") private val frontendUrl: String,
 ) {
     @Bean
@@ -48,10 +50,17 @@ class SecurityConfig(
                 // Return 401 for unauthenticated requests to protected endpoints
                 it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
             }.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
+            .addFilterBefore(rateLimitFilter, JwtAuthFilter::class.java)
             .build()
 
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
+
+    // Prevent the servlet container from auto-registering the filter for every
+    // request; it must only run inside the security chain (auth paths only).
+    @Bean
+    fun rateLimitFilterRegistration(filter: RateLimitFilter): FilterRegistrationBean<RateLimitFilter> =
+        FilterRegistrationBean(filter).apply { isEnabled = false }
 
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
