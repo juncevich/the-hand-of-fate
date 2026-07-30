@@ -9,7 +9,7 @@ plugins {
     id("org.springframework.boot")             version "4.1.0"
     id("io.spring.dependency-management")      version "1.1.7"
     id("com.google.protobuf")                  version "0.10.0"
-    id("com.diffplug.spotless")                version "8.8.0"
+    id("com.diffplug.spotless")                version "8.9.0"
     id("io.gitlab.arturbosch.detekt")          version "1.23.8"
 }
 
@@ -38,7 +38,7 @@ repositories {
     mavenCentral()
 }
 
-val grpcVersion          = "1.82.2"
+val grpcVersion          = "1.83.1"
 val grpcKotlinVersion    = "1.5.0"
 val protobufVersion      = "4.35.1"
 val jjwtVersion          = "0.13.0"

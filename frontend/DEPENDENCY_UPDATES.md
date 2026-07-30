@@ -1,5 +1,30 @@
 # Dependency Updates
 
+## 2026-07-30
+
+Re-checked every package in `package.json` against the real npm registry (`npm outdated`, `npm view <pkg> versions/peerDependencies`), per user request to include majors. Two majors were evaluated and applied this time (jest-dom, jsdom); typescript 7 remains blocked.
+
+### @testing-library/jest-dom `6.9.1 → 7.0.0` (major)
+- `@testing-library/dom` is now a required (not just implicit) peer dependency, range `>=10 <11` — already satisfied, we have `@testing-library/dom@10.4.1` via `@testing-library/react`/`@testing-library/user-event`
+- Minimum supported Node.js raised to 22 (we run Node `26.5.0`)
+- Adds new matchers (`toContainAnyBy*`, `toContainOneBy*`); no usage changes required in existing tests
+
+### jsdom `29.1.1 → 30.0.1` (major, devDependency via vitest environment)
+- Minimum Node raised to `^22.22.2 || ^24.15.0 || >=26.0.0` — satisfied (Node `26.5.0`)
+- Adds `CSS.escape()`/`CSS.supports()` and `background-position-x/y` support; no breaking behavior hit in this test suite
+
+### typescript `6.0.3` — major bump to `7.0.2` still blocked
+- `npm view @typescript-eslint/parser@latest peerDependencies` still caps at `typescript: >=4.8.4 <6.1.0`; no released `@typescript-eslint` version supports TS 7 yet (same finding as 2026-07-10). Left at `6.0.3`, itself still the latest `6.x`.
+
+### Routine minor/patch bumps
+`@radix-ui/react-avatar` `1.2.2→1.2.6`, `react-dialog` `1.1.19→1.1.23`, `react-dropdown-menu` `2.1.20→2.1.24`, `react-label` `2.1.11→2.1.15`, `react-select` `2.3.3→2.3.7`, `react-separator` `1.1.11→1.1.15`, `react-tabs` `1.1.17→1.1.21`, `react-toast` `1.2.19→1.2.23`, `react-tooltip` `1.2.12→1.2.16`; `@tailwindcss/vite`/`tailwindcss` `4.3.2→4.3.3`; `@tanstack/react-query(-devtools)` `5.101.2→5.101.4`; `@typescript-eslint/eslint-plugin`/`parser` `8.63.0→8.65.0`; `@vitejs/plugin-react` `6.0.3→6.0.4`; `axios` `1.18.1→1.19.0`; `eslint` `10.6.0→10.8.0`; `lucide-react` `1.24.0→1.28.0`; `react`/`react-dom` `19.2.7→19.2.8`; `react-router-dom` `7.18.1→7.18.2`; `vite` `8.1.4→8.1.5`.
+
+### npm audit
+- `brace-expansion` high-severity DoS advisory: fixed transitively via `npm audit fix` (no `package.json` change, pulled in through a dependency's dependency).
+- `react-router` `GHSA-qwww-vcr4-c8h2` (RSC Mode CSRF Bypass, affects `>=7.12.0 <8.3.0`): confirmed via the advisory text that this **only affects apps using the unstable RSC (React Server Components) APIs** — this app uses standard client-side data routers, not RSC. `npm audit fix --force` would downgrade to `react-router-dom@7.11.0` (a regression) to silence it; declined as inapplicable to our usage rather than downgrading. Revisit if/when the app adopts RSC mode, or when a patched 7.x line ships.
+
+Verified with `npm run lint`, `npm test` (66/66 passed), and `npm run build` — all green.
+
 ## 2026-07-10
 
 Checked every package in `package.json` against the real npm registry (`npm outdated`, `npm view <pkg> versions`), per explicit user request to include majors this time.
