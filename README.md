@@ -43,9 +43,9 @@ A voting and random selection application with fair rotation support. Users crea
 ## Monorepo Structure
 
 ```
-backend/    Kotlin 2.3.21 + Spring Boot 4.0.6 — REST API + gRPC server
+backend/    Kotlin 2.4.0 + Spring Boot 4.1.0 — REST API + gRPC server
 frontend/   React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4
-bot/        Go 1.25.0 — Telegram bot, gRPC client
+bot/        Go 1.26.4 — Telegram bot, gRPC client
 proto/      Shared protobuf definitions (fate/v1/fate.proto)
 infra/
   nginx/      Nginx reverse proxy config
@@ -59,9 +59,9 @@ infra/
 
 | Component    | Language / Runtime | Key Libraries                              |
 |--------------|--------------------|--------------------------------------------|
-| `backend/`   | Kotlin 2.3.21      | Spring Boot 4.0.6, gRPC 1.80, JJWT 0.13   |
+| `backend/`   | Kotlin 2.4.0       | Spring Boot 4.1.0, gRPC 1.83, JJWT 0.13   |
 | `frontend/`  | TypeScript 6.0.3   | React 19.2, Vite 8, TanStack Query 5       |
-| `bot/`       | Go 1.25.0          | grpc 1.80, zap 1.27, viper 1.21            |
+| `bot/`       | Go 1.26.4          | grpc 1.83, zap 1.28, viper 1.21            |
 | DB           | PostgreSQL         | Flyway migrations (V1–V8)                  |
 | Observability| —                  | OpenTelemetry, Mimir, Loki, Grafana        |
 

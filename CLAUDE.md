@@ -9,9 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Monorepo Structure
 
 ```
-backend/     Kotlin 2.3.21 + Spring Boot 4.0.6, PostgreSQL, gRPC server
+backend/     Kotlin 2.4.0 + Spring Boot 4.1.0, PostgreSQL, gRPC server
 frontend/    React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4 + shadcn/ui
-bot/         Go 1.25.0 Telegram bot, gRPC client to backend
+bot/         Go 1.26.4 Telegram bot, gRPC client to backend
 perf/        Gatling 3.13.5 + Kotlin load/smoke tests
 simulation/  Go 1.25.0 user-behaviour simulator (functional end-to-end flows)
 proto/       Shared protobuf definitions (proto/fate/v1/fate.proto)
@@ -134,17 +134,17 @@ cd perf
 | `google.golang.org/protobuf`       | v1.36.11 | Proto runtime |
 
 ### Telegram Bot Commands
-| Command | Description |
-|---|---|
-| `/start`, `/help` | Welcome message and command list |
-| `/link <token>` | Link Telegram to app account (token from Settings page) |
-| `/votes` | List your votes with status and participant count |
-| `/vote <id>` | Vote details — title, mode, participants/options |
-| `/newvote <title> \| <emails> \| <mode> [| <options>]` | Create a new vote; `<emails>` — comma-separated, `<mode>` — `simple`/`fair`, `<options>` — optional comma-separated named options |
-| `/draw <id>` | Perform a draw for a vote (creator only) |
-| `/result <id>` | Show last draw result for a vote |
-| `/history <id>` | Full draw history for a vote |
-| `/unlink` | Unlink Telegram account |
+| Command                                                 | Description                                                                                                                       |
+|---------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| `/start`, `/help`                                       | Welcome message and command list                                                                                                  |
+| `/link <token>`                                         | Link Telegram to app account (token from Settings page)                                                                           |
+| `/votes`                                                | List your votes with status and participant count                                                                                 |
+| `/vote <id>`                                            | Vote details — title, mode, participants/options                                                                                  |
+| `/newvote <title> \| <emails> \| <mode> [\| <options>]` | Create a new vote; `<emails>` — comma-separated, `<mode>` — `simple`/`fair`, `<options>` — optional comma-separated named options |
+| `/draw <id>`                                            | Perform a draw for a vote (creator only)                                                                                          |
+| `/result <id>`                                          | Show last draw result for a vote                                                                                                  |
+| `/history <id>`                                         | Full draw history for a vote                                                                                                      |
+| `/unlink`                                               | Unlink Telegram account                                                                                                           |
 
 ## Architecture
 

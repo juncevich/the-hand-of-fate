@@ -90,6 +90,6 @@ No external services required — all gRPC and Telegram interactions are faked v
 |---------|---------|---------|
 | `telegram-bot-api/telegram-bot-api/v5` | v5.5.1 | Telegram API |
 | `spf13/viper` | v1.21.0 | Config via env vars |
-| `go.uber.org/zap` | v1.27.1 | Structured logging |
-| `google.golang.org/grpc` | v1.80.0 | gRPC client |
+| `go.uber.org/zap` | v1.28.0 | Structured logging |
+| `google.golang.org/grpc` | v1.83.0 | gRPC client |
 | `google.golang.org/protobuf` | v1.36.11 | Proto runtime |
