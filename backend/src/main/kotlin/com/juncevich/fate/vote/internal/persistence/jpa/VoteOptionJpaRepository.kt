@@ -8,8 +8,6 @@ import java.util.UUID
 interface VoteOptionJpaRepository : JpaRepository<VoteOptionJpaEntity, UUID> {
     fun findAllByVoteIdOrderByPositionAscCreatedAtAsc(voteId: UUID): List<VoteOptionJpaEntity>
 
-    fun countByVoteId(voteId: UUID): Long
-
     fun deleteByVoteIdAndId(
         voteId: UUID,
         id: UUID,

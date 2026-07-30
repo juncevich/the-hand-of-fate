@@ -15,12 +15,14 @@ gatling {
     jvmArgs = listOf(
         "-server",
         "-Xmx1g",
+        // Gatling's stats writer uses reflection into java.lang internals; required
+        // on JDK 9+ where module encapsulation blocks this by default.
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
         "-XX:+UseG1GC",
         "-XX:MaxGCPauseMillis=30",
         "-XX:G1HeapRegionSize=16m",
         "-XX:InitiatingHeapOccupancyPercent=75",
         "-XX:+ParallelRefProcEnabled",
-        "-XX:+PerfDisableSharedMem",
-        "-XX:+AggressiveOpts"
+        "-XX:+PerfDisableSharedMem"
     )
 }

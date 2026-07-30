@@ -33,13 +33,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 p-6 text-center">
-        <h1 className="text-2xl font-semibold text-[var(--color-fate-gold)]">Что-то пошло не так</h1>
+        <h1 className="text-2xl font-semibold text-fate-gold">Что-то пошло не так</h1>
         <p className="max-w-md text-sm opacity-70">
           Произошла непредвиденная ошибка. Попробуйте вернуться на главную и повторить действие.
         </p>
         <button
           onClick={this.handleReload}
-          className="rounded-md border border-[var(--color-fate-gold)] px-4 py-2 text-sm text-[var(--color-fate-gold)] transition hover:bg-[var(--color-fate-gold)]/10"
+          className="rounded-md border border-fate-gold px-4 py-2 text-sm text-fate-gold transition hover:bg-fate-gold/10"
         >
           На главную
         </button>

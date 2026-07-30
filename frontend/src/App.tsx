@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
 import { authApi } from '@/api/auth'
@@ -12,12 +12,12 @@ import { VoteDetailPage } from '@/pages/VoteDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { BackendStatusIndicator } from '@/components/layout/BackendStatusIndicator'
 
-function ProtectedRoute({ children, isAuthReady }: { children: React.ReactNode; isAuthReady: boolean }) {
+function ProtectedRoute({ children, isAuthReady }: { children: ReactNode; isAuthReady: boolean }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   if (!isAuthReady) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-fate-gold)] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-fate-gold border-t-transparent" />
       </div>
     )
   }
@@ -50,7 +50,7 @@ export default function App() {
       {import.meta.env.DEV && (
         <div className="fixed top-3 right-3 z-[9999] pointer-events-none select-none flex items-center gap-2">
           <BackendStatusIndicator />
-          <span className="text-xs font-mono tracking-widest uppercase opacity-30 text-[var(--color-fate-gold)]">
+          <span className="text-xs font-mono tracking-widest uppercase opacity-30 text-fate-gold">
             dev mode
           </span>
         </div>

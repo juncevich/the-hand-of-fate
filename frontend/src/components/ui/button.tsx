@@ -3,20 +3,20 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-fate-gold)] disabled:pointer-events-none disabled:opacity-40 cursor-pointer',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fate-gold disabled:pointer-events-none disabled:opacity-40 cursor-pointer',
   {
     variants: {
       variant: {
         default:
-          'bg-[var(--color-fate-gold)] text-black hover:bg-[var(--color-fate-gold-dark)] shadow-lg hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]',
+          'bg-fate-gold text-black hover:bg-fate-gold-dark shadow-lg hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]',
         outline:
-          'border border-[var(--color-fate-border)] bg-transparent hover:bg-white/5 text-[var(--color-fate-text)]',
+          'border border-fate-border bg-transparent hover:bg-white/5 text-fate-text',
         ghost:
-          'bg-transparent hover:bg-white/5 text-[var(--color-fate-text)]',
+          'bg-transparent hover:bg-white/5 text-fate-text',
         destructive:
           'bg-red-600/80 text-white hover:bg-red-600',
         secondary:
-          'bg-white/8 text-[var(--color-fate-text)] hover:bg-white/12',
+          'bg-white/8 text-fate-text hover:bg-white/12',
       },
       size: {
         default: 'h-10 px-4 py-2',
@@ -36,10 +36,11 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   isLoading?: boolean
+  ref?: React.Ref<HTMLButtonElement>
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, isLoading, children, disabled, ...props }, ref) => (
+function Button({ className, variant, size, isLoading, children, disabled, ref, ...props }: ButtonProps) {
+  return (
     <button
       ref={ref}
       className={cn(buttonVariants({ variant, size }), className)}
@@ -52,7 +53,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       {children}
     </button>
   )
-)
-Button.displayName = 'Button'
+}
 
 export { Button, buttonVariants }

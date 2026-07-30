@@ -42,20 +42,3 @@ func RegisterAndLogin(base string, log *zap.Logger) (*client.Client, client.Auth
 
 	return c, auth, nil
 }
-
-// LoginExisting logs in with existing credentials and returns an authenticated client.
-func LoginExisting(base, email, password string, log *zap.Logger) (*client.Client, client.AuthResponse, error) {
-	c, err := client.New(base, log)
-	if err != nil {
-		return nil, client.AuthResponse{}, fmt.Errorf("new client: %w", err)
-	}
-
-	log.Info("logging in", zap.String("email", email))
-	auth, err := c.Login(client.LoginRequest{Email: email, Password: password})
-	if err != nil {
-		return nil, auth, fmt.Errorf("login: %w", err)
-	}
-	c.SetAccessToken(auth.AccessToken)
-	log.Info("logged in", zap.String("userId", auth.UserID))
-	return c, auth, nil
-}

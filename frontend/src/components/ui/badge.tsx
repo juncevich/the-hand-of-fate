@@ -1,3 +1,4 @@
+import type { HTMLAttributes } from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
@@ -6,7 +7,7 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default:     'bg-[var(--color-fate-gold)]/15 text-[var(--color-fate-gold)] border border-[var(--color-fate-gold)]/30',
+        default:     'bg-fate-gold/15 text-fate-gold border border-fate-gold/30',
         pending:     'bg-blue-500/15 text-blue-400 border border-blue-500/30',
         drawn:       'bg-green-500/15 text-green-400 border border-green-500/30',
         closed:      'bg-gray-500/15 text-gray-400 border border-gray-500/30',
@@ -19,7 +20,7 @@ const badgeVariants = cva(
 )
 
 interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
 
 function Badge({ className, variant, ...props }: BadgeProps) {

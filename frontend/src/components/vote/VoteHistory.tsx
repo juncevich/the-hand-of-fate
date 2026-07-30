@@ -19,22 +19,22 @@ export function VoteHistory({ voteId }: Props) {
 
   return (
     <div className="glass p-6">
-      <h2 className="text-sm font-medium text-[var(--color-fate-muted)] mb-4 uppercase tracking-wider">
+      <h2 className="text-sm font-medium text-fate-muted mb-4 uppercase tracking-wider">
         История ({history.length})
       </h2>
       <div className="space-y-3">
         {history.map((h) => (
           <div key={h.id} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-[var(--color-fate-gold)]/15 border border-[var(--color-fate-gold)]/30 flex items-center justify-center">
-                <Crown className="w-3 h-3 text-[var(--color-fate-gold)]" />
+              <div className="w-6 h-6 rounded-full bg-fate-gold/15 border border-fate-gold/30 flex items-center justify-center">
+                <Crown className="w-3 h-3 text-fate-gold" />
               </div>
               <div>
-                <p className="text-sm text-[var(--color-fate-text)]">{winnerLabel(h)}</p>
-                <p className="text-xs text-[var(--color-fate-muted)]">Раунд {h.round}</p>
+                <p className="text-sm text-fate-text">{winnerLabel(h)}</p>
+                <p className="text-xs text-fate-muted">Раунд {h.round}</p>
               </div>
             </div>
-            <p className="text-xs text-[var(--color-fate-muted)]">
+            <p className="text-xs text-fate-muted">
               {format(new Date(h.drawnAt), 'd MMM yyyy', { locale: ru })}
             </p>
           </div>

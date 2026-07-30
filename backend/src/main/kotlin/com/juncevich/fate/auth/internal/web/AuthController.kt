@@ -3,7 +3,6 @@ package com.juncevich.fate.auth.internal.web
 import com.juncevich.fate.auth.AuthenticatedUser
 import com.juncevich.fate.auth.internal.service.AuthResponse
 import com.juncevich.fate.auth.internal.service.AuthService
-import com.juncevich.fate.auth.internal.service.AuthTokens
 import com.juncevich.fate.auth.internal.service.LoginRequest
 import com.juncevich.fate.auth.internal.service.RefreshRequest
 import com.juncevich.fate.auth.internal.service.RegisterRequest

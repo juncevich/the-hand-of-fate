@@ -44,102 +44,48 @@ class ErrorHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(detail)
     }
 
-    @ExceptionHandler(IllegalArgumentException::class)
-    fun handleIllegalArgument(ex: IllegalArgumentException): ResponseEntity<ProblemDetail> {
-        log.warn("Bad request: {}", ex.message)
-        val detail =
-            ProblemDetail.forStatus(HttpStatus.BAD_REQUEST).apply {
-                title = ex.message ?: "Bad request"
-                setProperty("timestamp", Instant.now())
-            }
-        return ResponseEntity.badRequest().body(detail)
-    }
+    @ExceptionHandler(IllegalArgumentException::class, BadRequestException::class)
+    fun handleBadRequest(ex: Exception): ResponseEntity<ProblemDetail> = problemResponse(HttpStatus.BAD_REQUEST, ex)
 
-    @ExceptionHandler(IllegalStateException::class)
-    fun handleIllegalState(ex: IllegalStateException): ResponseEntity<ProblemDetail> {
-        log.warn("Conflict: {}", ex.message)
-        val detail =
-            ProblemDetail.forStatus(HttpStatus.CONFLICT).apply {
-                title = ex.message ?: "Conflict"
-                setProperty("timestamp", Instant.now())
-            }
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(detail)
-    }
+    @ExceptionHandler(IllegalStateException::class, ConflictException::class)
+    fun handleConflict(ex: Exception): ResponseEntity<ProblemDetail> = problemResponse(HttpStatus.CONFLICT, ex)
 
-    @ExceptionHandler(BadRequestException::class)
-    fun handleBadRequest(ex: BadRequestException): ResponseEntity<ProblemDetail> {
-        log.warn("Bad request: {}", ex.message)
-        val detail =
-            ProblemDetail.forStatus(HttpStatus.BAD_REQUEST).apply {
-                title = ex.message ?: "Bad request"
-                setProperty("timestamp", Instant.now())
-            }
-        return ResponseEntity.badRequest().body(detail)
-    }
-
-    @ExceptionHandler(NotFoundException::class)
-    fun handleNotFoundDomain(ex: NotFoundException): ResponseEntity<ProblemDetail> {
-        log.warn("Not found: {}", ex.message)
-        val detail =
-            ProblemDetail.forStatus(HttpStatus.NOT_FOUND).apply {
-                title = ex.message ?: "Not found"
-                setProperty("timestamp", Instant.now())
-            }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(detail)
-    }
-
-    @ExceptionHandler(ConflictException::class)
-    fun handleConflict(ex: ConflictException): ResponseEntity<ProblemDetail> {
-        log.warn("Conflict: {}", ex.message)
-        val detail =
-            ProblemDetail.forStatus(HttpStatus.CONFLICT).apply {
-                title = ex.message ?: "Conflict"
-                setProperty("timestamp", Instant.now())
-            }
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(detail)
-    }
+    @ExceptionHandler(NotFoundException::class, NoSuchElementException::class)
+    fun handleNotFound(ex: Exception): ResponseEntity<ProblemDetail> = problemResponse(HttpStatus.NOT_FOUND, ex)
 
     @ExceptionHandler(ForbiddenException::class)
-    fun handleForbidden(ex: ForbiddenException): ResponseEntity<ProblemDetail> {
-        log.warn("Forbidden: {}", ex.message)
-        val detail =
-            ProblemDetail.forStatus(HttpStatus.FORBIDDEN).apply {
-                title = ex.message ?: "Forbidden"
-                setProperty("timestamp", Instant.now())
-            }
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(detail)
-    }
+    fun handleForbidden(ex: ForbiddenException): ResponseEntity<ProblemDetail> =
+        problemResponse(HttpStatus.FORBIDDEN, ex)
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
     fun handleOptimisticLocking(ex: ObjectOptimisticLockingFailureException): ResponseEntity<ProblemDetail> {
         log.warn("Concurrent modification: {}", ex.message)
-        val detail =
-            ProblemDetail.forStatus(HttpStatus.CONFLICT).apply {
-                title = "The resource was modified concurrently, please retry"
-                setProperty("timestamp", Instant.now())
-            }
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(detail)
-    }
-
-    @ExceptionHandler(NoSuchElementException::class)
-    fun handleNotFound(ex: NoSuchElementException): ResponseEntity<ProblemDetail> {
-        log.warn("Not found: {}", ex.message)
-        val detail =
-            ProblemDetail.forStatus(HttpStatus.NOT_FOUND).apply {
-                title = ex.message ?: "Not found"
-                setProperty("timestamp", Instant.now())
-            }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(detail)
+        return problemResponse(HttpStatus.CONFLICT, "The resource was modified concurrently, please retry")
     }
 
     @ExceptionHandler(Exception::class)
     fun handleGeneric(ex: Exception): ResponseEntity<ProblemDetail> {
         log.error("Unexpected error", ex)
+        return problemResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error")
+    }
+
+    private fun problemResponse(
+        status: HttpStatus,
+        ex: Exception,
+    ): ResponseEntity<ProblemDetail> {
+        log.warn("{}: {}", status.reasonPhrase, ex.message)
+        return problemResponse(status, ex.message ?: status.reasonPhrase)
+    }
+
+    private fun problemResponse(
+        status: HttpStatus,
+        title: String,
+    ): ResponseEntity<ProblemDetail> {
         val detail =
-            ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR).apply {
-                title = "Internal server error"
+            ProblemDetail.forStatus(status).apply {
+                this.title = title
                 setProperty("timestamp", Instant.now())
             }
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(detail)
+        return ResponseEntity.status(status).body(detail)
     }
 }

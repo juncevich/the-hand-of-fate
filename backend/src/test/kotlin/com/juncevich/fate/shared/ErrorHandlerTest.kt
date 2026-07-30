@@ -21,8 +21,8 @@ class ErrorHandlerTest {
     }
 
     @Test
-    fun `handleIllegalArgument - returns 400 with message as title`() {
-        val response = handler.handleIllegalArgument(IllegalArgumentException("Vote not found"))
+    fun `handleBadRequest - returns 400 with message as title for IllegalArgumentException`() {
+        val response = handler.handleBadRequest(IllegalArgumentException("Vote not found"))
 
         assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
         assertEquals("Vote not found", response.body?.title)
@@ -30,15 +30,7 @@ class ErrorHandlerTest {
     }
 
     @Test
-    fun `handleIllegalState - returns 409`() {
-        val response = handler.handleIllegalState(IllegalStateException("Conflict"))
-
-        assertEquals(HttpStatus.CONFLICT, response.statusCode)
-        assertEquals("Conflict", response.body?.title)
-    }
-
-    @Test
-    fun `handleBadRequest - returns 400 with message as title`() {
+    fun `handleBadRequest - returns 400 with message as title for BadRequestException`() {
         val response = handler.handleBadRequest(BadRequestException("Invalid email address: nope"))
 
         assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
@@ -46,15 +38,23 @@ class ErrorHandlerTest {
     }
 
     @Test
-    fun `handleNotFoundDomain - returns 404`() {
-        val response = handler.handleNotFoundDomain(NotFoundException("Vote not found"))
+    fun `handleConflict - returns 409 for IllegalStateException`() {
+        val response = handler.handleConflict(IllegalStateException("Conflict"))
+
+        assertEquals(HttpStatus.CONFLICT, response.statusCode)
+        assertEquals("Conflict", response.body?.title)
+    }
+
+    @Test
+    fun `handleNotFound - returns 404 for NotFoundException`() {
+        val response = handler.handleNotFound(NotFoundException("Vote not found"))
 
         assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
         assertEquals("Vote not found", response.body?.title)
     }
 
     @Test
-    fun `handleConflict - returns 409`() {
+    fun `handleConflict - returns 409 for ConflictException`() {
         val response = handler.handleConflict(ConflictException("Vote is already closed"))
 
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
@@ -79,7 +79,7 @@ class ErrorHandlerTest {
     }
 
     @Test
-    fun `handleNotFound - returns 404`() {
+    fun `handleNotFound - returns 404 for NoSuchElementException`() {
         val response = handler.handleNotFound(NoSuchElementException("Not found"))
 
         assertEquals(HttpStatus.NOT_FOUND, response.statusCode)

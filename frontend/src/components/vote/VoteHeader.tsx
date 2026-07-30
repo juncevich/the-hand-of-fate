@@ -33,9 +33,9 @@ export function VoteHeader({ vote, onDraw, onReopen, onDelete, isDrawLoading, is
       <div className="glass p-6 mb-4">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <h1 className="text-xl font-bold text-[var(--color-fate-text)] mb-2">{vote.title}</h1>
+            <h1 className="text-xl font-bold text-fate-text mb-2">{vote.title}</h1>
             {vote.description && (
-              <p className="text-sm text-[var(--color-fate-muted)]">{vote.description}</p>
+              <p className="text-sm text-fate-muted">{vote.description}</p>
             )}
           </div>
           {vote.isCreator && (
@@ -43,7 +43,7 @@ export function VoteHeader({ vote, onDraw, onReopen, onDelete, isDrawLoading, is
               variant="ghost"
               size="icon"
               onClick={onDelete}
-              className="text-[var(--color-fate-muted)] hover:text-red-400"
+              className="text-fate-muted hover:text-red-400"
             >
               <Trash2 className="w-4 h-4" />
             </Button>

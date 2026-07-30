@@ -20,12 +20,17 @@ export function InlineAddForm({ placeholder, onAdd, isLoading, icon }: Props) {
   }
 
   return (
-    <div className="flex gap-2 pt-4 border-t border-[var(--color-fate-border)]">
+    <div className="flex gap-2 pt-4 border-t border-fate-border">
       <Input
         placeholder={placeholder}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAdd())}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            handleAdd()
+          }
+        }}
       />
       <Button variant="outline" size="icon" onClick={handleAdd} isLoading={isLoading} disabled={!value.trim()}>
         {icon}

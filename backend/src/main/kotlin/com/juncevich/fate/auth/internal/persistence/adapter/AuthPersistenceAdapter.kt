@@ -3,8 +3,6 @@ package com.juncevich.fate.auth.internal.persistence.adapter
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.auth.internal.domain.RefreshToken
 import com.juncevich.fate.auth.internal.domain.TelegramLinkToken
-import com.juncevich.fate.auth.internal.persistence.entity.RefreshTokenJpaEntity
-import com.juncevich.fate.auth.internal.persistence.entity.TelegramLinkTokenJpaEntity
 import com.juncevich.fate.auth.internal.persistence.jpa.RefreshTokenJpaRepository
 import com.juncevich.fate.auth.internal.persistence.jpa.TelegramLinkTokenJpaRepository
 import com.juncevich.fate.auth.internal.persistence.jpa.UserJpaRepository
@@ -47,16 +45,7 @@ class RefreshTokenPersistenceAdapter(
 
     override fun save(token: RefreshToken): RefreshToken {
         val userEntity = userJpaRepository.getReferenceById(token.user.id)
-        return refreshTokenJpaRepository
-            .save(
-                RefreshTokenJpaEntity(
-                    id = token.id,
-                    user = userEntity,
-                    tokenHash = token.tokenHash,
-                    expiresAt = token.expiresAt,
-                    createdAt = token.createdAt
-                )
-            ).toDomain()
+        return refreshTokenJpaRepository.save(token.toJpaEntity(userEntity)).toDomain()
     }
 
     override fun delete(token: RefreshToken) {
@@ -78,16 +67,7 @@ class TelegramLinkTokenPersistenceAdapter(
 
     override fun save(token: TelegramLinkToken): TelegramLinkToken {
         val userEntity = userJpaRepository.getReferenceById(token.user.id)
-        return telegramLinkTokenJpaRepository
-            .save(
-                TelegramLinkTokenJpaEntity(
-                    id = token.id,
-                    user = userEntity,
-                    token = token.token,
-                    expiresAt = token.expiresAt,
-                    createdAt = token.createdAt
-                )
-            ).toDomain()
+        return telegramLinkTokenJpaRepository.save(token.toJpaEntity(userEntity)).toDomain()
     }
 
     override fun delete(token: TelegramLinkToken) {

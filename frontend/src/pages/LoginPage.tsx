@@ -30,7 +30,7 @@ export function LoginPage() {
   })
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--color-fate-bg)] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-fate-bg px-4">
       <Button
         variant="ghost"
         size="icon"
@@ -43,18 +43,18 @@ export function LoginPage() {
 
       {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-[var(--color-fate-gold)]/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-fate-gold/5 rounded-full blur-3xl" />
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-64 h-64 bg-purple-500/5 rounded-full blur-2xl" />
       </div>
 
       <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-[var(--color-fate-gold)]/15 border border-[var(--color-fate-gold)]/30 flex items-center justify-center mx-auto mb-4 glow-gold">
-            <Sparkles className="w-8 h-8 text-[var(--color-fate-gold)]" />
+          <div className="w-16 h-16 rounded-2xl bg-fate-gold/15 border border-fate-gold/30 flex items-center justify-center mx-auto mb-4 glow-gold">
+            <Sparkles className="w-8 h-8 text-fate-gold" />
           </div>
-          <h1 className="text-2xl font-bold text-[var(--color-fate-text)]">The Hand of Fate</h1>
-          <p className="text-sm text-[var(--color-fate-muted)] mt-1">Войдите в свой аккаунт</p>
+          <h1 className="text-2xl font-bold text-fate-text">The Hand of Fate</h1>
+          <p className="text-sm text-fate-muted mt-1">Войдите в свой аккаунт</p>
         </div>
 
         {/* Form */}
@@ -87,7 +87,7 @@ export function LoginPage() {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--color-fate-muted)] hover:text-[var(--color-fate-text)] transition-colors"
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-fate-muted hover:text-fate-text transition-colors"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -104,9 +104,9 @@ export function LoginPage() {
           </Button>
         </div>
 
-        <p className="text-center text-sm text-[var(--color-fate-muted)] mt-4">
+        <p className="text-center text-sm text-fate-muted mt-4">
           Нет аккаунта?{' '}
-          <Link to="/register" className="text-[var(--color-fate-gold)] hover:underline">
+          <Link to="/register" className="text-fate-gold hover:underline">
             Зарегистрироваться
           </Link>
         </p>

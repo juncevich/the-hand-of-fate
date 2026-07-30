@@ -39,7 +39,7 @@ export function RegisterPage() {
   })
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--color-fate-bg)] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-fate-bg px-4">
       <Button
         variant="ghost"
         size="icon"
@@ -51,16 +51,16 @@ export function RegisterPage() {
       </Button>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-[var(--color-fate-gold)]/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-fate-gold/5 rounded-full blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-[var(--color-fate-gold)]/15 border border-[var(--color-fate-gold)]/30 flex items-center justify-center mx-auto mb-4 glow-gold">
-            <Sparkles className="w-8 h-8 text-[var(--color-fate-gold)]" />
+          <div className="w-16 h-16 rounded-2xl bg-fate-gold/15 border border-fate-gold/30 flex items-center justify-center mx-auto mb-4 glow-gold">
+            <Sparkles className="w-8 h-8 text-fate-gold" />
           </div>
-          <h1 className="text-2xl font-bold text-[var(--color-fate-text)]">The Hand of Fate</h1>
-          <p className="text-sm text-[var(--color-fate-muted)] mt-1">Создайте аккаунт</p>
+          <h1 className="text-2xl font-bold text-fate-text">The Hand of Fate</h1>
+          <p className="text-sm text-fate-muted mt-1">Создайте аккаунт</p>
         </div>
 
         <div className="glass p-6 space-y-4">
@@ -114,9 +114,9 @@ export function RegisterPage() {
           </Button>
         </div>
 
-        <p className="text-center text-sm text-[var(--color-fate-muted)] mt-4">
+        <p className="text-center text-sm text-fate-muted mt-4">
           Уже есть аккаунт?{' '}
-          <Link to="/login" className="text-[var(--color-fate-gold)] hover:underline">
+          <Link to="/login" className="text-fate-gold hover:underline">
             Войти
           </Link>
         </p>

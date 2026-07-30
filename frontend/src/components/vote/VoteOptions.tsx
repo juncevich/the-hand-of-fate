@@ -16,13 +16,13 @@ export function VoteOptions({ options, isCreator, status, onAdd, onRemove, isAdd
 
   return (
     <div className="glass p-6 mb-4">
-      <h2 className="text-sm font-medium text-[var(--color-fate-muted)] mb-4 uppercase tracking-wider flex items-center gap-2">
+      <h2 className="text-sm font-medium text-fate-muted mb-4 uppercase tracking-wider flex items-center gap-2">
         <ListChecks className="w-4 h-4" />
         Варианты ({options.length})
       </h2>
 
       {options.length === 0 && (
-        <p className="text-sm text-[var(--color-fate-muted)] mb-4">
+        <p className="text-sm text-fate-muted mb-4">
           Нет вариантов — жеребьёвка будет выбирать из участников
         </p>
       )}
@@ -32,7 +32,7 @@ export function VoteOptions({ options, isCreator, status, onAdd, onRemove, isAdd
           {options.map((opt) => (
             <span
               key={opt.id}
-              className="flex items-center gap-1.5 bg-[var(--color-fate-gold)]/10 border border-[var(--color-fate-gold)]/30 rounded-full px-3 py-1.5 text-sm text-[var(--color-fate-gold)]"
+              className="flex items-center gap-1.5 bg-fate-gold/10 border border-fate-gold/30 rounded-full px-3 py-1.5 text-sm text-fate-gold"
             >
               {opt.title}
               {canEdit && (

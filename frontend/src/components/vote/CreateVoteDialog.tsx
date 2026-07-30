@@ -118,8 +118,8 @@ export function CreateVoteDialog() {
                   onClick={() => setMode(m)}
                   className={`p-3 rounded-lg border text-sm text-left transition-all ${
                     mode === m
-                      ? 'border-[var(--color-fate-gold)] bg-[var(--color-fate-gold)]/10 text-[var(--color-fate-gold)]'
-                      : 'border-[var(--color-fate-border)] text-[var(--color-fate-muted)] hover:border-white/20'
+                      ? 'border-fate-gold bg-fate-gold/10 text-fate-gold'
+                      : 'border-fate-border text-fate-muted hover:border-white/20'
                   }`}
                 >
                   <div className="font-medium">{m === 'SIMPLE' ? 'Простой' : 'Справедливый'}</div>
@@ -136,7 +136,7 @@ export function CreateVoteDialog() {
           {/* Options */}
           <div className="space-y-1.5">
             <Label>Варианты выбора</Label>
-            <p className="text-xs text-[var(--color-fate-muted)]">
+            <p className="text-xs text-fate-muted">
               Если варианты заданы — жеребьёвка выбирает из них, а не из участников
             </p>
             <div className="flex gap-2">
@@ -144,7 +144,12 @@ export function CreateVoteDialog() {
                 placeholder="Например: Пицца"
                 value={optionInput}
                 onChange={(e) => setOptionInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addOption())}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addOption()
+                  }
+                }}
               />
               <Button type="button" variant="outline" size="icon" onClick={addOption}>
                 <Plus className="w-4 h-4" />
@@ -155,7 +160,7 @@ export function CreateVoteDialog() {
                 {options.map((opt) => (
                   <span
                     key={opt}
-                    className="flex items-center gap-1 bg-[var(--color-fate-gold)]/10 border border-[var(--color-fate-gold)]/30 rounded-full px-3 py-1 text-xs text-[var(--color-fate-gold)]"
+                    className="flex items-center gap-1 bg-fate-gold/10 border border-fate-gold/30 rounded-full px-3 py-1 text-xs text-fate-gold"
                   >
                     {opt}
                     <button onClick={() => setOptions(options.filter((o) => o !== opt))}>
@@ -175,7 +180,12 @@ export function CreateVoteDialog() {
                 placeholder="email@example.com"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addEmail())}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addEmail()
+                  }
+                }}
               />
               <Button type="button" variant="outline" size="icon" onClick={addEmail} aria-label="Добавить участника">
                 <Plus className="w-4 h-4" />
@@ -186,7 +196,7 @@ export function CreateVoteDialog() {
                 {emails.map((email) => (
                   <span
                     key={email}
-                    className="flex items-center gap-1 bg-white/8 rounded-full px-3 py-1 text-xs text-[var(--color-fate-muted)]"
+                    className="flex items-center gap-1 bg-white/8 rounded-full px-3 py-1 text-xs text-fate-muted"
                   >
                     {email}
                     <button onClick={() => setEmails(emails.filter((e) => e !== email))}>

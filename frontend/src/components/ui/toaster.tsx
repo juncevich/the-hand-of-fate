@@ -35,22 +35,22 @@ export function Toaster() {
             'w-[360px] backdrop-blur-md',
             t.variant === 'error'
               ? 'bg-red-950/90 border-red-800/50'
-              : 'bg-[var(--color-fate-surface)] border-[var(--color-fate-border)]'
+              : 'bg-fate-surface border-fate-border'
           )}
         >
           <div className="flex-1">
-            <ToastPrimitive.Title className="text-sm font-semibold text-[var(--color-fate-text)]">
+            <ToastPrimitive.Title className="text-sm font-semibold text-fate-text">
               {t.title}
             </ToastPrimitive.Title>
             {t.description && (
-              <ToastPrimitive.Description className="mt-1 text-xs text-[var(--color-fate-muted)]">
+              <ToastPrimitive.Description className="mt-1 text-xs text-fate-muted">
                 {t.description}
               </ToastPrimitive.Description>
             )}
           </div>
           <ToastPrimitive.Close
             onClick={() => removeToast(t.id)}
-            className="text-[var(--color-fate-muted)] hover:text-[var(--color-fate-text)]"
+            className="text-fate-muted hover:text-fate-text"
           >
             <X className="h-4 w-4" />
           </ToastPrimitive.Close>

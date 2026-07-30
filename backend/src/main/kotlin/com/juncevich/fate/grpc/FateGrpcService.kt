@@ -2,7 +2,6 @@ package com.juncevich.fate.grpc
 
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.UserQueryService
-import com.juncevich.fate.grpc.FateProto.*
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.*
 import io.grpc.Status
