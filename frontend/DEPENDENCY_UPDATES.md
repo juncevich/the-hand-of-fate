@@ -1,5 +1,23 @@
 # Dependency Updates
 
+## 2026-08-06
+
+Re-checked every package in `package.json` against the real npm registry (`npm outdated`, `npm view <pkg> peerDependencies`), per user request to check and update.
+
+### Routine minor/patch bumps
+`@testing-library/user-event` `14.6.1 → 14.6.3`; `@types/react` `19.2.17 → 19.2.18`; `@types/react-dom` `19.2.3 → 19.2.4`; `@typescript-eslint/eslint-plugin`/`parser` `8.65.0 → 8.66.0`; `@vitejs/plugin-react` `6.0.4 → 6.0.5`; `lucide-react` `1.28.0 → 1.29.0`; `vite` `8.1.5 → 8.2.1`.
+
+### typescript `6.0.3` — major bump to `7.0.2` still blocked
+- `npm view @typescript-eslint/parser@latest peerDependencies` still caps at `typescript: >=4.8.4 <6.1.0`; no released `@typescript-eslint` version supports TS 7 yet (same finding as the last several audits). Left at `6.0.3`, itself still the latest `6.x`.
+
+### npm audit
+- `brace-expansion` high-severity DoS advisory: fixed transitively via `npm audit fix` (no `package.json` change).
+- `react-router` `GHSA-qwww-vcr4-c8h2` (RSC Mode CSRF Bypass): re-confirmed this only affects apps using the unstable RSC APIs, which this app does not use. `npm audit fix --force` would downgrade to `react-router-dom@7.11.0`; declined as inapplicable, same as prior audits.
+
+Verified with `npm run lint`, `npm test` (66/66 passed), and `npm run build` — all green.
+
+Everything else confirmed already at the latest compatible version (no change): all `@radix-ui/*` packages, `@tanstack/react-query(-devtools)`, `axios`, `class-variance-authority`, `clsx`, `date-fns`, `react`/`react-dom`, `react-router-dom`, `tailwind-merge`, `zustand`, `@tailwindcss/vite`/`tailwindcss`, `@testing-library/jest-dom`, `@testing-library/react`, `eslint`, `eslint-plugin-react-hooks`, `jsdom`, `msw`, `vitest`.
+
 ## 2026-07-30
 
 Re-checked every package in `package.json` against the real npm registry (`npm outdated`, `npm view <pkg> versions/peerDependencies`), per user request to include majors. Two majors were evaluated and applied this time (jest-dom, jsdom); typescript 7 remains blocked.

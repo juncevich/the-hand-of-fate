@@ -1,5 +1,22 @@
 # Dependency Updates
 
+## 2026-08-06
+
+Re-checked every version in `perf/build.gradle.kts` and the Gradle wrapper against Maven Central / the Gradle Plugin Portal metadata, per the user's request to check and update.
+
+### Gradle wrapper `9.6.1 → 9.7.0`
+- Applied via `./gradlew wrapper --gradle-version 9.7.0` (same bump applied to `backend` in this pass)
+
+### io.gatling.gradle (plugin) `3.15.1.2` — no change
+- Still the latest release on the Gradle Plugin Portal
+
+### io.gatling.highcharts:gatling-charts-highcharts `3.15.1` — no change
+- Still the latest release on Maven Central, in sync with the plugin's underlying Gatling core version
+
+Verified with `./gradlew compileGatlingKotlin` — compiles cleanly with no source changes.
+
+Kotlin `2.4.0` (`2.4.20-Beta2` is pre-release only) confirmed already at latest stable (no change).
+
 ## 2026-07-30
 
 Re-checked every version in `perf/build.gradle.kts` against Maven Central / the Gradle Plugin Portal metadata, per explicit user request to include majors.

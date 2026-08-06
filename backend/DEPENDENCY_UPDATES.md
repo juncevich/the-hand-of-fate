@@ -1,5 +1,19 @@
 # Dependency Updates
 
+## 2026-08-06
+
+Re-audited every explicit version in `build.gradle.kts` and the Gradle wrapper against Maven Central `maven-metadata.xml` (`<release>` field) and the Gradle Plugin Portal, per the user's request to check and update.
+
+### Gradle wrapper `9.6.1 → 9.7.0`
+- Applied via `./gradlew wrapper --gradle-version 9.7.0` (also updated `perf/gradle/wrapper/gradle-wrapper.properties` to match, in the same pass)
+
+### org.springdoc:springdoc-openapi-starter-webmvc-ui `3.0.3 → 3.1.0`
+- Routine minor bump per Maven Central `<release>` metadata; no changelog specifics verified
+
+Verified with `./gradlew compileKotlin compileTestKotlin`, `./gradlew test`, `./gradlew detekt`, and `./gradlew spotlessCheck` — all pass with no code changes.
+
+Everything else confirmed already at the latest stable release (no change): Kotlin `2.4.0` (`2.4.20-Beta2` is pre-release only), Spring Boot `4.1.0`, `io.grpc` `1.83.1`, `com.google.protobuf` Gradle plugin `0.10.0`, `com.diffplug.spotless` Gradle plugin `8.9.0`, detekt `1.23.8`, `com.google.protobuf:protobuf-java`/`protobuf-kotlin` `4.35.1` (`4.36.0-RC2` is a release candidate, intentionally skipped), `grpc-kotlin-stub` `1.5.0` (Maven Central's `<release>` again reports a stray non-semver git-hash publish, not a real release), `jjwt` `0.13.0`, `kotlinx-coroutines` `1.11.0`, `spring-modulith-bom` `2.1.0`, `net.devh:grpc-server-spring-boot-starter` `3.1.0.RELEASE`, `io.spring.dependency-management` `1.1.7`, `testcontainers` `2.0.5`, `mockk` `1.14.11`, `springmockk` `5.0.1`, `org.postgresql:postgresql` `42.7.13`, ktlint (`com.pinterest.ktlint:ktlint-cli`) `1.8.0`.
+
 ## 2026-07-30
 
 Re-audited every explicit version in `build.gradle.kts` and the Gradle wrapper against Maven Central `maven-metadata.xml` (`<release>` field) and the Gradle Plugin Portal, per the user's request to check and update, majors in scope too. Only two patch/minor bumps were available.

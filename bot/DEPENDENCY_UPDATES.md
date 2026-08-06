@@ -1,5 +1,14 @@
 # Dependency Updates
 
+## 2026-08-06
+
+Re-checked against the Go module proxy via `go list -m -u all`, per the user's request to check and update. No new major branches exist for any direct dependency (`telegram-bot-api/v5`, `spf13/viper`, `go.uber.org/zap`, `google.golang.org/grpc`, `google.golang.org/protobuf` all remain the newest major line, and all are already at their latest version). Ran `go get -u ./...` + `go mod tidy`.
+
+### google.golang.org/genproto/googleapis/rpc (indirect, pseudo-version)
+- `v0.0.0-20260729162451-... → v0.0.0-20260803160001-...` — sync of generated `.pb.go` with latest googleapis proto definitions
+
+Direct dependencies unchanged (`telegram-bot-api/v5` `v5.5.1`, `spf13/viper` `v1.21.0`, `go.uber.org/zap` `v1.28.0`, `google.golang.org/grpc` `v1.83.0`, `google.golang.org/protobuf` `v1.36.11`). Other indirects also unchanged (`go.yaml.in/yaml/v3` `v3.0.5`, `golang.org/x/net` `v0.57.0`, `golang.org/x/sys` `v0.47.0`, `golang.org/x/text` `v0.40.0`). `go build ./...`, `go vet ./...`, and `go test ./...` all pass with no code changes.
+
 ## 2026-07-30
 
 Re-checked against the Go module proxy via `go list -m -versions <module>` for each direct dependency, per explicit user request to include majors. No new major branches exist for any direct dependency (`telegram-bot-api/v5`, `spf13/viper`, `go.uber.org/zap`, `google.golang.org/grpc`, `google.golang.org/protobuf` all remain the newest major line). Ran `go get -u ./...` + `go mod tidy`.
