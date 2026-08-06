@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { Plus, X } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { votesApi } from '@/api/votes'
 import { toast } from '@/components/ui/toaster'
-import { onMutationError } from '@/lib/errors'
+import { useCreateVote } from '@/hooks/useCreateVote'
+import { useTagList } from '@/hooks/useTagList'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,62 +11,53 @@ import {
 } from '@/components/ui/dialog'
 import type { VoteMode } from '@/types/vote'
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export function CreateVoteDialog() {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [mode, setMode] = useState<VoteMode>('SIMPLE')
-  const [optionInput, setOptionInput] = useState('')
-  const [options, setOptions] = useState<string[]>([])
-  const [emailInput, setEmailInput] = useState('')
-  const [emails, setEmails] = useState<string[]>([])
 
-  const queryClient = useQueryClient()
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: () =>
-      votesApi.create({
-        title,
-        description: description || undefined,
-        mode,
-        participantEmails: emails,
-        options,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['votes'] })
-      toast('Голосование создано!', title)
-      resetAndClose()
-    },
-    onError: onMutationError,
+  const optionList = useTagList()
+  const emailList = useTagList({
+    transform: (value) => value.trim().toLowerCase(),
+    validate: (value) => EMAIL_PATTERN.test(value),
   })
 
-  const addOption = () => {
-    const o = optionInput.trim()
-    if (!o || options.includes(o)) return
-    setOptions([...options, o])
-    setOptionInput('')
-  }
+  const { mutate, isPending } = useCreateVote()
+
+  const addOption = () => optionList.add()
 
   const addEmail = () => {
-    const e = emailInput.trim().toLowerCase()
-    if (!e || emails.includes(e)) return
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+    const value = emailList.input.trim().toLowerCase()
+    if (value && !EMAIL_PATTERN.test(value)) {
       toast('Неверный email', undefined, 'error')
       return
     }
-    setEmails([...emails, e])
-    setEmailInput('')
+    emailList.add()
   }
 
   const resetAndClose = () => {
     setTitle('')
     setDescription('')
     setMode('SIMPLE')
-    setOptions([])
-    setOptionInput('')
-    setEmails([])
-    setEmailInput('')
+    optionList.reset()
+    emailList.reset()
     setOpen(false)
+  }
+
+  const submit = () => {
+    mutate(
+      {
+        title,
+        description: description || undefined,
+        mode,
+        participantEmails: emailList.items,
+        options: optionList.items,
+      },
+      { onSuccess: resetAndClose },
+    )
   }
 
   return (
@@ -142,8 +132,8 @@ export function CreateVoteDialog() {
             <div className="flex gap-2">
               <Input
                 placeholder="Например: Пицца"
-                value={optionInput}
-                onChange={(e) => setOptionInput(e.target.value)}
+                value={optionList.input}
+                onChange={(e) => optionList.setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
@@ -155,15 +145,15 @@ export function CreateVoteDialog() {
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
-            {options.length > 0 && (
+            {optionList.items.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
-                {options.map((opt) => (
+                {optionList.items.map((opt) => (
                   <span
                     key={opt}
                     className="flex items-center gap-1 bg-fate-gold/10 border border-fate-gold/30 rounded-full px-3 py-1 text-xs text-fate-gold"
                   >
                     {opt}
-                    <button onClick={() => setOptions(options.filter((o) => o !== opt))}>
+                    <button onClick={() => optionList.remove(opt)}>
                       <X className="w-3 h-3 hover:text-red-400" />
                     </button>
                   </span>
@@ -178,8 +168,8 @@ export function CreateVoteDialog() {
             <div className="flex gap-2">
               <Input
                 placeholder="email@example.com"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
+                value={emailList.input}
+                onChange={(e) => emailList.setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
@@ -191,15 +181,15 @@ export function CreateVoteDialog() {
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
-            {emails.length > 0 && (
+            {emailList.items.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
-                {emails.map((email) => (
+                {emailList.items.map((email) => (
                   <span
                     key={email}
                     className="flex items-center gap-1 bg-white/8 rounded-full px-3 py-1 text-xs text-fate-muted"
                   >
                     {email}
-                    <button onClick={() => setEmails(emails.filter((e) => e !== email))}>
+                    <button onClick={() => emailList.remove(email)}>
                       <X className="w-3 h-3 hover:text-red-400" />
                     </button>
                   </span>
@@ -211,7 +201,7 @@ export function CreateVoteDialog() {
 
         <div className="flex justify-end gap-2 mt-6">
           <Button variant="outline" onClick={resetAndClose}>Отмена</Button>
-          <Button onClick={() => mutate()} isLoading={isPending} disabled={!title.trim()}>
+          <Button onClick={submit} isLoading={isPending} disabled={!title.trim()}>
             Создать
           </Button>
         </div>

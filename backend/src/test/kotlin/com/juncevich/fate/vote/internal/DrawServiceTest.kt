@@ -60,6 +60,17 @@ class DrawServiceTest {
         round: Int = 1,
     ) = DrawHistory.ParticipantWinner(voteId = vote.id, email = winnerEmail, round = round)
 
+    private fun makeOption(
+        vote: Vote,
+        title: String,
+    ) = VoteOption(voteId = vote.id, title = title)
+
+    private fun makeOptionHistory(
+        vote: Vote,
+        option: VoteOption,
+        round: Int = 1,
+    ) = DrawHistory.OptionWinner(voteId = vote.id, optionId = option.id, optionTitle = option.title, round = round)
+
     @Test
     fun `draw SIMPLE - picks the only participant as winner`() {
         val vote = makeVote(VoteMode.SIMPLE)
@@ -150,6 +161,62 @@ class DrawServiceTest {
 
         assertTrue(result.newRoundStarted)
         assertEquals(2, vote.currentRound)
+    }
+
+    @Test
+    fun `draw FAIR_ROTATION option-mode - picks from eligible options only`() {
+        val vote = makeVote(VoteMode.FAIR_ROTATION)
+        val o1 = makeOption(vote, "already-won")
+        val o2 = makeOption(vote, "eligible")
+        val history = makeOptionHistory(vote, o2)
+
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns listOf(o1, o2)
+        every { voteOptionRepositoryPort.findEligibleOptionsForRound(vote.id, 1) } returns listOf(o2)
+        every { drawHistoryRepositoryPort.save(any()) } returns history
+        every { voteRepositoryPort.save(any()) } returns vote
+
+        val result = drawService.draw(vote)
+
+        assertEquals(o2.title, result.winnerOptionTitle)
+        assertNull(result.winnerEmail)
+        assertFalse(result.newRoundStarted)
+        assertEquals(1, result.round)
+        verify(exactly = 0) { participantRepositoryPort.findAllByVoteId(any()) }
+    }
+
+    @Test
+    fun `draw FAIR_ROTATION option-mode - starts new round when all options have won`() {
+        val vote = makeVote(VoteMode.FAIR_ROTATION)
+        val o1 = makeOption(vote, "sole")
+        val history = makeOptionHistory(vote, o1, round = 2)
+
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns listOf(o1)
+        every { voteOptionRepositoryPort.findEligibleOptionsForRound(vote.id, 1) } returns emptyList()
+        every { drawHistoryRepositoryPort.save(any()) } returns history
+        every { voteRepositoryPort.save(any()) } returns vote
+
+        val result = drawService.draw(vote)
+
+        assertTrue(result.newRoundStarted)
+        assertEquals(2, vote.currentRound)
+        assertEquals(o1.title, result.winnerOptionTitle)
+    }
+
+    @Test
+    fun `draw - options take precedence over participants when both exist`() {
+        val vote = makeVote(VoteMode.SIMPLE)
+        val option = makeOption(vote, "only-option")
+        val history = makeOptionHistory(vote, option)
+
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns listOf(option)
+        every { drawHistoryRepositoryPort.save(any()) } returns history
+        every { voteRepositoryPort.save(any()) } returns vote
+
+        val result = drawService.draw(vote)
+
+        assertEquals(option.title, result.winnerOptionTitle)
+        assertNull(result.winnerEmail)
+        verify(exactly = 0) { participantRepositoryPort.findAllByVoteId(any()) }
     }
 
     @Test

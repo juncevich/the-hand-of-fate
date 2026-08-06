@@ -1,10 +1,10 @@
 import { apiClient } from './client'
 import type {
+  CreateVoteRequest,
   DrawResult,
   DrawHistoryEntry,
   Page,
   VoteDetail,
-  VoteMode,
   VoteSummary,
 } from '@/types/vote'
 
@@ -17,13 +17,8 @@ export const votesApi = {
   get: (id: string) =>
     apiClient.get<VoteDetail>(`/votes/${id}`).then((r) => r.data),
 
-  create: (data: {
-    title: string
-    description?: string
-    mode: VoteMode
-    participantEmails: string[]
-    options: string[]
-  }) => apiClient.post<VoteDetail>('/votes', data).then((r) => r.data),
+  create: (data: CreateVoteRequest) =>
+    apiClient.post<VoteDetail>('/votes', data).then((r) => r.data),
 
   delete: (id: string) => apiClient.delete(`/votes/${id}`),
 

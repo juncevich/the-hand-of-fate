@@ -78,6 +78,9 @@ export function useVoteDetail(id: string) {
   return {
     vote: query.data,
     isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
     draw,
     reopen,
     addParticipant,

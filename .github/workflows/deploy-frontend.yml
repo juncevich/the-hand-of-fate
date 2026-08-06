@@ -53,6 +53,11 @@ jobs:
     needs: gate
     if: needs.gate.outputs.ready == 'true'
     environment: staging
+    # Shared across all deploy-*.yml workflows so the frontend deploy can't
+    # race a backend/bot deploy that's mid-rsync/restart on the same VPS.
+    concurrency:
+      group: deploy-vps
+      cancel-in-progress: false
 
     env:
       HOST:         ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
@@ -82,6 +87,11 @@ jobs:
           echo "$DEPLOY_SSH_KEY" > deploy_key.pem
           chmod 600 deploy_key.pem
 
+      - name: Backup previous frontend dist
+        run: |
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
+            "[ -d $DEPLOY_DIR/frontend ] && rm -rf $DEPLOY_DIR/frontend.bak && cp -a $DEPLOY_DIR/frontend $DEPLOY_DIR/frontend.bak || true"
+
       - name: Deploy frontend static files
         run: |
           rsync -avz --delete -e "ssh -i deploy_key.pem -p $DEPLOY_PORT -o StrictHostKeyChecking=no" \
@@ -92,7 +102,35 @@ jobs:
           ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
             "chown -R fate:fate $DEPLOY_DIR/frontend/"
 
-      - name: Reload Nginx
+      - name: Reload Nginx and verify, rolling back on failure
         run: |
-          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
-            "systemctl reload nginx"
+          ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" "
+          set -eu
+          systemctl reload nginx
+          sleep 2
+
+          if curl --silent --show-error --fail -o /dev/null http://127.0.0.1/; then
+            echo 'Frontend is serving successfully'
+            rm -rf $DEPLOY_DIR/frontend.bak
+            exit 0
+          fi
+
+          echo 'Frontend did not respond with 200 after deploy'
+          systemctl status nginx --no-pager || true
+
+          if [ -d $DEPLOY_DIR/frontend.bak ]; then
+            echo 'Rolling back to previous frontend build...'
+            rm -rf $DEPLOY_DIR/frontend
+            mv $DEPLOY_DIR/frontend.bak $DEPLOY_DIR/frontend
+            systemctl reload nginx
+            sleep 2
+            if curl --silent --show-error --fail -o /dev/null http://127.0.0.1/; then
+              echo 'Rollback successful, previous version is serving'
+            else
+              echo 'Rollback failed - frontend is still not serving!'
+            fi
+          else
+            echo 'No previous build available to roll back to'
+          fi
+          exit 1
+          "

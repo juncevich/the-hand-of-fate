@@ -5,11 +5,33 @@ import { VoteLastResult } from '@/components/vote/VoteLastResult'
 import { VoteOptions } from '@/components/vote/VoteOptions'
 import { VoteParticipants } from '@/components/vote/VoteParticipants'
 import { VoteHistory } from '@/components/vote/VoteHistory'
+import { ErrorState } from '@/components/ui/error-state'
+import { extractErrorMessage } from '@/lib/errors'
 
 export function VoteDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { vote, isLoading, draw, reopen, addParticipant, removeParticipant, addOption, removeOption, deleteVote } =
-    useVoteDetail(id!)
+  const {
+    vote,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    draw,
+    reopen,
+    addParticipant,
+    removeParticipant,
+    addOption,
+    removeOption,
+    deleteVote,
+  } = useVoteDetail(id!)
+
+  if (isError) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <ErrorState message={extractErrorMessage(error)} onRetry={() => refetch()} />
+      </div>
+    )
+  }
 
   if (isLoading) {
     return <div className="glass p-8 animate-pulse h-64" />

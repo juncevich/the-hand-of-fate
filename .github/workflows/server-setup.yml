@@ -224,6 +224,55 @@ jobs:
               echo "  ⚠ + email (or terminate TLS at an upstream proxy) for a real deployment."
             fi
 
+            echo "━━━ Резервное копирование PostgreSQL ━━━"
+            mkdir -p /opt/hand-of-fate/backups
+            chown postgres:postgres /opt/hand-of-fate/backups
+            chmod 700 /opt/hand-of-fate/backups
+
+            cat > /opt/hand-of-fate/scripts-backup-db.sh << 'SCRIPT'
+            #!/usr/bin/env bash
+            set -euo pipefail
+            BACKUP_DIR=/opt/hand-of-fate/backups
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            pg_dump fate | gzip > "${BACKUP_DIR}/fate-${TIMESTAMP}.sql.gz"
+            # Keep 7 days of local backups. This is a local-disk safety net, not a
+            # substitute for offsite storage — copy BACKUP_DIR to remote storage
+            # (e.g. object storage) for real disaster recovery once one is set up.
+            find "${BACKUP_DIR}" -name 'fate-*.sql.gz' -mtime +7 -delete
+            SCRIPT
+            mkdir -p /opt/hand-of-fate/scripts
+            mv /opt/hand-of-fate/scripts-backup-db.sh /opt/hand-of-fate/scripts/backup-db.sh
+            chmod 750 /opt/hand-of-fate/scripts/backup-db.sh
+            chown postgres:postgres /opt/hand-of-fate/scripts/backup-db.sh
+
+            cat > /etc/systemd/system/fate-db-backup.service << 'UNIT'
+            [Unit]
+            Description=Hand of Fate — PostgreSQL backup
+            After=postgresql.service
+            Requires=postgresql.service
+
+            [Service]
+            Type=oneshot
+            User=postgres
+            ExecStart=/opt/hand-of-fate/scripts/backup-db.sh
+            UNIT
+
+            cat > /etc/systemd/system/fate-db-backup.timer << 'UNIT'
+            [Unit]
+            Description=Daily Hand of Fate PostgreSQL backup
+
+            [Timer]
+            OnCalendar=daily
+            Persistent=true
+
+            [Install]
+            WantedBy=timers.target
+            UNIT
+
+            systemctl daemon-reload
+            systemctl enable --now fate-db-backup.timer
+            echo "  Ежедневный бэкап настроен: /opt/hand-of-fate/backups (хранится 7 дней)"
+
             echo ""
             echo "✓ Сервер готов. Запустите workflow 'Deploy' для первого деплоя."
         env:

@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { useVoteList } from '@/hooks/useVoteList'
 import { VoteCard } from '@/components/vote/VoteCard'
 import { CreateVoteDialog } from '@/components/vote/CreateVoteDialog'
+import { ErrorState } from '@/components/ui/error-state'
+import { extractErrorMessage } from '@/lib/errors'
 import { Sparkles } from 'lucide-react'
 import type { VoteSummary } from '@/types/vote'
 
 export function DashboardPage() {
   const [page] = useState(0)
-  const { data, isLoading } = useVoteList(page)
+  const { data, isLoading, isError, error, refetch } = useVoteList(page)
 
   return (
     <div>
@@ -24,7 +26,9 @@ export function DashboardPage() {
         <CreateVoteDialog />
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <ErrorState message={extractErrorMessage(error)} onRetry={() => refetch()} />
+      ) : isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="glass p-5 animate-pulse h-32" />

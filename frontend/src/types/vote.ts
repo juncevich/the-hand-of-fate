@@ -53,6 +53,14 @@ export interface DrawResult {
   newRoundStarted: boolean
 }
 
+export interface CreateVoteRequest {
+  title: string
+  description?: string
+  mode: VoteMode
+  participantEmails: string[]
+  options: string[]
+}
+
 export interface Page<T> {
   content: T[]
   totalElements: number

@@ -109,8 +109,21 @@ class AuthServiceTest {
     @Test
     fun `login - throws for unknown email`() {
         every { userRepositoryPort.findByEmail("ghost@test.com") } returns null
+        every { passwordEncoder.encode(any()) } returns "dummy-hash"
+        every { passwordEncoder.matches(any(), any()) } returns false
 
         assertThrows<BadCredentialsException> { authService.login("ghost@test.com", "pass") }
+    }
+
+    @Test
+    fun `login - still hashes the password when email is unknown (timing side-channel mitigation)`() {
+        every { userRepositoryPort.findByEmail("ghost@test.com") } returns null
+        every { passwordEncoder.encode(any()) } returns "dummy-hash"
+        every { passwordEncoder.matches(any(), "dummy-hash") } returns false
+
+        assertThrows<BadCredentialsException> { authService.login("ghost@test.com", "pass") }
+
+        verify { passwordEncoder.matches("pass", "dummy-hash") }
     }
 
     @Test
@@ -125,6 +138,8 @@ class AuthServiceTest {
     @Test
     fun `login - error message does not reveal whether email exists`() {
         every { userRepositoryPort.findByEmail(any()) } returns null
+        every { passwordEncoder.encode(any()) } returns "dummy-hash"
+        every { passwordEncoder.matches(any(), any()) } returns false
 
         val ex1 = assertThrows<BadCredentialsException> { authService.login("ghost@test.com", "pass") }
 

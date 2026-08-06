@@ -343,6 +343,7 @@ One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first depl
 6. Registers `fate-backend` and `fate-bot` systemd units with `EnvironmentFile=/opt/hand-of-fate/.env`
 7. Writes Nginx site config: SPA routing (`/`), API proxy (`/api/`), per-IP `limit_req` on `/api/v1/auth/`, security headers (CSP, HSTS, X-Frame-Options, nosniff, Referrer-Policy), static asset caching. **Swagger/OpenAPI is not proxied in prod** (also disabled server-side unless `SPRINGDOC_ENABLED=true`).
 8. **TLS**: if `domain` + `email` inputs are provided, installs certbot and runs `certbot --nginx --redirect` (Let's Encrypt cert + 80→443 redirect). Without them it serves HTTP only and warns that the `Secure` refresh cookie will be dropped — provide a domain or terminate TLS upstream for a real deployment.
+9. **Backups**: registers a `fate-db-backup.timer` (daily) running `/opt/hand-of-fate/scripts/backup-db.sh`, which `pg_dump`s the `fate` database to `/opt/hand-of-fate/backups/` (gzip) and prunes dumps older than 7 days. Local-disk only — copy `backups/` to offsite/object storage for real disaster recovery.
 
 > **Docker note:** the backend image builds with the **repository root** as context (`docker-compose` sets `context: .` + `dockerfile: backend/Dockerfile`) so the shared `proto/` tree is reachable.
 

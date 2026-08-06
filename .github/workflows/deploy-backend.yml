@@ -53,6 +53,12 @@ jobs:
     needs: gate
     if: needs.gate.outputs.ready == 'true'
     environment: staging
+    # Shared across all deploy-*.yml workflows: backend/bot both rewrite the
+    # single $DEPLOY_DIR/.env file on the VPS, so concurrent deploys must be
+    # serialized rather than racing to write it (queue, never cancel mid-deploy).
+    concurrency:
+      group: deploy-vps
+      cancel-in-progress: false
 
     env:
       HOST:              ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
