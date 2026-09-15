@@ -1,6 +1,6 @@
 plugins {
-    kotlin("jvm") version "2.4.0"
-    id("io.gatling.gradle") version "3.15.1.2"
+    kotlin("jvm") version "2.4.20"
+    id("io.gatling.gradle") version "3.15.1.3"
 }
 
 repositories {

@@ -1,5 +1,19 @@
 # Dependency Updates
 
+## 2026-09-15
+
+Re-checked every version in `perf/build.gradle.kts` against Maven Central / the Gradle Plugin Portal metadata, per the user's request to check and update, majors explicitly in scope (same audit pass as `backend`). No majors were available.
+
+### kotlin(jvm) `2.4.0 → 2.4.20`
+- Same bump applied to `backend` in this pass; confirmed via the Gradle Plugin Portal `org.jetbrains.kotlin.jvm` marker metadata
+
+### io.gatling.gradle (plugin) `3.15.1.2 → 3.15.1.3`
+- Confirmed via the Gradle Plugin Portal listing only — Gatling does not publish this plugin marker to Maven Central (`io/gatling/gradle/io.gatling.gradle.gradle.plugin` 404s), so this bump carries slightly lower confidence than a Maven-metadata-verified one
+
+Verified with `./gradlew compileGatlingKotlin` — compiles cleanly with no source changes.
+
+`io.gatling.highcharts:gatling-charts-highcharts` `3.15.1` confirmed already at latest stable (no change), in sync with the plugin's underlying Gatling core version.
+
 ## 2026-08-06
 
 Re-checked every version in `perf/build.gradle.kts` and the Gradle wrapper against Maven Central / the Gradle Plugin Portal metadata, per the user's request to check and update.

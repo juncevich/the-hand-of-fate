@@ -6,15 +6,15 @@ React SPA for The Hand of Fate — vote management and account settings.
 
 | Library              | Version |
 |----------------------|---------|
-| React                | 19.2.8  |
+| React                | 19.3.0  |
 | TypeScript           | 6.0.3   |
-| Vite                 | 8.1.5   |
+| Vite                 | 8.3.0   |
 | Tailwind CSS         | 4.3.3   |
 | shadcn/ui + Radix UI | —       |
-| TanStack Query       | 5.101.4 |
-| Zustand              | 5.0.14  |
-| Axios                | 1.19.0  |
-| React Router         | 7.18.2  |
+| TanStack Query       | 5.102.8 |
+| Zustand              | 5.0.15  |
+| Axios                | 1.20.0  |
+| React Router         | 7.18.4  |
 | Vitest + Testing Library | —   |
 
 ## Page Routing

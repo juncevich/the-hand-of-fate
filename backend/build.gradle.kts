@@ -3,13 +3,13 @@ import io.gitlab.arturbosch.detekt.Detekt
 import io.gitlab.arturbosch.detekt.DetektCreateBaselineTask
 
 plugins {
-    kotlin("jvm")                              version "2.4.0"
-    kotlin("plugin.spring")                    version "2.4.0"
-    kotlin("plugin.jpa")                       version "2.4.0"
-    id("org.springframework.boot")             version "4.1.0"
+    kotlin("jvm")                              version "2.4.20"
+    kotlin("plugin.spring")                    version "2.4.20"
+    kotlin("plugin.jpa")                       version "2.4.20"
+    id("org.springframework.boot")             version "4.1.1"
     id("io.spring.dependency-management")      version "1.1.7"
     id("com.google.protobuf")                  version "0.10.0"
-    id("com.diffplug.spotless")                version "8.9.0"
+    id("com.diffplug.spotless")                version "8.10.2"
     id("io.gitlab.arturbosch.detekt")          version "1.23.8"
 }
 
@@ -38,12 +38,12 @@ repositories {
     mavenCentral()
 }
 
-val grpcVersion          = "1.83.1"
+val grpcVersion          = "1.84.0"
 val grpcKotlinVersion    = "1.5.0"
-val protobufVersion      = "4.35.1"
+val protobufVersion      = "4.36.1"
 val jjwtVersion          = "0.13.0"
 val coroutinesVersion    = "1.11.0"
-val modulithVersion      = "2.1.0"
+val modulithVersion      = "2.1.1"
 
 configurations.all {
     resolutionStrategy.force(
@@ -108,7 +108,7 @@ dependencies {
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")
 
     // ── OpenAPI ───────────────────────────────────────────────────────────────
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
 
     // ── Test ──────────────────────────────────────────────────────────────────
     testImplementation("org.springframework.boot:spring-boot-starter-test")

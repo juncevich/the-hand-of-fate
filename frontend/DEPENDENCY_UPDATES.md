@@ -1,5 +1,23 @@
 # Dependency Updates
 
+## 2026-09-15
+
+Re-checked every package in `package.json` against the real npm registry (`dist-tags.latest`), per explicit user request to check and update with majors in scope. Two major-version jumps were found (`typescript` 6→7, `vitest` 4→5) and attempted individually, verifying build/lint/test after each per the user's request.
+
+### Routine minor/patch bumps
+`@tanstack/react-query`/`@tanstack/react-query-devtools` `5.101.4 → 5.102.8`; `axios` `1.19.0 → 1.20.0`; `lucide-react` `1.29.0 → 1.46.0`; `react`/`react-dom` `19.2.8 → 19.3.0`; `react-router-dom` `7.18.2 → 7.18.4`; `tailwind-merge` `3.6.0 → 3.7.0`; `zustand` `5.0.14 → 5.0.15`; `@testing-library/jest-dom` `7.0.0 → 7.0.1`; `@testing-library/react` `16.3.2 → 16.3.3`; `@testing-library/user-event` `14.6.3 → 14.6.7`; `@types/react` `19.2.18 → 19.3.0`; `@types/react-dom` `19.2.4 → 19.3.0` (kept in lockstep with the `react`/`react-dom` major); `@typescript-eslint/eslint-plugin`/`parser` `8.66.0 → 8.70.0`; `@vitejs/plugin-react` `6.0.5 → 6.1.1`; `eslint` `10.8.0 → 10.10.0`; `vite` `8.2.1 → 8.3.0`.
+
+### vitest `4.1.10 → 5.0.1` — MAJOR, succeeded
+- Installed cleanly with no peer-dependency conflicts against the bumped `@vitejs/plugin-react`/`vite`
+- `npm test` passed at runtime (66/66) immediately, but `npm run build` (`tsc -b`) failed with `TS2339: Property 'toHaveAttribute'/'toBeInTheDocument' does not exist on type 'Assertion<...>'` across every test file using jest-dom matchers — Vitest 5 changed its `Assertion` type augmentation surface
+- Fix: switched `src/test-setup.ts` from `import '@testing-library/jest-dom'` to `import '@testing-library/jest-dom/vitest'`, the dedicated vitest type-augmentation entry point jest-dom 7.x ships for this exact case
+- Re-verified: `npm run lint`, `npm test` (66/66), `npm run build` all pass
+
+### typescript `6.0.3` — major bump to `7.0.2` still blocked
+- Installing `typescript@7.0.2` and running `npm run lint` fails immediately: `typescript-eslint does not support TS 7.0` (thrown by `@typescript-eslint/eslint-plugin@8.70.0` itself, not a peer-dependency range warning) — see https://github.com/typescript-eslint/typescript-eslint/issues/10940, still open. Same blocking finding as every prior audit, now surfaced as a hard runtime error rather than a peer-range mismatch. Reverted to `6.0.3`, itself still the latest `6.x`.
+
+Everything else confirmed already at the latest stable release (no change): all `@radix-ui/*` packages, `class-variance-authority`, `clsx`, `date-fns`, `@tailwindcss/vite`, `eslint-plugin-react-hooks`, `jsdom`, `msw`, `tailwindcss`.
+
 ## 2026-08-06
 
 Re-checked every package in `package.json` against the real npm registry (`npm outdated`, `npm view <pkg> peerDependencies`), per user request to check and update.

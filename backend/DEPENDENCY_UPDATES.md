@@ -1,5 +1,34 @@
 # Dependency Updates
 
+## 2026-09-15
+
+Re-audited every explicit version in `build.gradle.kts` against Maven Central `maven-metadata.xml` (`<release>` field) and the Gradle Plugin Portal, per the user's request to check and update, majors explicitly in scope. No majors were actually available for any backend dependency — every bump below is a minor/patch release.
+
+### kotlin(jvm/plugin.spring/plugin.jpa) `2.4.0 → 2.4.20`
+- Confirmed via the Gradle Plugin Portal `org.jetbrains.kotlin.jvm` marker `<release>` metadata
+
+### org.springframework.boot `4.1.0 → 4.1.1`
+- The plugin's `<release>` tag reports `4.2.0-M1`, a milestone — intentionally skipped. `4.1.1` is the latest true stable release on the 4.1.x line
+
+### com.diffplug.spotless (Gradle plugin) `8.9.0 → 8.10.2`
+- Confirmed via Gradle Plugin Portal metadata
+
+### io.grpc (`grpcVersion`) `1.83.1 → 1.84.0`
+- Confirmed via `io/grpc/grpc-core/maven-metadata.xml` `<release>`, cross-checked in lockstep with `grpc-api`, `grpc-netty-shaded`, `grpc-protobuf`, `grpc-stub`, `protoc-gen-grpc-java` — all publish `1.84.0`
+
+### com.google.protobuf:protobuf-java/protobuf-kotlin/protoc (`protobufVersion`) `4.35.1 → 4.36.1`
+- `protobuf-java`/`protobuf-kotlin` cleanly report `<release>4.36.1</release>`. `protoc`'s own metadata has a corrupted `<release>` tag (`21.0-rc-1`, an old out-of-scheme leftover) — cross-verified against the lockstep siblings instead, since `protoc` always ships in lockstep with `protobuf-java`
+
+### org.springframework.modulith:* (bom, starter-core, actuator, starter-test) `2.1.0 → 2.1.1`
+- The family's `<release>` tag reports `2.2.0-M1`, a milestone — intentionally skipped. `2.1.1` is the latest true stable release on the 2.1.x line. Lockstep family, bumped together
+
+### org.springdoc:springdoc-openapi-starter-webmvc-ui `3.1.0 → 3.1.1`
+- Routine patch bump per Maven Central `<release>` metadata
+
+Verified with `./gradlew compileKotlin compileTestKotlin`, `./gradlew test`, `./gradlew detekt`, and `./gradlew spotlessCheck` — all pass with no source changes.
+
+Everything else confirmed already at the latest stable release (no change): `io.spring.dependency-management` `1.1.7`, `com.google.protobuf` Gradle plugin `0.10.0`, `io.gitlab.arturbosch.detekt` `1.23.8` (no stable Kotlin-2.x-native detekt exists yet — only a prerelease `2.0.0-alpha.6` — the Kotlin-2.0.21 classpath pin for detekt's own runtime remains necessary), `io.grpc:grpc-kotlin-stub`/`protoc-gen-grpc-kotlin` `1.5.0` (Maven Central's `<release>` again reports a stray non-semver git-hash publish, not a real release), `io.jsonwebtoken:jjwt-*` `0.13.0`, `kotlinx-coroutines-*` `1.11.0`, `net.devh:grpc-server-spring-boot-starter` `3.1.0.RELEASE`, `org.postgresql:postgresql` `42.7.13`, `org.testcontainers:*` `2.0.5`, `io.mockk:mockk` `1.14.11`, `com.ninja-squad:springmockk` `5.0.1`, ktlint (`com.pinterest.ktlint:ktlint-cli`) `1.8.0`.
+
 ## 2026-08-06
 
 Re-audited every explicit version in `build.gradle.kts` and the Gradle wrapper against Maven Central `maven-metadata.xml` (`<release>` field) and the Gradle Plugin Portal, per the user's request to check and update.

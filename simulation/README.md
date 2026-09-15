@@ -38,7 +38,7 @@ simulation/
 
 ## Prerequisites
 
-- Go 1.25+
+- Go 1.27+
 - A running backend — start with `docker compose up -d` or `./dev-start.sh` (see repo root)
 
 ## Running
