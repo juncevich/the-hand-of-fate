@@ -1,0 +1,40 @@
+name: Simulation CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - simulation/**
+      - .github/workflows/simulation.yml
+  pull_request:
+    paths:
+      - simulation/**
+      - .github/workflows/simulation.yml
+
+concurrency:
+  group: simulation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  simulation-test:
+    name: Simulation — Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: simulation/go.mod
+
+      - name: Download dependencies
+        run: cd simulation && go mod download
+
+      - name: Check formatting
+        run: test -z "$(gofmt -l simulation)"
+
+      - run: cd simulation && go vet ./...
+      - run: cd simulation && go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+      - run: cd simulation && go test ./...
+      - run: cd simulation && go build -o /dev/null ./cmd/simulate

@@ -28,7 +28,7 @@ export function useBackendStatus(): BackendStatus {
       if (!cancelled) setStatus(ok ? 'online' : 'offline')
     }
 
-    poll()
+    void poll()
     const id = setInterval(poll, POLL_INTERVAL_MS)
     return () => {
       cancelled = true

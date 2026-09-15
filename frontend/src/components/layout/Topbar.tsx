@@ -15,7 +15,7 @@ export function Topbar() {
       await authApi.logout()
     } finally {
       clearAuth()
-      navigate('/login')
+      void navigate('/login')
     }
   }
 

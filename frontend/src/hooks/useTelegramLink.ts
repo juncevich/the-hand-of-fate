@@ -14,7 +14,7 @@ export function useTelegramLink() {
 
   const copyToken = () => {
     if (!token) return
-    navigator.clipboard.writeText(`/link ${token}`)
+    void navigator.clipboard.writeText(`/link ${token}`)
     toast('Скопировано!', 'Отправьте эту команду боту')
   }
 

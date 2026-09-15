@@ -1,0 +1,18 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.kt]
+max_line_length = 120
+
+# Gatling's Java DSL is conventionally imported via CoreDsl.* / HttpDsl.*
+ktlint_standard_no-wildcard-imports = disabled
+
+# PascalCase factory functions (e.g. `LongFeeder(...)`) are an intentional Kotlin idiom
+ktlint_standard_function-naming = disabled

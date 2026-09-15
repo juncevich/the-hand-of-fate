@@ -22,7 +22,7 @@ export function LoginPage() {
     mutationFn: () => authApi.login({ email, password }),
     onSuccess: (data) => {
       setAuth(data)
-      navigate('/')
+      void navigate('/')
     },
     // Deliberately a fixed generic message rather than onMutationError/extractErrorMessage:
     // login failures shouldn't reveal backend error detail (e.g. whether the account exists).

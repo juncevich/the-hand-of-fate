@@ -10,7 +10,7 @@ export function useCreateVote() {
   return useMutation({
     mutationFn: (request: CreateVoteRequest) => votesApi.create(request),
     onSuccess: (_, request) => {
-      queryClient.invalidateQueries({ queryKey: ['votes'] })
+      void queryClient.invalidateQueries({ queryKey: ['votes'] })
       toast('Голосование создано!', request.title)
     },
     onError: onMutationError,

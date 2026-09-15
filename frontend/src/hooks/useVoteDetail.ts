@@ -9,7 +9,9 @@ export function useVoteDetail(id: string) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['vote', id] })
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ['vote', id] })
+  }
 
   const query = useQuery({
     queryKey: ['vote', id],
@@ -21,7 +23,7 @@ export function useVoteDetail(id: string) {
     mutationFn: () => votesApi.draw(id),
     onSuccess: (result) => {
       invalidate()
-      queryClient.invalidateQueries({ queryKey: ['vote-history', id] })
+      void queryClient.invalidateQueries({ queryKey: ['vote-history', id] })
       toast('✦ Рука Судьбы выбрала!', `Победитель: ${winnerLabel(result)}`)
     },
     onError: onMutationError,

@@ -28,7 +28,7 @@ export function RegisterPage() {
     mutationFn: () => authApi.register({ email, password, displayName }),
     onSuccess: (data) => {
       setAuth(data)
-      navigate('/')
+      void navigate('/')
     },
     onError: (e: Error) => {
       if (axios.isAxiosError(e) && e.response?.data?.errors) {
