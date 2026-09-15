@@ -20,7 +20,7 @@ infra/
   monitoring/ OTel Collector, Loki, Mimir, Grafana provisioning
   k8s/       Kubernetes manifests + kustomize overlays (staging/production, not active)
 .github/
-  workflows/ backend.yml + frontend.yml + bot.yml + deploy.yml + server-setup.yml
+  workflows/ backend.yml + frontend.yml + bot.yml + perf.yml + simulation.yml + deploy-*.yml + server-setup.yml
 ```
 
 ## Common Commands
@@ -118,10 +118,14 @@ cd perf
 ./gradlew gatlingRun --simulation simulations.AuthSimulation     # register + login + refresh load
 ./gradlew gatlingRun --simulation simulations.VoteSimulation     # CRUD + draw load (assertions: p100 < 2s, >95% success)
 ./gradlew gatlingRun -DbaseUrl=https://your-server.com           # target non-local env
+./gradlew detekt                                                  # static analysis
+./gradlew spotlessCheck                                           # formatting check
+./gradlew spotlessApply                                           # auto-fix formatting
 ```
 - Reports: `perf/build/reports/gatling/<simulation-name-timestamp>/index.html`
 - JVM: requires Java 17+ to run Gradle; configured via `gradle.properties` (`org.gradle.java.home`)
 - Simulations: `src/gatling/kotlin/simulations/`
+- `perf/detekt.yml` mirrors the backend's ruleset but disables `WildcardImport` (Gatling's Java DSL is conventionally imported via `CoreDsl.*`/`HttpDsl.*`) and relaxes `FunctionNaming` (PascalCase factory functions like `LongFeeder(...)`)
 
 **Direct dependencies** (from `bot/go.mod`):
 
@@ -161,6 +165,7 @@ cd perf
 - **Zustand** manages auth state (`authStore`) and dark/light theme (`themeStore`; persisted to localStorage)
 - **React Query** (`@tanstack/react-query`) handles all server state — queries, mutations, cache invalidation
 - Custom Axios instance in `frontend/src/api/client.ts` handles token refresh with a retry queue so concurrent 401s only trigger one refresh call
+- ESLint enforces `@typescript-eslint/no-floating-promises` on `src/**` (type-checked, see `eslint.config.js`) — mark deliberately-unawaited calls (`invalidateQueries()`, `navigate()`, `clipboard.writeText()`, etc.) with `void` rather than leaving them bare
 
 **Custom hooks** (`frontend/src/hooks/`) encapsulate all React Query logic; pages import hooks rather than calling API directly:
 - `useVoteList(page)` — paginated vote list query
@@ -312,11 +317,13 @@ Services run directly on Ubuntu via systemd (no Docker). Nginx serves the fronte
 | Go        | 1.25         |
 | Node.js   | 22           |
 
-### CI workflows (backend.yml / frontend.yml / bot.yml)
-Each project has its own workflow file, triggered on PR and push to `main` via path filters. Each contains two jobs: test → build.
-- `backend.yml`: `backend-test` → `backend-build` (artifact: `backend-jar`)
-- `frontend.yml`: `frontend-test` → `frontend-build` (artifact: `frontend-dist`)
-- `bot.yml`: `bot-test` → `build-bot` (artifact: `bot-binary`, built on `main` only)
+### CI workflows (backend.yml / frontend.yml / bot.yml / perf.yml / simulation.yml)
+Each project has its own workflow file, triggered on PR and push to `main` via path filters.
+- `backend.yml`: `backend-test` (spotless + detekt + `./gradlew check`) → `backend-build` (artifact: `backend-jar`)
+- `frontend.yml`: `frontend-test` (`npm run lint` + `npm run test`) → `frontend-build` (artifact: `frontend-dist`)
+- `bot.yml`: `bot-test` (buf lint/breaking + gofmt + go vet + staticcheck + go test) → `build-bot` (artifact: `bot-binary`, built on `main` only)
+- `perf.yml`: `perf-check` — spotless + detekt + `compileGatlingKotlin`. Lint/compile only; `gatlingRun` is a load test against a live backend and is run manually, not gated in CI.
+- `simulation.yml`: `simulation-test` — gofmt + go vet + staticcheck + go test + build. The scenarios themselves (`go run ./cmd/simulate`) need a running backend and are not run in CI.
 
 ### Deploy workflows (deploy-backend.yml / deploy-frontend.yml / deploy-bot.yml)
 Each component has its own deploy workflow triggered by its CI workflow completing and via `workflow_dispatch`.
