@@ -1,47 +1,34 @@
 package com.juncevich.fate.auth.internal.token
 
-import io.jsonwebtoken.Claims
-import io.jsonwebtoken.Jwts
-import io.jsonwebtoken.security.Keys
+import org.springframework.security.oauth2.jwt.JwsHeader
+import org.springframework.security.oauth2.jwt.JwtClaimsSet
+import org.springframework.security.oauth2.jwt.JwtEncoder
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters
 import org.springframework.stereotype.Component
-import java.util.Date
+import java.time.Duration
+import java.time.Instant
 import java.util.UUID
-import javax.crypto.SecretKey
 
+/** Issues access tokens; validation is Spring Security's resource server (see [JwtConfig]). */
 @Component
 class JwtTokenProvider(
+    private val encoder: JwtEncoder,
     private val props: JwtProperties,
 ) {
-    private val signingKey: SecretKey by lazy {
-        Keys.hmacShaKeyFor(props.accessSecret.toByteArray())
-    }
-
     fun createAccessToken(
         userId: UUID,
         email: String,
     ): String {
-        val now = Date()
-        val expiry = Date(now.time + props.accessTtlMinutes * 60 * 1000)
-
-        return Jwts
-            .builder()
-            .subject(userId.toString())
-            .claim("email", email)
-            .issuedAt(now)
-            .expiration(expiry)
-            .signWith(signingKey)
-            .compact()
+        val now = Instant.now()
+        val claims =
+            JwtClaimsSet
+                .builder()
+                .subject(userId.toString())
+                .claim(EMAIL_CLAIM, email)
+                .issuedAt(now)
+                .expiresAt(now.plus(Duration.ofMinutes(props.accessTtlMinutes)))
+                .build()
+        val header = JwsHeader.with(ACCESS_TOKEN_ALGORITHM).type("JWT").build()
+        return encoder.encode(JwtEncoderParameters.from(header, claims)).tokenValue
     }
-
-    fun validateAndGetClaims(token: String): Claims =
-        Jwts
-            .parser()
-            .verifyWith(signingKey)
-            .build()
-            .parseSignedClaims(token)
-            .payload
-
-    fun getUserId(token: String): UUID = UUID.fromString(validateAndGetClaims(token).subject)
-
-    fun getEmail(token: String): String = validateAndGetClaims(token)["email"] as String
 }

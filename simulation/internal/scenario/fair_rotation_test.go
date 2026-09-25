@@ -14,9 +14,17 @@ import (
 // newFairRotationServer returns a server that:
 //   - serves draws for vote "vf"
 //   - returns NewRoundStarted=true on the 3rd draw (simulating 3-participant cycle)
+//   - mirrors the backend's state rules: a drawn vote can't be drawn again or have its
+//     participants changed until it is reopened (409 otherwise)
 func newFairRotationServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	var drawCount atomic.Int32
+	var drawn atomic.Bool
+	conflict := func(w http.ResponseWriter) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		writeJSON(w, map[string]string{"title": "Cannot modify a non-pending vote"})
+	}
 	emails := []string{"a@x.com", "b@x.com", "c@x.com"}
 	history := []client.DrawHistoryDto{
 		{ID: "h1", WinnerEmail: &emails[0], Round: 1, DrawnAt: time.Now()},
@@ -31,6 +39,10 @@ func newFairRotationServer(t *testing.T) *httptest.Server {
 			writeJSON(w, client.VoteDetail{ID: "vf", Title: "Fair Vote", Mode: "FAIR_ROTATION", Status: "OPEN"})
 
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/draw":
+			if !drawn.CompareAndSwap(false, true) {
+				conflict(w)
+				return
+			}
 			n := drawCount.Add(1)
 			winnerEmail := emails[(n-1)%3]
 			newRound := n == 3 // round ends on 3rd draw
@@ -41,12 +53,24 @@ func newFairRotationServer(t *testing.T) *httptest.Server {
 			})
 
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/reopen":
+			if !drawn.CompareAndSwap(true, false) {
+				conflict(w)
+				return
+			}
 			w.WriteHeader(http.StatusNoContent)
 
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/participants":
+			if drawn.Load() {
+				conflict(w)
+				return
+			}
 			w.WriteHeader(http.StatusNoContent)
 
 		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/v1/votes/vf/participants/"):
+			if drawn.Load() {
+				conflict(w)
+				return
+			}
 			w.WriteHeader(http.StatusNoContent)
 
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/vf/history":
@@ -165,7 +189,7 @@ func TestFairRotationScenario_AddParticipantError(t *testing.T) {
 	}
 }
 
-func TestFairRotationScenario_ReopenBeforeExtraDrawError(t *testing.T) {
+func TestFairRotationScenario_ReopenAfterRoundError(t *testing.T) {
 	var drawCount atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -180,7 +204,7 @@ func TestFairRotationScenario_ReopenBeforeExtraDrawError(t *testing.T) {
 				NewRoundStarted: n == 3,
 			})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/reopen":
-			// first two reopens succeed (between round draws), third fails (before extra draw)
+			// first two reopens succeed (between round draws), third fails (after the round)
 			if drawCount.Load() < 3 {
 				w.WriteHeader(http.StatusNoContent)
 			} else {
@@ -195,8 +219,9 @@ func TestFairRotationScenario_ReopenBeforeExtraDrawError(t *testing.T) {
 	defer srv.Close()
 
 	c := testClient(t, srv)
-	if err := FairRotationScenario(c, testLogger(t)); err == nil {
-		t.Fatal("expected error when Reopen before extra draw fails")
+	err := FairRotationScenario(c, testLogger(t))
+	if err == nil || !strings.Contains(err.Error(), "reopen after round") {
+		t.Fatalf("expected reopen after round error, got %v", err)
 	}
 }
 

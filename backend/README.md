@@ -136,7 +136,7 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 | `JWT_ACCESS_SECRET` | (dev default) | Must be ≥256-bit in production |
 | `JWT_ACCESS_TTL_MINUTES` | `15` | Access token lifetime |
 | `JWT_REFRESH_TTL_DAYS` | `30` | Refresh token lifetime |
-| `MAIL_HOST` | `localhost` | SMTP host (MailHog in dev) |
+| `MAIL_HOST` | `localhost` | SMTP host (Mailpit in dev) |
 | `MAIL_PORT` | `1025` | SMTP port |
 | `FRONTEND_URL` | `http://localhost:3000` | CORS origin and email links |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OpenTelemetry collector |

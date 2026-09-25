@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router'
 import { useVoteDetail } from '@/hooks/useVoteDetail'
 import { VoteHeader } from '@/components/vote/VoteHeader'
 import { VoteLastResult } from '@/components/vote/VoteLastResult'

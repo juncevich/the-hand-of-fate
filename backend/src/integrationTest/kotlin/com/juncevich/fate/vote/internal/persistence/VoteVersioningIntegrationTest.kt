@@ -27,7 +27,7 @@ import java.util.UUID
 
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.NONE,
-    properties = ["grpc.server.port=-1"]
+    properties = ["spring.grpc.server.enabled=false"]
 )
 @ActiveProfiles("test")
 @Testcontainers
@@ -40,13 +40,7 @@ class VoteVersioningIntegrationTest {
         @DynamicPropertySource
         @JvmStatic
         fun datasource(registry: DynamicPropertyRegistry) {
-            // stringtype=unspecified lets PostgreSQL implicitly cast VARCHAR to custom enum types
-            // (vote_mode, vote_status) in prepared statements.
-            registry.add("spring.datasource.url") {
-                val url = postgres.jdbcUrl
-                val sep = if ("?" in url) "&" else "?"
-                "$url${sep}stringtype=unspecified"
-            }
+            registry.add("spring.datasource.url", postgres::getJdbcUrl)
             registry.add("spring.datasource.username", postgres::getUsername)
             registry.add("spring.datasource.password", postgres::getPassword)
         }

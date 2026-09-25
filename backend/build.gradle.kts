@@ -18,7 +18,7 @@ version = "0.1.0-SNAPSHOT"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(23)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
@@ -41,28 +41,13 @@ repositories {
 val grpcVersion          = "1.84.0"
 val grpcKotlinVersion    = "1.5.0"
 val protobufVersion      = "4.36.2"
-val jjwtVersion          = "0.13.0"
 val coroutinesVersion    = "1.11.0"
 val modulithVersion      = "2.1.1"
 
-configurations.all {
-    resolutionStrategy.force(
-        "io.grpc:grpc-core:$grpcVersion",
-        "io.grpc:grpc-api:$grpcVersion",
-        "io.grpc:grpc-netty-shaded:$grpcVersion",
-        "io.grpc:grpc-protobuf:$grpcVersion",
-        "io.grpc:grpc-stub:$grpcVersion",
-    )
-}
-
-// Spring Boot 4.1.0 BOM includes protobuf-java at an older version;
-// override here so the runtime matches our generated code version (4.35.0)
-dependencyManagement {
-    dependencies {
-        dependency("com.google.protobuf:protobuf-java:$protobufVersion")
-        dependency("com.google.protobuf:protobuf-kotlin:$protobufVersion")
-    }
-}
+// The Spring Boot BOM pins older gRPC / protobuf releases; override its version
+// properties so the runtime matches the protoc / protoc-gen-grpc-java used for codegen.
+extra["grpc-java.version"] = grpcVersion
+extra["protobuf-java.version"] = protobufVersion
 
 dependencies {
     // ── Spring Modulith ───────────────────────────────────────────────────────
@@ -81,17 +66,15 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-flyway")
 
     // ── Kotlin ───────────────────────────────────────────────────────────────
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
 
-    // ── JWT ──────────────────────────────────────────────────────────────────
-    implementation("io.jsonwebtoken:jjwt-api:$jjwtVersion")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:$jjwtVersion")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:$jjwtVersion")
+    // ── JWT (issued via NimbusJwtEncoder, validated by the resource server) ────
+    implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
 
     // ── gRPC ─────────────────────────────────────────────────────────────────
-    implementation("net.devh:grpc-server-spring-boot-starter:3.1.0.RELEASE")
+    implementation("org.springframework.boot:spring-boot-starter-grpc-server")
     implementation("io.grpc:grpc-protobuf:$grpcVersion")
     implementation("io.grpc:grpc-stub:$grpcVersion")
     implementation("io.grpc:grpc-kotlin-stub:$grpcKotlinVersion")
@@ -103,9 +86,8 @@ dependencies {
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
     // ── Observability ─────────────────────────────────────────────────────────
+    implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
     implementation("io.micrometer:micrometer-registry-prometheus")
-    implementation("io.micrometer:micrometer-tracing-bridge-otel")
-    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
 
     // ── OpenAPI ───────────────────────────────────────────────────────────────
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
@@ -239,15 +221,4 @@ tasks.withType<Detekt>().configureEach {
 tasks.withType<DetektCreateBaselineTask>().configureEach {
     jvmTarget = "22"
     jdkHome.set(detektJdkHome)
-}
-
-// Ensure generated sources are on the compile classpath
-afterEvaluate {
-    val generatedSourcesDir = layout.buildDirectory.dir("generated/sources/proto/main").get().asFile
-    sourceSets["main"].java.srcDirs(
-        "$generatedSourcesDir/java",
-        "$generatedSourcesDir/grpc",
-        "$generatedSourcesDir/grpckt",
-        "$generatedSourcesDir/kotlin",
-    )
 }

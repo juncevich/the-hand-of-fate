@@ -1,5 +1,6 @@
 package com.juncevich.fate.vote.internal.domain
 
+import com.juncevich.fate.shared.uuidV7
 import java.time.Instant
 import java.util.UUID
 
@@ -10,7 +11,7 @@ sealed class DrawHistory {
     abstract val drawnAt: Instant
 
     data class ParticipantWinner(
-        override val id: UUID = UUID.randomUUID(),
+        override val id: UUID = uuidV7(),
         override val voteId: UUID,
         val email: String,
         val displayName: String? = null,
@@ -19,7 +20,7 @@ sealed class DrawHistory {
     ) : DrawHistory()
 
     data class OptionWinner(
-        override val id: UUID = UUID.randomUUID(),
+        override val id: UUID = uuidV7(),
         override val voteId: UUID,
         val optionId: UUID,
         val optionTitle: String,

@@ -5,14 +5,14 @@ import io.grpc.ServerCall
 import io.grpc.ServerCallHandler
 import io.grpc.ServerInterceptor
 import io.grpc.Status
-import net.devh.boot.grpc.server.interceptor.GrpcGlobalServerInterceptor
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.grpc.server.GlobalServerInterceptor
 import org.springframework.stereotype.Component
 import java.security.MessageDigest
 
 @Component
-@GrpcGlobalServerInterceptor
+@GlobalServerInterceptor
 class SharedSecretAuthInterceptor(
     @Value("\${grpc.shared-secret}") private val sharedSecret: String,
 ) : ServerInterceptor {

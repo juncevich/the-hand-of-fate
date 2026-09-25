@@ -15,7 +15,6 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
         jdbc:
           time_zone: UTC
@@ -34,6 +33,20 @@ spring:
       # Enabled only under the dev/test profiles.
       seedDemoUser: "false"
 
+  grpc:
+    server:
+      port: 9090
+      # Bind to loopback by default so the shared-secret-only (plaintext) gRPC
+      # channel is not exposed off-host. Override to 0.0.0.0 only on a trusted
+      # internal network (e.g. the Docker bridge).
+      address: ${GRPC_BIND_ADDRESS:127.0.0.1}
+      # Not exposed before the move to Spring Boot's gRPC starter; keep the
+      # public surface to FateService only.
+      reflection:
+        enabled: false
+      health:
+        enabled: false
+
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
@@ -48,14 +61,6 @@ server:
   shutdown: graceful
 
 grpc:
-  server:
-    port: 9090
-    # Bind to loopback by default so the shared-secret-only (plaintext) gRPC
-    # channel is not exposed off-host. Override to 0.0.0.0 only on a trusted
-    # internal network (e.g. the Docker bridge).
-    address: ${GRPC_BIND_ADDRESS:127.0.0.1}
-    security:
-      enabled: false
   shared-secret: ${GRPC_SHARED_SECRET:changeme-dev-grpc-shared-secret}
 
 management:
@@ -76,8 +81,11 @@ management:
       export:
         url: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/metrics
         step: 30s
+  opentelemetry:
     tracing:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
 
 springdoc:
   # Disabled by default so the API surface/schemas are not exposed in production;
@@ -96,4 +104,7 @@ jwt:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  mail:
+    # Sender address; when blank, falls back to MAIL_USERNAME, then noreply@handoffate.app
+    from: ${MAIL_FROM:}
   refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}

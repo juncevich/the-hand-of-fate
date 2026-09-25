@@ -1,31 +1,20 @@
-import tsPlugin from '@typescript-eslint/eslint-plugin'
-import tsParser from '@typescript-eslint/parser'
-import reactHooksPlugin from 'eslint-plugin-react-hooks'
+import { defineConfig } from 'eslint/config'
+import tseslint from 'typescript-eslint'
+import reactHooks from 'eslint-plugin-react-hooks'
 
-export default [
+export default defineConfig(
   { ignores: ['dist/**', 'node_modules/**'] },
   {
     files: ['**/*.ts', '**/*.tsx'],
-    languageOptions: {
-      parser: tsParser,
-    },
-    plugins: {
-      '@typescript-eslint': tsPlugin,
-      'react-hooks': reactHooksPlugin,
-    },
-    rules: {
-      ...tsPlugin.configs['recommended'].rules,
-      ...reactHooksPlugin.configs['flat']['recommended-latest'].rules,
-    },
+    extends: [tseslint.configs.recommended, reactHooks.configs.flat['recommended-latest']],
   },
   {
-    // Type-aware rules need a typed parser service — only `src/**` is covered
-    // by tsconfig.json's `include`, so scope this to that subtree.
+    // Type-aware rules need type information; the project service picks up the
+    // nearest tsconfig.json for each file under `src/**`.
     files: ['src/**/*.ts', 'src/**/*.tsx'],
     languageOptions: {
-      parser: tsParser,
       parserOptions: {
-        project: './tsconfig.json',
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -38,4 +27,4 @@ export default [
       '@typescript-eslint/await-thenable': 'error',
     },
   },
-]
+)

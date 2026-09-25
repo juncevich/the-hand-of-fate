@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router'
 import { LoginPage } from '../LoginPage'
 
 vi.mock('@/api/auth', () => ({
@@ -16,9 +16,11 @@ vi.mock('@/components/ui/toaster', () => ({
   toast: vi.fn(),
 }))
 
-vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react-router-dom')>()
-  return { ...actual, useNavigate: () => vi.fn() }
+const mockNavigate = vi.fn()
+
+vi.mock('react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router')>()
+  return { ...actual, useNavigate: () => mockNavigate }
 })
 
 const createWrapper = () => {
@@ -92,6 +94,7 @@ describe('LoginPage', () => {
         password: 'password123',
       })
     })
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
   })
 
   it('shows error toast on login failure', async () => {

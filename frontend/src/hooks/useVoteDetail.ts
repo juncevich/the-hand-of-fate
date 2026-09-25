@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { votesApi } from '@/api/votes'
 import { toast } from '@/components/ui/toaster'
 import { onMutationError } from '@/lib/errors'

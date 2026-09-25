@@ -1,8 +1,11 @@
 package com.juncevich.fate.vote.internal.persistence.entity
 
+import com.juncevich.fate.shared.uuidV7
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
 import jakarta.persistence.*
+import org.hibernate.annotations.JdbcType
+import org.hibernate.dialect.type.PostgreSQLEnumJdbcType
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
@@ -14,7 +17,7 @@ import java.util.UUID
 @EntityListeners(AuditingEntityListener::class)
 class VoteJpaEntity(
     @Id
-    val id: UUID = UUID.randomUUID(),
+    val id: UUID = uuidV7(),
     @Column(nullable = false, length = 255)
     var title: String,
     @Column(columnDefinition = "TEXT")
@@ -22,9 +25,11 @@ class VoteJpaEntity(
     @Column(name = "creator_id", nullable = false)
     val creatorId: UUID,
     @Enumerated(EnumType.STRING)
+    @JdbcType(PostgreSQLEnumJdbcType::class)
     @Column(nullable = false, length = 20)
     var mode: VoteMode = VoteMode.SIMPLE,
     @Enumerated(EnumType.STRING)
+    @JdbcType(PostgreSQLEnumJdbcType::class)
     @Column(nullable = false, length = 20)
     var status: VoteStatus = VoteStatus.PENDING,
     @Column(name = "current_round", nullable = false)

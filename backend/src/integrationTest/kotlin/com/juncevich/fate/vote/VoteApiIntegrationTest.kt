@@ -162,6 +162,48 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     @Test
+    fun `GET votes - page body is exactly the documented contract`() {
+        val (token) = createUser()
+        createSimpleVote(token, "Newest-1")
+        createSimpleVote(token, "Newest-2")
+        createSimpleVote(token, "Newest-3")
+
+        val result =
+            mockMvc
+                .get("/api/v1/votes?page=1&size=2") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect { status { isOk() } }
+                .andReturn()
+
+        // The frontend (`Page<T>` in src/types/vote.ts) and the simulation client rely on these
+        // fields only; Spring Data's PageImpl internals (pageable, sort, …) must not leak.
+        val body = parse(result.response.contentAsString)
+        assertEquals(
+            setOf("content", "totalElements", "totalPages", "number", "size"),
+            body.propertyNames().toSet()
+        )
+        assertEquals(3, body["totalElements"].asInt())
+        assertEquals(2, body["totalPages"].asInt())
+        assertEquals(1, body["number"].asInt())
+        assertEquals(2, body["size"].asInt())
+        // Newest first, so page 1 (0-based) of size 2 holds only the oldest vote
+        val content = body["content"]
+        assertEquals(listOf("Newest-1"), (0 until content.size()).map { content[it]["title"].asString() })
+    }
+
+    @Test
+    fun `POST votes - persisted ids are time-ordered UUIDv7`() {
+        val (token) = createUser()
+        val first = UUID.fromString(createSimpleVote(token, "First"))
+        Thread.sleep(2)
+        val second = UUID.fromString(createSimpleVote(token, "Second"))
+
+        assertEquals(7, first.version())
+        assertEquals(7, second.version())
+        assertTrue(first.toString() < second.toString())
+    }
+
+    @Test
     fun `GET votes - participant can see vote in list`() {
         val (creatorToken, creatorEmail) = createUser()
         val (participantToken, participantEmail) = createUser()

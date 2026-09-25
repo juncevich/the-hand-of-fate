@@ -8,8 +8,8 @@ import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import net.devh.boot.grpc.server.service.GrpcService
 import org.springframework.data.domain.PageRequest
+import org.springframework.grpc.server.service.GrpcService
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import com.juncevich.fate.vote.VoteMode as DomainVoteMode

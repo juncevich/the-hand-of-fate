@@ -3,7 +3,6 @@ package com.juncevich.fate.vote.internal.web
 import com.juncevich.fate.auth.AuthenticatedUser
 import com.juncevich.fate.vote.*
 import jakarta.validation.Valid
-import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.web.PageableDefault
 import org.springframework.http.ResponseEntity
@@ -27,7 +26,7 @@ class VoteController(
     fun listVotes(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PageableDefault(size = 20) pageable: Pageable,
-    ): Page<VoteSummaryDto> = voteService.listVotes(user.id, user.email, pageable)
+    ): PageResponse<VoteSummaryDto> = voteService.listVotes(user.id, user.email, pageable).toResponse()
 
     @GetMapping("/{id}")
     fun getVote(

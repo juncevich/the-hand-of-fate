@@ -1,6 +1,6 @@
 ---
 name: dev-environment
-description: Use to start, stop, or diagnose the local dev stack (backend/frontend/bot/postgres/mailhog) for The Hand of Fate — wraps dev-start.sh/dev-stop.sh/make targets and troubleshoots stuck ports or missing env vars.
+description: Use to start, stop, or diagnose the local dev stack (backend/frontend/bot/postgres/mailpit) for The Hand of Fate — wraps dev-start.sh/dev-stop.sh/make targets and troubleshoots stuck ports or missing env vars.
 ---
 
 # dev-environment
@@ -13,7 +13,7 @@ Manages the local development stack for this monorepo.
 cp .env.example .env          # first time only; add BOT_TOKEN if testing the bot
 ./dev-start.sh                # or: make dev-local
 ```
-This starts Postgres + MailHog via `docker-compose.infra.yml`, then runs backend/frontend/bot natively with colored per-service logs. Bot startup is skipped automatically if `BOT_TOKEN` is unset.
+This starts Postgres + Mailpit via `docker-compose.infra.yml`, then runs backend/frontend/bot natively with colored per-service logs. Bot startup is skipped automatically if `BOT_TOKEN` is unset.
 
 Stop with:
 ```bash
@@ -23,7 +23,7 @@ Stop with:
 ## Infra only
 
 ```bash
-make infra          # postgres + mailhog only
+make infra          # postgres + mailpit only
 make infra-down      # stop infra
 ```
 
@@ -40,7 +40,7 @@ docker compose up -d
 | Frontend | http://localhost:3000 |
 | Backend | http://localhost:8080 |
 | Swagger | http://localhost:8080/swagger-ui.html |
-| MailHog | http://localhost:8025 |
+| Mailpit | http://localhost:8025 |
 | Grafana | http://localhost:3001 (admin/admin) |
 
 ## Default demo user (dev/test only)
@@ -49,7 +49,7 @@ docker compose up -d
 
 ## Diagnosing a stuck environment
 
-1. **Port already in use** (3000 frontend, 8080 backend, 5432 postgres, 8025 mailhog):
+1. **Port already in use** (3000 frontend, 8080 backend, 5432 postgres, 8025 mailpit):
    ```bash
    lsof -nP -iTCP:3000 -sTCP:LISTEN
    lsof -nP -iTCP:8080 -sTCP:LISTEN

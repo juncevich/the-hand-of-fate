@@ -11,9 +11,10 @@ import (
 //  1. Create a vote without options
 //  2. Add options one by one via the API
 //  3. Draw (picks from options)
-//  4. Remove one option
-//  5. Draw again
-//  6. Delete vote
+//  4. Reopen (a drawn vote can't be modified)
+//  5. Remove one option
+//  6. Draw again
+//  7. Delete vote
 func OptionsVoteScenario(c *client.Client, log *zap.Logger) error {
 	log.Info("=== OptionsVoteScenario start ===")
 
@@ -49,6 +50,11 @@ func OptionsVoteScenario(c *client.Client, log *zap.Logger) error {
 	}
 	log.Info("draw result", zap.String("winner", winnerLabel(result)))
 
+	// Reopen first: the backend rejects option changes on a drawn vote (409)
+	if err = c.Reopen(vote.ID); err != nil {
+		return fmt.Errorf("reopen: %w", err)
+	}
+
 	// Remove one option
 	if len(detail.Options) > 0 {
 		optID := detail.Options[0].ID
@@ -58,10 +64,7 @@ func OptionsVoteScenario(c *client.Client, log *zap.Logger) error {
 		log.Info("option removed", zap.String("id", optID))
 	}
 
-	// Reopen + draw again
-	if err = c.Reopen(vote.ID); err != nil {
-		return fmt.Errorf("reopen: %w", err)
-	}
+	// Draw again
 	result2, err := c.Draw(vote.ID)
 	if err != nil {
 		return fmt.Errorf("second draw: %w", err)

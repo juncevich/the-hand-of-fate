@@ -1,4 +1,4 @@
-import * as ToastPrimitive from '@radix-ui/react-toast'
+import { Toast as ToastPrimitive } from 'radix-ui'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { create } from 'zustand'
@@ -12,7 +12,7 @@ interface ToastState {
 export const useToastStore = create<ToastState>((set) => ({
   toasts: [],
   addToast: (t) =>
-    set((s) => ({ toasts: [...s.toasts, { ...t, id: Math.random().toString(36).slice(2) }] })),
+    set((s) => ({ toasts: [...s.toasts, { ...t, id: crypto.randomUUID() }] })),
   removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }))
 

@@ -1,5 +1,6 @@
 package com.juncevich.fate.auth.internal.persistence.entity
 
+import com.juncevich.fate.shared.uuidV7
 import jakarta.persistence.*
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
@@ -12,7 +13,7 @@ import java.util.UUID
 @EntityListeners(AuditingEntityListener::class)
 class UserJpaEntity(
     @Id
-    val id: UUID = UUID.randomUUID(),
+    val id: UUID = uuidV7(),
     @Column(nullable = false, unique = true, length = 255)
     var email: String,
     @Column(name = "password_hash", nullable = false)

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Users, RotateCcw, Zap, Crown } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import type { VoteSummary } from '@/types/vote'

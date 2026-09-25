@@ -5,11 +5,12 @@ import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.internal.DrawService
+import com.juncevich.fate.vote.internal.ParticipantInvited
+import com.juncevich.fate.vote.internal.VoteDrawn
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
 import com.juncevich.fate.vote.internal.domain.VoteParticipant
 import com.juncevich.fate.vote.internal.port.DrawHistoryRepositoryPort
-import com.juncevich.fate.vote.internal.port.NotificationPort
 import com.juncevich.fate.vote.internal.port.ParticipantRepositoryPort
 import com.juncevich.fate.vote.internal.port.VoteOptionRepositoryPort
 import com.juncevich.fate.vote.internal.port.VoteRepositoryPort
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 import java.util.UUID
 
 class VoteServiceTest {
@@ -29,7 +31,7 @@ class VoteServiceTest {
     private val drawHistoryRepositoryPort = mockk<DrawHistoryRepositoryPort>()
     private val userQueryService = mockk<UserQueryService>()
     private val drawService = mockk<DrawService>()
-    private val notificationPort = mockk<NotificationPort>(relaxed = true)
+    private val events = mockk<ApplicationEventPublisher>(relaxed = true)
     private val meterRegistry = mockk<MeterRegistry>()
     private val counter = mockk<Counter>(relaxed = true)
 
@@ -41,7 +43,7 @@ class VoteServiceTest {
             drawHistoryRepositoryPort,
             userQueryService,
             drawService,
-            notificationPort,
+            events,
             meterRegistry
         )
 
@@ -87,8 +89,10 @@ class VoteServiceTest {
 
         verify { participantRepositoryPort.saveAll(any<List<VoteParticipant>>()) }
         verify { voteOptionRepositoryPort.saveAll(any<List<VoteOption>>()) }
-        verify { notificationPort.notifyVoteInvitation("p@test.com", vote) }
-        verify(exactly = 0) { notificationPort.notifyVoteInvitation(creator.email, any()) }
+        verify(exactly = 1) {
+            events.publishEvent(ParticipantInvited(vote.id, vote.title, creator.displayName, "p@test.com"))
+        }
+        verify(exactly = 0) { events.publishEvent(match<ParticipantInvited> { it.recipientEmail == creator.email }) }
     }
 
     @Test
@@ -189,7 +193,9 @@ class VoteServiceTest {
         voteService.addParticipant(vote.id, creator.id, "new@test.com")
 
         verify { participantRepositoryPort.save(any()) }
-        verify { notificationPort.notifyVoteInvitation("new@test.com", vote) }
+        verify(exactly = 1) {
+            events.publishEvent(ParticipantInvited(vote.id, vote.title, creator.displayName, "new@test.com"))
+        }
     }
 
     @Test
@@ -258,8 +264,9 @@ class VoteServiceTest {
 
         assertEquals(drawResult.winnerEmail, result.winnerEmail)
         verify { drawService.draw(vote) }
-        // afterCommit falls back to synchronous call in unit tests (no active transaction)
-        verify { notificationPort.notifyDrawResult(vote, drawResult, listOf("winner@test.com")) }
+        verify(exactly = 1) {
+            events.publishEvent(VoteDrawn(vote.id, vote.title, drawResult, listOf("winner@test.com")))
+        }
     }
 
     @Test

@@ -6,6 +6,16 @@ spring:
     placeholders:
       seedDemoUser: "true"
 
+management:
+  # No OTel collector runs next to the tests; don't try to push metrics/traces.
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  tracing:
+    export:
+      enabled: false
+
 app:
   # Tests fire many auth requests from a single (loopback) client; the limiter
   # would otherwise trip and turn expected 200s into 429s.

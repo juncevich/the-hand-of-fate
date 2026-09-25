@@ -1,5 +1,40 @@
 # Dependency Updates
 
+## 2026-09-25 — Jackson 3 Kotlin module, Java toolchain
+
+### com.fasterxml.jackson.module:jackson-module-kotlin `2.21.5` → tools.jackson.module:jackson-module-kotlin `3.1.5`
+- Spring Boot 4 serializes HTTP JSON with Jackson 3 (`tools.jackson.core:jackson-databind`), so the Jackson 2 Kotlin module on the classpath was never registered with the app's `JsonMapper` — Kotlin default parameter values were ignored on request bodies. Swapped to the Jackson 3 artifact (version managed by the Spring Boot BOM); Jackson 2 support is deprecated in Boot 4.0 and slated for removal in 4.3
+- `AbstractApiIntegrationTest` now autowires the application's `JsonMapper` instead of building a Jackson 2 `ObjectMapper` by hand
+
+### Java toolchain `23 → 21`
+- The toolchain compiled class files for Java 23 (major version 67) while the Docker image (`temurin:21-jre`), the server (`temurin-21-jdk`) and CI all run Java 21, so the jar could not start there (`UnsupportedClassVersionError`). Aligned the toolchain with the runtime; Java 23 is also a non-LTS release that is out of support
+
+Verified with `./gradlew clean check` (spotless, detekt, 114 unit tests, 59 integration tests — all pass) and by checking the compiled class-file version (65 = Java 21).
+
+### micrometer-tracing-bridge-otel + opentelemetry-exporter-otlp → org.springframework.boot:spring-boot-starter-opentelemetry `4.1.1`
+- Boot 4's supported way to wire OpenTelemetry; the starter brings `micrometer-tracing-bridge-otel`, `opentelemetry-exporter-otlp` and `micrometer-registry-otlp` (versions from the Boot BOM)
+- `micrometer-registry-otlp` was missing before, so the `management.otlp.metrics.export.*` config was inert and no metrics reached the OTel Collector → Mimir pipeline
+- `management.otlp.tracing.endpoint` is deprecated with `level: error` since Boot 4.0 (no longer bound), so traces were going to the SDK default `localhost:4318` regardless of `OTEL_EXPORTER_OTLP_ENDPOINT`. Renamed to `management.opentelemetry.tracing.export.otlp.endpoint`
+- The integration-test profile disables OTLP metrics/trace export (no collector there)
+
+Verified with `./gradlew check` (all pass) and by running the boot jar on JDK 21.0.9 against a stub OTLP HTTP receiver: it received `POST /v1/metrics` every step and `POST /v1/traces` after a request.
+
+### net.devh:grpc-server-spring-boot-starter `3.1.0.RELEASE` → org.springframework.boot:spring-boot-starter-grpc-server `4.1.1`
+- The third-party starter is no longer actively developed; Spring Boot 4.1 ships first-party gRPC server support (Spring gRPC 1.1.1). Server transport moves from `grpc-netty-shaded` to `grpc-netty`
+- Annotations: `net.devh…GrpcService` → `org.springframework.grpc.server.service.GrpcService`, `@GrpcGlobalServerInterceptor` → `@GlobalServerInterceptor`; the `GrpcServerSecurityAutoConfiguration` exclusion is gone
+- Config: `grpc.server.{port,address}` → `spring.grpc.server.{port,address}` (`GRPC_BIND_ADDRESS` still applies); reflection and health services are explicitly disabled to keep the same public surface. The custom `grpc.shared-secret` property is unchanged
+- Replaced the `resolutionStrategy.force(...)` list and the protobuf `dependencyManagement` override with the Boot BOM's own `grpc-java.version` / `protobuf-java.version` properties. The force list had not been winning over the BOM (grpc-api/grpc-core resolved to 1.83.1 alongside 1.84.0 artifacts); now every `io.grpc` artifact resolves to 1.84.0 and protobuf to 4.36.2
+
+Verified with the new `GrpcServerIntegrationTest` (real TCP server: missing/wrong shared secret → `UNAUTHENTICATED`, valid secret reaches the service, link → create → draw → list flow), written and passing against the old starter first, then passing unchanged after the migration; full `./gradlew check` passes (114 unit, 63 integration tests).
+
+### io.jsonwebtoken:jjwt-api/jjwt-impl/jjwt-jackson `0.13.0` → removed; org.springframework.boot:spring-boot-starter-security-oauth2-resource-server `4.1.1` added
+- Access tokens are now issued with Spring Security's `NimbusJwtEncoder` and validated by the built-in OAuth2 resource server (`NimbusJwtDecoder` + `JwtValidators.createDefault()` + a claims validator requiring a UUID `sub` and an `email`), replacing the hand-written `JwtAuthFilter`
+- The signing algorithm is pinned to HS256 for both issuing and validation (jjwt picked HS256/384/512 from the key length — the dev/test secrets produced HS384). Access tokens issued before the deploy fail validation once; the SPA's 401 interceptor transparently refreshes them via the unaffected opaque refresh token
+- A stale bearer token is still ignored on the public `/api/v1/auth/{login,register,refresh,logout}` endpoints; `/api/v1/auth/logout-all` now requires authentication explicitly
+- Boot's gRPC starter auto-enables JWT auth on the gRPC server once the resource server is present; `GrpcServerSecurityAutoConfiguration` / `GrpcServerOAuth2ResourceServerAutoConfiguration` are excluded because the bot authenticates with the shared secret only (caught by `GrpcServerIntegrationTest`)
+
+Verified with the new `JwtAuthenticationIntegrationTest` (9 cases: hand-assembled HS256 tokens — valid, expired, foreign key, `alg:none`, missing `email`, non-UUID `sub`, garbage, identity-from-claims, stale token on logout), written and passing against jjwt first, then passing unchanged after the migration; full `./gradlew check` passes (116 unit, 76 integration tests).
+
 ## 2026-09-25
 
 Re-audited every explicit version in `build.gradle.kts` and the Gradle wrapper against Maven Central `maven-metadata.xml` (`<release>` field) and the Gradle Plugin Portal, per the user's request to check and update, majors explicitly in scope. No majors were available for any backend dependency this pass either.

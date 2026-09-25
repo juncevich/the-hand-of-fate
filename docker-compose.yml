@@ -39,7 +39,7 @@ services:
       JWT_ACCESS_SECRET: dev-secret-key-at-least-256-bits-long-for-testing-purposes-only
       JWT_ACCESS_TTL_MINUTES: 15
       JWT_REFRESH_TTL_DAYS: 30
-      MAIL_HOST: mailhog
+      MAIL_HOST: mailpit
       MAIL_PORT: 1025
       FRONTEND_URL: http://localhost:3000
       REFRESH_COOKIE_SECURE: "false"
@@ -100,8 +100,8 @@ services:
       - backend
 
   # ── Mail (local dev only) ──────────────────────────────────────────────────
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
+  mailpit:
+    image: axllent/mailpit:v1.31.2
     ports:
       - "1025:1025"   # SMTP
       - "8025:8025"   # Web UI

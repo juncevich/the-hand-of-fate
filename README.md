@@ -77,7 +77,7 @@ docker compose up -d
 | Frontend  | http://localhost:3000                 |
 | Backend   | http://localhost:8080                 |
 | Swagger   | http://localhost:8080/swagger-ui.html |
-| MailHog   | http://localhost:8025                 |
+| Mailpit   | http://localhost:8025                 |
 | Grafana   | http://localhost:3001  (admin/admin)  |
 
 **Demo user** (seeded automatically): `admin@admin.com` / `admin`
@@ -87,7 +87,7 @@ docker compose up -d
 Option 2 — infrastructure in Docker, apps native (hot-reload):
 
 ```bash
-./dev-start.sh    # starts postgres + mailhog, then backend/frontend/bot natively
+./dev-start.sh    # starts postgres + mailpit, then backend/frontend/bot natively
 ./dev-stop.sh     # stop infrastructure
 ```
 

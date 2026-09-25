@@ -11,9 +11,9 @@ import (
 //  1. Creates a FAIR_ROTATION vote with participant emails
 //  2. Draws until the round ends (all participants win once)
 //  3. Verifies a new round started
-//  4. Adds a new participant mid-vote
+//  4. Reopens and adds a new participant mid-vote (a drawn vote can't be modified)
 //  5. Draws again
-//  6. Removes a participant
+//  6. Reopens and removes a participant
 //  7. Cleans up (delete)
 func FairRotationScenario(c *client.Client, log *zap.Logger) error {
 	log.Info("=== FairRotationScenario start ===")
@@ -53,7 +53,11 @@ func FairRotationScenario(c *client.Client, log *zap.Logger) error {
 		}
 	}
 
-	// Add a new participant after round ends
+	// Add a new participant after round ends; reopen first, since the backend
+	// rejects participant changes on a drawn vote (409)
+	if err = c.Reopen(vote.ID); err != nil {
+		return fmt.Errorf("reopen after round: %w", err)
+	}
 	newParticipant := randomEmail()
 	if err = c.AddParticipant(vote.ID, newParticipant); err != nil {
 		return fmt.Errorf("add participant: %w", err)
@@ -61,16 +65,16 @@ func FairRotationScenario(c *client.Client, log *zap.Logger) error {
 	log.Info("added participant", zap.String("email", newParticipant))
 
 	// Draw with expanded pool
-	if err = c.Reopen(vote.ID); err != nil {
-		return fmt.Errorf("reopen before extra draw: %w", err)
-	}
 	result, err := c.Draw(vote.ID)
 	if err != nil {
 		return fmt.Errorf("extra draw: %w", err)
 	}
 	log.Info("extra draw winner", zap.String("winner", winnerLabel(result)))
 
-	// Remove a participant
+	// Remove a participant (again only while the vote is pending)
+	if err = c.Reopen(vote.ID); err != nil {
+		return fmt.Errorf("reopen before removing participant: %w", err)
+	}
 	if err = c.RemoveParticipant(vote.ID, participants[0]); err != nil {
 		return fmt.Errorf("remove participant: %w", err)
 	}

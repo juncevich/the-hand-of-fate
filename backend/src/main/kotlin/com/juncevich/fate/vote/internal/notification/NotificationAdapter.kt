@@ -1,70 +1,68 @@
 package com.juncevich.fate.vote.internal.notification
 
-import com.juncevich.fate.vote.DrawResult
-import com.juncevich.fate.vote.internal.domain.Vote
-import com.juncevich.fate.vote.internal.port.NotificationPort
+import com.juncevich.fate.vote.internal.ParticipantInvited
+import com.juncevich.fate.vote.internal.VoteDrawn
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
+import org.springframework.transaction.event.TransactionalEventListener
 
-private const val MAX_SEND_ATTEMPTS = 3
-
+/**
+ * Sends vote emails in reaction to [ParticipantInvited] / [VoteDrawn]. `@TransactionalEventListener`
+ * (AFTER_COMMIT by default) fires only once the publishing transaction has committed, and `@Async`
+ * moves the SMTP round-trips off the request thread. No transaction is opened here on purpose, so a
+ * slow mail server never holds a pooled DB connection. Retries live on [EmailService] (`@Retryable`);
+ * what still fails afterwards is logged and counted, never propagated.
+ */
 @Component
 class NotificationAdapter(
     private val emailService: EmailService,
     private val meterRegistry: MeterRegistry,
     @param:Value("\${app.frontend-url}") private val frontendUrl: String,
-) : NotificationPort {
+) {
     private val log = LoggerFactory.getLogger(NotificationAdapter::class.java)
 
     @Async
-    override fun notifyVoteInvitation(
-        recipientEmail: String,
-        vote: Vote,
-    ) {
-        withRetry("invitation email to $recipientEmail", type = "invitation") {
+    @TransactionalEventListener
+    fun on(event: ParticipantInvited) {
+        deliver("invitation email to ${event.recipientEmail}", type = "invitation") {
             emailService.sendVoteInvitation(
-                to = recipientEmail,
-                voteTitle = vote.title,
-                creatorName = vote.creator.displayName,
-                voteUrl = "$frontendUrl/votes/${vote.id}"
+                to = event.recipientEmail,
+                voteTitle = event.voteTitle,
+                creatorName = event.creatorName,
+                voteUrl = "$frontendUrl/votes/${event.voteId}"
             )
         }
     }
 
     @Async
-    override fun notifyDrawResult(
-        vote: Vote,
-        result: DrawResult,
-        participantEmails: List<String>,
-    ) {
-        participantEmails.forEach { email ->
-            withRetry("draw result email to $email", type = "draw-result") {
+    @TransactionalEventListener
+    fun on(event: VoteDrawn) {
+        val result = event.result
+        event.participantEmails.forEach { email ->
+            deliver("draw result email to $email", type = "draw-result") {
                 emailService.sendDrawResult(
                     to = email,
-                    voteTitle = vote.title,
+                    voteTitle = event.voteTitle,
                     winnerName = result.winnerOptionTitle ?: result.winnerDisplayName ?: result.winnerEmail ?: "",
                     winnerEmail = result.winnerEmail ?: "",
                     round = result.round,
-                    voteUrl = "$frontendUrl/votes/${vote.id}"
+                    voteUrl = "$frontendUrl/votes/${event.voteId}"
                 )
             }
         }
     }
 
-    private fun withRetry(
+    private fun deliver(
         description: String,
         type: String,
-        action: () -> Unit,
+        send: () -> Unit,
     ) {
-        var lastError: Throwable? = null
-        repeat(MAX_SEND_ATTEMPTS) { attempt ->
-            runCatching(action).onSuccess { return }.onFailure { lastError = it }
-            if (attempt < MAX_SEND_ATTEMPTS - 1) Thread.sleep(1000L * (attempt + 1))
+        runCatching(send).onFailure {
+            log.error("Failed to send $description", it)
+            meterRegistry.counter("notification.failed", "type", type).increment()
         }
-        log.error("Failed to send $description after $MAX_SEND_ATTEMPTS attempts", lastError)
-        meterRegistry.counter("notification.failed", "type", type).increment()
     }
 }

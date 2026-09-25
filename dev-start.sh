@@ -24,7 +24,7 @@ lsof -ti :3000               2>/dev/null | xargs kill -9 2>/dev/null || true
 pkill -f "go run ./cmd/bot"  2>/dev/null || true
 
 # ── Infrastructure ──────────────────────────────────────────────────────────
-echo "==> Starting infrastructure (postgres, mailhog)..."
+echo "==> Starting infrastructure (postgres, mailpit)..."
 docker compose -f "$ROOT/docker-compose.infra.yml" up -d
 
 echo "==> Waiting for postgres to be ready..."
@@ -83,7 +83,7 @@ fi
 echo ""
 echo "  Frontend  → http://localhost:3000"
 echo "  Backend   → http://localhost:8080  (Swagger: /swagger-ui.html)"
-echo "  MailHog   → http://localhost:8025"
+echo "  Mailpit   → http://localhost:8025"
 echo ""
 echo "  Press Ctrl+C to stop app processes."
 echo ""

@@ -1,11 +1,12 @@
 package com.juncevich.fate.auth.internal.domain
 
 import com.juncevich.fate.auth.User
+import com.juncevich.fate.shared.uuidV7
 import java.time.Instant
 import java.util.UUID
 
 class TelegramLinkToken(
-    val id: UUID = UUID.randomUUID(),
+    val id: UUID = uuidV7(),
     val user: User,
     val token: String,
     val expiresAt: Instant,

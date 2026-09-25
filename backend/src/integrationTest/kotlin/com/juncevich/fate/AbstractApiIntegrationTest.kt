@@ -1,9 +1,5 @@
 package com.juncevich.fate
 
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.kotlinModule
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -17,11 +13,13 @@ import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.context.WebApplicationContext
 import org.testcontainers.containers.PostgreSQLContainer
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = [
-        "grpc.server.port=-1",
+        "spring.grpc.server.enabled=false",
         // Disable mail health indicator to avoid SMTP connection attempts during health checks
         "management.health.mail.enabled=false"
     ]
@@ -33,11 +31,9 @@ abstract class AbstractApiIntegrationTest {
 
     protected lateinit var mockMvc: MockMvc
 
-    // ObjectMapper is no longer a Spring bean in Spring Boot 4; create directly
-    protected val objectMapper: ObjectMapper =
-        ObjectMapper()
-            .registerModule(kotlinModule())
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    // The application's own Jackson 3 mapper, so tests parse JSON exactly as the app writes it
+    @Autowired
+    protected lateinit var objectMapper: JsonMapper
 
     @BeforeEach
     fun setUpMockMvc() {
@@ -54,9 +50,9 @@ abstract class AbstractApiIntegrationTest {
         @DynamicPropertySource
         @JvmStatic
         fun datasource(registry: DynamicPropertyRegistry) {
-            val url = postgres.jdbcUrl
-            val sep = if ("?" in url) "&" else "?"
-            registry.add("spring.datasource.url") { "$url${sep}stringtype=unspecified" }
+            // Plain JDBC URL, exactly as production configures it (no stringtype=unspecified),
+            // so enum/column type mismatches surface here instead of in production.
+            registry.add("spring.datasource.url", postgres::getJdbcUrl)
             registry.add("spring.datasource.username", postgres::getUsername)
             registry.add("spring.datasource.password", postgres::getPassword)
         }

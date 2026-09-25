@@ -1,13 +1,14 @@
 package com.juncevich.fate.vote.internal.domain
 
 import com.juncevich.fate.auth.User
+import com.juncevich.fate.shared.uuidV7
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
 import java.time.Instant
 import java.util.UUID
 
 class Vote(
-    val id: UUID = UUID.randomUUID(),
+    val id: UUID = uuidV7(),
     var title: String,
     var description: String? = null,
     val creator: User,

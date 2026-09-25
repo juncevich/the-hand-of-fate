@@ -4,21 +4,21 @@ import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.requireValidEmail
 import com.juncevich.fate.vote.internal.DrawService
+import com.juncevich.fate.vote.internal.ParticipantInvited
+import com.juncevich.fate.vote.internal.VoteDrawn
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
 import com.juncevich.fate.vote.internal.domain.VoteParticipant
 import com.juncevich.fate.vote.internal.port.DrawHistoryRepositoryPort
-import com.juncevich.fate.vote.internal.port.NotificationPort
 import com.juncevich.fate.vote.internal.port.ParticipantRepositoryPort
 import com.juncevich.fate.vote.internal.port.VoteOptionRepositoryPort
 import com.juncevich.fate.vote.internal.port.VoteRepositoryPort
 import io.micrometer.core.instrument.MeterRegistry
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionSynchronization
-import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.UUID
 
 @Service
@@ -30,7 +30,7 @@ class VoteService(
     private val drawHistoryRepositoryPort: DrawHistoryRepositoryPort,
     private val userQueryService: UserQueryService,
     private val drawService: DrawService,
-    private val notificationPort: NotificationPort,
+    private val events: ApplicationEventPublisher,
     private val meterRegistry: MeterRegistry,
 ) {
     fun createVote(
@@ -66,9 +66,7 @@ class VoteService(
 
         meterRegistry.counter("vote.created", "mode", vote.mode.name).increment()
 
-        request.participantEmails.forEach { email ->
-            afterCommit { notificationPort.notifyVoteInvitation(email, vote) }
-        }
+        request.participantEmails.forEach { email -> events.publishEvent(vote.invitationFor(email)) }
 
         return vote.toDetailDto(participants, options, null, creator.id)
     }
@@ -120,7 +118,7 @@ class VoteService(
         val user = userQueryService.findByEmail(email)
         participantRepositoryPort.save(VoteParticipant(voteId = voteId, email = email, displayName = user?.displayName))
 
-        afterCommit { notificationPort.notifyVoteInvitation(email, vote) }
+        events.publishEvent(vote.invitationFor(email))
     }
 
     fun removeParticipant(
@@ -167,7 +165,7 @@ class VoteService(
         val result = drawService.draw(vote)
 
         val participants = participantRepositoryPort.findAllByVoteId(voteId)
-        afterCommit { notificationPort.notifyDrawResult(vote, result, participants.map { it.email }) }
+        events.publishEvent(VoteDrawn(vote.id, vote.title, result, participants.map { it.email }))
 
         return result
     }
@@ -248,15 +246,5 @@ class VoteService(
         }
     }
 
-    private fun afterCommit(action: () -> Unit) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) {
-            TransactionSynchronizationManager.registerSynchronization(
-                object : TransactionSynchronization {
-                    override fun afterCommit() = action()
-                }
-            )
-        } else {
-            action()
-        }
-    }
+    private fun Vote.invitationFor(email: String) = ParticipantInvited(id, title, creator.displayName, email)
 }

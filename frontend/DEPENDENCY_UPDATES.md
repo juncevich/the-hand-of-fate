@@ -1,5 +1,19 @@
 # Dependency Updates
 
+## 2026-09-25 — replacing outdated packages
+
+### react-router-dom `7.18.4` → react-router `7.18.4`
+- Since v7 `react-router-dom` is only a re-export of `react-router`; the official upgrade guide says to depend on `react-router` directly. All 14 imports switched. The `LoginPage` test's `vi.mock('react-router-dom')` would have silently stopped intercepting `useNavigate`, so it now mocks `react-router` and asserts the post-login `navigate('/')`
+
+### @typescript-eslint/eslint-plugin + @typescript-eslint/parser `8.70.1` → typescript-eslint `8.70.1`
+- `eslint.config.js` rewritten with `defineConfig` + the `typescript-eslint` flat presets, and `parserOptions.project` → `projectService: true`
+- Effective rule set compared via `eslint --print-config` before/after: identical, plus the four core rules the official preset turns on for TS files (`no-var`, `prefer-const`, `prefer-rest-params`, `prefer-spread`) — the codebase already complies. A probe file confirmed `no-floating-promises` still fires
+
+### @radix-ui/react-{avatar,dialog,dropdown-menu,label,select,separator,tabs,toast,tooltip} → radix-ui `1.6.7`
+- Only `dialog`, `label` and `toast` were imported anywhere; the other six were dead dependencies. The three used primitives now come from the unified `radix-ui` package (as current shadcn/ui does). Production bundle unchanged: 512.32 kB → 512.29 kB (gzip 161.24 → 159.98 kB)
+
+Verified with `npm test` (70 tests: +1 `useBackendStatus` timeout case, +3 toast-store cases), `npm run lint` and `npm run build`.
+
 ## 2026-09-25
 
 Re-checked every package in `package.json` against the real npm registry (`npm outdated` after a fresh `npm install`), per explicit user request to check and update with majors in scope.

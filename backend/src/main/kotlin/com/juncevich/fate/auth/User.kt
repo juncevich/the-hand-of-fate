@@ -1,10 +1,11 @@
 package com.juncevich.fate.auth
 
+import com.juncevich.fate.shared.uuidV7
 import java.time.Instant
 import java.util.UUID
 
 data class User(
-    val id: UUID = UUID.randomUUID(),
+    val id: UUID = uuidV7(),
     var email: String,
     var passwordHash: String,
     var displayName: String,

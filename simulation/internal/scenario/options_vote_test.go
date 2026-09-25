@@ -3,15 +3,24 @@ package scenario
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/juncevich/fate/simulation/internal/client"
 )
 
+// newOptionsVoteServer mirrors the backend's state rules: a drawn vote can't be drawn
+// again or have its options changed until it is reopened (409 otherwise).
 func newOptionsVoteServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	optTitle := "Option Alpha"
 	draw := client.DrawResultResponse{WinnerOptionTitle: &optTitle, Round: 1}
+	drawn := false
+	conflict := func(w http.ResponseWriter) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		writeJSON(w, map[string]string{"title": "Cannot modify a non-pending vote"})
+	}
 
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -31,10 +40,24 @@ func newOptionsVoteServer(t *testing.T) *httptest.Server {
 				},
 			})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v2/draw":
+			if drawn {
+				conflict(w)
+				return
+			}
+			drawn = true
 			writeJSON(w, draw)
 		case r.Method == http.MethodDelete && r.URL.Path == "/api/v1/votes/v2/options/o1":
+			if drawn {
+				conflict(w)
+				return
+			}
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v2/reopen":
+			if !drawn {
+				conflict(w)
+				return
+			}
+			drawn = false
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodDelete && r.URL.Path == "/api/v1/votes/v2":
 			w.WriteHeader(http.StatusNoContent)
@@ -155,6 +178,8 @@ func TestOptionsVoteScenario_RemoveOptionError(t *testing.T) {
 			})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v2/draw":
 			writeJSON(w, draw)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v2/reopen":
+			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodDelete && r.URL.Path == "/api/v1/votes/v2/options/o1":
 			w.WriteHeader(http.StatusInternalServerError)
 		default:
@@ -164,8 +189,9 @@ func TestOptionsVoteScenario_RemoveOptionError(t *testing.T) {
 	defer srv.Close()
 
 	c := testClient(t, srv)
-	if err := OptionsVoteScenario(c, testLogger(t)); err == nil {
-		t.Fatal("expected error when RemoveOption fails")
+	err := OptionsVoteScenario(c, testLogger(t))
+	if err == nil || !strings.Contains(err.Error(), "remove option") {
+		t.Fatalf("expected remove option error, got %v", err)
 	}
 }
 

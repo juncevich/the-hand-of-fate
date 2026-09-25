@@ -1,15 +1,33 @@
 package com.juncevich.fate.vote.internal.notification
 
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.mail.MailException
 import org.springframework.mail.javamail.JavaMailSender
 import org.springframework.mail.javamail.MimeMessageHelper
+import org.springframework.resilience.annotation.Retryable
 import org.springframework.stereotype.Service
 
+/**
+ * Transient SMTP failures ([MailException]) are retried: 3 attempts in total, backing off
+ * 1s then 2s by default (`app.mail.retry.delay-ms` sets the initial delay).
+ */
 @Service
 class EmailService(
     private val mailSender: JavaMailSender,
-    @param:Value("\${spring.mail.username:noreply@handoffate.app}") private val from: String,
+    @Value("\${app.mail.from:}") fromOverride: String,
+    @Value("\${spring.mail.username:}") smtpUsername: String,
 ) {
+    // An unset MAIL_USERNAME resolves to "" rather than "absent", so a placeholder default
+    // never kicks in; pick the first non-blank candidate explicitly.
+    private val from: String =
+        listOf(fromOverride, smtpUsername).firstOrNull { it.isNotBlank() } ?: DEFAULT_FROM
+
+    @Retryable(
+        includes = [MailException::class],
+        maxRetries = 2,
+        delayString = "\${app.mail.retry.delay-ms:1000}",
+        multiplier = 2.0
+    )
     fun sendVoteInvitation(
         to: String,
         voteTitle: String,
@@ -23,6 +41,12 @@ class EmailService(
         )
     }
 
+    @Retryable(
+        includes = [MailException::class],
+        maxRetries = 2,
+        delayString = "\${app.mail.retry.delay-ms:1000}",
+        multiplier = 2.0
+    )
     fun sendDrawResult(
         to: String,
         voteTitle: String,
@@ -90,4 +114,8 @@ class EmailService(
         </a>
         </body></html>
         """.trimIndent()
+
+    private companion object {
+        const val DEFAULT_FROM = "noreply@handoffate.app"
+    }
 }

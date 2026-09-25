@@ -40,16 +40,16 @@ cp .env.example .env          # add BOT_TOKEN
 ./dev-stop.sh                 # stop infrastructure
 # or via make:
 make dev-local                # same as dev-start.sh
-make infra                    # start only postgres + mailhog
+make infra                    # start only postgres + mailpit
 make infra-down               # stop infrastructure
 ```
-- `docker-compose.infra.yml` — lightweight compose file with only postgres and mailhog (used by `dev-start.sh`)
+- `docker-compose.infra.yml` — lightweight compose file with only postgres and mailpit (used by `dev-start.sh`)
 - `dev-start.sh` handles stale process cleanup, colored log output per service, conditional bot startup (skipped if `BOT_TOKEN` unset)
 
 - Frontend:  http://localhost:3000
 - Backend:   http://localhost:8080
 - Swagger:   http://localhost:8080/swagger-ui.html
-- MailHog:   http://localhost:8025
+- Mailpit:   http://localhost:8025
 - Grafana:   http://localhost:3001  (admin/admin)
 
 **Default demo user** (seeded by migration V7, **dev/test profiles only**): `admin@admin.com` / `admin`. The seed is gated behind the Flyway placeholder `seedDemoUser`, which defaults to `false` and is set to `true` only by the `dev`/`test` profiles — so it is never created in production.
@@ -153,7 +153,7 @@ cd perf
 ## Architecture
 
 ### Auth Flow
-- Registration/login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 30 days)
+- Registration/login returns `accessToken` (HS256 JWT, 15 min — issued with `NimbusJwtEncoder`, validated by Spring Security's OAuth2 resource server, see `auth/internal/token/JwtConfig.kt`) + `refreshToken` (UUID, 30 days)
 - `refreshToken` is stored hashed in `refresh_tokens` table
 - Frontend keeps `accessToken` in Zustand (memory only); `refreshToken` is sent via JSON body; all requests use `withCredentials: true`
 - On app mount, `authApi.silentRefresh()` attempts to restore session via httpOnly cookie (`withCredentials: true`, empty body); failure is silently ignored (user stays logged out)
@@ -205,7 +205,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
       adapter/     — JPA adapter implementations of port interfaces
       mapper/      — domain ↔ entity mappers
     web/           — REST controllers and DTOs
-    notification/  — notification adapters (email via NotificationPort)
+    notification/  — notification adapters (email, via `@TransactionalEventListener` on vote events)
 ```
 
 `ModularityTest` (`backend/src/test/kotlin/com/juncevich/fate/ModularityTest.kt`) verifies module boundaries are respected and generates PlantUML diagrams.
@@ -213,12 +213,12 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 ### Threading Model
 - **Virtual threads (Project Loom)** enabled via `spring.threads.virtual.enabled: true`
 - Tomcat uses `VirtualThreadExecutor` for all HTTP request threads
-- `@Async` tasks (`NotificationAdapter`) run on virtual threads — `Thread.sleep()` in retry logic parks the virtual thread correctly
+- `@Async` tasks (`NotificationAdapter`) run on virtual threads; email retries use Spring Framework 7 `@Retryable` on `EmailService` (enabled by `@EnableResilientMethods`), whose backoff sleep parks the virtual thread
 
 ### Key Backend Services
 - **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching for both participants and options; picks draw target automatically (options if any exist, otherwise participants)
 - **VoteService**: CRUD for votes including creating `VoteOption` entities from request; `addOption()` / `removeOption()` for post-creation management; votes use optimistic locking (`@Version`) to prevent concurrent draw conflicts
-- **NotificationService**: async dispatcher — triggers email after draws/invitations, swallows errors so draw success is never blocked by notification failure
+- **NotificationAdapter**: listens for `ParticipantInvited` / `VoteDrawn` events (published by `VoteService`) with `@Async @TransactionalEventListener`, so emails go out only after commit and never for a rolled-back change; swallows errors so draw success is never blocked by notification failure
 - **EmailService**: sends styled HTML emails (dark theme) for vote invitations and draw results
 - **FateGrpcService**: gRPC server implementation; uses `runCatching` + `StatusRuntimeException` for error mapping; maps `VoteOptionInfo` proto messages for options
 
@@ -268,7 +268,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 - For pages that use `useParams`, wrap in `<Routes><Route path="/path/:id" element={...} /></Routes>` with `initialEntries`
 
 ### Observability
-- Backend: Micrometer + `micrometer-tracing-bridge-otel` → OTLP → OTel Collector
+- Backend: `spring-boot-starter-opentelemetry` (Micrometer OTLP registry + OTel tracing bridge) → OTLP → OTel Collector; endpoint from `OTEL_EXPORTER_OTLP_ENDPOINT`
 - OTel Collector: metrics → Mimir, logs → Loki
 - Custom metrics: `vote.created{mode}`, `vote.draw.performed{mode,round}`, `vote.participants.count`
 - Grafana: pre-provisioned datasources (Mimir, Loki); add dashboard JSON files under `infra/monitoring/grafana/provisioning/dashboards/`
@@ -289,7 +289,8 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 |---|---|---|
 | `DB_URL` | `jdbc:postgresql://localhost:5432/fate` | JDBC URL |
 | `JWT_ACCESS_SECRET` | (dev default set) | Must be ≥256-bit in production |
-| `MAIL_HOST` | `localhost` | SMTP host (MailHog locally) |
+| `MAIL_HOST` | `localhost` | SMTP host (Mailpit locally) |
+| `MAIL_FROM` | — | Sender address; if blank, falls back to `MAIL_USERNAME`, then `noreply@handoffate.app` |
 | `FRONTEND_URL` | `http://localhost:3000` | For CORS and email links |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTLP HTTP endpoint |
 | `BOT_TOKEN` | — | Required; from @BotFather |

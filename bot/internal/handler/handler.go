@@ -98,12 +98,10 @@ func (h *Handler) Run(ctx context.Context) {
 			msg := update.Message
 			select {
 			case h.sem <- struct{}{}:
-				h.wg.Add(1)
-				go func() {
-					defer h.wg.Done()
+				h.wg.Go(func() {
 					defer func() { <-h.sem }()
 					h.handleMessage(ctx, msg)
-				}()
+				})
 			case <-ctx.Done():
 				h.log.Warn("dropping message received during shutdown", zap.Int64("chat_id", msg.Chat.ID))
 				h.wg.Wait()
