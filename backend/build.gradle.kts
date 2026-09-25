@@ -40,7 +40,7 @@ repositories {
 
 val grpcVersion          = "1.84.0"
 val grpcKotlinVersion    = "1.5.0"
-val protobufVersion      = "4.36.1"
+val protobufVersion      = "4.36.2"
 val jjwtVersion          = "0.13.0"
 val coroutinesVersion    = "1.11.0"
 val modulithVersion      = "2.1.1"

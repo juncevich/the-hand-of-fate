@@ -1,5 +1,11 @@
 # Dependency Updates
 
+## 2026-09-25
+
+Re-checked every module in `go.mod` via the Go module proxy, per the user's request to check and update with majors in scope (same audit pass as `bot`). No changes — everything already at the latest stable release: `github.com/google/uuid` `v1.6.0`, `go.uber.org/zap` `v1.28.0`, `github.com/stretchr/testify` `v1.12.1`, `go.uber.org/multierr` `v1.11.0`, `go.yaml.in/yaml/v3` `v3.0.5`. `go` directive `1.27.1` confirmed still the newest stable release on go.dev.
+
+`go build ./...` and `go test ./...` pass; `go.mod`/`go.sum` byte-identical to before this session.
+
 ## 2026-09-15
 
 Re-checked every module in `go.mod` via the Go module proxy, per the user's request to check and update with majors in scope (same audit pass as `bot`). No new major branches for either direct dependency.

@@ -1,5 +1,19 @@
 # Dependency Updates
 
+## 2026-09-25
+
+Re-checked every package in `package.json` against the real npm registry (`npm outdated` after a fresh `npm install`), per explicit user request to check and update with majors in scope.
+
+### Routine minor/patch bumps
+`@tanstack/react-query`/`@tanstack/react-query-devtools` `5.102.8 → 5.103.2`; `lucide-react` `1.46.0 → 1.48.0`; `@typescript-eslint/eslint-plugin`/`parser` `8.70.0 → 8.70.1`; `eslint` `10.10.0 → 10.11.0`; `jsdom` `30.0.1 → 30.1.1`; `vite` `8.3.0 → 8.3.1`; `vitest` `5.0.1 → 5.0.2`.
+
+### typescript `6.0.3` — major bump to `7.0.2` still blocked
+- `npm install` with `typescript@7.0.2` fails immediately with `ERESOLVE`: `@typescript-eslint/parser@8.70.1` still declares `peer typescript@">=4.8.4 <6.1.0"`. Same blocking finding as every prior audit — no released `@typescript-eslint` version supports TS 7 yet. Reverted to `6.0.3`, itself still the latest `6.x`.
+
+Verified with `npm run lint`, `npm test` (66/66 passed), and `npm run build` — all green.
+
+Everything else confirmed already at the latest stable release (no change): all `@radix-ui/*` packages, `axios`, `class-variance-authority`, `clsx`, `date-fns`, `react`/`react-dom`, `react-router-dom`, `tailwind-merge`, `zustand`, `@tailwindcss/vite`/`tailwindcss`, `@testing-library/jest-dom`, `@testing-library/react`, `@testing-library/user-event`, `@types/react`/`@types/react-dom`, `@vitejs/plugin-react`, `eslint-plugin-react-hooks`, `msw`.
+
 ## 2026-09-15
 
 Re-checked every package in `package.json` against the real npm registry (`dist-tags.latest`), per explicit user request to check and update with majors in scope. Two major-version jumps were found (`typescript` 6→7, `vitest` 4→5) and attempted individually, verifying build/lint/test after each per the user's request.

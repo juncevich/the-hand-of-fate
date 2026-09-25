@@ -1,5 +1,22 @@
 # Dependency Updates
 
+## 2026-09-25
+
+Re-audited every explicit version in `build.gradle.kts` and the Gradle wrapper against Maven Central `maven-metadata.xml` (`<release>` field) and the Gradle Plugin Portal, per the user's request to check and update, majors explicitly in scope. No majors were available for any backend dependency this pass either.
+
+### com.google.protobuf:protobuf-java/protobuf-kotlin/protoc (`protobufVersion`) `4.36.1 → 4.36.2`
+- `protobuf-java`/`protobuf-kotlin` cleanly report `<release>4.36.2</release>`; `protoc` bumped in lockstep as usual
+
+### Gradle wrapper `9.7.0 → 9.8.0`
+- Confirmed via `services.gradle.org/versions/current`; applied to both `backend` and `perf` wrappers in the same pass
+
+Verified with `./gradlew clean compileKotlin compileTestKotlin` (a clean build was required — the protobuf bump invalidated cached generated proto sources, causing a stale `Unresolved reference 'FateProto'` on an incremental `compileTestKotlin`), `./gradlew test`, `./gradlew detekt`, and `./gradlew spotlessCheck` — all pass with no source changes.
+
+### org.testcontainers:testcontainers-postgresql / testcontainers-junit-jupiter — reconciled, no change
+- Double-checked these coordinates directly against `maven-metadata.xml` after a flag that they looked like a possible artifact-id typo (the legacy 1.x line publishes as `org.testcontainers:postgresql` / `org.testcontainers:junit-jupiter`, currently at `1.21.4`). Confirmed `testcontainers-postgresql` / `testcontainers-junit-jupiter` are the real, separate 2.x-line artifact IDs (Testcontainers renamed its module coordinates for the 2.x major), both cleanly reporting `<release>2.0.5</release>` — already latest, no typo, no change needed
+
+Everything else confirmed already at the latest stable release (no change): `kotlin(jvm/plugin.spring/plugin.jpa)` `2.4.20`, `org.springframework.boot` `4.1.1` (4.2.0-M1 is a milestone, intentionally skipped), `io.spring.dependency-management` `1.1.7`, `com.google.protobuf` Gradle plugin `0.10.0`, `com.diffplug.spotless` `8.10.2`, `io.gitlab.arturbosch.detekt` `1.23.8`, `io.grpc:*` (`grpcVersion`) `1.84.0`, `io.grpc:grpc-kotlin-stub`/`protoc-gen-grpc-kotlin` `1.5.0`, `org.springframework.modulith:*` `2.1.1` (2.2.0-M1 is a milestone, intentionally skipped), `net.devh:grpc-server-spring-boot-starter` `3.1.0.RELEASE`, `org.postgresql:postgresql` `42.7.13`, `org.springdoc:springdoc-openapi-starter-webmvc-ui` `3.1.1`, `io.mockk:mockk` `1.14.11`, `com.ninja-squad:springmockk` `5.0.1`, ktlint `1.8.0`, `org.jetbrains.kotlinx:kotlinx-coroutines-*` `1.11.0`, `io.jsonwebtoken:jjwt-*` `0.13.0`.
+
 ## 2026-09-15
 
 Re-audited every explicit version in `build.gradle.kts` against Maven Central `maven-metadata.xml` (`<release>` field) and the Gradle Plugin Portal, per the user's request to check and update, majors explicitly in scope. No majors were actually available for any backend dependency — every bump below is a minor/patch release.

@@ -61,7 +61,7 @@ infra/
 |--------------|--------------------|--------------------------------------------|
 | `backend/`   | Kotlin 2.4.20      | Spring Boot 4.1.1, gRPC 1.84, JJWT 0.13   |
 | `frontend/`  | TypeScript 6.0.3   | React 19.3, Vite 8, TanStack Query 5       |
-| `bot/`       | Go 1.27.1          | grpc 1.83, zap 1.28, viper 1.21            |
+| `bot/`       | Go 1.27.1          | grpc 1.84, zap 1.28, viper 1.21            |
 | DB           | PostgreSQL         | Flyway migrations (V1–V8)                  |
 | Observability| —                  | OpenTelemetry, Mimir, Loki, Grafana        |
 

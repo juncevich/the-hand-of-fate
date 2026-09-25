@@ -1,5 +1,19 @@
 # Dependency Updates
 
+## 2026-09-25
+
+Re-checked against the Go module proxy (`go list -m -u all`) and go.dev release info, per the user's request to check and update with majors in scope. No new major branches exist for any direct dependency.
+
+### google.golang.org/grpc `v1.83.2 → v1.84.0`
+- One minor release behind; `go.mod` for `v1.84.0` requires no toolchain bump beyond the current `go 1.27.1` directive
+
+### google.golang.org/genproto/googleapis/rpc (indirect, pseudo-version)
+- `v0.0.0-20260911204522-f61a6ca850bd → v0.0.0-20260921155816-b14227669459` — sync of generated `.pb.go` with latest googleapis proto definitions; this module only ever publishes pseudo-versions, no semver tags exist upstream
+
+Direct dependencies otherwise unchanged (already latest): `telegram-bot-api/v5` `v5.5.1`, `spf13/viper` `v1.21.0`, `go.uber.org/zap` `v1.28.0`, `google.golang.org/protobuf` `v1.36.12`. `go` directive `1.27.1` confirmed still the newest stable release on go.dev. Other indirects unchanged: `fsnotify` `v1.10.1`, `go-viper/mapstructure/v2` `v2.5.0`, `pelletier/go-toml/v2` `v2.4.3`, `sagikazarmark/locafero` `v0.12.0`, `spf13/afero` `v1.15.0`, `spf13/cast` `v1.10.0`, `spf13/pflag` `v1.0.10`, `subosito/gotenv` `v1.6.0`, `go.uber.org/multierr` `v1.11.0`, `go.yaml.in/yaml/v3` `v3.0.5`, `golang.org/x/net` `v0.59.0`, `golang.org/x/sys` `v0.48.0`, `golang.org/x/text` `v0.42.0`.
+
+`go build ./...` and `go test ./...` pass with no code changes.
+
 ## 2026-09-15
 
 Re-checked against the Go module proxy (`@latest`/`@v/list`) and go.dev release info, per the user's request to check and update with majors in scope. No new major branches exist for any direct dependency.

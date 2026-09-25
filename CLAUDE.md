@@ -134,8 +134,8 @@ cd perf
 | `telegram-bot-api/telegram-bot-api/v5` | v5.5.1  | Telegram API  |
 | `spf13/viper`                      | v1.21.0  | Config        |
 | `go.uber.org/zap`                  | v1.28.0  | Logging       |
-| `google.golang.org/grpc`           | v1.81.0  | gRPC client   |
-| `google.golang.org/protobuf`       | v1.36.11 | Proto runtime |
+| `google.golang.org/grpc`           | v1.84.0  | gRPC client   |
+| `google.golang.org/protobuf`       | v1.36.12 | Proto runtime |
 
 ### Telegram Bot Commands
 | Command                                                 | Description                                                                                                                       |
