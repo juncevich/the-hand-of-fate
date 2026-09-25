@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Monorepo Structure
 
 ```
-backend/     Kotlin 2.4.20 + Spring Boot 4.1.1, PostgreSQL, gRPC server
+backend/     Kotlin 2.4.20 + Spring Boot 4.1.1 on Java 26, PostgreSQL, gRPC server
 frontend/    React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4 + shadcn/ui
 bot/         Go 1.27.1 Telegram bot, gRPC client to backend
 perf/        Gatling 3.13.5 + Kotlin load/smoke tests
@@ -62,7 +62,8 @@ cd backend
 ./gradlew test --tests "*.DrawServiceTest"  # single test class
 ./gradlew generateProto          # regenerate gRPC stubs from proto/
 ./gradlew bootJar                # build fat JAR
-./gradlew detekt                 # static analysis (Detekt 1.23.8)
+./gradlew detekt                 # static analysis (detekt 2.0.0-alpha.6, full analysis of main/test/integrationTest)
+./gradlew detektBaselineMain detektBaselineTest detektBaselineIntegrationTest  # rewrite detekt-baseline-<sourceSet>.xml
 ./gradlew spotlessCheck          # formatting check (Spotless 8.4.0 / ktlint)
 ./gradlew spotlessApply          # auto-fix formatting
 ```
@@ -123,7 +124,7 @@ cd perf
 ./gradlew spotlessApply                                           # auto-fix formatting
 ```
 - Reports: `perf/build/reports/gatling/<simulation-name-timestamp>/index.html`
-- JVM: requires Java 17+ to run Gradle; configured via `gradle.properties` (`org.gradle.java.home`)
+- JVM: Gradle provisions Temurin 26 for itself (`gradle/gradle-daemon-jvm.properties`) and for the Java 26 toolchain; `gatlingRun` runs simulations in the Gradle daemon JVM
 - Simulations: `src/gatling/kotlin/simulations/`
 - `perf/detekt.yml` mirrors the backend's ruleset but disables `WildcardImport` (Gatling's Java DSL is conventionally imported via `CoreDsl.*`/`HttpDsl.*`) and relaxes `FunctionNaming` (PascalCase factory functions like `LongFeeder(...)`)
 
@@ -314,9 +315,9 @@ Services run directly on Ubuntu via systemd (no Docker). Nginx serves the fronte
 | Component | Version      |
 |-----------|--------------|
 | Runner OS | ubuntu-24.04 |
-| Java      | 21 (Temurin) |
-| Go        | 1.25         |
-| Node.js   | 22           |
+| Java      | 26 (Temurin) |
+| Go        | from `go.mod` (1.27) |
+| Node.js   | 26 (`frontend/.nvmrc`) |
 
 ### CI workflows (backend.yml / frontend.yml / bot.yml / perf.yml / simulation.yml)
 Each project has its own workflow file, triggered on PR and push to `main` via path filters.
@@ -344,7 +345,7 @@ Backend and bot deploys also write `/opt/hand-of-fate/.env` from GitHub Secrets.
 ### server-setup.yml
 One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first deploy. Optional inputs `domain` + `email` enable TLS. Steps:
 1. Updates packages
-2. Installs Java 21 (Temurin)
+2. Installs Java 26 (Temurin) and makes it the default `java` (also upgrades a server still on an older Java; `deploy-backend.yml` refuses to deploy to a server below Java 26)
 3. Installs and enables Nginx
 4. Installs PostgreSQL 17, creates `fate` DB user and `fate` database
 5. Creates `fate` system user and `/opt/hand-of-fate/{backend,frontend,bot}/` directories

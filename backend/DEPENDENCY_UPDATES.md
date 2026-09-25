@@ -1,5 +1,24 @@
 # Dependency Updates
 
+## 2026-09-26 — Java 26, detekt 2
+
+### Java toolchain `21 → 26` (Temurin)
+- Newest release both Kotlin 2.4.20 (max `JvmTarget.JVM_26`) and Spring Boot 4.1 ("compatible up to and including Java 26") support; Java 27 is blocked by both. Note: 26 is a non-LTS release and stopped receiving updates when 27 shipped (last patch 26.0.2.1, Aug 2026) — revisit when Kotlin/Boot support 27, or fall back to 25 LTS
+- `org.gradle.java.home` (a machine-specific `/Users/...` path, broken on CI and for other developers) removed from `gradle.properties`; the Gradle JVM is now pinned portably via Daemon JVM criteria (`gradle/gradle-daemon-jvm.properties`: Temurin 26, auto-provisioned through foojay)
+
+### io.gitlab.arturbosch.detekt `1.23.8` → dev.detekt `2.0.0-alpha.6`
+- 1.23.8 is the latest stable, but it embeds Kotlin 2.0.21 whose IntelliJ runtime can't parse the version of a Java 25+ JVM and it runs inside the Gradle daemon — so it could not run with a Java 26 daemon (`IllegalArgumentException: 26.0.2.1` / `25.0.3`). 2.0 is still alpha (latest `2.0.0-alpha.6`, 2026-08-04, built against Kotlin 2.4.10); it runs fine on Java 26
+- The detekt classpath is pinned to Kotlin 2.4.10 (detekt refuses to run with a different Kotlin than it was compiled with)
+- `detekt.yml` migrated to 2.x property names; limits are unchanged — `threshold` (first reported value) → `allowed*` (maximum allowed), mapped using both versions' generated default configs (e.g. `LongParameterList.functionThreshold: 8` → `allowedFunctionParameters: 7`); `build.maxIssues` removed (2.x fails on any issue)
+- `./gradlew detekt` now runs the full-analysis (type-resolution) tasks `detektMain`/`detektTest`/`detektIntegrationTest` — in 2.x rules such as `LongParameterList` only run in that mode. Generated protobuf/gRPC sources are excluded. Baselines are per source set (`detekt-baseline-<sourceSet>.xml`): the 3 entries of the old baseline are carried over, plus 38 findings from checks 1.x never ran here (`UseOrEmpty` ×14, `VarCouldBeVal` ×12, `ForbiddenVoid`, `UnsafeCallOnNullableType`, `AbstractClassCanBeInterface`, `InjectDispatcher`, …) — worth fixing separately
+- Verified: a probe file with an empty function + 8-parameter function yields exactly the same two findings as 1.23.8 did
+
+### Docker image
+- Build stage `eclipse-temurin:21-jdk-alpine` → `eclipse-temurin:26-jdk` (glibc: the protoc / protoc-gen-grpc-java binaries fetched by the protobuf plugin don't run on musl — the Alpine build stage failed at `generateProto` already before this change), runtime `26-jre-alpine`
+- Dropped obsolete JVM flags: `-XX:+UseContainerSupport` (default since JDK 10) and `-Djava.security.egd=file:/dev/./urandom`
+
+Verified: `./gradlew clean check` (123 unit + 77 integration tests, run on Temurin 26.0.2.1; class files are version 70), the Docker image starts on Java 26.0.2 and serves requests, all four `simulation` end-to-end scenarios pass against the jar on Java 26.
+
 ## 2026-09-25 — Jackson 3 Kotlin module, Java toolchain
 
 ### com.fasterxml.jackson.module:jackson-module-kotlin `2.21.5` → tools.jackson.module:jackson-module-kotlin `3.1.5`

@@ -7,7 +7,8 @@ Gatling 3.13.5 + Kotlin. Standalone Gradle project targeting the backend REST AP
 ```
 perf/
 ├── build.gradle.kts
-├── gradle.properties          # Java 17 path + JVM flags
+├── gradle.properties          # Gradle JVM flags
+├── gradle/gradle-daemon-jvm.properties  # Gradle runs on Temurin 26 (auto-provisioned)
 ├── src/gatling/kotlin/simulations/
 │   ├── SmokeSimulation.kt     # 1 user, all key endpoints, zero failures asserted
 │   ├── AuthSimulation.kt      # register + silent refresh ramp; login burst
@@ -16,7 +17,7 @@ perf/
 
 ## Prerequisites
 
-- Java 17 (Temurin). Path is set in `gradle.properties`; update it if your local path differs.
+- Nothing to install for Java: Gradle provisions Temurin 26 for itself (`gradle/gradle-daemon-jvm.properties`) and for the Java 26 toolchain the simulations are compiled and run with.
 - Running backend at `http://localhost:8080` (default).
 - Seeded demo user `admin@admin.com` / `admin` (migration V7).
 

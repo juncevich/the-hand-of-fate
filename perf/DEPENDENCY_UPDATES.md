@@ -1,5 +1,21 @@
 # Dependency Updates
 
+## 2026-09-26 — Java 26, detekt 2
+
+### Java toolchain `21 → 26` (Temurin)
+- Newest release both Kotlin 2.4.20 (max `JvmTarget.JVM_26`) and Spring Boot 4.1 ("compatible up to and including Java 26") support; Java 27 is blocked by both. Note: 26 is a non-LTS release and stopped receiving updates when 27 shipped (last patch 26.0.2.1, Aug 2026) — revisit when Kotlin/Boot support 27, or fall back to 25 LTS
+- `org.gradle.java.home` (a machine-specific `/Users/...` path, broken on CI and for other developers) removed from `gradle.properties`; the Gradle JVM is now pinned portably via Daemon JVM criteria (`gradle/gradle-daemon-jvm.properties`: Temurin 26, auto-provisioned through foojay)
+
+- The simulations previously had no toolchain (they compiled with whatever JVM ran Gradle — 17 locally, 21 on CI); now `kotlin { jvmToolchain(26) }`. The Gatling plugin runs simulations in the Gradle daemon JVM (it has no toolchain support), which is why the daemon itself must be Java 26 — with a Java 21 daemon `gatlingRun` failed with `UnsupportedClassVersionError`
+
+### io.gitlab.arturbosch.detekt `1.23.8` → dev.detekt `2.0.0-alpha.6`
+- 1.23.8 is the latest stable, but it embeds Kotlin 2.0.21 whose IntelliJ runtime can't parse the version of a Java 25+ JVM and it runs inside the Gradle daemon — so it could not run with a Java 26 daemon (`IllegalArgumentException: 26.0.2.1` / `25.0.3`). 2.0 is still alpha (latest `2.0.0-alpha.6`, 2026-08-04, built against Kotlin 2.4.10); it runs fine on Java 26
+- The detekt classpath is pinned to Kotlin 2.4.10 (detekt refuses to run with a different Kotlin than it was compiled with)
+- `detekt.yml` migrated to 2.x property names; limits are unchanged — `threshold` (first reported value) → `allowed*` (maximum allowed), mapped using both versions' generated default configs (e.g. `LongParameterList.functionThreshold: 8` → `allowedFunctionParameters: 7`); `build.maxIssues` removed (2.x fails on any issue)
+- `./gradlew detekt` runs `detektGatling` (full analysis of the Gatling sources); no findings, no baseline needed
+
+Verified: `spotlessCheck detekt compileGatlingKotlin` pass, and `gatlingRun --simulation simulations.SmokeSimulation` passes on Java 26 against a live backend (3/3 requests OK).
+
 ## 2026-09-25
 
 Re-checked every version in `perf/build.gradle.kts` and the Gradle wrapper against Maven Central / the Gradle Plugin Portal metadata, per the user's request to check and update, majors explicitly in scope (same audit pass as `backend`). No majors were available.

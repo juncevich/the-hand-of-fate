@@ -35,16 +35,20 @@ jobs:
             apt-get update -q
             apt-get upgrade -y -q
 
-            echo "━━━ [2/7] Установка Java 21 (Temurin) ━━━"
-            if ! java -version 2>&1 | grep -q "21"; then
+            echo "━━━ [2/7] Установка Java 26 (Temurin) ━━━"
+            # Major version of the default `java` (0 if none); the backend jar is Java 26 bytecode
+            java_major=$(java -version 2>&1 | sed -nE '1s/.*version "([0-9]+).*/\1/p')
+            if [ "${java_major:-0}" -lt 26 ]; then
               apt-get install -y -q wget apt-transport-https gpg
               wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public \
-                | gpg --dearmor -o /etc/apt/keyrings/adoptium.gpg
+                | gpg --batch --yes --dearmor -o /etc/apt/keyrings/adoptium.gpg
               echo "deb [signed-by=/etc/apt/keyrings/adoptium.gpg] \
                 https://packages.adoptium.net/artifactory/deb $(lsb_release -cs) main" \
                 > /etc/apt/sources.list.d/adoptium.list
               apt-get update -q
-              apt-get install -y -q temurin-21-jdk
+              apt-get install -y -q temurin-26-jdk
+              # Make Java 26 the default even if an older Temurin is installed
+              update-alternatives --set java /usr/lib/jvm/temurin-26-jdk-*/bin/java
               echo "  Java $(java -version 2>&1 | head -1)"
             else
               echo "  Java уже установлена"
@@ -107,7 +111,6 @@ jobs:
             EnvironmentFile=/opt/hand-of-fate/.env
             ExecStart=/usr/bin/java \
               -XX:MaxRAMPercentage=75.0 \
-              -Djava.security.egd=file:/dev/./urandom \
               -jar /opt/hand-of-fate/backend/app.jar
             SuccessExitStatus=143
             Restart=on-failure

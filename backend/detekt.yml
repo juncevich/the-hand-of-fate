@@ -1,26 +1,25 @@
-build:
-  maxIssues: 0
-
 config:
   validation: true
   warningsAsErrors: false
 
+# detekt 2.x "allowed*" values are the maximum permitted (1.x "threshold" was the first
+# reported value where the defaults differ by one); limits are unchanged from the 1.x config.
 complexity:
   CyclomaticComplexMethod:
-    threshold: 15
+    allowedComplexity: 14
   CognitiveComplexMethod:
-    threshold: 20
+    allowedComplexity: 20
   LongMethod:
-    threshold: 80
+    allowedLines: 80
   LongParameterList:
-    functionThreshold: 8
-    constructorThreshold: 10  # JPA entities and Spring service constructors can be wide
+    allowedFunctionParameters: 7
+    allowedConstructorParameters: 9  # JPA entities and Spring service constructors can be wide
   TooManyFunctions:
-    thresholdInFiles: 30
-    thresholdInClasses: 20
-    thresholdInInterfaces: 20
-    thresholdInObjects: 20
-    thresholdInEnums: 20
+    allowedFunctionsPerFile: 30
+    allowedFunctionsPerClass: 20
+    allowedFunctionsPerInterface: 20
+    allowedFunctionsPerObject: 20
+    allowedFunctionsPerEnum: 20
 
 naming:
   FunctionNaming:
@@ -36,7 +35,9 @@ style:
     active: false             # Allowed intentionally (FateProto.*, mockk.*, etc.)
   ReturnCount:
     max: 4
-  UnusedPrivateMember:
+  UnusedPrivateFunction:
+    active: true
+  UnusedPrivateProperty:
     active: true
   ForbiddenComment:
     active: false             # TODO/FIXME comments are acceptable during development

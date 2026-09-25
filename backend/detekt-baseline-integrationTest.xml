@@ -1,0 +1,24 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>AbstractClassCanBeConcreteClass:AbstractApiIntegrationTest.kt:AbstractApiIntegrationTest$AbstractApiIntegrationTest</ID>
+    <ID>TooManyFunctions:VoteApiIntegrationTest.kt:VoteApiIntegrationTest : AbstractApiIntegrationTest</ID>
+    <ID>UnsafeCallOnNullableType:VoteApiIntegrationTest.kt:VoteApiIntegrationTest$options.find { it["title"].asText() == "Remove" }!!</ID>
+    <ID>UnsafeCallOnNullableType:VoteApiIntegrationTest.kt:VoteApiIntegrationTest$sharedVote!!</ID>
+    <ID>UnsafeCallOnNullableType:VoteVersioningIntegrationTest.kt:VoteVersioningIntegrationTest$jdbcTemplate.queryForObject( "SELECT id FROM users WHERE email = 'admin@admin.com'", UUID::class.java )!!</ID>
+    <ID>UnusedVariable:VoteApiIntegrationTest.kt:VoteApiIntegrationTest$creatorEmail</ID>
+    <ID>UseOrEmpty:AbstractApiIntegrationTest.kt:AbstractApiIntegrationTest$Regex("fate_refresh_token=([^;]+)").find(setCookie)?.groupValues?.get(1) ?: ""</ID>
+    <ID>UseOrEmpty:AbstractApiIntegrationTest.kt:AbstractApiIntegrationTest$result.response.getHeader("Set-Cookie") ?: ""</ID>
+    <ID>UseOrEmpty:JwtAuthenticationIntegrationTest.kt:JwtAuthenticationIntegrationTest$email?.let { ""","email":"$it"""" } ?: ""</ID>
+    <ID>VarCouldBeVal:AbstractApiIntegrationTest.kt:AbstractApiIntegrationTest$@Autowired private lateinit var context: WebApplicationContext</ID>
+    <ID>VarCouldBeVal:JwtAuthenticationIntegrationTest.kt:JwtAuthenticationIntegrationTest$@Value("\${jwt.access-secret}") private lateinit var secret: String</ID>
+    <ID>VarCouldBeVal:NotificationDeliveryIntegrationTest.kt:NotificationDeliveryIntegrationTest$@Autowired private lateinit var transactionManager: PlatformTransactionManager</ID>
+    <ID>VarCouldBeVal:NotificationDeliveryIntegrationTest.kt:NotificationDeliveryIntegrationTest$@Autowired private lateinit var voteService: VoteService</ID>
+    <ID>VarCouldBeVal:NotificationDeliveryIntegrationTest.kt:NotificationDeliveryIntegrationTest$@MockkBean(relaxed = true) private lateinit var emailService: EmailService</ID>
+    <ID>VarCouldBeVal:VoteVersioningIntegrationTest.kt:VoteVersioningIntegrationTest$@Autowired private lateinit var jdbcTemplate: JdbcTemplate</ID>
+    <ID>VarCouldBeVal:VoteVersioningIntegrationTest.kt:VoteVersioningIntegrationTest$@Autowired private lateinit var txManager: PlatformTransactionManager</ID>
+    <ID>VarCouldBeVal:VoteVersioningIntegrationTest.kt:VoteVersioningIntegrationTest$@Autowired private lateinit var voteJpaRepository: VoteJpaRepository</ID>
+    <ID>VarCouldBeVal:VoteVersioningIntegrationTest.kt:VoteVersioningIntegrationTest$@PersistenceContext private lateinit var em: EntityManager</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>VarCouldBeVal:NotificationRetryTest.kt:NotificationRetryTest$@Autowired private lateinit var adapter: NotificationAdapter</ID>
+    <ID>VarCouldBeVal:NotificationRetryTest.kt:NotificationRetryTest$@Autowired private lateinit var mailSender: JavaMailSender</ID>
+    <ID>VarCouldBeVal:NotificationRetryTest.kt:NotificationRetryTest$@Autowired private lateinit var meterRegistry: MeterRegistry</ID>
+  </CurrentIssues>
+</SmellBaseline>

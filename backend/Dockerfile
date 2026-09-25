@@ -1,6 +1,10 @@
 # Build context is the repository ROOT (so the shared proto tree is reachable).
 # docker-compose sets `context: .` + `dockerfile: backend/Dockerfile`.
-FROM eclipse-temurin:21-jdk-alpine AS build
+
+# Temurin 26 satisfies both gradle/gradle-daemon-jvm.properties and the Java 26 toolchain,
+# so Gradle provisions no extra JDK. glibc-based (not Alpine): the protoc / protoc-gen-grpc-java
+# binaries fetched by the protobuf plugin are glibc executables and don't run on musl.
+FROM eclipse-temurin:26-jdk AS build
 
 WORKDIR /app
 
@@ -19,7 +23,7 @@ RUN ./gradlew bootJar --no-daemon -x test
 
 # ─────────────────────────────────────────────────────────────────────────────
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:26-jre-alpine
 
 RUN addgroup -S fate && adduser -S fate -G fate
 USER fate
@@ -30,8 +34,5 @@ COPY --from=build /app/build/libs/*.jar app.jar
 
 EXPOSE 8080 9090
 
-ENTRYPOINT ["java", \
-  "-XX:MaxRAMPercentage=75.0", \
-  "-XX:+UseContainerSupport", \
-  "-Djava.security.egd=file:/dev/./urandom", \
-  "-jar", "app.jar"]
+# Container-aware memory sizing is on by default since JDK 10 (UseContainerSupport)
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]

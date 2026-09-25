@@ -1,6 +1,4 @@
 import com.google.protobuf.gradle.*
-import io.gitlab.arturbosch.detekt.Detekt
-import io.gitlab.arturbosch.detekt.DetektCreateBaselineTask
 
 plugins {
     kotlin("jvm")                              version "2.4.20"
@@ -10,7 +8,7 @@ plugins {
     id("io.spring.dependency-management")      version "1.1.7"
     id("com.google.protobuf")                  version "0.10.0"
     id("com.diffplug.spotless")                version "8.10.2"
-    id("io.gitlab.arturbosch.detekt")          version "1.23.8"
+    id("dev.detekt")                           version "2.0.0-alpha.6"
 }
 
 group   = "com.juncevich"
@@ -18,7 +16,7 @@ version = "0.1.0-SNAPSHOT"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(26)
     }
 }
 
@@ -194,11 +192,15 @@ spotless {
     // .kts formatting is skipped: ktlint does not yet support Kotlin 2.3.x script parsing
 }
 
-// detekt 1.23.x was compiled with Kotlin 2.0.21; pin its classpath to avoid version mismatch
+// ── Static analysis (detekt) ─────────────────────────────────────────────────
+// detekt 2.x (still alpha): 1.23.x embeds Kotlin 2.0.21, whose IntelliJ runtime can't run in
+// a Java 25+ Gradle daemon. The per-source-set tasks (detektMain, detektTest, …) run in full
+// analysis mode, which some rules (e.g. LongParameterList) require in 2.x.
+// detekt must run with the Kotlin version it was compiled against, not the project's
 configurations.matching { it.name.contains("detekt", ignoreCase = true) }.configureEach {
     resolutionStrategy.eachDependency {
         if (requested.group == "org.jetbrains.kotlin") {
-            useVersion("2.0.21")
+            useVersion("2.4.10")
         }
     }
 }
@@ -206,19 +208,21 @@ configurations.matching { it.name.contains("detekt", ignoreCase = true) }.config
 detekt {
     config.setFrom(file("detekt.yml"))
     buildUponDefaultConfig = true
-    source.setFrom("src/main/kotlin", "src/test/kotlin", "src/integrationTest/kotlin")
     baseline = file("detekt-baseline.xml")
 }
 
-// detekt's bundled IntelliJ runtime doesn't handle Java 26+ — run against a Java 17 JDK home
-val detektJdkHome = javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) }
-    .map { it.metadata.installationPath }
-// detekt 1.23.x only supports --jvm-target up to 22; cap it regardless of the project toolchain
-tasks.withType<Detekt>().configureEach {
-    jvmTarget = "22"
-    jdkHome.set(detektJdkHome)
+// Source-set tasks see generated protobuf/gRPC stubs too; only hand-written code is analysed
+tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
+    exclude { it.file.invariantSeparatorsPath.contains("/build/generated/") }
 }
-tasks.withType<DetektCreateBaselineTask>().configureEach {
-    jvmTarget = "22"
-    jdkHome.set(detektJdkHome)
+tasks.withType<dev.detekt.gradle.DetektCreateBaselineTask>().configureEach {
+    exclude { it.file.invariantSeparatorsPath.contains("/build/generated/") }
+}
+
+// `./gradlew detekt` (CI, docs) runs the full-analysis source-set tasks; its own light-mode
+// pass would only repeat a subset of their checks. Baselines: detekt-baseline-<sourceSet>.xml,
+// regenerate with detektBaselineMain / detektBaselineTest / detektBaselineIntegrationTest.
+tasks.named("detekt") {
+    enabled = false
+    dependsOn("detektMain", "detektTest", "detektIntegrationTest")
 }

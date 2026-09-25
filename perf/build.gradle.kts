@@ -1,14 +1,18 @@
-import io.gitlab.arturbosch.detekt.Detekt
-
 plugins {
     kotlin("jvm") version "2.4.20"
     id("io.gatling.gradle") version "3.15.1.3"
     id("com.diffplug.spotless") version "8.10.2"
-    id("io.gitlab.arturbosch.detekt") version "1.23.8"
+    id("dev.detekt") version "2.0.0-alpha.6"
 }
 
 repositories {
     mavenCentral()
+}
+
+// Simulations compile with the Java 26 toolchain; the Gradle plugin runs them in the Gradle
+// daemon's JVM, which is also Java 26 (gradle/gradle-daemon-jvm.properties).
+kotlin {
+    jvmToolchain(26)
 }
 
 dependencies {
@@ -39,11 +43,12 @@ spotless {
     }
 }
 
-// detekt 1.23.x was compiled with Kotlin 2.0.21; pin its classpath to avoid version mismatch
+// detekt 2.x (still alpha): 1.23.x can't run inside a Java 25+ Gradle daemon.
+// detekt must run with the Kotlin version it was compiled against, not the project's
 configurations.matching { it.name.contains("detekt", ignoreCase = true) }.configureEach {
     resolutionStrategy.eachDependency {
         if (requested.group == "org.jetbrains.kotlin") {
-            useVersion("2.0.21")
+            useVersion("2.4.10")
         }
     }
 }
@@ -51,14 +56,11 @@ configurations.matching { it.name.contains("detekt", ignoreCase = true) }.config
 detekt {
     config.setFrom(file("detekt.yml"))
     buildUponDefaultConfig = true
-    source.setFrom("src/gatling/kotlin")
 }
 
-// detekt's bundled IntelliJ runtime doesn't handle Java 26+ — run against a Java 17 JDK home
-val detektJdkHome = javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) }
-    .map { it.metadata.installationPath }
-// detekt 1.23.x only supports --jvm-target up to 22; cap it regardless of the project toolchain
-tasks.withType<Detekt>().configureEach {
-    jvmTarget = "22"
-    jdkHome.set(detektJdkHome)
+// `./gradlew detekt` runs the full-analysis task for the Gatling sources (type resolution;
+// some 2.x rules only run in that mode) instead of the light-mode pass.
+tasks.named("detekt") {
+    enabled = false
+    dependsOn("detektGatling")
 }

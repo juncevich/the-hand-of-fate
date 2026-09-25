@@ -109,6 +109,17 @@ jobs:
           ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
             "mkdir -p $DEPLOY_DIR/backend"
 
+      - name: Check server Java version
+        run: |
+          # The jar is Java 26 bytecode; an older runtime would fail with UnsupportedClassVersionError
+          java_major=$(ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
+            "java -version 2>&1" | sed -nE '1s/.*version "([0-9]+).*/\1/p')
+          if [ "${java_major:-0}" -lt 26 ]; then
+            echo "::error::Server runs Java ${java_major:-none}, the backend needs Java 26+. Re-run the server-setup workflow (installs temurin-26-jdk) before deploying."
+            exit 1
+          fi
+          echo "Server Java: $java_major"
+
       - name: Backup previous backend JAR
         run: |
           ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \

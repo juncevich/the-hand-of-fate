@@ -1,5 +1,15 @@
 # Dependency Updates
 
+## 2026-09-26 — Node.js 26
+
+### Node.js `22 → 26`
+- CI (`setup-node` now reads `frontend/.nvmrc`) and the Docker build stage (`node:26-alpine`). Node 26 is the newest release and becomes Active LTS in October 2026; Vite 8 supports it (`^20.19.0 || >=22.12.0`)
+
+### typescript `6.0.3` — major bump to `7.0.2` still blocked
+- `typescript-eslint@8.70.1` (latest) still declares `peer typescript@">=4.8.4 <6.1.0"`
+
+Verified inside `node:26-alpine`: `npm ci`, `npm test` (70 tests), `npm run lint`, `npm run build`; the frontend Docker image builds.
+
 ## 2026-09-25 — replacing outdated packages
 
 ### react-router-dom `7.18.4` → react-router `7.18.4`
