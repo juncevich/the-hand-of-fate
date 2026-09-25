@@ -46,8 +46,8 @@ class NotificationAdapter(
                 emailService.sendDrawResult(
                     to = email,
                     voteTitle = event.voteTitle,
-                    winnerName = result.winnerOptionTitle ?: result.winnerDisplayName ?: result.winnerEmail ?: "",
-                    winnerEmail = result.winnerEmail ?: "",
+                    winnerName = (result.winnerOptionTitle ?: result.winnerDisplayName ?: result.winnerEmail).orEmpty(),
+                    winnerEmail = result.winnerEmail.orEmpty(),
                     round = result.round,
                     voteUrl = "$frontendUrl/votes/${event.voteId}"
                 )

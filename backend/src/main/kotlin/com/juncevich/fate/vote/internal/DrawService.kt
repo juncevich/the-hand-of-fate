@@ -15,14 +15,14 @@ import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-private sealed class DrawWinner {
+private sealed interface DrawWinner {
     data class Participant(
         val participant: VoteParticipant,
-    ) : DrawWinner()
+    ) : DrawWinner
 
     data class Option(
         val option: VoteOption,
-    ) : DrawWinner()
+    ) : DrawWinner
 }
 
 @Service

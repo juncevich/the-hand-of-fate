@@ -5,8 +5,10 @@
 ### Node.js `22 → 26`
 - CI (`setup-node` now reads `frontend/.nvmrc`) and the Docker build stage (`node:26-alpine`). Node 26 is the newest release and becomes Active LTS in October 2026; Vite 8 supports it (`^20.19.0 || >=22.12.0`)
 
-### typescript `6.0.3` — major bump to `7.0.2` still blocked
-- `typescript-eslint@8.70.1` (latest) still declares `peer typescript@">=4.8.4 <6.1.0"`
+### typescript `6.0.3` → `7.0.2` (side-by-side with the 6.0 API)
+- TypeScript 7 (the Go-native compiler) ships no JS API (`typescript@7` only exports `./lib/version.cjs` plus `./unstable/*`), so `typescript-eslint` (latest `8.70.1`, peer `typescript <6.1.0`; canary too) cannot run on it — its maintainers point to Microsoft's documented side-by-side setup (typescript-eslint#12518, #10940)
+- Following the TypeScript 7.0 announcement ("Running Side-by-Side with TypeScript 6.0"): `"typescript": "npm:@typescript/typescript6@^6.0.2"` (the 6.0 API for typescript-eslint, plus a `tsc6` binary) and `"@typescript/native": "npm:typescript@^7.0.2"` (provides `tsc`). `npm run build`'s `tsc -b` now type-checks with 7.0.2 — 0.43 s vs 1.23 s on 6.0.3 for this project
+- Verified: `tsc -v` → 7.0.2 while `require('typescript').version` → 6.0.3; a probe type error fails `tsc -b` (TS2322); a floating-promise probe still fails lint; `npm ci` + type-check + tests + lint + build pass on Linux (`node:26-alpine`) and in the Docker build. Drop the alias once typescript-eslint supports the TS 7.1 API
 
 Verified inside `node:26-alpine`: `npm ci`, `npm test` (70 tests), `npm run lint`, `npm run build`; the frontend Docker image builds.
 

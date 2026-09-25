@@ -38,7 +38,7 @@ class VoteController(
     fun deleteVote(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Unit> {
         voteService.deleteVote(id, user.id)
         return ResponseEntity.noContent().build()
     }
@@ -48,7 +48,7 @@ class VoteController(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
         @Valid @RequestBody request: AddParticipantRequest,
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Unit> {
         voteService.addParticipant(id, user.id, request.email)
         return ResponseEntity.noContent().build()
     }
@@ -58,7 +58,7 @@ class VoteController(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
         @PathVariable email: String,
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Unit> {
         voteService.removeParticipant(id, user.id, email)
         return ResponseEntity.noContent().build()
     }
@@ -68,7 +68,7 @@ class VoteController(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
         @Valid @RequestBody request: AddOptionRequest,
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Unit> {
         voteService.addOption(id, user.id, request.title)
         return ResponseEntity.noContent().build()
     }
@@ -78,7 +78,7 @@ class VoteController(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
         @PathVariable optionId: UUID,
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Unit> {
         voteService.removeOption(id, user.id, optionId)
         return ResponseEntity.noContent().build()
     }
@@ -102,7 +102,7 @@ class VoteController(
     fun reopen(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Unit> {
         voteService.reopen(id, user.id)
         return ResponseEntity.noContent().build()
     }
@@ -111,7 +111,7 @@ class VoteController(
     fun closeVote(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Unit> {
         voteService.closeVote(id, user.id)
         return ResponseEntity.noContent().build()
     }

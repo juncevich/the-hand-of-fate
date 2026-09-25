@@ -57,7 +57,8 @@ class VoteService(
 
         val options =
             voteOptionRepositoryPort.saveAll(
-                (request.options ?: emptyList())
+                request.options
+                    .orEmpty()
                     .map { it.trim() }
                     .filter { it.isNotBlank() }
                     .distinct()

@@ -65,7 +65,7 @@ class AuthController(
     fun logout(
         @RequestBody(required = false) request: RefreshRequest?,
         servletRequest: HttpServletRequest,
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Unit> {
         val refreshToken = request.refreshTokenOrCookie(servletRequest)
         if (!refreshToken.isNullOrBlank()) {
             authService.logout(refreshToken)
@@ -79,7 +79,7 @@ class AuthController(
     @PostMapping("/logout-all")
     fun logoutAll(
         @AuthenticationPrincipal user: AuthenticatedUser,
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Unit> {
         authService.logoutAll(user.id)
         return ResponseEntity
             .noContent()

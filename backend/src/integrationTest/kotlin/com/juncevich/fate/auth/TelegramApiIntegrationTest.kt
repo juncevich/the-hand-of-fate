@@ -24,7 +24,7 @@ class TelegramApiIntegrationTest : AbstractApiIntegrationTest() {
                 }.andReturn()
 
         val body = parse(result.response.contentAsString)
-        val linkToken = body["token"].asText()
+        val linkToken = body["token"].asString()
         assertTrue(linkToken.isNotBlank(), "Link token must not be blank")
         assertNotNull(body["expiresAt"], "expiresAt must be present")
     }
@@ -65,8 +65,8 @@ class TelegramApiIntegrationTest : AbstractApiIntegrationTest() {
                     header("Authorization", "Bearer $token")
                 }.andReturn()
 
-        val token1 = parse(result1.response.contentAsString)["token"].asText()
-        val token2 = parse(result2.response.contentAsString)["token"].asText()
+        val token1 = parse(result1.response.contentAsString)["token"].asString()
+        val token2 = parse(result2.response.contentAsString)["token"].asString()
 
         assertTrue(token1 != token2, "Each link token call must return a unique token")
     }

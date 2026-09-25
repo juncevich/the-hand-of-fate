@@ -80,7 +80,7 @@ class TelegramLinkService(
         val user =
             userRepositoryPort.findById(userId)
                 ?: throw NoSuchElementException("User not found")
-        check(user.telegramId != null) { "No Telegram account is linked to this user" }
+        checkNotNull(user.telegramId) { "No Telegram account is linked to this user" }
         user.telegramId = null
         user.telegramName = null
         userRepositoryPort.save(user)

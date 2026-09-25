@@ -34,7 +34,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
                     content =
                         """{"title":"$title","mode":"SIMPLE","participantEmails":[$participantsJson]}"""
                 }.andReturn()
-        return parse(result.response.contentAsString)["id"].asText()
+        return parse(result.response.contentAsString)["id"].asString()
     }
 
     private fun createFairVote(
@@ -56,7 +56,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
                         |"options":[$optionsJson]}
                         """.trimMargin()
                 }.andReturn()
-        return parse(result.response.contentAsString)["id"].asText()
+        return parse(result.response.contentAsString)["id"].asString()
     }
 
     private fun draw(
@@ -205,7 +205,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
 
     @Test
     fun `GET votes - participant can see vote in list`() {
-        val (creatorToken, creatorEmail) = createUser()
+        val (creatorToken) = createUser()
         val (participantToken, participantEmail) = createUser()
 
         createSimpleVote(creatorToken, "Shared Vote", listOf(participantEmail))
@@ -217,9 +217,11 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
                 }.andReturn()
 
         val content = parse(result.response.contentAsString)["content"]
-        val sharedVote = content.find { it["title"].asText() == "Shared Vote" }
-        assertNotNull(sharedVote, "Participant should see the vote they were invited to")
-        assertEquals(false, sharedVote!!["isCreator"].asBoolean())
+        val sharedVote =
+            checkNotNull(content.find { it["title"].asString() == "Shared Vote" }) {
+                "Participant should see the vote they were invited to"
+            }
+        assertEquals(false, sharedVote["isCreator"].asBoolean())
     }
 
     // ── Get vote ──────────────────────────────────────────────────────────────
@@ -400,8 +402,8 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
                 }.andReturn()
 
         val options = parse(detailResult.response.contentAsString)["options"]
-        val optionToRemove = options.find { it["title"].asText() == "Remove" }!!
-        val optionId = optionToRemove["id"].asText()
+        val optionToRemove = checkNotNull(options.find { it["title"].asString() == "Remove" })
+        val optionId = optionToRemove["id"].asString()
 
         mockMvc
             .delete("/api/v1/votes/$voteId/options/$optionId") {
@@ -427,10 +429,8 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
 
         val drawResult = parse(draw(token, voteId))
 
-        assertNotNull(
-            drawResult["winnerEmail"]?.takeIf { !it.isNull },
-            "Expected a winner email"
-        )
+        // The creator is always a participant too, so the winner is one of the two
+        assertTrue(drawResult["winnerEmail"].asString() in setOf(creatorEmail, extra))
         assertEquals(1, drawResult["round"].asInt())
         assertEquals(false, drawResult["newRoundStarted"].asBoolean())
     }
@@ -449,7 +449,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
 
         val drawResult = parse(draw(token, voteId))
 
-        assertEquals("Option X", drawResult["winnerOptionTitle"].asText())
+        assertEquals("Option X", drawResult["winnerOptionTitle"].asString())
         assertTrue(drawResult["winnerEmail"].isNull)
     }
 
@@ -494,7 +494,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
 
         repeat(3) { iteration ->
             val result = parse(draw(token, voteId))
-            val winner = result["winnerEmail"].asText()
+            val winner = result["winnerEmail"].asString()
             assertTrue(winner in allEmails, "Winner '$winner' must be one of the participants")
             assertTrue(winnersRound1.add(winner), "Participant $winner already won in round 1")
             assertEquals(1, result["round"].asInt())
@@ -521,7 +521,7 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
 
         repeat(3) { i ->
             val result = parse(draw(token, voteId))
-            val winner = result["winnerOptionTitle"].asText()
+            val winner = result["winnerOptionTitle"].asString()
             assertTrue(winner in listOf("A", "B", "C"), "Winner must be a known option")
             assertTrue(winnersRound1.add(winner), "Option $winner already won in round 1")
             assertEquals(1, result["round"].asInt())

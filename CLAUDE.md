@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 backend/     Kotlin 2.4.20 + Spring Boot 4.1.1 on Java 26, PostgreSQL, gRPC server
-frontend/    React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4 + shadcn/ui
+frontend/    React 19 + TypeScript 7 + Vite 8 + Tailwind CSS 4 + shadcn/ui
 bot/         Go 1.27.1 Telegram bot, gRPC client to backend
 perf/        Gatling 3.13.5 + Kotlin load/smoke tests
 simulation/  Go 1.27.1 user-behaviour simulator (functional end-to-end flows)
@@ -166,6 +166,7 @@ cd perf
 - **Zustand** manages auth state (`authStore`) and dark/light theme (`themeStore`; persisted to localStorage)
 - **React Query** (`@tanstack/react-query`) handles all server state — queries, mutations, cache invalidation
 - Custom Axios instance in `frontend/src/api/client.ts` handles token refresh with a retry queue so concurrent 401s only trigger one refresh call
+- TypeScript 7 runs side-by-side with the 6.0 API: `tsc` (type-check in `npm run build`) is TS 7 from the `@typescript/native` alias, while the `typescript` package is aliased to `@typescript/typescript6` because typescript-eslint needs the classic JS API that TS 7 no longer ships
 - ESLint enforces `@typescript-eslint/no-floating-promises` on `src/**` (type-checked, see `eslint.config.js`) — mark deliberately-unawaited calls (`invalidateQueries()`, `navigate()`, `clipboard.writeText()`, etc.) with `void` rather than leaving them bare
 
 **Custom hooks** (`frontend/src/hooks/`) encapsulate all React Query logic; pages import hooks rather than calling API directly:

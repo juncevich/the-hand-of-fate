@@ -7,7 +7,7 @@ React SPA for The Hand of Fate — vote management and account settings.
 | Library              | Version |
 |----------------------|---------|
 | React                | 19.3.0  |
-| TypeScript           | 6.0.3   |
+| TypeScript           | 7.0.2 (`tsc`; typescript-eslint uses the 6.0 API via `@typescript/typescript6`) |
 | Vite                 | 8.3.1   |
 | Tailwind CSS         | 4.3.3   |
 | shadcn/ui + Radix UI | —       |

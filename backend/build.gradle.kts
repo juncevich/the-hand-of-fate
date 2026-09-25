@@ -96,7 +96,6 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter:2.0.5")
     testImplementation("io.mockk:mockk:1.14.11")
-    testImplementation("com.ninja-squad:springmockk:5.0.1")
 
     // ── Static analysis ───────────────────────────────────────────────────────
     // detekt-formatting is intentionally excluded — spotless/ktlint owns all formatting

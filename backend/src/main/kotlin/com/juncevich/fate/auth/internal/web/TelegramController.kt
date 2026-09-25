@@ -28,7 +28,7 @@ class TelegramController(
     @DeleteMapping("/unlink")
     fun unlink(
         @AuthenticationPrincipal user: AuthenticatedUser,
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Unit> {
         telegramLinkService.unlinkByUserId(user.id)
         return ResponseEntity.noContent().build()
     }

@@ -44,7 +44,7 @@ A voting and random selection application with fair rotation support. Users crea
 
 ```
 backend/    Kotlin 2.4.20 + Spring Boot 4.1.1 — REST API + gRPC server
-frontend/   React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4
+frontend/   React 19 + TypeScript 7 + Vite 8 + Tailwind CSS 4
 bot/        Go 1.27.1 — Telegram bot, gRPC client
 proto/      Shared protobuf definitions (fate/v1/fate.proto)
 infra/
@@ -60,7 +60,7 @@ infra/
 | Component    | Language / Runtime | Key Libraries                              |
 |--------------|--------------------|--------------------------------------------|
 | `backend/`   | Kotlin 2.4.20      | Spring Boot 4.1.1, gRPC 1.84, JJWT 0.13   |
-| `frontend/`  | TypeScript 6.0.3   | React 19.3, Vite 8, TanStack Query 5       |
+| `frontend/`  | TypeScript 7.0.2   | React 19.3, Vite 8, TanStack Query 5       |
 | `bot/`       | Go 1.27.1          | grpc 1.84, zap 1.28, viper 1.21            |
 | DB           | PostgreSQL         | Flyway migrations (V1–V8)                  |
 | Observability| —                  | OpenTelemetry, Mimir, Loki, Grafana        |

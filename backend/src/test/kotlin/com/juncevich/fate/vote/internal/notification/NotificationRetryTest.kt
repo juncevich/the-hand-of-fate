@@ -38,76 +38,73 @@ import java.util.UUID
         "app.mail.retry.delay-ms=10"
     ]
 )
-class NotificationRetryTest {
-    @Configuration
-    @EnableResilientMethods
-    @Import(EmailService::class, NotificationAdapter::class)
-    class Config {
-        @Bean
-        fun mailSender(): JavaMailSender = mockk(relaxed = true)
-
-        @Bean
-        fun meterRegistry(): MeterRegistry = SimpleMeterRegistry()
-    }
-
+class NotificationRetryTest
     @Autowired
-    private lateinit var mailSender: JavaMailSender
+    constructor(
+        private val mailSender: JavaMailSender,
+        private val meterRegistry: MeterRegistry,
+        private val adapter: NotificationAdapter,
+    ) {
+        @Configuration
+        @EnableResilientMethods
+        @Import(EmailService::class, NotificationAdapter::class)
+        class Config {
+            @Bean
+            fun mailSender(): JavaMailSender = mockk(relaxed = true)
 
-    @Autowired
-    private lateinit var meterRegistry: MeterRegistry
-
-    @Autowired
-    private lateinit var adapter: NotificationAdapter
-
-    private val invitation = ParticipantInvited(UUID.randomUUID(), "Vote", "Creator", "p@test.com")
-
-    @BeforeEach
-    fun setUp() {
-        clearMocks(mailSender)
-        meterRegistry.clear()
-        every { mailSender.createMimeMessage() } answers { MimeMessage(Session.getInstance(Properties())) }
-    }
-
-    private fun failedCount(type: String) =
-        meterRegistry
-            .find("notification.failed")
-            .tag("type", type)
-            .counter()
-            ?.count() ?: 0.0
-
-    @Test
-    fun `transient SMTP failures are retried until the email goes out`() {
-        every { mailSender.send(any<MimeMessage>()) } throws
-            MailSendException("SMTP down") andThenThrows
-            MailSendException("SMTP still down") andThen Unit
-
-        adapter.on(invitation)
-
-        verify(exactly = 3) { mailSender.send(any<MimeMessage>()) }
-        assertEquals(0.0, failedCount("invitation"))
-    }
-
-    @Test
-    fun `gives up after three attempts and counts the failure`() {
-        every { mailSender.send(any<MimeMessage>()) } throws MailSendException("SMTP down")
-
-        adapter.on(invitation)
-
-        verify(exactly = 3) { mailSender.send(any<MimeMessage>()) }
-        assertEquals(1.0, failedCount("invitation"))
-    }
-
-    @Test
-    fun `one recipient failing does not stop the others`() {
-        every { mailSender.send(any<MimeMessage>()) } answers {
-            val to = firstArg<MimeMessage>().allRecipients.single().toString()
-            if (to == "bad@test.com") throw MailSendException("mailbox unavailable")
+            @Bean
+            fun meterRegistry(): MeterRegistry = SimpleMeterRegistry()
         }
-        val result = DrawResult(null, null, "Option", 1, false)
 
-        adapter.on(VoteDrawn(UUID.randomUUID(), "Vote", result, listOf("bad@test.com", "good@test.com")))
+        private val invitation = ParticipantInvited(UUID.randomUUID(), "Vote", "Creator", "p@test.com")
 
-        verify(exactly = 4) { mailSender.send(any<MimeMessage>()) }
-        assertEquals(1.0, failedCount("draw-result"))
+        @BeforeEach
+        fun setUp() {
+            clearMocks(mailSender)
+            meterRegistry.clear()
+            every { mailSender.createMimeMessage() } answers { MimeMessage(Session.getInstance(Properties())) }
+        }
+
+        private fun failedCount(type: String) =
+            meterRegistry
+                .find("notification.failed")
+                .tag("type", type)
+                .counter()
+                ?.count() ?: 0.0
+
+        @Test
+        fun `transient SMTP failures are retried until the email goes out`() {
+            every { mailSender.send(any<MimeMessage>()) } throws
+                MailSendException("SMTP down") andThenThrows
+                MailSendException("SMTP still down") andThen Unit
+
+            adapter.on(invitation)
+
+            verify(exactly = 3) { mailSender.send(any<MimeMessage>()) }
+            assertEquals(0.0, failedCount("invitation"))
+        }
+
+        @Test
+        fun `gives up after three attempts and counts the failure`() {
+            every { mailSender.send(any<MimeMessage>()) } throws MailSendException("SMTP down")
+
+            adapter.on(invitation)
+
+            verify(exactly = 3) { mailSender.send(any<MimeMessage>()) }
+            assertEquals(1.0, failedCount("invitation"))
+        }
+
+        @Test
+        fun `one recipient failing does not stop the others`() {
+            every { mailSender.send(any<MimeMessage>()) } answers {
+                val to = firstArg<MimeMessage>().allRecipients.single().toString()
+                if (to == "bad@test.com") throw MailSendException("mailbox unavailable")
+            }
+            val result = DrawResult(null, null, "Option", 1, false)
+
+            adapter.on(VoteDrawn(UUID.randomUUID(), "Vote", result, listOf("bad@test.com", "good@test.com")))
+
+            verify(exactly = 4) { mailSender.send(any<MimeMessage>()) }
+            assertEquals(1.0, failedCount("draw-result"))
+        }
     }
-}

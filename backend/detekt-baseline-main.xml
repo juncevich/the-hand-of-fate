@@ -2,25 +2,7 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>AbstractClassCanBeInterface:DrawHistory.kt:DrawHistory$DrawHistory</ID>
-    <ID>AbstractClassCanBeInterface:DrawService.kt:DrawWinner$DrawWinner</ID>
-    <ID>ForbiddenVoid:AuthController.kt:AuthController$Void</ID>
-    <ID>ForbiddenVoid:TelegramController.kt:TelegramController$Void</ID>
-    <ID>ForbiddenVoid:VoteController.kt:VoteController$Void</ID>
-    <ID>InjectDispatcher:FateGrpcService.kt:FateGrpcService$IO</ID>
     <ID>LongParameterList:Vote.kt:Vote</ID>
     <ID>LongParameterList:VoteJpaEntity.kt:VoteJpaEntity</ID>
-    <ID>UseCheckNotNull:TelegramLinkService.kt:TelegramLinkService$check(user.telegramId != null) { "No Telegram account is linked to this user" }</ID>
-    <ID>UseOrEmpty:FateGrpcService.kt:FateGrpcService$it.displayName ?: ""</ID>
-    <ID>UseOrEmpty:FateGrpcService.kt:FateGrpcService$result.winnerDisplayName ?: ""</ID>
-    <ID>UseOrEmpty:FateGrpcService.kt:FateGrpcService$result.winnerEmail ?: ""</ID>
-    <ID>UseOrEmpty:FateGrpcService.kt:FateGrpcService$result.winnerOptionTitle ?: ""</ID>
-    <ID>UseOrEmpty:FateGrpcService.kt:FateGrpcService$vote.description ?: ""</ID>
-    <ID>UseOrEmpty:FateGrpcService.kt:FateGrpcService$winnerDisplayName ?: ""</ID>
-    <ID>UseOrEmpty:FateGrpcService.kt:FateGrpcService$winnerEmail ?: ""</ID>
-    <ID>UseOrEmpty:FateGrpcService.kt:FateGrpcService$winnerOptionTitle ?: ""</ID>
-    <ID>UseOrEmpty:NotificationAdapter.kt:NotificationAdapter$result.winnerEmail ?: ""</ID>
-    <ID>UseOrEmpty:NotificationAdapter.kt:NotificationAdapter$result.winnerOptionTitle ?: result.winnerDisplayName ?: result.winnerEmail ?: ""</ID>
-    <ID>UseOrEmpty:VoteService.kt:VoteService$request.options ?: emptyList()</ID>
   </CurrentIssues>
 </SmellBaseline>

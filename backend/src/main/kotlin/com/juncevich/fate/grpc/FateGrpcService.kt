@@ -6,6 +6,7 @@ import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.*
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.springframework.data.domain.PageRequest
@@ -26,9 +27,11 @@ class FateGrpcService(
     private val userQueryService: UserQueryService,
     private val telegramLinkService: TelegramLinkService,
     private val voteService: VoteService,
+    // Blocking JPA calls run off the gRPC event loop; injectable so tests can swap it
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : FateServiceGrpcKt.FateServiceCoroutineImplBase() {
     override suspend fun linkTelegramAccount(request: LinkTelegramAccountRequest): LinkTelegramAccountResponse =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             runCatching {
                 val user =
                     telegramLinkService.linkAccount(
@@ -64,7 +67,7 @@ class FateGrpcService(
         }
 
     override suspend fun unlinkTelegramAccount(request: UnlinkTelegramAccountRequest): UnlinkTelegramAccountResponse =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             runCatching {
                 telegramLinkService.unlinkAccount(request.telegramId)
                 UnlinkTelegramAccountResponse
@@ -94,7 +97,7 @@ class FateGrpcService(
         }
 
     override suspend fun getMyVotes(request: GetMyVotesRequest): GetMyVotesResponse =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val user = linkedUser(request.telegramId)
             val votes =
                 buildList {
@@ -127,7 +130,7 @@ class FateGrpcService(
         }
 
     override suspend fun createVote(request: CreateVoteRequest): CreateVoteResponse =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val user = linkedUser(request.telegramId)
             val title = request.title.trim()
             if (title.isBlank()) {
@@ -188,7 +191,7 @@ class FateGrpcService(
         }
 
     override suspend fun getVoteDetails(request: GetVoteDetailsRequest): GetVoteDetailsResponse =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val user = linkedUser(request.telegramId)
             val voteId = parseVoteId(request.voteId)
             val voteDto =
@@ -215,7 +218,7 @@ class FateGrpcService(
         }
 
     override suspend fun drawVote(request: DrawVoteRequest): DrawVoteResponse =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val user = linkedUser(request.telegramId)
             val voteId = parseVoteId(request.voteId)
             runCatching {
@@ -223,9 +226,9 @@ class FateGrpcService(
                 DrawVoteResponse
                     .newBuilder()
                     .setSuccess(true)
-                    .setWinnerEmail(result.winnerEmail ?: "")
-                    .setWinnerDisplayName(result.winnerDisplayName ?: "")
-                    .setWinnerOptionTitle(result.winnerOptionTitle ?: "")
+                    .setWinnerEmail(result.winnerEmail.orEmpty())
+                    .setWinnerDisplayName(result.winnerDisplayName.orEmpty())
+                    .setWinnerOptionTitle(result.winnerOptionTitle.orEmpty())
                     .setRound(result.round)
                     .setNewRoundStarted(result.newRoundStarted)
                     .setMessage("✦ The Hand of Fate has chosen: ${result.winnerLabel}")
@@ -252,7 +255,7 @@ class FateGrpcService(
         }
 
     override suspend fun getLastDrawResult(request: GetLastDrawResultRequest): GetLastDrawResultResponse =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val user = linkedUser(request.telegramId)
             val voteId = parseVoteId(request.voteId)
 
@@ -289,7 +292,7 @@ class FateGrpcService(
         }
 
     override suspend fun getVoteHistory(request: GetVoteHistoryRequest): GetVoteHistoryResponse =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val user = linkedUser(request.telegramId)
             val voteId = parseVoteId(request.voteId)
             val history =
@@ -323,7 +326,7 @@ class FateGrpcService(
                 .newBuilder()
                 .setVoteId(vote.id.toString())
                 .setTitle(vote.title)
-                .setDescription(vote.description ?: "")
+                .setDescription(vote.description.orEmpty())
                 .setMode(vote.mode.toProto())
                 .setStatus(vote.status.toProto())
                 .setCurrentRound(vote.currentRound)
@@ -332,7 +335,7 @@ class FateGrpcService(
                         ParticipantInfo
                             .newBuilder()
                             .setEmail(it.email)
-                            .setDisplayName(it.displayName ?: "")
+                            .setDisplayName(it.displayName.orEmpty())
                             .build()
                     }
                 ).addAllOptions(
@@ -353,9 +356,9 @@ class FateGrpcService(
     private fun DrawHistoryDto.toDrawResultInfo(): DrawResultInfo =
         DrawResultInfo
             .newBuilder()
-            .setWinnerEmail(winnerEmail ?: "")
-            .setWinnerDisplayName(winnerDisplayName ?: "")
-            .setWinnerOptionTitle(winnerOptionTitle ?: "")
+            .setWinnerEmail(winnerEmail.orEmpty())
+            .setWinnerDisplayName(winnerDisplayName.orEmpty())
+            .setWinnerOptionTitle(winnerOptionTitle.orEmpty())
             .setRound(round)
             .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(drawnAt))
             .build()

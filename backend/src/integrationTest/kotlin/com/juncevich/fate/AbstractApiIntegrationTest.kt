@@ -12,7 +12,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.context.WebApplicationContext
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 
@@ -25,10 +25,10 @@ import tools.jackson.databind.json.JsonMapper
     ]
 )
 @ActiveProfiles("test")
+// Shared base for API tests: abstract so it is never instantiated/run on its own,
+// even though it declares no abstract members.
+@Suppress("AbstractClassCanBeConcreteClass")
 abstract class AbstractApiIntegrationTest {
-    @Autowired
-    private lateinit var context: WebApplicationContext
-
     protected lateinit var mockMvc: MockMvc
 
     // The application's own Jackson 3 mapper, so tests parse JSON exactly as the app writes it
@@ -36,7 +36,9 @@ abstract class AbstractApiIntegrationTest {
     protected lateinit var objectMapper: JsonMapper
 
     @BeforeEach
-    fun setUpMockMvc() {
+    fun setUpMockMvc(
+        @Autowired context: WebApplicationContext,
+    ) {
         mockMvc =
             MockMvcBuilders
                 .webAppContextSetup(context)
@@ -45,7 +47,7 @@ abstract class AbstractApiIntegrationTest {
     }
 
     companion object {
-        private val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:17").also { it.start() }
+        private val postgres: PostgreSQLContainer = PostgreSQLContainer("postgres:17").also { it.start() }
 
         @DynamicPropertySource
         @JvmStatic
@@ -72,7 +74,7 @@ abstract class AbstractApiIntegrationTest {
                     content =
                         """{"email":"$email","password":"$password","displayName":"$displayName"}"""
                 }.andReturn()
-        return objectMapper.readTree(result.response.contentAsString)["accessToken"].asText()
+        return objectMapper.readTree(result.response.contentAsString)["accessToken"].asString()
     }
 
     protected fun loginAndGetTokens(
@@ -85,14 +87,18 @@ abstract class AbstractApiIntegrationTest {
                     contentType = MediaType.APPLICATION_JSON
                     content = """{"email":"$email","password":"$password"}"""
                 }.andReturn()
-        val accessToken = objectMapper.readTree(result.response.contentAsString)["accessToken"].asText()
-        val setCookie = result.response.getHeader("Set-Cookie") ?: ""
+        val accessToken = objectMapper.readTree(result.response.contentAsString)["accessToken"].asString()
+        val setCookie = result.response.getHeader("Set-Cookie").orEmpty()
         val refreshToken =
-            Regex("fate_refresh_token=([^;]+)").find(setCookie)?.groupValues?.get(1) ?: ""
+            Regex("fate_refresh_token=([^;]+)")
+                .find(setCookie)
+                ?.groupValues
+                ?.get(1)
+                .orEmpty()
         return accessToken to refreshToken
     }
 
     protected fun parse(json: String): JsonNode = objectMapper.readTree(json)
 
-    protected fun JsonNode.text(field: String): String = this[field].asText()
+    protected fun JsonNode.text(field: String): String = this[field].asString()
 }
