@@ -129,9 +129,11 @@ func (c *Client) Login(req LoginRequest) (AuthResponse, error) {
 }
 
 func (c *Client) Refresh(refreshToken string) (AuthResponse, error) {
-	var body *RefreshRequest
+	// Untyped nil when there is no token: a nil *RefreshRequest stored in `any`
+	// is non-nil and would be sent as a JSON "null" body.
+	var body any
 	if refreshToken != "" {
-		body = &RefreshRequest{RefreshToken: refreshToken}
+		body = RefreshRequest{RefreshToken: refreshToken}
 	}
 	resp, err := c.do("POST", "/api/v1/auth/refresh", body)
 	if err != nil {
@@ -146,9 +148,11 @@ func (c *Client) Refresh(refreshToken string) (AuthResponse, error) {
 }
 
 func (c *Client) Logout(refreshToken string) error {
-	var body *RefreshRequest
+	// Untyped nil when there is no token: a nil *RefreshRequest stored in `any`
+	// is non-nil and would be sent as a JSON "null" body.
+	var body any
 	if refreshToken != "" {
-		body = &RefreshRequest{RefreshToken: refreshToken}
+		body = RefreshRequest{RefreshToken: refreshToken}
 	}
 	resp, err := c.do("POST", "/api/v1/auth/logout", body)
 	if err != nil {

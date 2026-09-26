@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import { AxiosError, AxiosHeaders } from 'axios'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -13,6 +14,8 @@ vi.mock('@/api/votes', () => ({
     reopen: vi.fn(),
     addParticipant: vi.fn(),
     removeParticipant: vi.fn(),
+    addOption: vi.fn(),
+    removeOption: vi.fn(),
     delete: vi.fn(),
     getHistory: vi.fn(),
   },
@@ -284,5 +287,158 @@ describe('VoteDetailPage', () => {
 
     expect(await screen.findByText('Последний результат')).toBeInTheDocument()
     expect(screen.getAllByText('Alice').length).toBeGreaterThan(0)
+  })
+
+  it('shows an error state and refetches on retry', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.get).mockRejectedValueOnce(new Error('Сервер недоступен')).mockResolvedValueOnce(makeVote())
+    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+
+    const user = userEvent.setup()
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    expect(await screen.findByText('Сервер недоступен')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Повторить' }))
+
+    expect(await screen.findByText('Кто дежурит?')).toBeInTheDocument()
+    expect(votesApi.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('reopens a drawn vote', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.get).mockResolvedValue(makeVote({ status: 'DRAWN' }))
+    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.reopen).mockResolvedValueOnce({} as never)
+
+    const user = userEvent.setup()
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    expect(screen.queryByRole('button', { name: /Пусть Рука Судьбы решит/i })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /Голосовать снова/i }))
+
+    await waitFor(() => expect(votesApi.reopen).toHaveBeenCalledWith(VOTE_ID))
+  })
+
+  it('deletes the vote and navigates to the dashboard', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.get).mockResolvedValue(makeVote())
+    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.delete).mockResolvedValueOnce({} as never)
+
+    const user = userEvent.setup()
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    const heading = await screen.findByRole('heading', { name: 'Кто дежурит?' })
+    await user.click(heading.parentElement!.nextElementSibling as HTMLElement)
+
+    expect(await screen.findByText('Dashboard')).toBeInTheDocument()
+    expect(votesApi.delete).toHaveBeenCalledWith(VOTE_ID)
+  })
+
+  it('shows the backend error in a toast when a mutation fails', async () => {
+    const { votesApi } = await import('@/api/votes')
+    const { toast } = await import('@/components/ui/toaster')
+    vi.mocked(votesApi.get).mockResolvedValue(makeVote())
+    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.draw).mockRejectedValueOnce(
+      new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
+        data: { title: 'Cannot draw now' },
+        status: 409,
+        statusText: 'Conflict',
+        headers: {},
+        config: { headers: new AxiosHeaders() },
+      })
+    )
+
+    const user = userEvent.setup()
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    await user.click(await screen.findByRole('button', { name: /Пусть Рука Судьбы решит/i }))
+
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('Ошибка', 'Cannot draw now', 'error'))
+  })
+
+  it('renders options and shows the empty-options hint otherwise', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote())
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    expect(await screen.findByText('Варианты (0)')).toBeInTheDocument()
+    expect(screen.getByText(/Нет вариантов/)).toBeInTheDocument()
+  })
+
+  it('adds an option', async () => {
+    const { votesApi } = await import('@/api/votes')
+    const { toast } = await import('@/components/ui/toaster')
+    vi.mocked(votesApi.get).mockResolvedValue(makeVote())
+    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.addOption).mockResolvedValueOnce({} as never)
+
+    const user = userEvent.setup()
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    await user.type(await screen.findByPlaceholderText('Добавить вариант'), 'Пицца{Enter}')
+
+    await waitFor(() => {
+      expect(votesApi.addOption).toHaveBeenCalledWith(VOTE_ID, 'Пицца')
+      expect(toast).toHaveBeenCalledWith('Вариант добавлен')
+    })
+  })
+
+  it('removes an option', async () => {
+    const { votesApi } = await import('@/api/votes')
+    const { toast } = await import('@/components/ui/toaster')
+    vi.mocked(votesApi.get).mockResolvedValue(makeVote({ options: [{ id: 'opt-1', title: 'Пицца' }] }))
+    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.removeOption).mockResolvedValueOnce({} as never)
+
+    const user = userEvent.setup()
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    const chip = await screen.findByText('Пицца')
+    await user.click(chip.querySelector('button')!)
+
+    await waitFor(() => {
+      expect(votesApi.removeOption).toHaveBeenCalledWith(VOTE_ID, 'opt-1')
+      expect(toast).toHaveBeenCalledWith('Вариант удалён')
+    })
+  })
+
+  it('hides option controls when the vote is not editable', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.get).mockResolvedValueOnce(
+      makeVote({ status: 'CLOSED', options: [{ id: 'opt-1', title: 'Пицца' }] })
+    )
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    const chip = await screen.findByText('Пицца')
+    expect(chip.querySelector('button')).toBeNull()
+    expect(screen.queryByPlaceholderText('Добавить вариант')).not.toBeInTheDocument()
+    expect(screen.getByText('Закрыт')).toBeInTheDocument()
+  })
+
+  it('shows round badge for fair rotation votes', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote({ mode: 'FAIR_ROTATION', currentRound: 3, description: 'Каждую неделю' }))
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    expect(await screen.findByText('Справедливый')).toBeInTheDocument()
+    expect(screen.getByText('Раунд 3')).toBeInTheDocument()
+    expect(screen.getByText('Каждую неделю')).toBeInTheDocument()
   })
 })

@@ -60,6 +60,8 @@ cd backend
 ./gradlew bootRun                # run locally (needs postgres on :5432)
 ./gradlew test                   # all tests
 ./gradlew test --tests "*.DrawServiceTest"  # single test class
+./gradlew jacocoTestReport       # unit + integration coverage → build/reports/jacoco/test/html/index.html (also run by `check`)
+./gradlew jacocoTestCoverageVerification  # fails below 95% lines / 85% branches (also run by `check`)
 ./gradlew generateProto          # regenerate gRPC stubs from proto/
 ./gradlew bootJar                # build fat JAR
 ./gradlew detekt                 # static analysis (detekt 2.0.0-alpha.6, full analysis of main/test/integrationTest)
@@ -230,7 +232,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 ### gRPC (Backend ↔ Bot)
 - Proto source: `proto/fate/v1/fate.proto` (package `fate.v1`)
 - Buf manages proto (`buf.yaml` + `buf.gen.yaml` at repo root)
-- Backend generates Java/Kotlin stubs via `com.google.protobuf` Gradle plugin → `backend/build/generated/source/proto/main/`
+- Backend generates Java/Kotlin stubs via `com.google.protobuf` Gradle plugin → `backend/build/generated/sources/proto/main/`
 - Bot generates Go stubs via Buf → `bot/gen/fate/v1/`
 - `FateGrpcService.kt` implements the service; `bot/internal/grpcclient/` wraps the Go stub
 - **Transport security:** the channel is plaintext (no TLS) authenticated only by `SharedSecretAuthInterceptor` (constant-time compare of `x-grpc-shared-secret`). The server binds to `127.0.0.1` by default (`GRPC_BIND_ADDRESS`) so it is not reachable off-host; only set `0.0.0.0` on a trusted network. For a topology where the bot and backend run on different hosts, add mTLS.
@@ -249,7 +251,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 5. Bot notifies via Telegram; backend sends emails for invitations and draw results
 
 ### Testing
-- **Backend**: MockK for unit tests. Tests live in `backend/src/test/kotlin/`
+- **Backend**: MockK for unit tests. Tests live in `backend/src/test/kotlin/`. Coverage: JaCoCo 0.8.15, merged unit + integration report; generated protobuf/gRPC classes are excluded by the file names `generateProto` emitted (they share the `com.juncevich.fate.grpc` package with hand-written code). `check` enforces minimums of 95% lines / 85% branches (`jacocoTestCoverageVerification`) — cover new code with tests rather than lowering them
 - **Frontend**: Vitest + `@testing-library/react` + jest-dom
 
 #### Backend Testing Patterns
@@ -326,7 +328,7 @@ Services run directly on Ubuntu via systemd (no Docker). Nginx serves the fronte
 
 ### CI workflows (backend.yml / frontend.yml / bot.yml / perf.yml / simulation.yml)
 Each project has its own workflow file, triggered on PR and push to `main` via path filters.
-- `backend.yml`: `backend-test` (spotless + detekt + `./gradlew check`) → `backend-build` (artifact: `backend-jar`)
+- `backend.yml`: `backend-test` (spotless + detekt + `./gradlew check`, uploads the JaCoCo report as artifact `backend-coverage`) → `backend-build` (artifact: `backend-jar`)
 - `frontend.yml`: `frontend-test` (`npm run lint` + `npm run test`) → `frontend-build` (artifact: `frontend-dist`)
 - `bot.yml`: `bot-test` (buf lint/breaking + gofmt + go vet + staticcheck + go test) → `build-bot` (artifact: `bot-binary`, built on `main` only)
 - `perf.yml`: `perf-check` — spotless + detekt + `compileGatlingKotlin`. Lint/compile only; `gatlingRun` is a load test against a live backend and is run manually, not gated in CI.

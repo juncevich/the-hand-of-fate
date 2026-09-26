@@ -214,4 +214,52 @@ describe('CreateVoteDialog', () => {
       expect(toast).toHaveBeenCalledWith('Ошибка', 'Server error', 'error')
     })
   })
+
+  it('submits options, description and fair rotation mode', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.create).mockResolvedValueOnce({
+      id: '1',
+      title: 'Обед',
+      mode: 'FAIR_ROTATION',
+      status: 'PENDING',
+      currentRound: 1,
+      isCreator: true,
+      createdAt: new Date().toISOString(),
+      description: 'Пятница',
+      participants: [],
+      options: [],
+      lastResult: null,
+    })
+
+    const user = userEvent.setup()
+    render(<CreateVoteDialog />, { wrapper: createWrapper() })
+    await user.click(screen.getByRole('button', { name: /Создать голосование/i }))
+
+    await user.type(screen.getByLabelText(/Название/i), 'Обед')
+    await user.type(screen.getByLabelText(/Описание/i), 'Пятница')
+    await user.click(screen.getByRole('button', { name: /Справедливый/i }))
+
+    const optionInput = screen.getByPlaceholderText('Например: Пицца')
+    await user.type(optionInput, 'Пицца{Enter}')
+    await user.type(optionInput, 'Суши')
+    await user.click(optionInput.parentElement!.querySelector('button')!)
+    await user.type(optionInput, 'Бургер{Enter}')
+
+    // Remove the last option again
+    await user.click(screen.getByText('Бургер').closest('span')!.querySelector('button')!)
+    expect(screen.queryByText('Бургер')).not.toBeInTheDocument()
+
+    const dialog = screen.getByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /^Создать$/i }))
+
+    await waitFor(() => {
+      expect(votesApi.create).toHaveBeenCalledWith({
+        title: 'Обед',
+        description: 'Пятница',
+        mode: 'FAIR_ROTATION',
+        participantEmails: [],
+        options: ['Пицца', 'Суши'],
+      })
+    })
+  })
 })

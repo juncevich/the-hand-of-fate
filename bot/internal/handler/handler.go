@@ -472,7 +472,12 @@ func (h *Handler) grpcErrMsg(err error) string {
 	}
 }
 
-var itemSeparator = regexp.MustCompile(`[,\s]+`)
+// Emails can't contain spaces, so commas and whitespace both separate them;
+// option titles can ("Pizza Hut"), so only commas separate options.
+var (
+	emailSeparator  = regexp.MustCompile(`[,\s]+`)
+	optionSeparator = regexp.MustCompile(`,`)
+)
 
 func parseCreateVoteArgs(args string) (*fatev1.CreateVoteRequest, error) {
 	parts := strings.Split(args, "|")
@@ -511,7 +516,7 @@ func participantPart(parts []string) string {
 }
 
 func parseEmails(raw string) []string {
-	fields := itemSeparator.Split(raw, -1)
+	fields := emailSeparator.Split(raw, -1)
 	emails := make([]string, 0, len(fields))
 	seen := make(map[string]struct{}, len(fields))
 	for _, field := range fields {
@@ -529,7 +534,7 @@ func parseEmails(raw string) []string {
 }
 
 func parseItems(raw string) []string {
-	fields := itemSeparator.Split(raw, -1)
+	fields := optionSeparator.Split(raw, -1)
 	items := make([]string, 0, len(fields))
 	seen := make(map[string]struct{}, len(fields))
 	for _, field := range fields {

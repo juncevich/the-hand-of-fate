@@ -64,6 +64,32 @@ class TelegramLinkServiceTest {
     }
 
     @Test
+    fun `generateLinkToken - throws when user not found`() {
+        val userId = UUID.randomUUID()
+        every { linkTokenRepositoryPort.deleteAllByUserId(userId) } just Runs
+        every { userRepositoryPort.findById(userId) } returns null
+
+        assertThrows<NoSuchElementException> { service.generateLinkToken(userId) }
+        verify(exactly = 0) { linkTokenRepositoryPort.save(any()) }
+    }
+
+    @Test
+    fun `linkAccount - allows relinking telegram already bound to the same user`() {
+        val user = makeUser().also { it.telegramId = 42L }
+        val linkToken = makeLinkToken(user)
+
+        every { linkTokenRepositoryPort.findByToken("token123") } returns linkToken
+        every { userRepositoryPort.findByTelegramId(42L) } returns user
+        every { userRepositoryPort.save(user) } returns user
+        every { linkTokenRepositoryPort.delete(linkToken) } just Runs
+
+        val result = service.linkAccount("token123", 42L, "new_name")
+
+        assertEquals("new_name", result.telegramName)
+        verify { linkTokenRepositoryPort.delete(linkToken) }
+    }
+
+    @Test
     fun `linkAccount - links telegram to user on valid token`() {
         val user = makeUser()
         val linkToken = makeLinkToken(user)

@@ -13,6 +13,8 @@ export function Topbar() {
   const handleLogout = async () => {
     try {
       await authApi.logout()
+    } catch {
+      // Server-side logout is best effort — the local session is cleared regardless
     } finally {
       clearAuth()
       void navigate('/login')

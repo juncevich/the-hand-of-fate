@@ -1,5 +1,14 @@
 # Dependency Updates
 
+## 2026-09-26 — JaCoCo coverage
+
+### JaCoCo `0.8.15` (Gradle `jacoco` plugin, new)
+- Latest release (2026-06-05); the first to officially support Java 26 class files (0.8.14 only had Java 25 support), plus experimental Java 27 support. Also relevant for this Kotlin codebase: compiler-generated interface compatibility methods, `@JvmExposeBoxed` boxes and `@JvmStatic` bridges are filtered out of the report, better filtering of `when` on `String` subjects, and faster Kotlin SMAP parsing
+- `jacocoTestReport` merges `test` + `integrationTest` execution data (HTML + XML under `build/reports/jacoco/test/`), runs as part of `check`, and is uploaded by CI as the `backend-coverage` artifact
+- Generated protobuf/gRPC classes live in the same package as hand-written gRPC code (`com.juncevich.fate.grpc`), so they are excluded by the exact class names derived from `build/generated/sources/proto/main` instead of a package pattern
+- Baseline: 98.9% lines (1479/1495), 88.7% branches of hand-written code
+- `jacocoTestCoverageVerification` (part of `check`, so CI enforces it) fails the build below 95% lines / 85% branches for the same class set
+
 ## 2026-09-26 — Java 26, detekt 2
 
 ### Java toolchain `21 → 26` (Temurin)

@@ -70,6 +70,28 @@ class RateLimitFilterTest {
     }
 
     @Test
+    fun `resets the budget when a new window starts`() {
+        val filter = RateLimitFilter(RateLimitProperties(enabled = true, capacity = 1, windowSeconds = 1))
+        // Start at the beginning of a fresh one-second window so both requests share it
+        val start = System.currentTimeMillis() / 1000
+        while (System.currentTimeMillis() / 1000 == start) Thread.onSpinWait()
+
+        val first = MockHttpServletResponse()
+        filter.doFilter(request("1.1.1.1"), first, MockFilterChain())
+        val blocked = MockHttpServletResponse()
+        filter.doFilter(request("1.1.1.1"), blocked, MockFilterChain())
+        assertEquals(HttpStatus.OK.value(), first.status)
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS.value(), blocked.status)
+
+        val window = System.currentTimeMillis() / 1000
+        while (System.currentTimeMillis() / 1000 == window) Thread.onSpinWait()
+
+        val next = MockHttpServletResponse()
+        filter.doFilter(request("1.1.1.1"), next, MockFilterChain())
+        assertEquals(HttpStatus.OK.value(), next.status)
+    }
+
+    @Test
     fun `ignores non-auth paths`() {
         val filter = RateLimitFilter(RateLimitProperties(enabled = true, capacity = 1, windowSeconds = 60))
         assertTrue(filter.shouldNotFilter(request("1.1.1.1", uri = "/api/v1/votes")))

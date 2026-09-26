@@ -64,6 +64,13 @@ jobs:
           DB_PASSWORD: fate
           JWT_ACCESS_SECRET: test-secret-key-256-bits-long-for-tests-xxxxxx
 
+      - name: Upload coverage report
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-coverage
+          path: backend/build/reports/jacoco/test/
+
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@v7

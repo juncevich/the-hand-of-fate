@@ -22,6 +22,9 @@ type fakeTelegram struct {
 	messages []tgbotapi.MessageConfig
 	requests []tgbotapi.Chattable
 	updates  chan tgbotapi.Update
+
+	requestErr error
+	sendErr    error
 }
 
 func (f *fakeTelegram) GetUpdatesChan(tgbotapi.UpdateConfig) tgbotapi.UpdatesChannel {
@@ -35,6 +38,9 @@ func (f *fakeTelegram) Request(c tgbotapi.Chattable) (*tgbotapi.APIResponse, err
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.requests = append(f.requests, c)
+	if f.requestErr != nil {
+		return nil, f.requestErr
+	}
 	return &tgbotapi.APIResponse{Ok: true}, nil
 }
 
@@ -44,7 +50,7 @@ func (f *fakeTelegram) Send(c tgbotapi.Chattable) (tgbotapi.Message, error) {
 		f.messages = append(f.messages, msg)
 		f.mu.Unlock()
 	}
-	return tgbotapi.Message{}, nil
+	return tgbotapi.Message{}, f.sendErr
 }
 
 func (f *fakeTelegram) messageCount() int {
@@ -67,6 +73,15 @@ type fakeFateClient struct {
 	drawErr    error
 	unlinkResp *fatev1.UnlinkTelegramAccountResponse
 	unlinkErr  error
+
+	createResp     *fatev1.CreateVoteResponse
+	createErr      error
+	detailsResp    *fatev1.GetVoteDetailsResponse
+	detailsErr     error
+	lastResultResp *fatev1.GetLastDrawResultResponse
+	lastResultErr  error
+	historyResp    *fatev1.GetVoteHistoryResponse
+	historyErr     error
 }
 
 func (f *fakeFateClient) LinkTelegramAccount(_ context.Context, _ *fatev1.LinkTelegramAccountRequest, _ ...grpc.CallOption) (*fatev1.LinkTelegramAccountResponse, error) {
@@ -101,6 +116,12 @@ func (f *fakeFateClient) GetMyVotes(_ context.Context, _ *fatev1.GetMyVotesReque
 
 func (f *fakeFateClient) CreateVote(_ context.Context, req *fatev1.CreateVoteRequest, _ ...grpc.CallOption) (*fatev1.CreateVoteResponse, error) {
 	f.createReq = req
+	if f.createErr != nil {
+		return nil, f.createErr
+	}
+	if f.createResp != nil {
+		return f.createResp, nil
+	}
 	return &fatev1.CreateVoteResponse{
 		Success: true,
 		Vote: &fatev1.GetVoteDetailsResponse{
@@ -118,6 +139,12 @@ func (f *fakeFateClient) CreateVote(_ context.Context, req *fatev1.CreateVoteReq
 
 func (f *fakeFateClient) GetVoteDetails(_ context.Context, req *fatev1.GetVoteDetailsRequest, _ ...grpc.CallOption) (*fatev1.GetVoteDetailsResponse, error) {
 	f.detailsReq = req
+	if f.detailsErr != nil {
+		return nil, f.detailsErr
+	}
+	if f.detailsResp != nil {
+		return f.detailsResp, nil
+	}
 	return &fatev1.GetVoteDetailsResponse{
 		VoteId:      req.VoteId,
 		Title:       "Lunch",
@@ -142,6 +169,12 @@ func (f *fakeFateClient) DrawVote(_ context.Context, _ *fatev1.DrawVoteRequest, 
 
 func (f *fakeFateClient) GetLastDrawResult(_ context.Context, req *fatev1.GetLastDrawResultRequest, _ ...grpc.CallOption) (*fatev1.GetLastDrawResultResponse, error) {
 	f.lastResultReq = req
+	if f.lastResultErr != nil {
+		return nil, f.lastResultErr
+	}
+	if f.lastResultResp != nil {
+		return f.lastResultResp, nil
+	}
 	return &fatev1.GetLastDrawResultResponse{
 		HasResult: true,
 		Result: &fatev1.DrawResultInfo{
@@ -155,6 +188,12 @@ func (f *fakeFateClient) GetLastDrawResult(_ context.Context, req *fatev1.GetLas
 
 func (f *fakeFateClient) GetVoteHistory(_ context.Context, req *fatev1.GetVoteHistoryRequest, _ ...grpc.CallOption) (*fatev1.GetVoteHistoryResponse, error) {
 	f.historyReq = req
+	if f.historyErr != nil {
+		return nil, f.historyErr
+	}
+	if f.historyResp != nil {
+		return f.historyResp, nil
+	}
 	return &fatev1.GetVoteHistoryResponse{
 		Results: []*fatev1.DrawResultInfo{
 			{WinnerEmail: "a@example.com", WinnerDisplayName: "Alex", Round: 2, DrawnAt: "2026-04-25T00:00:00Z"},

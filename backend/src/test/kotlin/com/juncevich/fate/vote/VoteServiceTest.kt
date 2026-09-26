@@ -7,6 +7,7 @@ import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.internal.DrawService
 import com.juncevich.fate.vote.internal.ParticipantInvited
 import com.juncevich.fate.vote.internal.VoteDrawn
+import com.juncevich.fate.vote.internal.domain.DrawHistory
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
 import com.juncevich.fate.vote.internal.domain.VoteParticipant
@@ -18,6 +19,7 @@ import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import io.mockk.*
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -139,6 +141,64 @@ class VoteServiceTest {
         assertThrows<ForbiddenException> {
             voteService.getHistory(vote.id, requester.id, requester.email)
         }
+    }
+
+    @Test
+    fun `getLastResult - returns latest option winner for a participant`() {
+        val creator = makeUser()
+        val participant = makeUser(email = "p@test.com")
+        val vote = makeVote(creator = creator)
+        val last = DrawHistory.OptionWinner(voteId = vote.id, optionId = UUID.randomUUID(), optionTitle = "Pizza", round = 2)
+
+        every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, participant.email) } returns true
+        every { drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDesc(vote.id) } returns last
+
+        val result = voteService.getLastResult(vote.id, participant.id, participant.email)
+
+        assertEquals("Pizza", result?.winnerOptionTitle)
+        assertNull(result?.winnerEmail)
+        assertNull(result?.winnerDisplayName)
+        assertEquals(2, result?.round)
+    }
+
+    @Test
+    fun `getLastResult - returns null when vote has not been drawn`() {
+        val creator = makeUser()
+        val vote = makeVote(creator = creator)
+
+        every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDesc(vote.id) } returns null
+
+        assertNull(voteService.getLastResult(vote.id, creator.id, creator.email))
+    }
+
+    @Test
+    fun `getLastResult - throws when requester has no access`() {
+        val creator = makeUser()
+        val requester = makeUser(email = "other@test.com")
+        val vote = makeVote(creator = creator)
+
+        every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requester.email) } returns false
+
+        assertThrows<ForbiddenException> { voteService.getLastResult(vote.id, requester.id, requester.email) }
+    }
+
+    @Test
+    fun `getLastResult - throws when vote does not exist`() {
+        val id = UUID.randomUUID()
+        every { voteRepositoryPort.findById(id) } returns null
+
+        assertThrows<NoSuchElementException> { voteService.getLastResult(id, UUID.randomUUID(), "x@test.com") }
+    }
+
+    @Test
+    fun `draw - throws when vote does not exist`() {
+        val id = UUID.randomUUID()
+        every { voteRepositoryPort.findByIdForDraw(id) } returns null
+
+        assertThrows<NoSuchElementException> { voteService.draw(id, UUID.randomUUID()) }
     }
 
     @Test
