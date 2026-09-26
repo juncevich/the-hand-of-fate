@@ -7,12 +7,12 @@ import com.juncevich.fate.vote.*
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.asCoroutineDispatcher
 import org.springframework.data.domain.PageRequest
 import org.springframework.grpc.server.service.GrpcService
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+import java.util.concurrent.Executors
 import com.juncevich.fate.vote.VoteMode as DomainVoteMode
 import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 
@@ -22,301 +22,248 @@ private const val GRPC_DEFAULT_PAGE_SIZE = 50
 // unusually large number of votes can't force an unbounded aggregation.
 private const val GRPC_MAX_PAGES = 20
 
+// Every RPC body makes blocking JPA calls; a virtual thread per dispatch parks cheaply
+// while waiting on the database instead of holding a platform thread.
+private val virtualThreadDispatcher: CoroutineDispatcher =
+    Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher()
+
 @GrpcService
 class FateGrpcService(
     private val userQueryService: UserQueryService,
     private val telegramLinkService: TelegramLinkService,
     private val voteService: VoteService,
-    // Blocking JPA calls run off the gRPC event loop; injectable so tests can swap it
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-) : FateServiceGrpcKt.FateServiceCoroutineImplBase() {
+    // Coroutine context for every RPC; injectable so tests can swap it
+    dispatcher: CoroutineDispatcher = virtualThreadDispatcher,
+) : FateServiceGrpcKt.FateServiceCoroutineImplBase(dispatcher) {
     override suspend fun linkTelegramAccount(request: LinkTelegramAccountRequest): LinkTelegramAccountResponse =
-        withContext(ioDispatcher) {
-            runCatching {
-                val user =
-                    telegramLinkService.linkAccount(
-                        token = request.linkToken,
-                        telegramId = request.telegramId,
-                        telegramName = request.telegramName
-                    )
-                LinkTelegramAccountResponse
-                    .newBuilder()
-                    .setSuccess(true)
-                    .setDisplayName(user.displayName)
-                    .setMessage("Account linked successfully!")
-                    .build()
-            }.getOrElse { ex ->
-                when (ex) {
-                    is NoSuchElementException,
-                    is IllegalStateException,
-                    is IllegalArgumentException,
-                    is ForbiddenException,
-                    -> {
-                        LinkTelegramAccountResponse
-                            .newBuilder()
-                            .setSuccess(false)
-                            .setMessage(ex.message ?: "Failed to link account")
-                            .build()
-                    }
+        runCatching {
+            val user =
+                telegramLinkService.linkAccount(
+                    token = request.linkToken,
+                    telegramId = request.telegramId,
+                    telegramName = request.telegramName
+                )
+            LinkTelegramAccountResponse
+                .newBuilder()
+                .setSuccess(true)
+                .setDisplayName(user.displayName)
+                .setMessage("Account linked successfully!")
+                .build()
+        }.getOrElse { ex ->
+            when (ex) {
+                is NoSuchElementException,
+                is IllegalStateException,
+                is IllegalArgumentException,
+                is ForbiddenException,
+                -> {
+                    LinkTelegramAccountResponse
+                        .newBuilder()
+                        .setSuccess(false)
+                        .setMessage(ex.message ?: "Failed to link account")
+                        .build()
+                }
 
-                    else -> {
-                        throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-                    }
+                else -> {
+                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
                 }
             }
         }
 
     override suspend fun unlinkTelegramAccount(request: UnlinkTelegramAccountRequest): UnlinkTelegramAccountResponse =
-        withContext(ioDispatcher) {
-            runCatching {
-                telegramLinkService.unlinkAccount(request.telegramId)
-                UnlinkTelegramAccountResponse
-                    .newBuilder()
-                    .setSuccess(true)
-                    .setMessage("Account unlinked.")
-                    .build()
-            }.getOrElse { ex ->
-                when (ex) {
-                    is NoSuchElementException,
-                    is IllegalStateException,
-                    is IllegalArgumentException,
-                    is ForbiddenException,
-                    -> {
-                        UnlinkTelegramAccountResponse
-                            .newBuilder()
-                            .setSuccess(false)
-                            .setMessage(ex.message ?: "Failed to unlink")
-                            .build()
-                    }
-
-                    else -> {
-                        throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-                    }
-                }
-            }
-        }
-
-    override suspend fun getMyVotes(request: GetMyVotesRequest): GetMyVotesResponse =
-        withContext(ioDispatcher) {
-            val user = linkedUser(request.telegramId)
-            val votes =
-                buildList {
-                    var pageNumber = 0
-                    do {
-                        val page =
-                            voteService.listVotes(
-                                user.id,
-                                user.email,
-                                PageRequest.of(pageNumber, GRPC_DEFAULT_PAGE_SIZE)
-                            )
-                        addAll(page.content)
-                        pageNumber++
-                    } while (page.hasNext() && pageNumber < GRPC_MAX_PAGES)
-                }
-            val summaries =
-                votes.map { dto ->
-                    VoteSummary
+        runCatching {
+            telegramLinkService.unlinkAccount(request.telegramId)
+            UnlinkTelegramAccountResponse
+                .newBuilder()
+                .setSuccess(true)
+                .setMessage("Account unlinked.")
+                .build()
+        }.getOrElse { ex ->
+            when (ex) {
+                is NoSuchElementException,
+                is IllegalStateException,
+                is IllegalArgumentException,
+                is ForbiddenException,
+                -> {
+                    UnlinkTelegramAccountResponse
                         .newBuilder()
-                        .setVoteId(dto.id.toString())
-                        .setTitle(dto.title)
-                        .setStatus(dto.status.toProto())
-                        .setMode(dto.mode.toProto())
-                        .setParticipantCount(dto.participantCount.toInt())
-                        .setIsCreator(dto.isCreator)
-                        .setCurrentRound(dto.currentRound)
+                        .setSuccess(false)
+                        .setMessage(ex.message ?: "Failed to unlink")
                         .build()
                 }
-            GetMyVotesResponse.newBuilder().addAllVotes(summaries).build()
+
+                else -> {
+                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+                }
+            }
         }
 
-    override suspend fun createVote(request: CreateVoteRequest): CreateVoteResponse =
-        withContext(ioDispatcher) {
-            val user = linkedUser(request.telegramId)
-            val title = request.title.trim()
-            if (title.isBlank()) {
-                throw StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription("Vote title is required"))
+    override suspend fun getMyVotes(request: GetMyVotesRequest): GetMyVotesResponse {
+        val user = linkedUser(request.telegramId)
+        val votes =
+            buildList {
+                var pageNumber = 0
+                do {
+                    val page =
+                        voteService.listVotes(
+                            user.id,
+                            user.email,
+                            PageRequest.of(pageNumber, GRPC_DEFAULT_PAGE_SIZE)
+                        )
+                    addAll(page.content)
+                    pageNumber++
+                } while (page.hasNext() && pageNumber < GRPC_MAX_PAGES)
             }
-            val mode = request.mode.toDomain()
-            val participantEmails =
-                request.participantEmailsList
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .distinct()
-            val options =
-                request.optionsList
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .distinct()
+        val summaries =
+            votes.map { dto ->
+                VoteSummary
+                    .newBuilder()
+                    .setVoteId(dto.id.toString())
+                    .setTitle(dto.title)
+                    .setStatus(dto.status.toProto())
+                    .setMode(dto.mode.toProto())
+                    .setParticipantCount(dto.participantCount.toInt())
+                    .setIsCreator(dto.isCreator)
+                    .setCurrentRound(dto.currentRound)
+                    .build()
+            }
+        return GetMyVotesResponse.newBuilder().addAllVotes(summaries).build()
+    }
 
+    override suspend fun createVote(request: CreateVoteRequest): CreateVoteResponse {
+        val user = linkedUser(request.telegramId)
+        val title = request.title.trim()
+        if (title.isBlank()) {
+            throw StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription("Vote title is required"))
+        }
+        val mode = request.mode.toDomain()
+        val participantEmails =
+            request.participantEmailsList
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .distinct()
+        val options =
+            request.optionsList
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .distinct()
+
+        return runCatching {
+            val vote =
+                voteService.createVote(
+                    creatorId = user.id,
+                    request =
+                        CreateVoteCommand(
+                            title = title,
+                            description = request.description.takeIf { it.isNotBlank() },
+                            mode = mode,
+                            participantEmails = participantEmails,
+                            options = options
+                        )
+                )
+
+            CreateVoteResponse
+                .newBuilder()
+                .setSuccess(true)
+                .setMessage("Vote created")
+                .setVote(buildVoteDetailsResponse(vote))
+                .build()
+        }.getOrElse { ex ->
+            when (ex) {
+                is NoSuchElementException,
+                is IllegalStateException,
+                is IllegalArgumentException,
+                is ForbiddenException,
+                -> {
+                    CreateVoteResponse
+                        .newBuilder()
+                        .setSuccess(
+                            false
+                        ).setMessage(ex.message ?: "Vote creation failed")
+                        .build()
+                }
+
+                else -> {
+                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+                }
+            }
+        }
+    }
+
+    override suspend fun getVoteDetails(request: GetVoteDetailsRequest): GetVoteDetailsResponse {
+        val user = linkedUser(request.telegramId)
+        val voteId = parseVoteId(request.voteId)
+        val voteDto =
             runCatching {
-                val vote =
-                    voteService.createVote(
-                        creatorId = user.id,
-                        request =
-                            CreateVoteCommand(
-                                title = title,
-                                description = request.description.takeIf { it.isNotBlank() },
-                                mode = mode,
-                                participantEmails = participantEmails,
-                                options = options
-                            )
-                    )
+                voteService.getVote(voteId, user.id, user.email)
+            }.getOrElse { throw it.toReadStatusException() }
+        return buildVoteDetailsResponse(voteDto)
+    }
 
-                CreateVoteResponse
-                    .newBuilder()
-                    .setSuccess(true)
-                    .setMessage("Vote created")
-                    .setVote(buildVoteDetailsResponse(vote))
-                    .build()
-            }.getOrElse { ex ->
-                when (ex) {
-                    is NoSuchElementException,
-                    is IllegalStateException,
-                    is IllegalArgumentException,
-                    is ForbiddenException,
-                    -> {
-                        CreateVoteResponse
-                            .newBuilder()
-                            .setSuccess(
-                                false
-                            ).setMessage(ex.message ?: "Vote creation failed")
-                            .build()
-                    }
+    override suspend fun drawVote(request: DrawVoteRequest): DrawVoteResponse {
+        val user = linkedUser(request.telegramId)
+        val voteId = parseVoteId(request.voteId)
+        return runCatching {
+            val result = voteService.draw(voteId, user.id)
+            DrawVoteResponse
+                .newBuilder()
+                .setSuccess(true)
+                .setWinnerEmail(result.winnerEmail.orEmpty())
+                .setWinnerDisplayName(result.winnerDisplayName.orEmpty())
+                .setWinnerOptionTitle(result.winnerOptionTitle.orEmpty())
+                .setRound(result.round)
+                .setNewRoundStarted(result.newRoundStarted)
+                .setMessage("✦ The Hand of Fate has chosen: ${result.winnerLabel}")
+                .build()
+        }.getOrElse { ex ->
+            when (ex) {
+                is NoSuchElementException,
+                is IllegalStateException,
+                is IllegalArgumentException,
+                is ForbiddenException,
+                -> {
+                    DrawVoteResponse
+                        .newBuilder()
+                        .setSuccess(false)
+                        .setMessage(ex.message ?: "Draw failed")
+                        .build()
+                }
 
-                    else -> {
-                        throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-                    }
+                else -> {
+                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
                 }
             }
         }
+    }
 
-    override suspend fun getVoteDetails(request: GetVoteDetailsRequest): GetVoteDetailsResponse =
-        withContext(ioDispatcher) {
-            val user = linkedUser(request.telegramId)
-            val voteId = parseVoteId(request.voteId)
-            val voteDto =
-                runCatching {
-                    voteService.getVote(voteId, user.id, user.email)
-                }.getOrElse { ex ->
-                    when (ex) {
-                        is NoSuchElementException -> throw StatusRuntimeException(
-                            Status.NOT_FOUND.withDescription(ex.message)
-                        )
+    override suspend fun getLastDrawResult(request: GetLastDrawResultRequest): GetLastDrawResultResponse {
+        val user = linkedUser(request.telegramId)
+        val voteId = parseVoteId(request.voteId)
 
-                        is IllegalStateException -> throw StatusRuntimeException(
-                            Status.PERMISSION_DENIED.withDescription(ex.message)
-                        )
-
-                        is ForbiddenException -> throw StatusRuntimeException(
-                            Status.PERMISSION_DENIED.withDescription(ex.message)
-                        )
-
-                        else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-                    }
-                }
-            buildVoteDetailsResponse(voteDto)
-        }
-
-    override suspend fun drawVote(request: DrawVoteRequest): DrawVoteResponse =
-        withContext(ioDispatcher) {
-            val user = linkedUser(request.telegramId)
-            val voteId = parseVoteId(request.voteId)
+        val lastDraw =
             runCatching {
-                val result = voteService.draw(voteId, user.id)
-                DrawVoteResponse
-                    .newBuilder()
-                    .setSuccess(true)
-                    .setWinnerEmail(result.winnerEmail.orEmpty())
-                    .setWinnerDisplayName(result.winnerDisplayName.orEmpty())
-                    .setWinnerOptionTitle(result.winnerOptionTitle.orEmpty())
-                    .setRound(result.round)
-                    .setNewRoundStarted(result.newRoundStarted)
-                    .setMessage("✦ The Hand of Fate has chosen: ${result.winnerLabel}")
-                    .build()
-            }.getOrElse { ex ->
-                when (ex) {
-                    is NoSuchElementException,
-                    is IllegalStateException,
-                    is IllegalArgumentException,
-                    is ForbiddenException,
-                    -> {
-                        DrawVoteResponse
-                            .newBuilder()
-                            .setSuccess(false)
-                            .setMessage(ex.message ?: "Draw failed")
-                            .build()
-                    }
+                voteService.getLastResult(voteId, user.id, user.email)
+            }.getOrElse { throw it.toReadStatusException() }
 
-                    else -> {
-                        throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-                    }
-                }
-            }
+        return if (lastDraw == null) {
+            GetLastDrawResultResponse.newBuilder().setHasResult(false).build()
+        } else {
+            GetLastDrawResultResponse
+                .newBuilder()
+                .setHasResult(true)
+                .setResult(lastDraw.toDrawResultInfo())
+                .build()
         }
+    }
 
-    override suspend fun getLastDrawResult(request: GetLastDrawResultRequest): GetLastDrawResultResponse =
-        withContext(ioDispatcher) {
-            val user = linkedUser(request.telegramId)
-            val voteId = parseVoteId(request.voteId)
-
-            val lastDraw =
-                runCatching {
-                    voteService.getLastResult(voteId, user.id, user.email)
-                }.getOrElse { ex ->
-                    when (ex) {
-                        is NoSuchElementException -> throw StatusRuntimeException(
-                            Status.NOT_FOUND.withDescription(ex.message)
-                        )
-
-                        is IllegalStateException -> throw StatusRuntimeException(
-                            Status.PERMISSION_DENIED.withDescription(ex.message)
-                        )
-
-                        is ForbiddenException -> throw StatusRuntimeException(
-                            Status.PERMISSION_DENIED.withDescription(ex.message)
-                        )
-
-                        else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-                    }
-                }
-
-            if (lastDraw == null) {
-                GetLastDrawResultResponse.newBuilder().setHasResult(false).build()
-            } else {
-                GetLastDrawResultResponse
-                    .newBuilder()
-                    .setHasResult(true)
-                    .setResult(lastDraw.toDrawResultInfo())
-                    .build()
-            }
-        }
-
-    override suspend fun getVoteHistory(request: GetVoteHistoryRequest): GetVoteHistoryResponse =
-        withContext(ioDispatcher) {
-            val user = linkedUser(request.telegramId)
-            val voteId = parseVoteId(request.voteId)
-            val history =
-                runCatching {
-                    voteService.getHistory(voteId, user.id, user.email)
-                }.getOrElse { ex ->
-                    when (ex) {
-                        is NoSuchElementException -> throw StatusRuntimeException(
-                            Status.NOT_FOUND.withDescription(ex.message)
-                        )
-
-                        is IllegalStateException -> throw StatusRuntimeException(
-                            Status.PERMISSION_DENIED.withDescription(ex.message)
-                        )
-
-                        is ForbiddenException -> throw StatusRuntimeException(
-                            Status.PERMISSION_DENIED.withDescription(ex.message)
-                        )
-
-                        else -> throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-                    }
-                }
-            GetVoteHistoryResponse.newBuilder().addAllResults(history.map { it.toDrawResultInfo() }).build()
-        }
+    override suspend fun getVoteHistory(request: GetVoteHistoryRequest): GetVoteHistoryResponse {
+        val user = linkedUser(request.telegramId)
+        val voteId = parseVoteId(request.voteId)
+        val history =
+            runCatching {
+                voteService.getHistory(voteId, user.id, user.email)
+            }.getOrElse { throw it.toReadStatusException() }
+        return GetVoteHistoryResponse.newBuilder().addAllResults(history.map { it.toDrawResultInfo() }).build()
+    }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -362,6 +309,17 @@ class FateGrpcService(
             .setRound(round)
             .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(drawnAt))
             .build()
+
+    private fun Throwable.toReadStatusException(): StatusRuntimeException =
+        when (this) {
+            is NoSuchElementException -> StatusRuntimeException(Status.NOT_FOUND.withDescription(message))
+
+            is IllegalStateException,
+            is ForbiddenException,
+            -> StatusRuntimeException(Status.PERMISSION_DENIED.withDescription(message))
+
+            else -> StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
+        }
 
     private fun linkedUser(telegramId: Long) =
         userQueryService.findByTelegramId(telegramId)

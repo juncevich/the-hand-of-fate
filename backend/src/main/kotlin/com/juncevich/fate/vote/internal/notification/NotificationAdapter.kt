@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionalEventListener
+import java.util.concurrent.Executors
 
 /**
  * Sends vote emails in reaction to [ParticipantInvited] / [VoteDrawn]. `@TransactionalEventListener`
@@ -37,20 +38,30 @@ class NotificationAdapter(
         }
     }
 
+    /**
+     * One virtual thread per recipient, so a slow or retrying mailbox doesn't delay everyone else;
+     * [EmailService] caps how many of them talk to SMTP at once. Returns once every email is settled.
+     */
     @Async
     @TransactionalEventListener
     fun on(event: VoteDrawn) {
         val result = event.result
-        event.participantEmails.forEach { email ->
-            deliver("draw result email to $email", type = "draw-result") {
-                emailService.sendDrawResult(
-                    to = email,
-                    voteTitle = event.voteTitle,
-                    winnerName = (result.winnerOptionTitle ?: result.winnerDisplayName ?: result.winnerEmail).orEmpty(),
-                    winnerEmail = result.winnerEmail.orEmpty(),
-                    round = result.round,
-                    voteUrl = "$frontendUrl/votes/${event.voteId}"
-                )
+        Executors.newVirtualThreadPerTaskExecutor().use { executor ->
+            event.participantEmails.forEach { email ->
+                executor.execute {
+                    deliver("draw result email to $email", type = "draw-result") {
+                        emailService.sendDrawResult(
+                            to = email,
+                            voteTitle = event.voteTitle,
+                            winnerName =
+                                (result.winnerOptionTitle ?: result.winnerDisplayName ?: result.winnerEmail)
+                                    .orEmpty(),
+                            winnerEmail = result.winnerEmail.orEmpty(),
+                            round = result.round,
+                            voteUrl = "$frontendUrl/votes/${event.voteId}"
+                        )
+                    }
+                }
             }
         }
     }

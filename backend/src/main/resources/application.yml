@@ -107,4 +107,6 @@ app:
   mail:
     # Sender address; when blank, falls back to MAIL_USERNAME, then noreply@handoffate.app
     from: ${MAIL_FROM:}
+    # Cap on simultaneous SMTP sends; notification fan-out runs on unbounded virtual threads
+    max-concurrent-sends: ${MAIL_MAX_CONCURRENT_SENDS:4}
   refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}

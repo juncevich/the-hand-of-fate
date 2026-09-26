@@ -10,8 +10,11 @@ import io.micrometer.core.instrument.MeterRegistry
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class NotificationAdapterTest {
     private val emailService = mockk<EmailService>()
@@ -61,5 +64,23 @@ class NotificationAdapterTest {
 
         verify(exactly = 1) { emailService.sendDrawResult("a@test.com", any(), any(), any(), any(), any()) }
         verify(exactly = 1) { emailService.sendDrawResult("b@test.com", any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `on VoteDrawn - sends to all participants concurrently`() {
+        val recipients = listOf("a@test.com", "b@test.com", "c@test.com")
+        // Each send waits until every send has started, which only completes if they run in parallel
+        val allStarted = CountDownLatch(recipients.size)
+        val sawEveryoneInFlight = mutableListOf<Boolean>()
+        every { emailService.sendDrawResult(any(), any(), any(), any(), any(), any()) } answers {
+            allStarted.countDown()
+            val ok = allStarted.await(5, TimeUnit.SECONDS)
+            synchronized(sawEveryoneInFlight) { sawEveryoneInFlight += ok }
+        }
+        val result = DrawResult(null, null, "Option", 1, false)
+
+        notificationAdapter.on(VoteDrawn(vote.id, vote.title, result, recipients))
+
+        assertTrue(sawEveryoneInFlight.size == recipients.size && sawEveryoneInFlight.all { it })
     }
 }

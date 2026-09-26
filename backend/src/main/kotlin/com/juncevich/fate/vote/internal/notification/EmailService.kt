@@ -6,17 +6,27 @@ import org.springframework.mail.javamail.JavaMailSender
 import org.springframework.mail.javamail.MimeMessageHelper
 import org.springframework.resilience.annotation.Retryable
 import org.springframework.stereotype.Service
+import java.util.concurrent.Semaphore
 
 /**
  * Transient SMTP failures ([MailException]) are retried: 3 attempts in total, backing off
  * 1s then 2s by default (`app.mail.retry.delay-ms` sets the initial delay).
+ *
+ * Callers run on unbounded virtual threads (`@Async`, per-recipient fan-out in [NotificationAdapter]),
+ * so the number of simultaneous SMTP sends is capped here (`app.mail.max-concurrent-sends`) to keep
+ * the mail server from throttling or rejecting us. The permit covers a single attempt only, so a
+ * sender waiting out a retry backoff doesn't block others.
  */
 @Service
 class EmailService(
     private val mailSender: JavaMailSender,
     @Value("\${app.mail.from:}") fromOverride: String,
     @Value("\${spring.mail.username:}") smtpUsername: String,
+    @Value("\${app.mail.max-concurrent-sends:4}") maxConcurrentSends: Int =
+        DEFAULT_MAX_CONCURRENT_SENDS,
 ) {
+    private val sendPermits = Semaphore(maxConcurrentSends)
+
     // An unset MAIL_USERNAME resolves to "" rather than "absent", so a placeholder default
     // never kicks in; pick the first non-blank candidate explicitly.
     private val from: String =
@@ -74,7 +84,12 @@ class EmailService(
             setSubject(subject)
             setText(html, true)
         }
-        mailSender.send(message)
+        sendPermits.acquire()
+        try {
+            mailSender.send(message)
+        } finally {
+            sendPermits.release()
+        }
     }
 
     private fun invitationHtml(
@@ -117,5 +132,6 @@ class EmailService(
 
     private companion object {
         const val DEFAULT_FROM = "noreply@handoffate.app"
+        const val DEFAULT_MAX_CONCURRENT_SENDS = 4
     }
 }

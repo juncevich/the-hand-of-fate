@@ -216,6 +216,9 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 - **Virtual threads (Project Loom)** enabled via `spring.threads.virtual.enabled: true`
 - Tomcat uses `VirtualThreadExecutor` for all HTTP request threads
 - `@Async` tasks (`NotificationAdapter`) run on virtual threads; email retries use Spring Framework 7 `@Retryable` on `EmailService` (enabled by `@EnableResilientMethods`), whose backoff sleep parks the virtual thread
+- gRPC: `GrpcServerConfig` supplies a virtual-thread `GrpcServerExecutorProvider` (not covered by `spring.threads.virtual.enabled`), and `FateGrpcService` passes a virtual-thread coroutine dispatcher to its base class — RPC bodies call blocking JPA directly, no `withContext` needed. Trace context follows coroutines via Spring Boot's `ObservationCoroutineContextServerInterceptor`
+- `NotificationAdapter` fans out draw-result emails one virtual thread per recipient; `EmailService` caps simultaneous SMTP sends with a semaphore (`app.mail.max-concurrent-sends`, default 4) held for a single attempt, not across retry backoff
+- Don't expose an `Executor`/`ExecutorService` bean: Spring Boot would back off from its virtual-thread `applicationTaskExecutor` used by `@Async`
 
 ### Key Backend Services
 - **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching for both participants and options; picks draw target automatically (options if any exist, otherwise participants)
@@ -293,6 +296,7 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 | `JWT_ACCESS_SECRET` | (dev default set) | Must be ≥256-bit in production |
 | `MAIL_HOST` | `localhost` | SMTP host (Mailpit locally) |
 | `MAIL_FROM` | — | Sender address; if blank, falls back to `MAIL_USERNAME`, then `noreply@handoffate.app` |
+| `MAIL_MAX_CONCURRENT_SENDS` | `4` | Max simultaneous SMTP sends (`app.mail.max-concurrent-sends`) |
 | `FRONTEND_URL` | `http://localhost:3000` | For CORS and email links |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTLP HTTP endpoint |
 | `BOT_TOKEN` | — | Required; from @BotFather |
