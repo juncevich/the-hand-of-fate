@@ -3,6 +3,9 @@ package com.juncevich.fate.vote
 import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ForbiddenException
+import com.juncevich.fate.shared.NotFoundException
+import com.juncevich.fate.shared.ensureState
+import com.juncevich.fate.shared.ensureValid
 import com.juncevich.fate.shared.normalizeEmail
 import com.juncevich.fate.shared.requireValidTitle
 import com.juncevich.fate.vote.internal.DrawService
@@ -40,22 +43,22 @@ class VoteService(
         creatorId: UUID,
         request: CreateVoteCommand,
     ): VoteDetailDto {
-        val creator = userQueryService.findProfileById(creatorId) ?: throw NoSuchElementException("User not found")
+        val creator = userQueryService.findProfileById(creatorId) ?: throw NotFoundException("User not found")
 
         val title = requireValidTitle(request.title)
-        requireLimit((request.description?.length ?: 0) <= VoteLimits.MAX_DESCRIPTION_LENGTH) {
+        ensureValid((request.description?.length ?: 0) <= VoteLimits.MAX_DESCRIPTION_LENGTH) {
             "Description must not exceed ${VoteLimits.MAX_DESCRIPTION_LENGTH} characters"
         }
         // Checked before normalizing so an oversized list is rejected without processing it.
-        requireLimit(request.participantEmails.size <= VoteLimits.MAX_PARTICIPANTS) { participantLimitMessage() }
-        requireLimit(request.options.orEmpty().size <= VoteLimits.MAX_OPTIONS) { optionLimitMessage() }
+        ensureValid(request.participantEmails.size <= VoteLimits.MAX_PARTICIPANTS) { participantLimitMessage() }
+        ensureValid(request.options.orEmpty().size <= VoteLimits.MAX_OPTIONS) { optionLimitMessage() }
         val invitedEmails =
             request.participantEmails
                 .map(::normalizeEmail)
                 .distinct()
                 .filter { it != creator.email }
         val allEmails = setOf(creator.email) + invitedEmails
-        requireLimit(allEmails.size <= VoteLimits.MAX_PARTICIPANTS) { participantLimitMessage() }
+        ensureValid(allEmails.size <= VoteLimits.MAX_PARTICIPANTS) { participantLimitMessage() }
         val optionTitles =
             request.options
                 .orEmpty()
@@ -129,12 +132,12 @@ class VoteService(
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
         val normalizedEmail = normalizeEmail(email)
-        check(vote.status == VoteStatus.PENDING) { "Cannot add participants to a non-pending vote" }
-        check(
+        ensureState(vote.status == VoteStatus.PENDING) { "Cannot add participants to a non-pending vote" }
+        ensureState(
             !participantRepositoryPort.existsByVoteIdAndEmail(voteId, normalizedEmail)
         ) { "Participant already exists" }
         val participantCount = participantRepositoryPort.countByVoteIds(listOf(voteId)).sumOf { it.participantCount }
-        requireLimit(participantCount < VoteLimits.MAX_PARTICIPANTS) { participantLimitMessage() }
+        ensureValid(participantCount < VoteLimits.MAX_PARTICIPANTS) { participantLimitMessage() }
 
         val user = userQueryService.findProfileByEmail(normalizedEmail)
         participantRepositoryPort.save(
@@ -151,7 +154,7 @@ class VoteService(
     ) {
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
-        check(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
+        ensureState(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
         participantRepositoryPort.deleteByVoteIdAndEmail(voteId, normalizeEmail(email))
     }
 
@@ -162,9 +165,9 @@ class VoteService(
     ) {
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
-        check(vote.status == VoteStatus.PENDING) { "Cannot add options to a non-pending vote" }
+        ensureState(vote.status == VoteStatus.PENDING) { "Cannot add options to a non-pending vote" }
         val optionCount = voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(voteId).size
-        requireLimit(optionCount < VoteLimits.MAX_OPTIONS) { optionLimitMessage() }
+        ensureValid(optionCount < VoteLimits.MAX_OPTIONS) { optionLimitMessage() }
         // Use Int.MAX_VALUE so new options always sort after batch-created ones (ordered by createdAt as tiebreaker).
         voteOptionRepositoryPort.save(
             VoteOption(voteId = voteId, title = requireValidTitle(title), position = Int.MAX_VALUE)
@@ -178,7 +181,7 @@ class VoteService(
     ) {
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
-        check(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
+        ensureState(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
         voteOptionRepositoryPort.deleteByVoteIdAndId(voteId, optionId)
     }
 
@@ -186,7 +189,7 @@ class VoteService(
         voteId: UUID,
         requesterId: UUID,
     ): DrawResult {
-        val vote = voteRepositoryPort.findByIdForUpdate(voteId) ?: throw NoSuchElementException("Vote not found")
+        val vote = voteRepositoryPort.findByIdForUpdate(voteId) ?: throw NotFoundException("Vote not found")
         checkIsCreator(vote, requesterId)
 
         val result = drawService.draw(vote)
@@ -212,7 +215,7 @@ class VoteService(
     ) {
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
-        check(vote.status != VoteStatus.CLOSED) { "Vote is already closed" }
+        ensureState(vote.status != VoteStatus.CLOSED) { "Vote is already closed" }
         vote.status = VoteStatus.CLOSED
         voteRepositoryPort.save(vote)
     }
@@ -242,7 +245,7 @@ class VoteService(
     ): Page<DrawHistoryDto> {
         val vote = getVoteOrThrow(voteId)
         checkCanView(vote, requesterId, requesterEmail)
-        require(pageable.isPaged && pageable.pageSize <= 100) { "History page size must be between 1 and 100" }
+        ensureValid(pageable.isPaged && pageable.pageSize <= 100) { "History page size must be between 1 and 100" }
         val boundedPage = PageRequest.of(pageable.pageNumber, pageable.pageSize)
         return drawHistoryRepositoryPort.findAllByVoteIdOrderByDrawnAtDescIdDesc(voteId, boundedPage).map { it.toDto() }
     }
@@ -259,10 +262,10 @@ class VoteService(
     }
 
     private fun getVoteForUpdateOrThrow(voteId: UUID): Vote =
-        voteRepositoryPort.findByIdForUpdate(voteId) ?: throw NoSuchElementException("Vote not found")
+        voteRepositoryPort.findByIdForUpdate(voteId) ?: throw NotFoundException("Vote not found")
 
     private fun getVoteOrThrow(voteId: UUID): Vote =
-        voteRepositoryPort.findById(voteId) ?: throw NoSuchElementException("Vote not found")
+        voteRepositoryPort.findById(voteId) ?: throw NotFoundException("Vote not found")
 
     private fun checkIsCreator(
         vote: Vote,
@@ -287,13 +290,6 @@ class VoteService(
     }
 
     private fun Vote.invitationFor(email: String) = ParticipantInvited(id, title, creator.displayName, email)
-}
-
-private inline fun requireLimit(
-    withinLimit: Boolean,
-    message: () -> String,
-) {
-    if (!withinLimit) throw BadRequestException(message())
 }
 
 private fun participantLimitMessage() = "A vote can have at most ${VoteLimits.MAX_PARTICIPANTS} participants"

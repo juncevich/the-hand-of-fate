@@ -2,8 +2,6 @@ package com.juncevich.fate.grpc
 
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.UserQueryService
-import com.juncevich.fate.shared.BadRequestException
-import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.*
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
@@ -37,7 +35,15 @@ class FateGrpcService(
     dispatcher: CoroutineDispatcher = virtualThreadDispatcher,
 ) : FateServiceGrpcKt.FateServiceCoroutineImplBase(dispatcher) {
     override suspend fun linkTelegramAccount(request: LinkTelegramAccountRequest): LinkTelegramAccountResponse =
-        runCatching {
+        grpcMutation(
+            failure = {
+                LinkTelegramAccountResponse
+                    .newBuilder()
+                    .setSuccess(false)
+                    .setMessage(it)
+                    .build()
+            }
+        ) {
             val user =
                 telegramLinkService.linkAccount(
                     token = request.linkToken,
@@ -50,54 +56,24 @@ class FateGrpcService(
                 .setDisplayName(user.displayName)
                 .setMessage("Account linked successfully!")
                 .build()
-        }.getOrElse { ex ->
-            when (ex) {
-                is BadRequestException,
-                is NoSuchElementException,
-                is IllegalStateException,
-                is IllegalArgumentException,
-                is ForbiddenException,
-                -> {
-                    LinkTelegramAccountResponse
-                        .newBuilder()
-                        .setSuccess(false)
-                        .setMessage(ex.message ?: "Failed to link account")
-                        .build()
-                }
-
-                else -> {
-                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-                }
-            }
         }
 
     override suspend fun unlinkTelegramAccount(request: UnlinkTelegramAccountRequest): UnlinkTelegramAccountResponse =
-        runCatching {
+        grpcMutation(
+            failure = {
+                UnlinkTelegramAccountResponse
+                    .newBuilder()
+                    .setSuccess(false)
+                    .setMessage(it)
+                    .build()
+            }
+        ) {
             telegramLinkService.unlinkAccount(request.telegramId)
             UnlinkTelegramAccountResponse
                 .newBuilder()
                 .setSuccess(true)
                 .setMessage("Account unlinked.")
                 .build()
-        }.getOrElse { ex ->
-            when (ex) {
-                is BadRequestException,
-                is NoSuchElementException,
-                is IllegalStateException,
-                is IllegalArgumentException,
-                is ForbiddenException,
-                -> {
-                    UnlinkTelegramAccountResponse
-                        .newBuilder()
-                        .setSuccess(false)
-                        .setMessage(ex.message ?: "Failed to unlink")
-                        .build()
-                }
-
-                else -> {
-                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-                }
-            }
         }
 
     override suspend fun getMyVotes(request: GetMyVotesRequest): GetMyVotesResponse {
@@ -142,7 +118,15 @@ class FateGrpcService(
         val participantEmails = request.participantEmailsList
         val options = request.optionsList
 
-        return runCatching {
+        return grpcMutation(
+            failure = {
+                CreateVoteResponse
+                    .newBuilder()
+                    .setSuccess(false)
+                    .setMessage(it)
+                    .build()
+            }
+        ) {
             val vote =
                 voteService.createVote(
                     creatorId = user.id,
@@ -162,26 +146,6 @@ class FateGrpcService(
                 .setMessage("Vote created")
                 .setVote(buildVoteDetailsResponse(vote))
                 .build()
-        }.getOrElse { ex ->
-            when (ex) {
-                is BadRequestException,
-                is NoSuchElementException,
-                is IllegalStateException,
-                is IllegalArgumentException,
-                is ForbiddenException,
-                -> {
-                    CreateVoteResponse
-                        .newBuilder()
-                        .setSuccess(
-                            false
-                        ).setMessage(ex.message ?: "Vote creation failed")
-                        .build()
-                }
-
-                else -> {
-                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-                }
-            }
         }
     }
 
@@ -189,16 +153,24 @@ class FateGrpcService(
         val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
         val voteDto =
-            runCatching {
+            grpcRead {
                 voteService.getVote(voteId, user.id, user.email)
-            }.getOrElse { throw it.toReadStatusException() }
+            }
         return buildVoteDetailsResponse(voteDto)
     }
 
     override suspend fun drawVote(request: DrawVoteRequest): DrawVoteResponse {
         val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
-        return runCatching {
+        return grpcMutation(
+            failure = {
+                DrawVoteResponse
+                    .newBuilder()
+                    .setSuccess(false)
+                    .setMessage(it)
+                    .build()
+            }
+        ) {
             val result = voteService.draw(voteId, user.id)
             DrawVoteResponse
                 .newBuilder()
@@ -210,25 +182,6 @@ class FateGrpcService(
                 .setNewRoundStarted(result.newRoundStarted)
                 .setMessage("✦ The Hand of Fate has chosen: ${result.winnerLabel}")
                 .build()
-        }.getOrElse { ex ->
-            when (ex) {
-                is BadRequestException,
-                is NoSuchElementException,
-                is IllegalStateException,
-                is IllegalArgumentException,
-                is ForbiddenException,
-                -> {
-                    DrawVoteResponse
-                        .newBuilder()
-                        .setSuccess(false)
-                        .setMessage(ex.message ?: "Draw failed")
-                        .build()
-                }
-
-                else -> {
-                    throw StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-                }
-            }
         }
     }
 
@@ -237,9 +190,9 @@ class FateGrpcService(
         val voteId = parseVoteId(request.voteId)
 
         val lastDraw =
-            runCatching {
+            grpcRead {
                 voteService.getLastResult(voteId, user.id, user.email)
-            }.getOrElse { throw it.toReadStatusException() }
+            }
 
         return if (lastDraw == null) {
             GetLastDrawResultResponse.newBuilder().setHasResult(false).build()
@@ -256,9 +209,9 @@ class FateGrpcService(
         val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
         val history =
-            runCatching {
+            grpcRead {
                 voteService.getHistory(voteId, user.id, user.email, historyPage(request))
-            }.getOrElse { throw it.toReadStatusException() }
+            }
         return GetVoteHistoryResponse
             .newBuilder()
             .addAllResults(history.content.map { it.toDrawResultInfo() })
@@ -320,24 +273,9 @@ class FateGrpcService(
             .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(drawnAt))
             .build()
 
-    private fun Throwable.toReadStatusException(): StatusRuntimeException =
-        when (this) {
-            is StatusRuntimeException -> this
-
-            is IllegalArgumentException -> StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription(message))
-
-            is NoSuchElementException -> StatusRuntimeException(Status.NOT_FOUND.withDescription(message))
-
-            is IllegalStateException,
-            is ForbiddenException,
-            -> StatusRuntimeException(Status.PERMISSION_DENIED.withDescription(message))
-
-            else -> StatusRuntimeException(Status.INTERNAL.withDescription("Unexpected error"))
-        }
-
     private fun linkedUser(telegramId: Long) =
         userQueryService.findByTelegramId(telegramId)
-            ?: throw StatusRuntimeException(Status.NOT_FOUND.withDescription("Telegram account not linked"))
+            ?: throw GrpcErrors.telegramNotLinked()
 
     private fun parseVoteId(value: String): UUID =
         runCatching { UUID.fromString(value) }

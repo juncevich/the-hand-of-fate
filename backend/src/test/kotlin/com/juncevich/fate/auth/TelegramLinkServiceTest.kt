@@ -3,6 +3,8 @@ package com.juncevich.fate.auth
 import com.juncevich.fate.auth.internal.domain.TelegramLinkToken
 import com.juncevich.fate.auth.internal.port.TelegramLinkTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
+import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.NotFoundException
 import io.mockk.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -69,7 +71,7 @@ class TelegramLinkServiceTest {
         every { linkTokenRepositoryPort.deleteAllByUserId(userId) } just Runs
         every { userRepositoryPort.findById(userId) } returns null
 
-        assertThrows<NoSuchElementException> { service.generateLinkToken(userId) }
+        assertThrows<NotFoundException> { service.generateLinkToken(userId) }
         verify(exactly = 0) { linkTokenRepositoryPort.save(any()) }
     }
 
@@ -111,7 +113,7 @@ class TelegramLinkServiceTest {
     fun `linkAccount - throws for unknown token`() {
         every { linkTokenRepositoryPort.findByToken("bad-token") } returns null
 
-        assertThrows<NoSuchElementException> {
+        assertThrows<NotFoundException> {
             service.linkAccount("bad-token", 42L, "user")
         }
     }
@@ -139,7 +141,7 @@ class TelegramLinkServiceTest {
         every { linkTokenRepositoryPort.findByToken("token123") } returns linkToken
         every { userRepositoryPort.findByTelegramId(42L) } returns otherUser
 
-        assertThrows<IllegalStateException> {
+        assertThrows<ConflictException> {
             service.linkAccount("token123", 42L, "user")
         }
     }
@@ -166,7 +168,7 @@ class TelegramLinkServiceTest {
     fun `unlinkAccount - throws when telegram id not linked`() {
         every { userRepositoryPort.findByTelegramId(99L) } returns null
 
-        assertThrows<NoSuchElementException> { service.unlinkAccount(99L) }
+        assertThrows<NotFoundException> { service.unlinkAccount(99L) }
     }
 
     @Test
@@ -195,7 +197,7 @@ class TelegramLinkServiceTest {
 
         every { userRepositoryPort.findById(userId) } returns user
 
-        assertThrows<IllegalStateException> { service.unlinkByUserId(userId) }
+        assertThrows<ConflictException> { service.unlinkByUserId(userId) }
     }
 
     @Test
@@ -203,6 +205,6 @@ class TelegramLinkServiceTest {
         val userId = UUID.randomUUID()
         every { userRepositoryPort.findById(userId) } returns null
 
-        assertThrows<NoSuchElementException> { service.unlinkByUserId(userId) }
+        assertThrows<NotFoundException> { service.unlinkByUserId(userId) }
     }
 }

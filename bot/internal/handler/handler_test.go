@@ -12,6 +12,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	fatev1 "github.com/juncevich/the-hand-of-fate/bot/gen/fate/v1"
 	"go.uber.org/zap/zaptest"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -336,7 +337,10 @@ func TestGrpcErrMsg(t *testing.T) {
 		err      error
 		contains string
 	}{
-		{"NOT_FOUND", status.Error(codes.NotFound, "x"), "не привязан"},
+		{"NOT_FOUND unlinked account", notLinkedErr(), "не привязан"},
+		{"NOT_FOUND vote", status.Error(codes.NotFound, "Vote not found"), "Голосование не найдено"},
+		{"NOT_FOUND foreign ErrorInfo", foreignNotFoundErr(), "Голосование не найдено"},
+		{"FAILED_PRECONDITION", status.Error(codes.FailedPrecondition, "x"), "недоступно"},
 		{"PERMISSION_DENIED", status.Error(codes.PermissionDenied, "x"), "нет прав"},
 		{"INVALID_ARGUMENT", status.Error(codes.InvalidArgument, "x"), "Некорректные"},
 		{"generic gRPC", status.Error(codes.Internal, "x"), "Ошибка сервера"},
@@ -493,7 +497,7 @@ func TestHandleVotes(t *testing.T) {
 		{
 			name: "gRPC error",
 			client: &fakeFateClient{
-				votesErr: status.Error(codes.NotFound, "x"),
+				votesErr: notLinkedErr(),
 			},
 			wantContains: "не привязан",
 		},
@@ -571,7 +575,7 @@ func TestHandleDraw(t *testing.T) {
 			name:         "NOT_FOUND",
 			voteID:       "v1",
 			client:       &fakeFateClient{drawErr: status.Error(codes.NotFound, "x")},
-			wantContains: "не привязан",
+			wantContains: "Голосование не найдено",
 		},
 	}
 	for _, tc := range tests {
@@ -880,4 +884,23 @@ func TestHandleHistoryRejectsInvalidPages(t *testing.T) {
 			}
 		})
 	}
+}
+
+// notLinkedErr mirrors the backend's GrpcErrors.telegramNotLinked().
+func notLinkedErr() error {
+	return withErrorInfo(errorDomain, reasonTelegramNotLinked)
+}
+
+// foreignNotFoundErr carries the same reason under another domain and must not be mistaken for it.
+func foreignNotFoundErr() error {
+	return withErrorInfo("other.v1", reasonTelegramNotLinked)
+}
+
+func withErrorInfo(domain, reason string) error {
+	st, err := status.New(codes.NotFound, "Telegram account not linked").
+		WithDetails(&errdetails.ErrorInfo{Domain: domain, Reason: reason})
+	if err != nil {
+		panic(err)
+	}
+	return st.Err()
 }

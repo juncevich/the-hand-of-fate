@@ -138,6 +138,7 @@ cd perf
 | `spf13/viper`                      | v1.21.0  | Config        |
 | `go.uber.org/zap`                  | v1.28.0  | Logging       |
 | `google.golang.org/grpc`           | v1.84.0  | gRPC client   |
+| `google.golang.org/genproto/googleapis/rpc` | (pseudo-version, via grpc) | `errdetails.ErrorInfo` |
 | `google.golang.org/protobuf`       | v1.36.12 | Proto runtime |
 
 ### Telegram Bot Commands
@@ -231,6 +232,13 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 - **Notifications**: `NotificationRecorder` persists one outbox job per recipient inside the vote transaction. Payloads are versioned DTOs (`NotificationPayloads.kt`), not the domain events. `NotificationWorker` claims jobs with `SKIP LOCKED`, delivers outside DB transactions, retries with exponential backoff and marks jobs failed after `app.notifications.max-attempts` (metric `notification.dead`), purging them after `failed-retention` (see `NotificationProperties`, backend/README.md). `NotificationAdapter` handles SMTP delivery and propagates failures to the worker.
 - **EmailService**: sends styled HTML emails (dark theme) for vote invitations and draw results
 - **FateGrpcService**: gRPC server implementation; uses `runCatching` + `StatusRuntimeException` for error mapping; maps `VoteOptionInfo` proto messages for options
+
+### Error Handling
+- Client-facing errors extend the sealed `shared.FateException` via one of four open categories: `BadRequestException` (400 / `INVALID_ARGUMENT`), `NotFoundException` (404 / `NOT_FOUND`), `ForbiddenException` (403 / `PERMISSION_DENIED`), `ConflictException` (409 / `FAILED_PRECONDITION`). Their message is shown to the caller
+- Mapping lives in exactly two places: `ErrorHandler` (REST) and `grpc/GrpcErrors.kt` (`grpcRead {}` / `grpcMutation {}`); `ErrorMappingContractTest` fails if a category is added without mapping it on both sides
+- `ErrorHandler` extends `ResponseEntityExceptionHandler`, so Spring MVC errors (malformed JSON, bad path UUID, 405, unknown route) keep their 4xx status; bean-validation errors go through the `handleMethodArgumentNotValid` override (never add an `@ExceptionHandler` for an exception the base class already handles — startup fails on the ambiguous mapping)
+- gRPC error contract is documented atop `proto/fate/v1/fate.proto`. An unlinked Telegram account is `NOT_FOUND` + `google.rpc.ErrorInfo{domain: "fate.v1", reason: "TELEGRAM_NOT_LINKED"}`; the bot (`isTelegramNotLinked`) uses it to tell that apart from a missing vote
+- For business rules use `ensureValid(...)` / `ensureState(...)` and `throw NotFoundException(...)` — not `require`/`check`/`NoSuchElementException`. Stdlib exceptions are reserved for internal invariants and surface as 500 / `INTERNAL` without their message
 
 ### gRPC (Backend ↔ Bot)
 - Proto source: `proto/fate/v1/fate.proto` (package `fate.v1`)

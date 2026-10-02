@@ -1,11 +1,13 @@
 package com.juncevich.fate.grpc
 
+import com.google.rpc.ErrorInfo
 import com.juncevich.fate.AbstractApiIntegrationTest
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.Metadata
 import io.grpc.Status
 import io.grpc.StatusException
+import io.grpc.protobuf.StatusProto
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -82,6 +84,14 @@ class GrpcServerIntegrationTest : AbstractApiIntegrationTest() {
             }
         assertEquals(Status.Code.NOT_FOUND, ex.status.code)
         assertEquals("Telegram account not linked", ex.status.description)
+        // The ErrorInfo detail must survive the transport, not just the status code
+        val reason =
+            checkNotNull(StatusProto.fromThrowable(ex))
+                .detailsList
+                .single()
+                .unpack(ErrorInfo::class.java)
+                .reason
+        assertEquals("TELEGRAM_NOT_LINKED", reason)
     }
 
     @Test

@@ -1,15 +1,20 @@
 package com.juncevich.fate.grpc
 
+import com.google.rpc.ErrorInfo
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.auth.toProfile
 import com.juncevich.fate.grpc.FateProto.*
+import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.ForbiddenException
+import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.vote.*
 import com.juncevich.fate.vote.internal.domain.Vote
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
+import io.grpc.protobuf.StatusProto
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -156,23 +161,12 @@ class FateGrpcServiceTest {
     fun `linkTelegramAccount maps domain errors to unsuccessful response`() =
         runBlocking {
             every { telegramLinkService.linkAccount(any(), any(), any()) } throws
-                IllegalStateException("Link token expired")
+                BadRequestException("Link token expired")
 
             val response = service.linkTelegramAccount(linkRequest())
 
             assertFalse(response.success)
             assertEquals("Link token expired", response.message)
-        }
-
-    @Test
-    fun `linkTelegramAccount uses fallback message when exception has none`() =
-        runBlocking {
-            every { telegramLinkService.linkAccount(any(), any(), any()) } throws NoSuchElementException()
-
-            val response = service.linkTelegramAccount(linkRequest())
-
-            assertFalse(response.success)
-            assertEquals("Failed to link account", response.message)
         }
 
     @Test
@@ -202,24 +196,12 @@ class FateGrpcServiceTest {
     @Test
     fun `unlinkTelegramAccount maps domain errors to unsuccessful response`() =
         runBlocking {
-            every { telegramLinkService.unlinkAccount(42) } throws NoSuchElementException("Not linked")
+            every { telegramLinkService.unlinkAccount(42) } throws NotFoundException("Not linked")
 
             val response = service.unlinkTelegramAccount(unlinkRequest())
 
             assertFalse(response.success)
             assertEquals("Not linked", response.message)
-        }
-
-    @Test
-    fun `unlinkTelegramAccount uses fallback message when exception has none`() =
-        runBlocking {
-            every { telegramLinkService.unlinkAccount(43) } throws IllegalArgumentException()
-
-            val response =
-                service.unlinkTelegramAccount(UnlinkTelegramAccountRequest.newBuilder().setTelegramId(43).build())
-
-            assertFalse(response.success)
-            assertEquals("Failed to unlink", response.message)
         }
 
     @Test
@@ -279,6 +261,13 @@ class FateGrpcServiceTest {
 
         assertEquals(Status.Code.NOT_FOUND, ex.status.code)
         assertEquals("Telegram account not linked", ex.status.description)
+        val info =
+            checkNotNull(StatusProto.fromThrowable(ex))
+                .detailsList
+                .single()
+                .unpack(ErrorInfo::class.java)
+        assertEquals("TELEGRAM_NOT_LINKED", info.reason)
+        assertEquals("fate.v1", info.domain)
     }
 
     // ── createVote ───────────────────────────────────────────────────────────
@@ -342,7 +331,7 @@ class FateGrpcServiceTest {
     fun `createVote maps domain errors to unsuccessful response`() =
         runBlocking {
             every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-            every { voteService.createVote(any(), any()) } throws IllegalArgumentException()
+            every { voteService.createVote(any(), any()) } throws BadRequestException("Too many options")
 
             val response =
                 service.createVote(
@@ -354,7 +343,7 @@ class FateGrpcServiceTest {
                 )
 
             assertFalse(response.success)
-            assertEquals("Vote creation failed", response.message)
+            assertEquals("Too many options", response.message)
         }
 
     @Test
@@ -410,18 +399,26 @@ class FateGrpcServiceTest {
 
     @Test
     fun `getVoteDetails maps missing vote to NOT_FOUND`() {
-        assertReadError(NoSuchElementException("Vote not found"), Status.Code.NOT_FOUND)
+        assertReadError(NotFoundException("Vote not found"), Status.Code.NOT_FOUND)
     }
 
     @Test
     fun `getVoteDetails maps access denial to PERMISSION_DENIED`() {
         assertReadError(ForbiddenException("Access denied"), Status.Code.PERMISSION_DENIED)
-        assertReadError(IllegalStateException("Access denied"), Status.Code.PERMISSION_DENIED)
+    }
+
+    @Test
+    fun `getVoteDetails maps each domain error category to its status`() {
+        assertReadError(BadRequestException("Bad input"), Status.Code.INVALID_ARGUMENT)
+        assertReadError(NotFoundException("Vote not found"), Status.Code.NOT_FOUND)
+        assertReadError(ConflictException("Vote is closed"), Status.Code.FAILED_PRECONDITION)
     }
 
     @Test
     fun `getVoteDetails maps unexpected errors to INTERNAL`() {
         assertReadError(RuntimeException("boom"), Status.Code.INTERNAL)
+        assertReadError(IllegalStateException("Corrupt row 42"), Status.Code.INTERNAL)
+        assertReadError(NoSuchElementException("List is empty"), Status.Code.INTERNAL)
     }
 
     // ── drawVote ─────────────────────────────────────────────────────────────
@@ -462,19 +459,6 @@ class FateGrpcServiceTest {
 
             assertFalse(response.success)
             assertEquals("Only the creator can draw", response.message)
-        }
-
-    @Test
-    fun `drawVote uses fallback message when exception has none`() =
-        runBlocking {
-            val voteId = UUID.randomUUID()
-            every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-            every { voteService.draw(voteId, any()) } throws IllegalStateException()
-
-            val response = service.drawVote(drawRequest(voteId.toString()))
-
-            assertFalse(response.success)
-            assertEquals("Draw failed", response.message)
         }
 
     @Test
@@ -524,7 +508,7 @@ class FateGrpcServiceTest {
     fun `getLastDrawResult maps missing vote to NOT_FOUND`() {
         val voteId = UUID.randomUUID()
         every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-        every { voteService.getLastResult(voteId, any(), any()) } throws NoSuchElementException("Vote not found")
+        every { voteService.getLastResult(voteId, any(), any()) } throws NotFoundException("Vote not found")
 
         val ex =
             assertThrows<StatusRuntimeException> {

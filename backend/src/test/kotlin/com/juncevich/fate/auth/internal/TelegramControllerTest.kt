@@ -4,6 +4,7 @@ import com.juncevich.fate.auth.AuthenticatedUser
 import com.juncevich.fate.auth.GeneratedLinkToken
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.internal.web.TelegramController
+import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.internal.config.ErrorHandler
 import io.mockk.every
 import io.mockk.just
@@ -74,7 +75,7 @@ class TelegramControllerTest {
 
     @Test
     fun `DELETE unlink - returns 409 when telegram is not linked`() {
-        every { telegramLinkService.unlinkByUserId(userId) } throws IllegalStateException("Telegram is not linked")
+        every { telegramLinkService.unlinkByUserId(userId) } throws ConflictException("Telegram is not linked")
 
         mockMvc.delete("/api/v1/telegram/unlink").andExpect {
             status { isConflict() }

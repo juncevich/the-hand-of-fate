@@ -4,6 +4,8 @@ import com.juncevich.fate.auth.internal.domain.TelegramLinkToken
 import com.juncevich.fate.auth.internal.port.TelegramLinkTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.NotFoundException
+import com.juncevich.fate.shared.ensureState
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -28,7 +30,7 @@ class TelegramLinkService(
         val token = UUID.randomUUID().toString().replace("-", "")
         val user =
             userRepositoryPort.findById(userId)
-                ?: throw NoSuchElementException("User not found")
+                ?: throw NotFoundException("User not found")
         val expiresAt = Instant.now().plusSeconds(LINK_TOKEN_TTL_SECONDS)
 
         linkTokenRepositoryPort.save(
@@ -49,7 +51,7 @@ class TelegramLinkService(
     ): User {
         val linkToken =
             linkTokenRepositoryPort.findByToken(token)
-                ?: throw NoSuchElementException("Invalid or expired link token")
+                ?: throw NotFoundException("Invalid or expired link token")
 
         if (linkToken.isExpired) {
             linkTokenRepositoryPort.delete(linkToken)
@@ -57,7 +59,7 @@ class TelegramLinkService(
         }
 
         userRepositoryPort.findByTelegramId(telegramId)?.let { existing ->
-            check(existing.id == linkToken.user.id) { "This Telegram account is already linked to another user" }
+            ensureState(existing.id == linkToken.user.id) { "This Telegram account is already linked to another user" }
         }
 
         val user = linkToken.user
@@ -72,7 +74,7 @@ class TelegramLinkService(
     fun unlinkAccount(telegramId: Long) {
         val user =
             userRepositoryPort.findByTelegramId(telegramId)
-                ?: throw NoSuchElementException("Telegram account not linked to any user")
+                ?: throw NotFoundException("Telegram account not linked to any user")
         user.telegramId = null
         user.telegramName = null
         userRepositoryPort.save(user)
@@ -81,8 +83,8 @@ class TelegramLinkService(
     fun unlinkByUserId(userId: UUID) {
         val user =
             userRepositoryPort.findById(userId)
-                ?: throw NoSuchElementException("User not found")
-        checkNotNull(user.telegramId) { "No Telegram account is linked to this user" }
+                ?: throw NotFoundException("User not found")
+        ensureState(user.telegramId != null) { "No Telegram account is linked to this user" }
         user.telegramId = null
         user.telegramName = null
         userRepositoryPort.save(user)

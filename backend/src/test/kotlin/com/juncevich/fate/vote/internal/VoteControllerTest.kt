@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import java.time.Instant
 import java.util.UUID
@@ -215,5 +216,48 @@ class VoteControllerTest {
         }
 
         verify { voteService.getHistory(voteId, userId, "user@test.com") }
+    }
+
+    // ── Spring MVC errors stay client errors ────────────────────────────────
+
+    @Test
+    fun `malformed JSON body returns 400 instead of 500`() {
+        mockMvc
+            .post("/api/v1/votes") {
+                contentType = MediaType.APPLICATION_JSON
+                content = "{not json"
+            }.andExpect {
+                status { isBadRequest() }
+                jsonPath("$.title") { value("Failed to read request") }
+                jsonPath("$.timestamp") { exists() }
+            }
+    }
+
+    @Test
+    fun `malformed vote id in path returns 400 instead of 500`() {
+        mockMvc.get("/api/v1/votes/not-a-uuid").andExpect {
+            status { isBadRequest() }
+            jsonPath("$.timestamp") { exists() }
+        }
+    }
+
+    @Test
+    fun `unsupported HTTP method returns 405`() {
+        mockMvc.put("/api/v1/votes/$voteId").andExpect {
+            status { isMethodNotAllowed() }
+        }
+    }
+
+    @Test
+    fun `bean validation failure keeps the field error map`() {
+        mockMvc
+            .post("/api/v1/votes") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"title":"","mode":"SIMPLE","participantEmails":[]}"""
+            }.andExpect {
+                status { isBadRequest() }
+                jsonPath("$.title") { value("Validation failed") }
+                jsonPath("$.errors.title") { exists() }
+            }
     }
 }

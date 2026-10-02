@@ -12,6 +12,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	fatev1 "github.com/juncevich/the-hand-of-fate/bot/gen/fate/v1"
 	"go.uber.org/zap"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -485,15 +486,37 @@ func (h *Handler) grpcErrMsg(err error) string {
 	}
 	switch st.Code() {
 	case codes.NotFound:
-		return "❌ Telegram аккаунт не привязан.\n\nПолучите токен в настройках приложения и выполните /link <токен>"
+		if isTelegramNotLinked(st) {
+			return "❌ Telegram аккаунт не привязан.\n\nПолучите токен в настройках приложения и выполните /link <токен>"
+		}
+		return "❌ Голосование не найдено."
 	case codes.InvalidArgument:
 		return "❌ Некорректные данные команды."
 	case codes.PermissionDenied:
 		return "❌ У вас нет прав для этого действия."
+	case codes.FailedPrecondition:
+		return "❌ Действие недоступно в текущем состоянии голосования."
 	default:
 		h.log.Error("gRPC error", zap.Error(err))
 		return "❌ Ошибка сервера. Попробуйте позже."
 	}
+}
+
+// Backend error contract (see proto/fate/v1/fate.proto): an unlinked Telegram account is
+// NOT_FOUND plus an ErrorInfo detail, which distinguishes it from a missing vote.
+const (
+	errorDomain             = "fate.v1"
+	reasonTelegramNotLinked = "TELEGRAM_NOT_LINKED"
+)
+
+func isTelegramNotLinked(st *status.Status) bool {
+	for _, d := range st.Details() {
+		if info, ok := d.(*errdetails.ErrorInfo); ok &&
+			info.GetDomain() == errorDomain && info.GetReason() == reasonTelegramNotLinked {
+			return true
+		}
+	}
+	return false
 }
 
 // Emails can't contain spaces, so commas and whitespace both separate them;

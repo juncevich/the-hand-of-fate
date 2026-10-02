@@ -7,6 +7,7 @@ import com.juncevich.fate.auth.internal.service.AuthService
 import com.juncevich.fate.auth.internal.service.RegisterRequest
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
+import com.juncevich.fate.shared.ConflictException
 import io.mockk.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -68,7 +69,7 @@ class AuthServiceTest {
     fun `register - throws when email already exists`() {
         every { userRepositoryPort.existsByEmail("taken@test.com") } returns true
 
-        assertThrows<IllegalStateException> {
+        assertThrows<ConflictException> {
             authService.register(RegisterRequest("taken@test.com", "pass12345", "Name"))
         }
 

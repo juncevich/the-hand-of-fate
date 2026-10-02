@@ -36,7 +36,7 @@ class VotePersistenceAdapter(
         val entity = voteJpaRepository.findById(id).orElse(null) ?: return null
         val creator =
             userQueryService.findProfileById(entity.creatorId)
-                ?: throw NoSuchElementException("Creator not found for vote $id")
+                ?: error("Creator ${entity.creatorId} not found for vote $id")
         return entity.toDomain(creator)
     }
 
@@ -44,7 +44,7 @@ class VotePersistenceAdapter(
         val entity = voteJpaRepository.findByIdWithPessimisticLock(id) ?: return null
         val creator =
             userQueryService.findProfileById(entity.creatorId)
-                ?: throw NoSuchElementException("Creator not found for vote $id")
+                ?: error("Creator ${entity.creatorId} not found for vote $id")
         return entity.toDomain(creator)
     }
 
@@ -61,7 +61,7 @@ class VotePersistenceAdapter(
         return page.map { entity ->
             val creator =
                 creatorsById[entity.creatorId]
-                    ?: throw NoSuchElementException("Creator not found for vote ${entity.id}")
+                    ?: error("Creator ${entity.creatorId} not found for vote ${entity.id}")
             entity.toDomain(creator)
         }
     }

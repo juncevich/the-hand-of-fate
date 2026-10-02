@@ -114,7 +114,7 @@ func TestHandleNewVoteErrors(t *testing.T) {
 		},
 		{
 			name:   "gRPC error",
-			client: &fakeFateClient{createErr: status.Error(codes.NotFound, "x")},
+			client: &fakeFateClient{createErr: notLinkedErr()},
 			args:   "Lunch",
 			want:   []string{"не привязан"},
 		},
@@ -261,7 +261,7 @@ func TestHandleResult(t *testing.T) {
 			name:   "gRPC error",
 			client: &fakeFateClient{lastResultErr: status.Error(codes.NotFound, "x")},
 			args:   "v1",
-			want:   []string{"не привязан"},
+			want:   []string{"Голосование не найдено"},
 		},
 		{
 			name:   "no result yet",

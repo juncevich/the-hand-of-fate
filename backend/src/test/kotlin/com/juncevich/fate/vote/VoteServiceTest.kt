@@ -4,7 +4,9 @@ import com.juncevich.fate.auth.User
 import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.auth.toProfile
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.ForbiddenException
+import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.vote.internal.DrawService
 import com.juncevich.fate.vote.internal.ParticipantInvited
 import com.juncevich.fate.vote.internal.VoteDrawn
@@ -198,7 +200,7 @@ class VoteServiceTest {
         every { voteRepositoryPort.findById(id) } returns null
         every { voteRepositoryPort.findByIdForUpdate(id) } returns null
 
-        assertThrows<NoSuchElementException> { voteService.getLastResult(id, UUID.randomUUID(), "x@test.com") }
+        assertThrows<NotFoundException> { voteService.getLastResult(id, UUID.randomUUID(), "x@test.com") }
     }
 
     @Test
@@ -206,7 +208,7 @@ class VoteServiceTest {
         val id = UUID.randomUUID()
         every { voteRepositoryPort.findByIdForUpdate(id) } returns null
 
-        assertThrows<NoSuchElementException> { voteService.draw(id, UUID.randomUUID()) }
+        assertThrows<NotFoundException> { voteService.draw(id, UUID.randomUUID()) }
     }
 
     @Test
@@ -231,7 +233,7 @@ class VoteServiceTest {
         every { voteRepositoryPort.findById(vote.id) } returns vote
         every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
-        assertThrows<IllegalStateException> {
+        assertThrows<ConflictException> {
             voteService.addParticipant(vote.id, creator.id, "new@test.com")
         }
     }
@@ -245,7 +247,7 @@ class VoteServiceTest {
         every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, "dup@test.com") } returns true
 
-        assertThrows<IllegalStateException> {
+        assertThrows<ConflictException> {
             voteService.addParticipant(vote.id, creator.id, "dup@test.com")
         }
     }
@@ -294,7 +296,7 @@ class VoteServiceTest {
         every { voteRepositoryPort.findById(vote.id) } returns vote
         every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
-        assertThrows<IllegalStateException> {
+        assertThrows<ConflictException> {
             voteService.removeParticipant(vote.id, creator.id, "p@test.com")
         }
     }
@@ -381,7 +383,7 @@ class VoteServiceTest {
         every { voteRepositoryPort.findById(vote.id) } returns vote
         every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
-        assertThrows<IllegalStateException> { voteService.closeVote(vote.id, creator.id) }
+        assertThrows<ConflictException> { voteService.closeVote(vote.id, creator.id) }
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.juncevich.fate.vote.internal
 
+import com.juncevich.fate.shared.ensureState
 import com.juncevich.fate.vote.DrawResult
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
@@ -35,14 +36,14 @@ class DrawService(
 ) {
     @Transactional
     fun draw(vote: Vote): DrawResult {
-        check(vote.status == VoteStatus.PENDING) {
+        ensureState(vote.status == VoteStatus.PENDING) {
             "Vote must be in PENDING status to draw. Current status: ${vote.status}"
         }
 
         val options = voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id)
         val participants = if (options.isEmpty()) participantRepositoryPort.findAllByVoteId(vote.id) else emptyList()
 
-        check(options.isNotEmpty() || participants.isNotEmpty()) {
+        ensureState(options.isNotEmpty() || participants.isNotEmpty()) {
             "Cannot draw: vote has no options or participants"
         }
 
@@ -108,7 +109,7 @@ class DrawService(
 
     @Transactional
     fun reopen(vote: Vote) {
-        check(vote.status == VoteStatus.DRAWN) { "Only DRAWN votes can be reopened" }
+        ensureState(vote.status == VoteStatus.DRAWN) { "Only DRAWN votes can be reopened" }
         vote.status = VoteStatus.PENDING
         voteRepositoryPort.save(vote)
     }

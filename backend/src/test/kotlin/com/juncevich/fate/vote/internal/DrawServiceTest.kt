@@ -2,6 +2,7 @@ package com.juncevich.fate.vote.internal
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.auth.toProfile
+import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.vote.*
 import com.juncevich.fate.vote.internal.DrawService
 import com.juncevich.fate.vote.internal.domain.DrawHistory
@@ -113,7 +114,7 @@ class DrawServiceTest {
     fun `draw - throws when vote is not PENDING`() {
         val vote = makeVote(status = VoteStatus.DRAWN)
 
-        assertThrows<IllegalStateException> { drawService.draw(vote) }
+        assertThrows<ConflictException> { drawService.draw(vote) }
     }
 
     @Test
@@ -122,7 +123,7 @@ class DrawServiceTest {
         every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
         every { participantRepositoryPort.findAllByVoteId(vote.id) } returns emptyList()
 
-        val ex = assertThrows<IllegalStateException> { drawService.draw(vote) }
+        val ex = assertThrows<ConflictException> { drawService.draw(vote) }
         assertTrue(ex.message!!.contains("no options or participants"))
     }
 
@@ -235,7 +236,7 @@ class DrawServiceTest {
     fun `reopen - throws when vote is not DRAWN`() {
         val vote = makeVote(status = VoteStatus.PENDING)
 
-        assertThrows<IllegalStateException> { drawService.reopen(vote) }
+        assertThrows<ConflictException> { drawService.reopen(vote) }
     }
 
     @Test

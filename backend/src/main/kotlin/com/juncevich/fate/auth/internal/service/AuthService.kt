@@ -6,6 +6,7 @@ import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
+import com.juncevich.fate.shared.ensureState
 import com.juncevich.fate.shared.normalizeEmail
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -30,18 +31,18 @@ class AuthService(
     // Precomputed once so the login() timing-mitigation branch doesn't hash a fresh
     // random string (and thus a fresh salt) on every unknown-email attempt.
     private val dummyPasswordHash: String by lazy {
-        requireNotNull(passwordEncoder.encode(UUID.randomUUID().toString())) { "Password encoding failed" }
+        checkNotNull(passwordEncoder.encode(UUID.randomUUID().toString())) { "Password encoding failed" }
     }
 
     fun register(request: RegisterRequest): AuthTokens {
         val email = normalizeEmail(request.email)
-        check(!userRepositoryPort.existsByEmail(email)) { "Email already registered" }
+        ensureState(!userRepositoryPort.existsByEmail(email)) { "Email already registered" }
         val user =
             userRepositoryPort.save(
                 User(
                     email = email,
                     passwordHash =
-                        requireNotNull(passwordEncoder.encode(request.password)) {
+                        checkNotNull(passwordEncoder.encode(request.password)) {
                             "Password encoding failed"
                         },
                     displayName = request.displayName

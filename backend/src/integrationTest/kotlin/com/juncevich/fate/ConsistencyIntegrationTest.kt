@@ -5,6 +5,8 @@ import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.auth.internal.service.AuthService
 import com.juncevich.fate.auth.internal.service.RegisterRequest
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.vote.CreateVoteCommand
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteService
@@ -74,7 +76,7 @@ class ConsistencyIntegrationTest
                     }
                 )
             assertTrue(draw.isSuccess)
-            assertTrue(change.exceptionOrNull() is IllegalStateException)
+            assertTrue(change.exceptionOrNull() is ConflictException)
             val detail = votes.getVote(vote.id, userId, email)
             assertEquals(listOf("Winner"), detail.options.map { it.title })
             assertEquals(listOf(email), detail.participants.map { it.email })
@@ -100,7 +102,7 @@ class ConsistencyIntegrationTest
                     { telegram.linkAccount(token, secondId, "Second") }
                 )
             assertTrue(first.isSuccess)
-            assertTrue(second.exceptionOrNull() is NoSuchElementException)
+            assertTrue(second.exceptionOrNull() is NotFoundException)
             assertEquals(firstId, users.findById(userId)?.telegramId)
         }
 
@@ -122,7 +124,7 @@ class ConsistencyIntegrationTest
         fun `normalized duplicate registration returns conflict`() {
             val email = "${UUID.randomUUID()}@test.com"
             auth.register(RegisterRequest(email, "password123", "Test"))
-            assertThrows<IllegalStateException> { auth.register(RegisterRequest(" ${email.uppercase()} ", "password123", "Test")) }
+            assertThrows<ConflictException> { auth.register(RegisterRequest(" ${email.uppercase()} ", "password123", "Test")) }
         }
 
         @Test
@@ -159,7 +161,7 @@ class ConsistencyIntegrationTest
             assertEquals(1, last.content.size)
             assertEquals(3, (first.content + last.content).map { it.id }.toSet().size)
             assertEquals(first.content.map { it.id }, votes.getHistory(vote.id, userId, email, PageRequest.of(0, 2)).content.map { it.id })
-            assertThrows<IllegalArgumentException> { votes.getHistory(vote.id, userId, email, PageRequest.of(0, 101)) }
+            assertThrows<BadRequestException> { votes.getHistory(vote.id, userId, email, PageRequest.of(0, 101)) }
 
             val token = auth.login(email, "password123").response.accessToken
             mockMvc

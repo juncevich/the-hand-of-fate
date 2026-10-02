@@ -7,6 +7,7 @@ import com.juncevich.fate.auth.internal.service.LoginRequest
 import com.juncevich.fate.auth.internal.service.RefreshRequest
 import com.juncevich.fate.auth.internal.service.RegisterRequest
 import com.juncevich.fate.auth.internal.token.JwtProperties
+import com.juncevich.fate.shared.BadRequestException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.beans.factory.annotation.Value
@@ -53,7 +54,7 @@ class AuthController(
     ): ResponseEntity<AuthResponse> {
         val refreshToken =
             request.refreshTokenOrCookie(servletRequest)
-                ?: throw IllegalArgumentException("Refresh token is required")
+                ?: throw BadRequestException("Refresh token is required")
         val tokens = authService.refresh(refreshToken)
         return ResponseEntity
             .ok()
