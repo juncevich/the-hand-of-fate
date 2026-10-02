@@ -67,7 +67,7 @@ describe('VoteDetailPage', () => {
   it('renders vote title, status badge and mode badge', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -80,7 +80,7 @@ describe('VoteDetailPage', () => {
   it('shows the draw button when creator, PENDING and has participants', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -91,7 +91,7 @@ describe('VoteDetailPage', () => {
   it('hides the draw button when user is not creator', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote({ isCreator: false }))
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -103,7 +103,7 @@ describe('VoteDetailPage', () => {
   it('hides the draw button when there are no participants', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote({ participants: [] }))
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -116,7 +116,7 @@ describe('VoteDetailPage', () => {
     const { votesApi } = await import('@/api/votes')
     const { toast } = await import('@/components/ui/toaster')
     vi.mocked(votesApi.get).mockResolvedValue(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
     vi.mocked(votesApi.draw).mockResolvedValueOnce({
       winnerEmail: 'alice@example.com',
       winnerDisplayName: 'Alice',
@@ -140,7 +140,7 @@ describe('VoteDetailPage', () => {
   it('renders participants list', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -153,7 +153,7 @@ describe('VoteDetailPage', () => {
   it('shows add-participant input for creator in PENDING status', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -165,7 +165,7 @@ describe('VoteDetailPage', () => {
   it('hides add-participant input when not creator', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote({ isCreator: false }))
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -177,7 +177,7 @@ describe('VoteDetailPage', () => {
   it('calls votesApi.addParticipant on Enter in add-participant input', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValue(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
     vi.mocked(votesApi.addParticipant).mockResolvedValueOnce({} as never)
 
     const user = userEvent.setup()
@@ -195,7 +195,7 @@ describe('VoteDetailPage', () => {
   it('shows remove-participant buttons for creator in PENDING status', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -212,7 +212,7 @@ describe('VoteDetailPage', () => {
   it('calls votesApi.removeParticipant when remove button is clicked', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValue(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
     vi.mocked(votesApi.removeParticipant).mockResolvedValueOnce({} as never)
 
     const user = userEvent.setup()
@@ -232,7 +232,7 @@ describe('VoteDetailPage', () => {
   it('renders history section when history has entries', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [
       {
         id: 'h1',
         winnerEmail: 'alice@example.com',
@@ -241,7 +241,7 @@ describe('VoteDetailPage', () => {
         round: 1,
         drawnAt: '2024-01-15T10:00:00Z',
       },
-    ])
+    ], totalElements: 1, totalPages: 1, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -253,7 +253,7 @@ describe('VoteDetailPage', () => {
   it('navigates back to dashboard on back button click', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const user = userEvent.setup()
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -280,7 +280,7 @@ describe('VoteDetailPage', () => {
         },
       })
     )
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -292,7 +292,7 @@ describe('VoteDetailPage', () => {
   it('shows an error state and refetches on retry', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockRejectedValueOnce(new Error('Сервер недоступен')).mockResolvedValueOnce(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const user = userEvent.setup()
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -308,7 +308,7 @@ describe('VoteDetailPage', () => {
   it('reopens a drawn vote', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValue(makeVote({ status: 'DRAWN' }))
-    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
     vi.mocked(votesApi.reopen).mockResolvedValueOnce({} as never)
 
     const user = userEvent.setup()
@@ -324,7 +324,7 @@ describe('VoteDetailPage', () => {
   it('deletes the vote and navigates to the dashboard', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValue(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
     vi.mocked(votesApi.delete).mockResolvedValueOnce({} as never)
 
     const user = userEvent.setup()
@@ -342,7 +342,7 @@ describe('VoteDetailPage', () => {
     const { votesApi } = await import('@/api/votes')
     const { toast } = await import('@/components/ui/toaster')
     vi.mocked(votesApi.get).mockResolvedValue(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
     vi.mocked(votesApi.draw).mockRejectedValueOnce(
       new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
         data: { title: 'Cannot draw now' },
@@ -365,7 +365,7 @@ describe('VoteDetailPage', () => {
   it('renders options and shows the empty-options hint otherwise', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -378,7 +378,7 @@ describe('VoteDetailPage', () => {
     const { votesApi } = await import('@/api/votes')
     const { toast } = await import('@/components/ui/toaster')
     vi.mocked(votesApi.get).mockResolvedValue(makeVote())
-    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
     vi.mocked(votesApi.addOption).mockResolvedValueOnce({} as never)
 
     const user = userEvent.setup()
@@ -397,7 +397,7 @@ describe('VoteDetailPage', () => {
     const { votesApi } = await import('@/api/votes')
     const { toast } = await import('@/components/ui/toaster')
     vi.mocked(votesApi.get).mockResolvedValue(makeVote({ options: [{ id: 'opt-1', title: 'Пицца' }] }))
-    vi.mocked(votesApi.getHistory).mockResolvedValue([])
+    vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
     vi.mocked(votesApi.removeOption).mockResolvedValueOnce({} as never)
 
     const user = userEvent.setup()
@@ -418,7 +418,7 @@ describe('VoteDetailPage', () => {
     vi.mocked(votesApi.get).mockResolvedValueOnce(
       makeVote({ status: 'CLOSED', options: [{ id: 'opt-1', title: 'Пицца' }] })
     )
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
@@ -432,7 +432,7 @@ describe('VoteDetailPage', () => {
   it('shows round badge for fair rotation votes', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote({ mode: 'FAIR_ROTATION', currentRound: 3, description: 'Каждую неделю' }))
-    vi.mocked(votesApi.getHistory).mockResolvedValueOnce([])
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })

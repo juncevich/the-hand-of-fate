@@ -124,7 +124,7 @@ class TelegramLinkServiceTest {
         every { linkTokenRepositoryPort.findByToken("token123") } returns expiredToken
         every { linkTokenRepositoryPort.delete(expiredToken) } just Runs
 
-        assertThrows<IllegalStateException> {
+        assertThrows<com.juncevich.fate.shared.BadRequestException> {
             service.linkAccount("token123", 42L, "user")
         }
         verify { linkTokenRepositoryPort.delete(expiredToken) }

@@ -41,6 +41,6 @@ export const votesApi = {
 
   close: (id: string) => apiClient.post(`/votes/${id}/close`),
 
-  getHistory: (id: string) =>
-    apiClient.get<DrawHistoryEntry[]>(`/votes/${id}/history`).then((r) => r.data),
+  getHistory: (id: string, page = 0) =>
+    apiClient.get<Page<DrawHistoryEntry>>(`/votes/${id}/history/page`, { params: { page, size: 20 } }).then((r) => r.data),
 }

@@ -80,7 +80,7 @@ class AuthServiceTest {
         val request = RegisterRequest(email = "UPPER@TEST.COM", password = "password123", displayName = "User")
         val user = makeUser("upper@test.com")
 
-        every { userRepositoryPort.existsByEmail("UPPER@TEST.COM") } returns false
+        every { userRepositoryPort.existsByEmail("upper@test.com") } returns false
         every { passwordEncoder.encode(any()) } returns "hash"
         every { userRepositoryPort.save(any()) } returns user
         every { jwtTokenProvider.createAccessToken(any(), any()) } returns "token"

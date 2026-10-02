@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/store/authStore'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { votesApi } from '@/api/votes'
@@ -6,15 +7,17 @@ import { onMutationError } from '@/lib/errors'
 import { winnerLabel } from '@/lib/utils'
 
 export function useVoteDetail(id: string) {
+  const userId = useAuthStore((s) => s.userId)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['vote', id] })
+    void queryClient.invalidateQueries({ queryKey: ['votes'] })
   }
 
   const query = useQuery({
-    queryKey: ['vote', id],
+    queryKey: ['vote', id, userId],
     queryFn: () => votesApi.get(id),
     enabled: !!id,
   })
@@ -73,7 +76,10 @@ export function useVoteDetail(id: string) {
 
   const deleteVote = useMutation({
     mutationFn: () => votesApi.delete(id),
-    onSuccess: () => navigate('/'),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['votes'] })
+      void navigate('/')
+    },
     onError: onMutationError,
   })
 

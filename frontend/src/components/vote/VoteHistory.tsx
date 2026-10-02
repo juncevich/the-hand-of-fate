@@ -1,4 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { useAuthStore } from '@/store/authStore'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Crown } from 'lucide-react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
@@ -10,17 +13,26 @@ interface Props {
 }
 
 export function VoteHistory({ voteId }: Props) {
-  const { data: history } = useQuery({
-    queryKey: ['vote-history', voteId],
-    queryFn: () => votesApi.getHistory(voteId),
+  const userId = useAuthStore((s) => s.userId)
+  return <HistoryPages key={`${userId}:${voteId}`} voteId={voteId} userId={userId} />
+}
+
+function HistoryPages({ voteId, userId }: Props & { userId: string | null }) {
+  const [page, setPage] = useState(0)
+  // Keep showing the current page while the next one loads, so the block doesn't collapse and jump.
+  const { data: historyPage, isPlaceholderData } = useQuery({
+    queryKey: ['vote-history', voteId, userId, page],
+    queryFn: () => votesApi.getHistory(voteId, page),
+    placeholderData: keepPreviousData,
   })
 
-  if (!history?.length) return null
+  const history = historyPage?.content
+  if (!historyPage || !history?.length) return null
 
   return (
-    <div className="glass p-6">
+    <div className="glass p-6" aria-busy={isPlaceholderData}>
       <h2 className="text-sm font-medium text-fate-muted mb-4 uppercase tracking-wider">
-        История ({history.length})
+        История ({historyPage.totalElements})
       </h2>
       <div className="space-y-3">
         {history.map((h) => (
@@ -40,6 +52,13 @@ export function VoteHistory({ voteId }: Props) {
           </div>
         ))}
       </div>
+      {historyPage.totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <Button variant="ghost" disabled={page === 0 || isPlaceholderData} onClick={() => setPage(page - 1)}>Назад</Button>
+          <span>{page + 1} / {historyPage.totalPages}</span>
+          <Button variant="ghost" disabled={page + 1 >= historyPage.totalPages || isPlaceholderData} onClick={() => setPage(page + 1)}>Далее</Button>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import axios, { type InternalAxiosRequestConfig } from 'axios'
-import { apiClient } from '../client'
+import { apiClient, refreshSession } from '../client'
 import { useAuthStore } from '@/store/authStore'
 
 function unauthorizedError(config: InternalAxiosRequestConfig) {
@@ -103,4 +103,69 @@ describe('apiClient 401 refresh queue', () => {
     expect(results[0].status).toBe('rejected')
     expect(results[1].status).toBe('rejected')
   })
+  it('does not refresh when login rejects invalid credentials', async () => {
+    const refresh = vi.spyOn(axios, 'post')
+    apiClient.defaults.adapter = vi.fn(async (config: InternalAxiosRequestConfig) => {
+      throw unauthorizedError(config)
+    })
+    await expect(apiClient.post('/auth/login', { email: 'a@test.com', password: 'wrong' })).rejects.toThrow('Unauthorized')
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('retries every concurrent request at most once even if the new token is rejected', async () => {
+    let complete!: (value: { data: { accessToken: string } }) => void
+    const refresh = vi.spyOn(axios, 'post').mockImplementation(() => new Promise((resolve) => { complete = resolve }))
+    const adapter = vi.fn(async (config: InternalAxiosRequestConfig) => { throw unauthorizedError(config) })
+    apiClient.defaults.adapter = adapter
+    const first = apiClient.get('/votes')
+    await waitUntil(() => refresh.mock.calls.length === 1)
+    const second = apiClient.get('/votes')
+    await tick()
+    complete({ data: { accessToken: 'still-invalid' } })
+    const results = await Promise.allSettled([first, second])
+    expect(results.every((result) => result.status === 'rejected')).toBe(true)
+    expect(refresh).toHaveBeenCalledOnce()
+    expect(adapter).toHaveBeenCalledTimes(4)
+  })
+
+  it('shares initial session restoration with refresh triggered by a 401', async () => {
+    let complete!: (value: { data: { accessToken: string } }) => void
+    const refresh = vi.spyOn(axios, 'post').mockImplementation(() => new Promise((resolve) => { complete = resolve }))
+    apiClient.defaults.adapter = fakeBackendAdapter('new-token')
+    const restoring = refreshSession()
+    const request = apiClient.get('/votes')
+    await tick()
+    complete({ data: { accessToken: 'new-token' } })
+    await Promise.all([restoring, request])
+    expect(refresh).toHaveBeenCalledOnce()
+  })
+
+  it('does not restore a session when refresh finishes after logout', async () => {
+    let complete!: (value: { data: { accessToken: string } }) => void
+    vi.spyOn(axios, 'post').mockImplementation(() => new Promise((resolve) => { complete = resolve }))
+    const restoring = refreshSession()
+    useAuthStore.getState().clearAuth()
+    complete({ data: { accessToken: 'old-user-token' } })
+    await expect(restoring).rejects.toThrow('Session changed')
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    expect(useAuthStore.getState().accessToken).toBeNull()
+  })
+
+  it('does not replay an old request under a newly signed-in account', async () => {
+    let rejectRequest!: (error: Error) => void
+    let sentConfig!: InternalAxiosRequestConfig
+    const refresh = vi.spyOn(axios, 'post')
+    apiClient.defaults.adapter = vi.fn((config: InternalAxiosRequestConfig) => {
+      sentConfig = config
+      return new Promise<never>((_, reject) => { rejectRequest = reject })
+    })
+    const pending = apiClient.post('/votes', { title: 'Old account vote' })
+    await waitUntil(() => !!rejectRequest)
+    useAuthStore.getState().setAuth({ accessToken: 'new-account', userId: 'bob', email: 'bob@test.com', displayName: 'Bob' })
+    rejectRequest(unauthorizedError(sentConfig))
+    await expect(pending).rejects.toThrow('Unauthorized')
+    expect(refresh).not.toHaveBeenCalled()
+    expect(useAuthStore.getState().userId).toBe('bob')
+  })
+
 })

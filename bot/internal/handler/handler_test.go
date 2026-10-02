@@ -848,3 +848,36 @@ func TestRunCancelledContextExits(t *testing.T) {
 		t.Fatal("Run() did not return after context cancellation")
 	}
 }
+
+func TestHandleHistoryRequestsPageAndShowsContinuation(t *testing.T) {
+	bot := &fakeTelegram{}
+	client := &fakeFateClient{historyResp: &fatev1.GetVoteHistoryResponse{
+		Results:    []*fatev1.DrawResultInfo{{WinnerOptionTitle: "Winner", Round: 1}},
+		TotalPages: 3,
+	}}
+	h := New(bot, client, zaptest.NewLogger(t))
+	h.handleHistory(context.Background(), makeCommandMsg(42, "history"), "vote-1 2")
+	if client.historyReq == nil || client.historyReq.Page != 1 || client.historyReq.PageSize != 20 || client.historyReq.VoteId != "vote-1" {
+		t.Fatalf("unexpected page request: %#v", client.historyReq)
+	}
+	if len(bot.messages) == 0 || !strings.Contains(bot.messages[0].Text, "/history vote-1 3") {
+		t.Fatalf("missing next page command: %#v", bot.messages)
+	}
+}
+
+func TestHandleHistoryRejectsInvalidPages(t *testing.T) {
+	for _, args := range []string{"vote-1 0", "vote-1 -1", "vote-1 abc", "vote-1 2147483648", "vote-1 2 extra", " "} {
+		t.Run(args, func(t *testing.T) {
+			bot := &fakeTelegram{}
+			client := &fakeFateClient{}
+			h := New(bot, client, zaptest.NewLogger(t))
+			h.handleHistory(context.Background(), makeCommandMsg(42, "history"), args)
+			if client.historyReq != nil {
+				t.Fatalf("invalid page reached backend: %#v", client.historyReq)
+			}
+			if len(bot.messages) == 0 {
+				t.Fatal("missing validation message")
+			}
+		})
+	}
+}

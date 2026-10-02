@@ -2,6 +2,7 @@ package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.auth.toProfile
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.internal.DrawService
@@ -12,6 +13,7 @@ import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
 import com.juncevich.fate.vote.internal.domain.VoteParticipant
 import com.juncevich.fate.vote.internal.port.DrawHistoryRepositoryPort
+import com.juncevich.fate.vote.internal.port.ParticipantCount
 import com.juncevich.fate.vote.internal.port.ParticipantRepositoryPort
 import com.juncevich.fate.vote.internal.port.VoteOptionRepositoryPort
 import com.juncevich.fate.vote.internal.port.VoteRepositoryPort
@@ -64,7 +66,7 @@ class VoteServiceTest {
         creator: User,
         mode: VoteMode = VoteMode.SIMPLE,
         status: VoteStatus = VoteStatus.PENDING,
-    ) = Vote(id = id, title = "Test Vote", creator = creator, mode = mode).also { it.status = status }
+    ) = Vote(id = id, title = "Test Vote", creator = creator.toProfile(), mode = mode).also { it.status = status }
 
     @Test
     fun `createVote - creates vote, participants, options and sends invitations`() {
@@ -72,9 +74,9 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
         val participant = VoteParticipant(voteId = vote.id, email = creator.email)
 
-        every { userQueryService.findById(creator.id) } returns creator
+        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
         every { voteRepositoryPort.save(any()) } returns vote
-        every { userQueryService.findAllByEmailIn(any()) } returns listOf(creator)
+        every { userQueryService.findProfilesByEmailIn(any()) } returns listOf(creator.toProfile())
         every { participantRepositoryPort.saveAll(any<List<VoteParticipant>>()) } returns listOf(participant)
         every { voteOptionRepositoryPort.saveAll(any<List<VoteOption>>()) } answers { firstArg() }
 
@@ -100,7 +102,7 @@ class VoteServiceTest {
     @Test
     fun `createVote - rejects malformed participant email`() {
         val creator = makeUser()
-        every { userQueryService.findById(creator.id) } returns creator
+        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
 
         val request =
             CreateVoteCommand(
@@ -122,6 +124,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requester.email) } returns false
 
         assertThrows<ForbiddenException> {
@@ -136,6 +139,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requester.email) } returns false
 
         assertThrows<ForbiddenException> {
@@ -151,8 +155,9 @@ class VoteServiceTest {
         val last = DrawHistory.OptionWinner(voteId = vote.id, optionId = UUID.randomUUID(), optionTitle = "Pizza", round = 2)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, participant.email) } returns true
-        every { drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDesc(vote.id) } returns last
+        every { drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDescIdDesc(vote.id) } returns last
 
         val result = voteService.getLastResult(vote.id, participant.id, participant.email)
 
@@ -168,7 +173,8 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDesc(vote.id) } returns null
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
+        every { drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDescIdDesc(vote.id) } returns null
 
         assertNull(voteService.getLastResult(vote.id, creator.id, creator.email))
     }
@@ -180,6 +186,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requester.email) } returns false
 
         assertThrows<ForbiddenException> { voteService.getLastResult(vote.id, requester.id, requester.email) }
@@ -189,6 +196,7 @@ class VoteServiceTest {
     fun `getLastResult - throws when vote does not exist`() {
         val id = UUID.randomUUID()
         every { voteRepositoryPort.findById(id) } returns null
+        every { voteRepositoryPort.findByIdForUpdate(id) } returns null
 
         assertThrows<NoSuchElementException> { voteService.getLastResult(id, UUID.randomUUID(), "x@test.com") }
     }
@@ -196,7 +204,7 @@ class VoteServiceTest {
     @Test
     fun `draw - throws when vote does not exist`() {
         val id = UUID.randomUUID()
-        every { voteRepositoryPort.findByIdForDraw(id) } returns null
+        every { voteRepositoryPort.findByIdForUpdate(id) } returns null
 
         assertThrows<NoSuchElementException> { voteService.draw(id, UUID.randomUUID()) }
     }
@@ -208,6 +216,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
         assertThrows<ForbiddenException> {
             voteService.addParticipant(vote.id, otherUser.id, "new@test.com")
@@ -220,6 +229,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator, status = VoteStatus.DRAWN)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
         assertThrows<IllegalStateException> {
             voteService.addParticipant(vote.id, creator.id, "new@test.com")
@@ -232,6 +242,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, "dup@test.com") } returns true
 
         assertThrows<IllegalStateException> {
@@ -246,8 +257,11 @@ class VoteServiceTest {
         val participant = VoteParticipant(voteId = vote.id, email = "new@test.com")
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, "new@test.com") } returns false
-        every { userQueryService.findByEmail("new@test.com") } returns null
+        every { participantRepositoryPort.countByVoteIds(listOf(vote.id)) } returns
+            listOf(ParticipantCount(vote.id, 1))
+        every { userQueryService.findProfileByEmail("new@test.com") } returns null
         every { participantRepositoryPort.save(any()) } returns participant
 
         voteService.addParticipant(vote.id, creator.id, "new@test.com")
@@ -265,6 +279,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
         assertThrows<ForbiddenException> {
             voteService.removeParticipant(vote.id, other.id, "p@test.com")
@@ -277,6 +292,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator, status = VoteStatus.CLOSED)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
         assertThrows<IllegalStateException> {
             voteService.removeParticipant(vote.id, creator.id, "p@test.com")
@@ -289,6 +305,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { participantRepositoryPort.deleteByVoteIdAndEmail(vote.id, "p@test.com") } just Runs
 
         voteService.removeParticipant(vote.id, creator.id, "p@test.com")
@@ -302,7 +319,7 @@ class VoteServiceTest {
         val other = makeUser()
         val vote = makeVote(creator = creator)
 
-        every { voteRepositoryPort.findByIdForDraw(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
         assertThrows<ForbiddenException> {
             voteService.draw(vote.id, other.id)
@@ -316,7 +333,7 @@ class VoteServiceTest {
         val drawResult = DrawResult("winner@test.com", "Winner", null, 1, false)
         val participant = VoteParticipant(voteId = vote.id, email = "winner@test.com")
 
-        every { voteRepositoryPort.findByIdForDraw(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { drawService.draw(vote) } returns drawResult
         every { participantRepositoryPort.findAllByVoteId(vote.id) } returns listOf(participant)
 
@@ -336,6 +353,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
         assertThrows<ForbiddenException> { voteService.closeVote(vote.id, other.id) }
     }
@@ -346,6 +364,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { voteRepositoryPort.save(any()) } returns vote
 
         voteService.closeVote(vote.id, creator.id)
@@ -360,6 +379,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator, status = VoteStatus.CLOSED)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
         assertThrows<IllegalStateException> { voteService.closeVote(vote.id, creator.id) }
     }
@@ -371,6 +391,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
         assertThrows<ForbiddenException> { voteService.deleteVote(vote.id, other.id) }
     }
@@ -381,6 +402,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { voteRepositoryPort.delete(vote) } just Runs
 
         voteService.deleteVote(vote.id, creator.id)
@@ -395,6 +417,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator, status = VoteStatus.DRAWN)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
 
         assertThrows<ForbiddenException> { voteService.reopen(vote.id, other.id) }
     }
@@ -405,6 +428,7 @@ class VoteServiceTest {
         val vote = makeVote(creator = creator, status = VoteStatus.DRAWN)
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { drawService.reopen(vote) } just Runs
 
         voteService.reopen(vote.id, creator.id)
@@ -419,10 +443,97 @@ class VoteServiceTest {
         val optionId = UUID.randomUUID()
 
         every { voteRepositoryPort.findById(vote.id) } returns vote
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { voteOptionRepositoryPort.deleteByVoteIdAndId(vote.id, optionId) } just Runs
 
         voteService.removeOption(vote.id, creator.id, optionId)
 
         verify { voteOptionRepositoryPort.deleteByVoteIdAndId(vote.id, optionId) }
+    }
+
+    @Test
+    fun `createVote - rejects a description over the limit`() {
+        val creator = makeUser()
+        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
+        val request =
+            CreateVoteCommand(title = "Vote", description = "x".repeat(VoteLimits.MAX_DESCRIPTION_LENGTH + 1))
+
+        assertThrows<BadRequestException> { voteService.createVote(creator.id, request) }
+        verify(exactly = 0) { voteRepositoryPort.save(any()) }
+    }
+
+    @Test
+    fun `createVote - rejects more participants than the limit, the creator included`() {
+        val creator = makeUser()
+        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
+        // Exactly the limit of invitees, plus the creator, exceeds the limit.
+        val request =
+            CreateVoteCommand(
+                title = "Vote",
+                participantEmails = List(VoteLimits.MAX_PARTICIPANTS) { "p$it@test.com" }
+            )
+
+        assertThrows<BadRequestException> { voteService.createVote(creator.id, request) }
+        verify(exactly = 0) { voteRepositoryPort.save(any()) }
+    }
+
+    @Test
+    fun `createVote - rejects an oversized participant list before normalizing it`() {
+        val creator = makeUser()
+        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
+        val request =
+            CreateVoteCommand(title = "Vote", participantEmails = List(VoteLimits.MAX_PARTICIPANTS + 1) { "not-an-email" })
+
+        val ex = assertThrows<BadRequestException> { voteService.createVote(creator.id, request) }
+        assertEquals("A vote can have at most ${VoteLimits.MAX_PARTICIPANTS} participants", ex.message)
+    }
+
+    @Test
+    fun `createVote - rejects more options than the limit`() {
+        val creator = makeUser()
+        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
+        val request = CreateVoteCommand(title = "Vote", options = List(VoteLimits.MAX_OPTIONS + 1) { "Option $it" })
+
+        assertThrows<BadRequestException> { voteService.createVote(creator.id, request) }
+        verify(exactly = 0) { voteRepositoryPort.save(any()) }
+    }
+
+    @Test
+    fun `addParticipant - rejects when the vote is full`() {
+        val creator = makeUser()
+        val vote = makeVote(creator = creator)
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
+        every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, "new@test.com") } returns false
+        every { participantRepositoryPort.countByVoteIds(listOf(vote.id)) } returns
+            listOf(ParticipantCount(vote.id, VoteLimits.MAX_PARTICIPANTS.toLong()))
+
+        assertThrows<BadRequestException> { voteService.addParticipant(vote.id, creator.id, "new@test.com") }
+        verify(exactly = 0) { participantRepositoryPort.save(any()) }
+        verify(exactly = 0) { events.publishEvent(any<Any>()) }
+    }
+
+    @Test
+    fun `addOption - saves a trimmed option`() {
+        val creator = makeUser()
+        val vote = makeVote(creator = creator)
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
+        every { voteOptionRepositoryPort.save(any()) } answers { firstArg() }
+
+        voteService.addOption(vote.id, creator.id, "  Option  ")
+
+        verify { voteOptionRepositoryPort.save(match { it.title == "Option" && it.voteId == vote.id }) }
+    }
+
+    @Test
+    fun `addOption - rejects when the vote already has the maximum number of options`() {
+        val creator = makeUser()
+        val vote = makeVote(creator = creator)
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns
+            List(VoteLimits.MAX_OPTIONS) { VoteOption(voteId = vote.id, title = "Option $it", position = it) }
+
+        assertThrows<BadRequestException> { voteService.addOption(vote.id, creator.id, "One more") }
+        verify(exactly = 0) { voteOptionRepositoryPort.save(any()) }
     }
 }

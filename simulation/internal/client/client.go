@@ -253,11 +253,22 @@ func (c *Client) Close(voteID string) error {
 }
 
 func (c *Client) GetHistory(voteID string) ([]DrawHistoryDto, error) {
-	resp, err := c.do("GET", "/api/v1/votes/"+voteID+"/history", nil)
-	if err != nil {
-		return nil, err
+	var history []DrawHistoryDto
+	for page := 0; ; page++ {
+		path := fmt.Sprintf("/api/v1/votes/%s/history/page?page=%d&size=100", voteID, page)
+		resp, err := c.do("GET", path, nil)
+		if err != nil {
+			return nil, err
+		}
+		result, err := decode[Page[DrawHistoryDto]](resp)
+		if err != nil {
+			return nil, err
+		}
+		history = append(history, result.Content...)
+		if page+1 >= result.TotalPages {
+			return history, nil
+		}
 	}
-	return decode[[]DrawHistoryDto](resp)
 }
 
 // ── Telegram ──────────────────────────────────────────────────────────────────

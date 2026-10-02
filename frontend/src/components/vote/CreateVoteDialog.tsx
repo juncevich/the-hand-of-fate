@@ -92,6 +92,7 @@ export function CreateVoteDialog() {
             <Input
               id="vote-desc"
               placeholder="Необязательно"
+              maxLength={2000}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />

@@ -35,15 +35,15 @@ class VotePersistenceAdapter(
     override fun findById(id: UUID): Vote? {
         val entity = voteJpaRepository.findById(id).orElse(null) ?: return null
         val creator =
-            userQueryService.findById(entity.creatorId)
+            userQueryService.findProfileById(entity.creatorId)
                 ?: throw NoSuchElementException("Creator not found for vote $id")
         return entity.toDomain(creator)
     }
 
-    override fun findByIdForDraw(id: UUID): Vote? {
+    override fun findByIdForUpdate(id: UUID): Vote? {
         val entity = voteJpaRepository.findByIdWithPessimisticLock(id) ?: return null
         val creator =
-            userQueryService.findById(entity.creatorId)
+            userQueryService.findProfileById(entity.creatorId)
                 ?: throw NoSuchElementException("Creator not found for vote $id")
         return entity.toDomain(creator)
     }
@@ -56,7 +56,7 @@ class VotePersistenceAdapter(
         val page = voteJpaRepository.findAllByUserIdOrParticipantEmail(userId, email, pageable)
         val creatorsById =
             userQueryService
-                .findAllByIdIn(page.content.map { it.creatorId }.distinct())
+                .findProfilesByIdIn(page.content.map { it.creatorId }.distinct())
                 .associateBy { it.id }
         return page.map { entity ->
             val creator =
@@ -172,7 +172,7 @@ class DrawHistoryPersistenceAdapter(
                     DrawHistoryJpaEntity(
                         id = history.id,
                         vote = voteRef,
-                        winnerOption = voteOptionJpaRepository.getReferenceById(history.optionId),
+                        winnerOption = history.optionId?.let { voteOptionJpaRepository.getReferenceById(it) },
                         winnerOptionTitle = history.optionTitle,
                         round = history.round,
                         drawnAt = history.drawnAt
@@ -182,9 +182,12 @@ class DrawHistoryPersistenceAdapter(
         return drawHistoryJpaRepository.save(entity).toDomain()
     }
 
-    override fun findTopByVoteIdOrderByDrawnAtDesc(voteId: UUID): DrawHistory? =
-        drawHistoryJpaRepository.findTopByVoteIdOrderByDrawnAtDesc(voteId)?.toDomain()
+    override fun findTopByVoteIdOrderByDrawnAtDescIdDesc(voteId: UUID): DrawHistory? =
+        drawHistoryJpaRepository.findTopByVoteIdOrderByDrawnAtDescIdDesc(voteId)?.toDomain()
 
-    override fun findAllByVoteIdOrderByDrawnAtDesc(voteId: UUID): List<DrawHistory> =
-        drawHistoryJpaRepository.findAllByVoteIdOrderByDrawnAtDesc(voteId).map { it.toDomain() }
+    override fun findAllByVoteIdOrderByDrawnAtDescIdDesc(
+        voteId: UUID,
+        pageable: Pageable,
+    ): Page<DrawHistory> =
+        drawHistoryJpaRepository.findAllByVoteIdOrderByDrawnAtDescIdDesc(voteId, pageable).map { it.toDomain() }
 }

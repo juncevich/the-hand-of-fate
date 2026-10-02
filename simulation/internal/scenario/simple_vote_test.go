@@ -80,8 +80,8 @@ func newSimpleVoteServer(t *testing.T) *httptest.Server {
 			writeJSON(w, client.VoteDetail{ID: "v1", Title: "Test Vote", Mode: "SIMPLE"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
 			writeJSON(w, draw)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history":
-			writeJSON(w, history)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history/page":
+			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/reopen":
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/close":
@@ -203,7 +203,7 @@ func TestSimpleVoteScenario_GetHistoryError(t *testing.T) {
 			writeJSON(w, client.VoteDetail{ID: "v1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
 			writeJSON(w, draw)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history/page":
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			writeJSON(w, map[string]string{"error": "db error"})
@@ -234,8 +234,8 @@ func TestSimpleVoteScenario_ReopenError(t *testing.T) {
 			writeJSON(w, client.VoteDetail{ID: "v1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
 			writeJSON(w, draw)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history":
-			writeJSON(w, history)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history/page":
+			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/reopen":
 			w.WriteHeader(http.StatusInternalServerError)
 		default:
@@ -265,8 +265,8 @@ func TestSimpleVoteScenario_CloseError(t *testing.T) {
 			writeJSON(w, client.VoteDetail{ID: "v1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
 			writeJSON(w, draw)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history":
-			writeJSON(w, history)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history/page":
+			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/reopen":
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/close":
@@ -298,8 +298,8 @@ func TestSimpleVoteScenario_DeleteError(t *testing.T) {
 			writeJSON(w, client.VoteDetail{ID: "v1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
 			writeJSON(w, draw)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history":
-			writeJSON(w, history)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history/page":
+			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/reopen":
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/close":

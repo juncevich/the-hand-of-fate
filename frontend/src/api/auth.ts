@@ -1,5 +1,4 @@
-import axios from 'axios'
-import { apiClient } from './client'
+import { apiClient, refreshSession } from './client'
 
 export interface AuthPayload {
   accessToken: string
@@ -18,9 +17,5 @@ export const authApi = {
   logout: () =>
     apiClient.post('/auth/logout'),
 
-  silentRefresh: () =>
-    // Use plain axios — no auth header needed, relies on httpOnly cookie
-    axios
-      .post<AuthPayload>('/api/v1/auth/refresh', {}, { withCredentials: true })
-      .then((r) => r.data),
+  silentRefresh: refreshSession,
 }

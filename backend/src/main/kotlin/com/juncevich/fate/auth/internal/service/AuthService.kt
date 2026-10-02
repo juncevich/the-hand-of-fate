@@ -6,6 +6,7 @@ import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
+import com.juncevich.fate.shared.normalizeEmail
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -33,11 +34,12 @@ class AuthService(
     }
 
     fun register(request: RegisterRequest): AuthTokens {
-        check(!userRepositoryPort.existsByEmail(request.email)) { "Email already registered" }
+        val email = normalizeEmail(request.email)
+        check(!userRepositoryPort.existsByEmail(email)) { "Email already registered" }
         val user =
             userRepositoryPort.save(
                 User(
-                    email = request.email.lowercase().trim(),
+                    email = email,
                     passwordHash =
                         requireNotNull(passwordEncoder.encode(request.password)) {
                             "Password encoding failed"
@@ -62,6 +64,7 @@ class AuthService(
         return issueTokens(user)
     }
 
+    @Transactional(noRollbackFor = [BadCredentialsException::class])
     fun refresh(rawRefreshToken: String): AuthTokens {
         val hash = hashToken(rawRefreshToken)
         val stored =

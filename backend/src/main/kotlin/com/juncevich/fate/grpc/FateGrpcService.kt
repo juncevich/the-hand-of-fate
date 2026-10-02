@@ -2,6 +2,7 @@ package com.juncevich.fate.grpc
 
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.*
 import io.grpc.Status
@@ -51,6 +52,7 @@ class FateGrpcService(
                 .build()
         }.getOrElse { ex ->
             when (ex) {
+                is BadRequestException,
                 is NoSuchElementException,
                 is IllegalStateException,
                 is IllegalArgumentException,
@@ -79,6 +81,7 @@ class FateGrpcService(
                 .build()
         }.getOrElse { ex ->
             when (ex) {
+                is BadRequestException,
                 is NoSuchElementException,
                 is IllegalStateException,
                 is IllegalArgumentException,
@@ -136,16 +139,8 @@ class FateGrpcService(
             throw StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription("Vote title is required"))
         }
         val mode = request.mode.toDomain()
-        val participantEmails =
-            request.participantEmailsList
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .distinct()
-        val options =
-            request.optionsList
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .distinct()
+        val participantEmails = request.participantEmailsList
+        val options = request.optionsList
 
         return runCatching {
             val vote =
@@ -169,6 +164,7 @@ class FateGrpcService(
                 .build()
         }.getOrElse { ex ->
             when (ex) {
+                is BadRequestException,
                 is NoSuchElementException,
                 is IllegalStateException,
                 is IllegalArgumentException,
@@ -216,6 +212,7 @@ class FateGrpcService(
                 .build()
         }.getOrElse { ex ->
             when (ex) {
+                is BadRequestException,
                 is NoSuchElementException,
                 is IllegalStateException,
                 is IllegalArgumentException,
@@ -260,9 +257,22 @@ class FateGrpcService(
         val voteId = parseVoteId(request.voteId)
         val history =
             runCatching {
-                voteService.getHistory(voteId, user.id, user.email)
+                voteService.getHistory(voteId, user.id, user.email, historyPage(request))
             }.getOrElse { throw it.toReadStatusException() }
-        return GetVoteHistoryResponse.newBuilder().addAllResults(history.map { it.toDrawResultInfo() }).build()
+        return GetVoteHistoryResponse
+            .newBuilder()
+            .addAllResults(history.content.map { it.toDrawResultInfo() })
+            .setTotalPages(history.totalPages)
+            .setTotalElements(history.totalElements)
+            .build()
+    }
+
+    private fun historyPage(request: GetVoteHistoryRequest): PageRequest {
+        val size = if (request.pageSize == 0) 20 else request.pageSize
+        if (request.page < 0 || size !in 1..100) {
+            throw StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription("Invalid history pagination"))
+        }
+        return PageRequest.of(request.page, size)
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -312,6 +322,10 @@ class FateGrpcService(
 
     private fun Throwable.toReadStatusException(): StatusRuntimeException =
         when (this) {
+            is StatusRuntimeException -> this
+
+            is IllegalArgumentException -> StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription(message))
+
             is NoSuchElementException -> StatusRuntimeException(Status.NOT_FOUND.withDescription(message))
 
             is IllegalStateException,

@@ -4,8 +4,8 @@ import com.juncevich.fate.vote.DrawResult
 import java.util.UUID
 
 /**
- * Domain events published by `VoteService`. Listeners run only after the publishing
- * transaction commits, so a rolled-back change never notifies anyone.
+ * Domain events published by `VoteService`. The recorder persists recipient jobs in the same
+ * transaction; the delivery worker sees them only after commit.
  */
 data class ParticipantInvited(
     val voteId: UUID,

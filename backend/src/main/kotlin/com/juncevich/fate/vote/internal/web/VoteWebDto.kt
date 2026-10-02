@@ -1,6 +1,7 @@
 package com.juncevich.fate.vote.internal.web
 
 import com.juncevich.fate.vote.CreateVoteCommand
+import com.juncevich.fate.vote.VoteLimits
 import com.juncevich.fate.vote.VoteMode
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
@@ -8,10 +9,10 @@ import jakarta.validation.constraints.Size
 
 data class CreateVoteWebRequest(
     @field:NotBlank @field:Size(max = 255) val title: String,
-    val description: String? = null,
+    @field:Size(max = VoteLimits.MAX_DESCRIPTION_LENGTH) val description: String? = null,
     val mode: VoteMode = VoteMode.SIMPLE,
-    val participantEmails: List<@Email String> = emptyList(),
-    val options: List<String>? = null,
+    @field:Size(max = VoteLimits.MAX_PARTICIPANTS) val participantEmails: List<@Email String> = emptyList(),
+    @field:Size(max = VoteLimits.MAX_OPTIONS) val options: List<String>? = null,
 ) {
     fun toCommand() =
         CreateVoteCommand(

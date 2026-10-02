@@ -92,4 +92,20 @@ class ErrorHandlerTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
         assertEquals("Internal server error", response.body?.title)
     }
+
+    @Test
+    fun `unique constraint violation returns conflict without database details`() {
+        val ex = org.springframework.dao.DataIntegrityViolationException("SQL details", java.sql.SQLException("duplicate", "23505"))
+        val response = handler.handleDataIntegrity(ex)
+        assertEquals(HttpStatus.CONFLICT, response.statusCode)
+        assertEquals("The resource already exists", response.body?.title)
+    }
+
+    @Test
+    fun `other integrity violations remain internal errors`() {
+        val ex = org.springframework.dao.DataIntegrityViolationException("SQL details", java.sql.SQLException("foreign key", "23503"))
+        val response = handler.handleDataIntegrity(ex)
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        assertEquals("Internal server error", response.body?.title)
+    }
 }

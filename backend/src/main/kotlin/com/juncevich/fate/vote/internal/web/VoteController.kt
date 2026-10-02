@@ -121,4 +121,11 @@ class VoteController(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
     ): List<DrawHistoryDto> = voteService.getHistory(id, user.id, user.email)
+
+    @GetMapping("/{id}/history/page")
+    fun getHistoryPage(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+        @PathVariable id: UUID,
+        pageable: Pageable,
+    ): PageResponse<DrawHistoryDto> = voteService.getHistory(id, user.id, user.email, pageable).toResponse()
 }

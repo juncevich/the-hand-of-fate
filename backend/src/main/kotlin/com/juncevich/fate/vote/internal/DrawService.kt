@@ -80,9 +80,7 @@ class DrawService(
             .counter(
                 "vote.draw.performed",
                 "mode",
-                vote.mode.name,
-                "round",
-                vote.currentRound.toString()
+                vote.mode.name
             ).increment()
 
         return when (history) {

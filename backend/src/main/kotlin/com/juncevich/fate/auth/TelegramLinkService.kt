@@ -3,6 +3,7 @@ package com.juncevich.fate.auth
 import com.juncevich.fate.auth.internal.domain.TelegramLinkToken
 import com.juncevich.fate.auth.internal.port.TelegramLinkTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
+import com.juncevich.fate.shared.BadRequestException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -40,6 +41,7 @@ class TelegramLinkService(
         return GeneratedLinkToken(token = token, expiresAt = expiresAt)
     }
 
+    @Transactional(noRollbackFor = [BadRequestException::class])
     fun linkAccount(
         token: String,
         telegramId: Long,
@@ -51,7 +53,7 @@ class TelegramLinkService(
 
         if (linkToken.isExpired) {
             linkTokenRepositoryPort.delete(linkToken)
-            error("Link token has expired. Please generate a new one from the app.")
+            throw BadRequestException("Link token has expired. Please generate a new one from the app.")
         }
 
         userRepositoryPort.findByTelegramId(telegramId)?.let { existing ->

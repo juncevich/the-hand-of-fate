@@ -243,6 +243,8 @@ paths:
     get:
       tags:
         - vote-controller
+      deprecated: true
+      description: Compatibility endpoint returning the latest 100 entries. Use history/page for complete history.
       operationId: getHistory
       parameters:
         - name: id
@@ -260,6 +262,38 @@ paths:
                 type: array
                 items:
                   "$ref": "#/components/schemas/DrawHistoryDto"
+  "/api/v1/votes/{id}/history/page":
+    get:
+      tags:
+        - vote-controller
+      operationId: getHistoryPage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        200:
+          description: A page of draw history, ordered by drawnAt and id descending
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/PageResponseDrawHistoryDto"
   /api/v1/telegram/link-token:
     get:
       tags:
@@ -334,6 +368,7 @@ components:
           type:
             - string
             - "null"
+          maxLength: 2000
         mode:
           type: string
           enum:
@@ -341,12 +376,14 @@ components:
             - FAIR_ROTATION
         participantEmails:
           type: array
+          maxItems: 100
           items:
             type: string
         options:
           type:
             - array
             - "null"
+          maxItems: 100
           items:
             type: string
       required:
@@ -567,6 +604,28 @@ components:
           type: array
           items:
             type: string
+    PageResponseDrawHistoryDto:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            "$ref": "#/components/schemas/DrawHistoryDto"
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        number:
+          type: integer
+        size:
+          type: integer
+      required:
+        - content
+        - totalElements
+        - totalPages
+        - number
+        - size
     PageResponseVoteSummaryDto:
       type: object
       properties:

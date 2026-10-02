@@ -36,13 +36,15 @@ export default function App() {
 
   // Attempt silent refresh on mount using the httpOnly cookie
   useEffect(() => {
+    let active = true
     authApi
       .silentRefresh()
-      .then((data) => setAuth(data))
+      .then((data) => { if (active) setAuth(data) })
       .catch(() => {
         /* not logged in — that's fine */
       })
-      .finally(() => setIsAuthReady(true))
+      .finally(() => { if (active) setIsAuthReady(true) })
+    return () => { active = false }
   }, [setAuth])
 
   return (

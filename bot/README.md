@@ -29,7 +29,7 @@ Each command handler calls `fate.v1.FateService` over gRPC. Proto definitions: `
 | `/newvote` | `<title> \| <emails> \| <mode> [\| <options>]` | Create a vote |
 | `/draw` | `<id>` | Perform a draw (creator only) |
 | `/result` | `<id>` | Last draw result |
-| `/history` | `<id>` | Full draw history |
+| `/history` | `<id> [page]` | Paginated draw history (20 entries; pages start at 1) |
 
 ### `/newvote` examples
 

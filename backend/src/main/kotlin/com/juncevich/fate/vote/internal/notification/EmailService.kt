@@ -12,7 +12,7 @@ import java.util.concurrent.Semaphore
  * Transient SMTP failures ([MailException]) are retried: 3 attempts in total, backing off
  * 1s then 2s by default (`app.mail.retry.delay-ms` sets the initial delay).
  *
- * Callers run on unbounded virtual threads (`@Async`, per-recipient fan-out in [NotificationAdapter]),
+ * Callers run on virtual threads (bounded outbox batches and per-recipient fan-out),
  * so the number of simultaneous SMTP sends is capped here (`app.mail.max-concurrent-sends`) to keep
  * the mail server from throttling or rejecting us. The permit covers a single attempt only, so a
  * sender waiting out a retry backoff doesn't block others.

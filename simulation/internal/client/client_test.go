@@ -518,12 +518,12 @@ func TestGetHistory(t *testing.T) {
 		{ID: "h2", WinnerEmail: &email, Round: 1, DrawnAt: time.Now()},
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/votes/v1/history" {
+		if r.URL.Path != "/api/v1/votes/v1/history/page" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(toJSON(history))
+		_, _ = w.Write(toJSON(client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1}))
 	}))
 	defer srv.Close()
 
@@ -591,5 +591,38 @@ func TestUnlinkTelegram_NotLinked(t *testing.T) {
 	c, _ := client.New(srv.URL, newLogger(t))
 	if err := c.UnlinkTelegram(); err == nil {
 		t.Fatal("expected error on 400")
+	}
+}
+
+func TestGetHistoryCollectsAllPages(t *testing.T) {
+	requests := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/votes/v1/history/page" || r.URL.Query().Get("size") != "100" {
+			t.Errorf("unexpected history request: %s", r.URL)
+		}
+		page := r.URL.Query().Get("page")
+		requests++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(toJSON(client.Page[client.DrawHistoryDto]{
+			Content: []client.DrawHistoryDto{{ID: "h" + page}}, TotalPages: 2, TotalElements: 2,
+		}))
+	}))
+	defer srv.Close()
+	c, _ := client.New(srv.URL, newLogger(t))
+	got, err := c.GetHistory("v1")
+	if err != nil || len(got) != 2 || got[0].ID != "h0" || got[1].ID != "h1" || requests != 2 {
+		t.Fatalf("history=%#v error=%v requests=%d", got, err, requests)
+	}
+}
+
+func TestGetHistoryRejectsMalformedPage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("invalid JSON"))
+	}))
+	defer srv.Close()
+	c, _ := client.New(srv.URL, newLogger(t))
+	if _, err := c.GetHistory("v1"); err == nil {
+		t.Fatal("expected malformed page error")
 	}
 }

@@ -1,17 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import axios from 'axios'
-import { apiClient } from '../client'
+import { apiClient, refreshSession } from '../client'
 import { authApi } from '../auth'
 import { telegramApi } from '../telegram'
 import { votesApi } from '../votes'
 
-vi.mock('axios', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('axios')>()
-  return { ...actual, default: { ...actual.default, post: vi.fn() } }
-})
-
 vi.mock('../client', () => ({
   apiClient: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
+  refreshSession: vi.fn(),
 }))
 
 const ok = <T,>(data: T) => Promise.resolve({ data })
@@ -42,13 +37,14 @@ describe('API modules', () => {
       expect(apiClient.post).toHaveBeenCalledWith('/auth/logout')
     })
 
-    it('silentRefresh uses plain axios with credentials and an empty body', async () => {
-      vi.mocked(axios.post).mockResolvedValueOnce({ data: { accessToken: 't' } })
-
-      await expect(authApi.silentRefresh()).resolves.toEqual({ accessToken: 't' })
-      expect(axios.post).toHaveBeenCalledWith('/api/v1/auth/refresh', {}, { withCredentials: true })
+    it('silentRefresh uses the shared session refresh', async () => {
+      const payload = { accessToken: 't', userId: 'u', email: 'a@test.com', displayName: 'A' }
+      vi.mocked(refreshSession).mockResolvedValueOnce(payload)
+      await expect(authApi.silentRefresh()).resolves.toEqual(payload)
+      expect(refreshSession).toHaveBeenCalledOnce()
       expect(apiClient.post).not.toHaveBeenCalled()
     })
+
   })
 
   describe('telegramApi', () => {
@@ -76,10 +72,14 @@ describe('API modules', () => {
 
     it.each([
       ['get', () => votesApi.get('v1'), '/votes/v1'],
-      ['getHistory', () => votesApi.getHistory('v1'), '/votes/v1/history'],
     ])('%s issues GET and unwraps data', async (_, call, url) => {
       await expect(call()).resolves.toBe('get-data')
       expect(apiClient.get).toHaveBeenCalledWith(url)
+    })
+
+    it('fetches a history page', async () => {
+      await expect(votesApi.getHistory('v1', 2)).resolves.toBe('get-data')
+      expect(apiClient.get).toHaveBeenCalledWith('/votes/v1/history/page', { params: { page: 2, size: 20 } })
     })
 
     it('create posts the request and unwraps the created vote', async () => {

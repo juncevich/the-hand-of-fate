@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -396,11 +397,28 @@ func (h *Handler) handleHistory(ctx context.Context, msg *tgbotapi.Message, vote
 		return
 	}
 
+	args := strings.Fields(voteID)
+	page := 1
+	if len(args) == 0 || len(args) > 2 {
+		h.send(msg.Chat.ID, "Используйте /history <id> [страница]", false)
+		return
+	}
+	if len(args) == 2 {
+		var err error
+		page, err = strconv.Atoi(args[1])
+		if err != nil || page < 1 || page > 2147483647 {
+			h.send(msg.Chat.ID, "Номер страницы должен быть положительным числом", false)
+			return
+		}
+	}
+	voteID = args[0]
 	gctx, cancel := grpcCtx(ctx)
 	defer cancel()
 
 	resp, err := h.client.GetVoteHistory(gctx, &fatev1.GetVoteHistoryRequest{
 		VoteId:     voteID,
+		Page:       int32(page - 1),
+		PageSize:   20,
 		TelegramId: msg.Chat.ID,
 	})
 	if err != nil {
@@ -420,6 +438,12 @@ func (h *Handler) handleHistory(ctx context.Context, msg *tgbotapi.Message, vote
 			sb.WriteString(fmt.Sprintf("Раунд *%d*: %s (`%s`)\n_%s_\n\n", r.Round, label, r.WinnerEmail, r.DrawnAt))
 		} else {
 			sb.WriteString(fmt.Sprintf("Раунд *%d*: %s\n_%s_\n\n", r.Round, label, r.DrawnAt))
+		}
+	}
+	if resp.TotalPages > 1 {
+		sb.WriteString(fmt.Sprintf("Страница %d из %d\n", page, resp.TotalPages))
+		if int32(page) < resp.TotalPages {
+			sb.WriteString(fmt.Sprintf("Следующая: `/history %s %d`", voteID, page+1))
 		}
 	}
 	h.send(msg.Chat.ID, sb.String(), true)

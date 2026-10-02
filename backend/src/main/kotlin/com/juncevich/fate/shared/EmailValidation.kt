@@ -7,7 +7,7 @@ package com.juncevich.fate.shared
  */
 private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 
-fun isValidEmail(value: String): Boolean = EMAIL_REGEX.matches(value)
+fun isValidEmail(value: String): Boolean = value.length <= 255 && EMAIL_REGEX.matches(value)
 
 fun requireValidEmail(value: String): String {
     if (!isValidEmail(value)) {
@@ -15,3 +15,5 @@ fun requireValidEmail(value: String): String {
     }
     return value
 }
+
+fun normalizeEmail(value: String): String = requireValidEmail(value.trim().lowercase())

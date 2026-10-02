@@ -33,7 +33,7 @@ React SPA for The Hand of Fate — vote management and account settings.
 ```
 src/
 ├── api/
-│   ├── client.ts        Axios instance + 401 interceptor with retry queue
+│   ├── client.ts        Axios instance + 401 interceptor with a shared refresh Promise
 │   ├── auth.ts          register, login, refresh, logout
 │   ├── votes.ts         vote CRUD, draw, history, options
 │   └── telegram.ts      link token
@@ -105,3 +105,7 @@ npm run lint         # ESLint
   <Routes><Route path="/votes/:id" element={<VoteDetailPage />} /></Routes>
   ```
   with `initialEntries={['/votes/123']}` on `MemoryRouter`
+
+Session restoration and automatic refresh share a single pending request. Login/register failures do not trigger refresh, and each protected request is retried at most once. Session changes reject stale refresh results and prevent replaying old requests under a new account. Logout and account changes cancel queries and clear the shared React Query cache; private query keys also include the user ID.
+
+Draw history uses `/api/v1/votes/{id}/history/page` and displays 20 entries per page.

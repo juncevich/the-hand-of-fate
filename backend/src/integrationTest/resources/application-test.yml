@@ -17,6 +17,8 @@ management:
       enabled: false
 
 app:
+  notifications:
+    delivery-enabled: false
   # Tests fire many auth requests from a single (loopback) client; the limiter
   # would otherwise trip and turn expected 200s into 429s.
   rate-limit:

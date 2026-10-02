@@ -8,7 +8,7 @@ import org.springframework.boot.runApplication
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing
 import org.springframework.modulith.Modulith
 import org.springframework.resilience.annotation.EnableResilientMethods
-import org.springframework.scheduling.annotation.EnableAsync
+import org.springframework.scheduling.annotation.EnableScheduling
 
 // gRPC callers (the Telegram bot) authenticate with the shared secret only
 // (SharedSecretAuthInterceptor); keep Spring Security's JWT resource server off the gRPC server.
@@ -18,7 +18,7 @@ import org.springframework.scheduling.annotation.EnableAsync
 @Modulith(systemName = "The Hand of Fate")
 @ConfigurationPropertiesScan
 @EnableJpaAuditing
-@EnableAsync
+@EnableScheduling
 @EnableResilientMethods
 class FateApplication
 

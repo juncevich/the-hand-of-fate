@@ -1,5 +1,8 @@
-import axios from 'axios'
+import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/store/authStore'
+import type { AuthPayload } from './auth'
+
+type AuthRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean; _sessionVersion?: number }
 
 export const apiClient = axios.create({
   baseURL: '/api/v1',
@@ -7,61 +10,59 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Attach access token to every request
+let refreshPromise: Promise<AuthPayload> | null = null
+let refreshVersion: number | null = null
+
+export function refreshSession(): Promise<AuthPayload> {
+  const version = useAuthStore.getState().sessionVersion
+  if (refreshPromise && refreshVersion === version) return refreshPromise
+  refreshVersion = version
+  const pending = axios.post<AuthPayload>('/api/v1/auth/refresh', {}, { withCredentials: true })
+    .then(({ data }) => {
+      if (useAuthStore.getState().sessionVersion !== version) {
+        throw new Error('Session changed during refresh')
+      }
+      useAuthStore.getState().setAuth(data)
+      return data
+    })
+    .finally(() => {
+      if (refreshPromise === pending) {
+        refreshPromise = null
+        refreshVersion = null
+      }
+    })
+  refreshPromise = pending
+  return pending
+}
+
 apiClient.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
+  const auth = useAuthStore.getState()
+  const authenticatedConfig = config as AuthRequestConfig
+  authenticatedConfig._sessionVersion = auth.sessionVersion
+  const token = auth.accessToken
+  if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
-// On 401 try one silent refresh, then retry
-let isRefreshing = false
-let queue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = []
-
 apiClient.interceptors.response.use(
   (res) => res,
-  async (error) => {
-    const original = error.config
-    if (error.response?.status !== 401 || original._retry) {
+  async (error: unknown) => {
+    if (!axios.isAxiosError(error)) return Promise.reject(error)
+    const original = error.config as AuthRequestConfig | undefined
+    if (error.response?.status !== 401 || !original || original._retry || original.url?.startsWith('/auth/')) {
       return Promise.reject(error)
     }
-
-    if (isRefreshing) {
-      return new Promise((resolve, reject) => {
-        queue.push({
-          resolve: (token: string) => {
-            original.headers.Authorization = `Bearer ${token}`
-            resolve(apiClient(original))
-          },
-          reject,
-        })
-      })
-    }
-
+    if (original._sessionVersion !== useAuthStore.getState().sessionVersion) return Promise.reject(error)
     original._retry = true
-    isRefreshing = true
-
+    const version = useAuthStore.getState().sessionVersion
+    let data: AuthPayload
     try {
-      const { data } = await axios.post(
-        '/api/v1/auth/refresh',
-        {},
-        { withCredentials: true }
-      )
-      useAuthStore.getState().updateAccessToken(data.accessToken)
-      queue.forEach((cb) => cb.resolve(data.accessToken))
-      queue = []
-      original.headers.Authorization = `Bearer ${data.accessToken}`
-      return apiClient(original)
+      data = await refreshSession()
     } catch (refreshError) {
-      queue.forEach((cb) => cb.reject(refreshError))
-      queue = []
-      useAuthStore.getState().clearAuth()
-      window.location.href = '/login'
-      return Promise.reject(error)
-    } finally {
-      isRefreshing = false
+      if (useAuthStore.getState().sessionVersion === version) useAuthStore.getState().clearAuth()
+      return Promise.reject(refreshError)
     }
+    original.headers.Authorization = `Bearer ${data.accessToken}`
+    return apiClient(original)
   }
 )

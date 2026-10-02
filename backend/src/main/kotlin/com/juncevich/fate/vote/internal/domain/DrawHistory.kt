@@ -22,7 +22,7 @@ sealed interface DrawHistory {
     data class OptionWinner(
         override val id: UUID = uuidV7(),
         override val voteId: UUID,
-        val optionId: UUID,
+        val optionId: UUID?,
         val optionTitle: String,
         override val round: Int,
         override val drawnAt: Instant = Instant.now(),

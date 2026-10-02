@@ -1,6 +1,6 @@
 package com.juncevich.fate.vote.internal.persistence.mapper
 
-import com.juncevich.fate.auth.User
+import com.juncevich.fate.auth.UserProfile
 import com.juncevich.fate.vote.internal.domain.DrawHistory
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
@@ -10,7 +10,7 @@ import com.juncevich.fate.vote.internal.persistence.entity.VoteJpaEntity
 import com.juncevich.fate.vote.internal.persistence.entity.VoteOptionJpaEntity
 import com.juncevich.fate.vote.internal.persistence.entity.VoteParticipantJpaEntity
 
-fun VoteJpaEntity.toDomain(creator: User) =
+fun VoteJpaEntity.toDomain(creator: UserProfile) =
     Vote(
         id = id,
         title = title,
@@ -93,7 +93,7 @@ fun DrawHistoryJpaEntity.toDomain(): DrawHistory {
             DrawHistory.OptionWinner(
                 id = id,
                 voteId = vote.id,
-                optionId = checkNotNull(winnerOption?.id) { "winnerOption missing for OptionWinner history $id" },
+                optionId = winnerOption?.id,
                 optionTitle = optionTitle,
                 round = round,
                 drawnAt = drawnAt

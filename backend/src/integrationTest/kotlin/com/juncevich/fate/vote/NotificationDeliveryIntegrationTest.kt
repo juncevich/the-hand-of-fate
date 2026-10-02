@@ -13,6 +13,8 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
+import org.springframework.test.annotation.DirtiesContext
+import org.springframework.test.context.TestPropertySource
 import org.springframework.test.web.servlet.post
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -22,6 +24,8 @@ import java.util.UUID
  * End-to-end check of when vote notifications are dispatched: only after the surrounding
  * transaction commits, asynchronously, and never for a rolled-back change.
  */
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@TestPropertySource(properties = ["app.notifications.delivery-enabled=true", "app.notifications.poll-delay-ms=100"])
 class NotificationDeliveryIntegrationTest
     @Autowired
     constructor(

@@ -5,6 +5,7 @@ import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
@@ -14,6 +15,7 @@ import org.springframework.validation.FieldError
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import java.sql.SQLException
 import java.time.Instant
 
 @RestControllerAdvice
@@ -61,6 +63,19 @@ class ErrorHandler {
     fun handleOptimisticLocking(ex: ObjectOptimisticLockingFailureException): ResponseEntity<ProblemDetail> {
         log.warn("Concurrent modification: {}", ex.message)
         return problemResponse(HttpStatus.CONFLICT, "The resource was modified concurrently, please retry")
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException::class)
+    fun handleDataIntegrity(ex: DataIntegrityViolationException): ResponseEntity<ProblemDetail> {
+        val uniqueViolation =
+            generateSequence<Throwable>(ex) { it.cause }
+                .filterIsInstance<SQLException>()
+                .any { it.sqlState == "23505" }
+        return if (uniqueViolation) {
+            problemResponse(HttpStatus.CONFLICT, "The resource already exists")
+        } else {
+            handleGeneric(ex)
+        }
     }
 
     @ExceptionHandler(Exception::class)

@@ -3,6 +3,7 @@ package com.juncevich.fate.grpc
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.auth.toProfile
 import com.juncevich.fate.grpc.FateProto.*
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.vote.*
@@ -111,7 +112,9 @@ class FateGrpcServiceTest {
                 )
 
             every { userQueryService.findByTelegramId(42) } returns user
-            every { voteService.getHistory(vote.id, user.id, user.email) } returns history
+            every { voteService.getHistory(vote.id, user.id, user.email, any()) } returns
+                org.springframework.data.domain
+                    .PageImpl(history)
 
             val response =
                 service.getVoteHistory(
@@ -301,7 +304,7 @@ class FateGrpcServiceTest {
     }
 
     @Test
-    fun `createVote trims and deduplicates options and keeps description`() =
+    fun `createVote delegates input validation and normalization to the service`() =
         runBlocking {
             val user = user(telegramId = 42)
             every { userQueryService.findByTelegramId(42) } returns user
@@ -312,8 +315,8 @@ class FateGrpcServiceTest {
                         match {
                             it.description == "Friday" &&
                                 it.mode == DomainVoteMode.SIMPLE &&
-                                it.options == listOf("Pizza", "Sushi") &&
-                                it.participantEmails.isEmpty()
+                                it.options == listOf(" Pizza ", "Sushi", "Pizza", "") &&
+                                it.participantEmails == listOf(" ", "")
                         }
                 )
             } returns detail(options = listOf(VoteOptionDto(UUID.randomUUID(), "Pizza")))
@@ -536,7 +539,7 @@ class FateGrpcServiceTest {
     fun `getVoteHistory maps access denial to PERMISSION_DENIED`() {
         val voteId = UUID.randomUUID()
         every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-        every { voteService.getHistory(voteId, any(), any()) } throws ForbiddenException("Access denied")
+        every { voteService.getHistory(voteId, any(), any(), any()) } throws ForbiddenException("Access denied")
 
         val ex =
             assertThrows<StatusRuntimeException> {
@@ -634,6 +637,72 @@ class FateGrpcServiceTest {
         createdAt = Instant.parse("2026-04-25T00:00:00Z")
     )
 
+    @Test
+    fun `history supports explicit pages and returns total counts`() =
+        runBlocking {
+            val user = user(telegramId = 42)
+            val voteId = UUID.randomUUID()
+            val pageable = PageRequest.of(2, 10)
+            every { userQueryService.findByTelegramId(42) } returns user
+            every { voteService.getHistory(voteId, user.id, user.email, pageable) } returns PageImpl(List(5) { historyDto() }, pageable, 25)
+            val response =
+                service.getVoteHistory(
+                    GetVoteHistoryRequest
+                        .newBuilder()
+                        .setVoteId(voteId.toString())
+                        .setTelegramId(42)
+                        .setPage(2)
+                        .setPageSize(10)
+                        .build()
+                )
+            assertEquals(25L, response.totalElements)
+            assertEquals(3, response.totalPages)
+            assertEquals(5, response.resultsCount)
+        }
+
+    @Test
+    fun `history rejects negative pages and invalid page sizes`() =
+        runBlocking {
+            val user = user(telegramId = 42)
+            every { userQueryService.findByTelegramId(42) } returns user
+            for ((page, size) in listOf(-1 to 20, 0 to -1, 0 to 101)) {
+                val exception =
+                    assertThrows<StatusRuntimeException> {
+                        service.getVoteHistory(
+                            GetVoteHistoryRequest
+                                .newBuilder()
+                                .setVoteId(UUID.randomUUID().toString())
+                                .setTelegramId(42)
+                                .setPage(page)
+                                .setPageSize(size)
+                                .build()
+                        )
+                    }
+                assertEquals(Status.Code.INVALID_ARGUMENT, exception.status.code)
+            }
+            verify(exactly = 0) { voteService.getHistory(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `createVote reports service validation failures without an internal transport error`() =
+        runBlocking {
+            every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
+            every { voteService.createVote(any(), any()) } throws
+                com.juncevich.fate.shared
+                    .BadRequestException("Invalid option title")
+            val response =
+                service.createVote(
+                    CreateVoteRequest
+                        .newBuilder()
+                        .setTelegramId(42)
+                        .setTitle("Vote")
+                        .addOptions(" ")
+                        .build()
+                )
+            assertFalse(response.success)
+            assertEquals("Invalid option title", response.message)
+        }
+
     private fun historyDto(
         email: String? = null,
         displayName: String? = null,
@@ -658,7 +727,7 @@ class FateGrpcServiceTest {
     private fun vote(creator: User): Vote =
         Vote(
             title = "Lunch",
-            creator = creator,
+            creator = creator.toProfile(),
             mode = DomainVoteMode.SIMPLE
         )
 }

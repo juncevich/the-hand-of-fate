@@ -150,7 +150,7 @@ cd perf
 | `/newvote <title> \| <emails> \| <mode> [\| <options>]` | Create a new vote; `<emails>` — comma-separated, `<mode>` — `simple`/`fair`, `<options>` — optional comma-separated named options |
 | `/draw <id>`                                            | Perform a draw for a vote (creator only)                                                                                          |
 | `/result <id>`                                          | Show last draw result for a vote                                                                                                  |
-| `/history <id>`                                         | Full draw history for a vote                                                                                                      |
+| `/history <id> [page]`                                         | Paginated draw history (20 entries; pages start at 1)                                                                                                      |
 | `/unlink`                                               | Unlink Telegram account                                                                                                           |
 
 ## Architecture
@@ -158,16 +158,16 @@ cd perf
 ### Auth Flow
 - Registration/login returns `accessToken` (HS256 JWT, 15 min — issued with `NimbusJwtEncoder`, validated by Spring Security's OAuth2 resource server, see `auth/internal/token/JwtConfig.kt`) + `refreshToken` (UUID, 30 days)
 - `refreshToken` is stored hashed in `refresh_tokens` table
-- Frontend keeps `accessToken` in Zustand (memory only); `refreshToken` is sent via JSON body; all requests use `withCredentials: true`
+- Frontend keeps `accessToken` in Zustand (memory only); `refreshToken` stays in an httpOnly cookie; all requests use `withCredentials: true`
 - On app mount, `authApi.silentRefresh()` attempts to restore session via httpOnly cookie (`withCredentials: true`, empty body); failure is silently ignored (user stays logged out)
-- On 401, Axios interceptor silently calls `/api/v1/auth/refresh`, queues concurrent requests, and retries once
+- On 401, Axios interceptor silently calls `/api/v1/auth/refresh`, shares a refresh Promise with initial session restoration and retries each protected request once
 - **Brute-force protection**: `RateLimitFilter` (in-memory fixed-window, per client IP) throttles `/api/v1/auth/{login,register,refresh}` — returns `429` with `Retry-After` past `app.rate-limit.capacity` per `app.rate-limit.window-seconds`. Single-instance only; move to a shared store (Redis) if scaled horizontally.
 - **Fail-fast secrets**: `SecretsValidator` (`@Profile("!dev & !test")`) aborts startup if `JWT_ACCESS_SECRET` / `GRPC_SHARED_SECRET` are missing, too short, or left at a checked-in dev default — so production cannot boot with insecure secrets. Local runs use the `dev` profile to bypass this.
 
 ### Frontend State & Data Fetching
 - **Zustand** manages auth state (`authStore`) and dark/light theme (`themeStore`; persisted to localStorage)
 - **React Query** (`@tanstack/react-query`) handles all server state — queries, mutations, cache invalidation
-- Custom Axios instance in `frontend/src/api/client.ts` handles token refresh with a retry queue so concurrent 401s only trigger one refresh call
+- Custom Axios instance in `frontend/src/api/client.ts` shares one pending refresh Promise across initial restoration and concurrent 401s; auth endpoints are excluded
 - TypeScript 7 runs side-by-side with the 6.0 API: `tsc` (type-check in `npm run build`) is TS 7 from the `@typescript/native` alias, while the `typescript` package is aliased to `@typescript/typescript6` because typescript-eslint needs the classic JS API that TS 7 no longer ships
 - ESLint enforces `@typescript-eslint/no-floating-promises` on `src/**` (type-checked, see `eslint.config.js`) — mark deliberately-unawaited calls (`invalidateQueries()`, `navigate()`, `clipboard.writeText()`, etc.) with `void` rather than leaving them bare
 
@@ -181,11 +181,14 @@ cd perf
 - `VoteParticipants` — participant list with add/remove
 - `VoteOptions` — options list with add/remove
 - `VoteLastResult` — last draw result display
-- `VoteHistory` — full draw history list
+- `VoteHistory` — paginated history (20 entries per page)
 
 ### Vote Modes
-- **SIMPLE**: random draw from all participants or options, no history tracking
+- **SIMPLE**: random draw from all participants or options; history is recorded but does not affect eligibility
 - **FAIR_ROTATION**: tracks `draw_history` per round; only participants/options who haven't won in `currentRound` are eligible. When all have won, `currentRound` increments and the cycle restarts
+
+### Vote Limits
+`VoteLimits`: description ≤ 2000 chars, ≤ 100 participants (creator included), ≤ 100 options. Validated by the REST DTO and enforced again in `VoteService` (gRPC, add-participant/add-option) → 400 / gRPC failure response.
 
 ### Vote Draw Targets
 A vote can draw from two mutually exclusive sources — if options exist they take precedence:
@@ -209,7 +212,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
       adapter/     — JPA adapter implementations of port interfaces
       mapper/      — domain ↔ entity mappers
     web/           — REST controllers and DTOs
-    notification/  — notification adapters (email, via `@TransactionalEventListener` on vote events)
+    notification/  — durable event recording and SMTP delivery from a PostgreSQL outbox
 ```
 
 `ModularityTest` (`backend/src/test/kotlin/com/juncevich/fate/ModularityTest.kt`) verifies module boundaries are respected and generates PlantUML diagrams.
@@ -217,15 +220,15 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 ### Threading Model
 - **Virtual threads (Project Loom)** enabled via `spring.threads.virtual.enabled: true`
 - Tomcat uses `VirtualThreadExecutor` for all HTTP request threads
-- `@Async` tasks (`NotificationAdapter`) run on virtual threads; email retries use Spring Framework 7 `@Retryable` on `EmailService` (enabled by `@EnableResilientMethods`), whose backoff sleep parks the virtual thread
+- `NotificationWorker` dispatches bounded batches on virtual threads; email retries use Spring Framework 7 `@Retryable` on `EmailService` (enabled by `@EnableResilientMethods`), whose backoff sleep parks the virtual thread
 - gRPC: `GrpcServerConfig` supplies a virtual-thread `GrpcServerExecutorProvider` (not covered by `spring.threads.virtual.enabled`), and `FateGrpcService` passes a virtual-thread coroutine dispatcher to its base class — RPC bodies call blocking JPA directly, no `withContext` needed. Trace context follows coroutines via Spring Boot's `ObservationCoroutineContextServerInterceptor`
-- `NotificationAdapter` fans out draw-result emails one virtual thread per recipient; `EmailService` caps simultaneous SMTP sends with a semaphore (`app.mail.max-concurrent-sends`, default 4) held for a single attempt, not across retry backoff
+- Each outbox job targets one recipient, so a slow mailbox only holds up its own job; `EmailService` caps simultaneous SMTP sends with a semaphore (`app.mail.max-concurrent-sends`, default 4) held for a single attempt, not across retry backoff
 - Don't expose an `Executor`/`ExecutorService` bean: Spring Boot would back off from its virtual-thread `applicationTaskExecutor` used by `@Async`
 
 ### Key Backend Services
 - **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching for both participants and options; picks draw target automatically (options if any exist, otherwise participants)
-- **VoteService**: CRUD for votes including creating `VoteOption` entities from request; `addOption()` / `removeOption()` for post-creation management; votes use optimistic locking (`@Version`) to prevent concurrent draw conflicts
-- **NotificationAdapter**: listens for `ParticipantInvited` / `VoteDrawn` events (published by `VoteService`) with `@Async @TransactionalEventListener`, so emails go out only after commit and never for a rolled-back change; swallows errors so draw success is never blocked by notification failure
+- **VoteService**: CRUD for votes including creating `VoteOption` entities from request; `addOption()` / `removeOption()` for post-creation management; all vote mutations acquire the same pessimistic row lock; `@Version` additionally guards stale saves
+- **Notifications**: `NotificationRecorder` persists one outbox job per recipient inside the vote transaction. Payloads are versioned DTOs (`NotificationPayloads.kt`), not the domain events. `NotificationWorker` claims jobs with `SKIP LOCKED`, delivers outside DB transactions, retries with exponential backoff and marks jobs failed after `app.notifications.max-attempts` (metric `notification.dead`), purging them after `failed-retention` (see `NotificationProperties`, backend/README.md). `NotificationAdapter` handles SMTP delivery and propagates failures to the worker.
 - **EmailService**: sends styled HTML emails (dark theme) for vote invitations and draw results
 - **FateGrpcService**: gRPC server implementation; uses `runCatching` + `StatusRuntimeException` for error mapping; maps `VoteOptionInfo` proto messages for options
 
@@ -290,6 +293,8 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 - V6: telegram_link_tokens
 - V7: demo user seed (`admin@admin.com` / `admin`, idempotent insert) — **gated by the `seedDemoUser` Flyway placeholder (dev/test only, default off)**
 - V8: vote_options table (title, position, unique per vote); adds `winner_option_id` / `winner_option_title` to draw_history; makes `winner_email` nullable
+- V9–V13: vote version, draw-history indexes, `notification_outbox`, canonical participant emails
+- V14: `notification_outbox.failed_at` dead-letter state + claim/purge indexes
 
 ### Key Environment Variables
 | Variable | Default | Description |
@@ -379,3 +384,10 @@ One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first depl
 | `FRONTEND_URL` | Public URL for CORS and email links |
 | `GRPC_SERVER_ADDR` | gRPC address for bot → backend (`localhost:9090`) |
 | `GRPC_SHARED_SECRET` | Shared secret authenticating bot → backend gRPC calls; same value on both deploy workflows |
+
+### Consistency regression checks
+
+- `ConsistencyIntegrationTest` exercises concurrent token consumption and vote edits on PostgreSQL, history after winner deletion, canonical emails, uniqueness conflicts and pagination.
+- `NotificationOutboxIntegrationTest` verifies rollback, persisted payloads, lease recovery, stale acknowledgments, per-recipient retries, retry delays, dead-lettering, retention purge and bounded dispatch.
+- `ModularityTest` prohibits the vote module from depending on credential-bearing `auth.User`; use `auth.UserProfile`.
+- REST `/votes/{id}/history/page` returns a stable page response; the legacy `/history` endpoint returns at most the latest 100 entries.

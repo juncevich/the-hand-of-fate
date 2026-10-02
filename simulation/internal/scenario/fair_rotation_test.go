@@ -73,8 +73,8 @@ func newFairRotationServer(t *testing.T) *httptest.Server {
 			}
 			w.WriteHeader(http.StatusNoContent)
 
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/vf/history":
-			writeJSON(w, history)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/vf/history/page":
+			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
 
 		case r.Method == http.MethodDelete && r.URL.Path == "/api/v1/votes/vf":
 			w.WriteHeader(http.StatusNoContent)
@@ -277,7 +277,7 @@ func TestFairRotationScenario_GetHistoryError(t *testing.T) {
 			w.WriteHeader(http.StatusNoContent)
 		case strings.HasPrefix(r.URL.Path, "/api/v1/votes/vf/participants/") && r.Method == http.MethodDelete:
 			w.WriteHeader(http.StatusNoContent)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/vf/history":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/vf/history/page":
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			writeJSON(w, map[string]string{"error": "db error"})
@@ -317,8 +317,8 @@ func TestFairRotationScenario_DeleteError(t *testing.T) {
 			w.WriteHeader(http.StatusNoContent)
 		case strings.HasPrefix(r.URL.Path, "/api/v1/votes/vf/participants/") && r.Method == http.MethodDelete:
 			w.WriteHeader(http.StatusNoContent)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/vf/history":
-			writeJSON(w, history)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/vf/history/page":
+			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
 		case r.Method == http.MethodDelete && r.URL.Path == "/api/v1/votes/vf":
 			w.WriteHeader(http.StatusInternalServerError)
 		default:

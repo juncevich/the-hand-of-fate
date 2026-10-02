@@ -21,7 +21,7 @@ Shared protobuf definitions for the gRPC channel between the backend and the Tel
          │
          ├─ DrawVote ─────────────────► run draw → winner (email or option title)
          ├─ GetLastDrawResult ────────► last DrawHistory entry
-         └─ GetVoteHistory ───────────► all DrawHistory entries for a vote
+         └─ GetVoteHistory ───────────► a page of DrawHistory entries for a vote
 ```
 
 ## Service Methods
@@ -35,7 +35,7 @@ Shared protobuf definitions for the gRPC channel between the backend and the Tel
 | `GetVoteDetails` | vote_id → `Vote` + participants + options | Full vote info |
 | `DrawVote` | vote_id → winner | Perform a draw; returns winner name or option title |
 | `GetLastDrawResult` | vote_id → `DrawResultInfo` | Last draw result |
-| `GetVoteHistory` | vote_id → `[]DrawResultInfo` | All draw results |
+| `GetVoteHistory` | vote_id, page, page_size → results, total_pages, total_elements | Paginated draw results (default 20, maximum 100) |
 
 ## Key Messages
 

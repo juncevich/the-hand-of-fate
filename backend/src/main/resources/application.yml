@@ -55,6 +55,9 @@ spring:
     properties:
       mail.smtp.auth: false
       mail.smtp.starttls.enable: false
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
 
 server:
   port: 8080
@@ -107,6 +110,16 @@ app:
   mail:
     # Sender address; when blank, falls back to MAIL_USERNAME, then noreply@handoffate.app
     from: ${MAIL_FROM:}
-    # Cap on simultaneous SMTP sends; notification fan-out runs on unbounded virtual threads
+    # Cap on simultaneous SMTP sends; outbox batches are dispatched on virtual threads
     max-concurrent-sends: ${MAIL_MAX_CONCURRENT_SENDS:4}
+  # Notification outbox delivery (see NotificationProperties). Failed jobs back off exponentially
+  # from retry-base-delay up to retry-max-delay; after max-attempts they are marked failed
+  # (metric notification.dead) and purged after failed-retention.
+  notifications:
+    batch-size: 20
+    max-attempts: 10
+    lease: 2m
+    retry-base-delay: 1m
+    retry-max-delay: 6h
+    failed-retention: 14d
   refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}

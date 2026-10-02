@@ -58,7 +58,7 @@ src/main/kotlin/com/juncevich/fate/
 │   ├── AuthService.kt          Registration, login, token refresh/revocation
 │   ├── VoteService.kt          Vote CRUD, addOption / removeOption
 │   ├── DrawService.kt          SIMPLE / FAIR_ROTATION draw logic for participants and options
-│   ├── NotificationService.kt  Async email dispatch (never blocks draw success)
+│   ├── NotificationWorker.kt   Outbox polling, retries with backoff, dead-letter handling
 │   ├── EmailService.kt         HTML email rendering and sending
 │   └── TelegramLinkService.kt  One-time token creation and validation
 ├── domain/
@@ -85,7 +85,8 @@ src/main/resources/
 | `GET`  | `/api/v1/votes/{id}` | Vote details |
 | `DELETE` | `/api/v1/votes/{id}` | Delete a vote |
 | `POST` | `/api/v1/votes/{id}/draw` | Perform a draw |
-| `GET`  | `/api/v1/votes/{id}/history` | Draw history |
+| `GET`  | `/api/v1/votes/{id}/history` | Latest 100 entries (compatibility endpoint) |
+| `GET`  | `/api/v1/votes/{id}/history/page?page=0&size=20` | Paginated history, maximum page size 100 |
 | `POST` | `/api/v1/votes/{id}/options` | Add a named option |
 | `DELETE` | `/api/v1/votes/{id}/options/{optionId}` | Remove an option |
 | `GET`  | `/api/v1/telegram/link-token` | Generate a one-time Telegram link token |
@@ -149,3 +150,17 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 - Set `SecurityContextHolder` directly in `@BeforeEach` for endpoints using `@AuthenticationPrincipal`
 - `PageImpl` must be constructed with three args: `PageImpl(content, pageable, total)`
 - `ErrorHandler` masks exception details — tests assert `"Internal server error"`, not the original message
+
+### Consistency and notification delivery
+
+All vote mutations acquire the same PostgreSQL row lock. Refresh and Telegram link tokens are locked before consumption. Email addresses are normalized in the service layer before lookup, deduplication and persistence. The vote module uses immutable `UserProfile` values without credential fields.
+
+Migration V11 adds `notification_outbox` (V14 adds the `failed_at` dead-letter state). Vote events are recorded in the vote transaction, with one job per recipient. Payloads are dedicated versioned DTOs (`InvitationPayload`, `DrawResultPayload`, `NOTIFICATION_PAYLOAD_VERSION`), not the domain events, so refactoring an event does not break queued jobs; an unreadable or unsupported-version payload is marked failed immediately. `NotificationWorker` polls every second, claims at most `batch-size` jobs, and performs SMTP delivery outside DB transactions. A claimed job is leased (`lease`, default 2 minutes) so a crashed worker's job is recovered. The worker is designed for a single backend instance: under heavy SMTP retries a batch can outlive the lease, and a second instance would re-claim and send duplicates. SMTP connection/read/write timeouts are 5/10/10 seconds.
+
+Failed jobs are retried with exponential backoff: `retry-base-delay` (1 minute) doubling per attempt up to `retry-max-delay` (6 hours). After `max-attempts` (10, about 8.5 hours of retries) the job gets `failed_at` and keeps `last_error` for investigation; this increments `notification.dead{type}`, while every failed attempt increments `notification.failed{type}`. Failed jobs are deleted after `failed-retention` (14 days). After resolving the cause, operators can requeue a selected job by setting `failed_at = NULL`, `attempts = 0`, `available_at = now()` and `claim_id = NULL`. Successful jobs are deleted. Delivery is at least once: a crash after SMTP accepts a message but before acknowledgment can cause a duplicate.
+
+`app.notifications.delivery-enabled=false` disables delivery while retaining durable recording. `app.notifications.poll-delay-ms` controls the poll interval (default 1000) and `app.notifications.purge-delay-ms` the failed-job purge interval (default 1 hour); the remaining settings live in `NotificationProperties`. Integration tests disable automatic delivery except tests that verify the complete delivery flow.
+
+Migration V12 adds an index for stable history pagination by `(vote_id, drawn_at DESC, id DESC)`.
+
+Migration V13 canonicalizes existing participant emails, merges aliases of the same address within each vote (keeping the earliest entry), and canonicalizes recorded participant wins for fair rotation.

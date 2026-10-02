@@ -1262,6 +1262,8 @@ type GetVoteHistoryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	VoteId        string                 `protobuf:"bytes,1,opt,name=vote_id,json=voteId,proto3" json:"vote_id,omitempty"`
 	TelegramId    int64                  `protobuf:"varint,2,opt,name=telegram_id,json=telegramId,proto3" json:"telegram_id,omitempty"`
+	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`                         // zero-based
+	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"` // default 20, maximum 100
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1310,9 +1312,25 @@ func (x *GetVoteHistoryRequest) GetTelegramId() int64 {
 	return 0
 }
 
+func (x *GetVoteHistoryRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetVoteHistoryRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
 type GetVoteHistoryResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Results       []*DrawResultInfo      `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	TotalPages    int32                  `protobuf:"varint,2,opt,name=total_pages,json=totalPages,proto3" json:"total_pages,omitempty"`
+	TotalElements int64                  `protobuf:"varint,3,opt,name=total_elements,json=totalElements,proto3" json:"total_elements,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1352,6 +1370,20 @@ func (x *GetVoteHistoryResponse) GetResults() []*DrawResultInfo {
 		return x.Results
 	}
 	return nil
+}
+
+func (x *GetVoteHistoryResponse) GetTotalPages() int32 {
+	if x != nil {
+		return x.TotalPages
+	}
+	return 0
+}
+
+func (x *GetVoteHistoryResponse) GetTotalElements() int64 {
+	if x != nil {
+		return x.TotalElements
+	}
+	return 0
 }
 
 var File_fate_v1_fate_proto protoreflect.FileDescriptor
@@ -1448,13 +1480,18 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\x19GetLastDrawResultResponse\x12\x1d\n" +
 	"\n" +
 	"has_result\x18\x01 \x01(\bR\thasResult\x12/\n" +
-	"\x06result\x18\x02 \x01(\v2\x17.fate.v1.DrawResultInfoR\x06result\"Q\n" +
+	"\x06result\x18\x02 \x01(\v2\x17.fate.v1.DrawResultInfoR\x06result\"\x82\x01\n" +
 	"\x15GetVoteHistoryRequest\x12\x17\n" +
 	"\avote_id\x18\x01 \x01(\tR\x06voteId\x12\x1f\n" +
 	"\vtelegram_id\x18\x02 \x01(\x03R\n" +
-	"telegramId\"K\n" +
+	"telegramId\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\"\x93\x01\n" +
 	"\x16GetVoteHistoryResponse\x121\n" +
-	"\aresults\x18\x01 \x03(\v2\x17.fate.v1.DrawResultInfoR\aresults*q\n" +
+	"\aresults\x18\x01 \x03(\v2\x17.fate.v1.DrawResultInfoR\aresults\x12\x1f\n" +
+	"\vtotal_pages\x18\x02 \x01(\x05R\n" +
+	"totalPages\x12%\n" +
+	"\x0etotal_elements\x18\x03 \x01(\x03R\rtotalElements*q\n" +
 	"\n" +
 	"VoteStatus\x12\x1b\n" +
 	"\x17VOTE_STATUS_UNSPECIFIED\x10\x00\x12\x17\n" +

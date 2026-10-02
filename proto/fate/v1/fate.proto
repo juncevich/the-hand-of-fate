@@ -157,10 +157,14 @@ message GetLastDrawResultResponse {
 message GetVoteHistoryRequest {
   string vote_id = 1;
   int64 telegram_id = 2;
+  int32 page = 3; // zero-based
+  int32 page_size = 4; // default 20, maximum 100
 }
 
 message GetVoteHistoryResponse {
   repeated DrawResultInfo results = 1;
+  int32 total_pages = 2;
+  int64 total_elements = 3;
 }
 
 // ── Enums ─────────────────────────────────────────────────────────────────────

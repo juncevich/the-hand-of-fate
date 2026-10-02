@@ -1,6 +1,7 @@
 package com.juncevich.fate.vote.internal
 
 import com.juncevich.fate.auth.User
+import com.juncevich.fate.auth.toProfile
 import com.juncevich.fate.vote.*
 import com.juncevich.fate.vote.internal.DrawService
 import com.juncevich.fate.vote.internal.domain.DrawHistory
@@ -46,7 +47,7 @@ class DrawServiceTest {
     private fun makeVote(
         mode: VoteMode = VoteMode.SIMPLE,
         status: VoteStatus = VoteStatus.PENDING,
-    ) = Vote(title = "Test Vote", creator = makeUser(), mode = mode).also { it.status = status }
+    ) = Vote(title = "Test Vote", creator = makeUser().toProfile(), mode = mode).also { it.status = status }
 
     private fun makeParticipant(
         vote: Vote,
@@ -104,7 +105,7 @@ class DrawServiceTest {
 
         drawService.draw(vote)
 
-        verify { meterRegistry.counter("vote.draw.performed", "mode", "SIMPLE", "round", "1") }
+        verify { meterRegistry.counter("vote.draw.performed", "mode", "SIMPLE") }
         verify { counter.increment() }
     }
 
@@ -235,5 +236,32 @@ class DrawServiceTest {
         val vote = makeVote(status = VoteStatus.PENDING)
 
         assertThrows<IllegalStateException> { drawService.reopen(vote) }
+    }
+
+    @Test
+    fun `draw metric does not create new time series for each round`() {
+        val registry =
+            io.micrometer.core.instrument.simple
+                .SimpleMeterRegistry()
+        val service = DrawService(voteRepositoryPort, participantRepositoryPort, voteOptionRepositoryPort, drawHistoryRepositoryPort, registry)
+        val vote = makeVote(VoteMode.SIMPLE)
+        val participant = makeParticipant(vote, "a@test.com")
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
+        every { participantRepositoryPort.findAllByVoteId(vote.id) } returns listOf(participant)
+        every { drawHistoryRepositoryPort.save(any()) } answers { firstArg() }
+        every { voteRepositoryPort.save(any()) } returns vote
+        service.draw(vote)
+        vote.status = VoteStatus.PENDING
+        vote.currentRound = 1000
+        service.draw(vote)
+        assertEquals(1, registry.meters.size)
+        assertEquals(2.0, registry.get("vote.draw.performed").counter().count())
+        assertNull(
+            registry.meters
+                .single()
+                .id
+                .getTag("round")
+        )
+        registry.close()
     }
 }

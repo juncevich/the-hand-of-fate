@@ -17,4 +17,18 @@ class UserQueryService(
     fun findAllByIdIn(ids: Collection<UUID>): List<User> = userRepositoryPort.findAllByIdIn(ids)
 
     fun findByTelegramId(telegramId: Long): User? = userRepositoryPort.findByTelegramId(telegramId)
+
+    fun findProfileById(id: UUID): UserProfile? = userRepositoryPort.findById(id)?.toProfile()
+
+    fun findProfileByEmail(email: String): UserProfile? = userRepositoryPort.findByEmail(email)?.toProfile()
+
+    fun findProfilesByIdIn(ids: Collection<UUID>): List<UserProfile> =
+        userRepositoryPort.findAllByIdIn(ids).map {
+            it.toProfile()
+        }
+
+    fun findProfilesByEmailIn(emails: Collection<String>): List<UserProfile> =
+        userRepositoryPort.findAllByEmailIn(emails).map {
+            it.toProfile()
+        }
 }

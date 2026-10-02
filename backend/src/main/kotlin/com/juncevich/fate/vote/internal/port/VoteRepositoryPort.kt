@@ -10,7 +10,7 @@ interface VoteRepositoryPort {
 
     fun findById(id: UUID): Vote?
 
-    fun findByIdForDraw(id: UUID): Vote?
+    fun findByIdForUpdate(id: UUID): Vote?
 
     fun findAllByUserIdOrParticipantEmail(
         userId: UUID,
