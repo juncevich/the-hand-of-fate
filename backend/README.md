@@ -90,12 +90,17 @@ src/main/resources/
 | `POST` | `/api/v1/votes/{id}/options` | Add a named option |
 | `DELETE` | `/api/v1/votes/{id}/options/{optionId}` | Remove an option |
 | `GET`  | `/api/v1/telegram/link-token` | Generate a one-time Telegram link token |
+| `PUT`  | `/api/v1/users/me/avatar` | Upload an avatar (`multipart/form-data`, part `file`; PNG/JPEG/GIF ≤ 2 MB) |
+| `DELETE` | `/api/v1/users/me/avatar` | Remove the avatar |
+| `GET`  | `/api/v1/users/{id}/avatar?v=…` | Avatar image (public, 256×256 PNG; immutable cache for the current `v`, ETag otherwise) |
 
 Interactive docs: http://localhost:8080/swagger-ui.html
 
 ## Running Locally
 
-Requires PostgreSQL on `localhost:5432`. Start it with `make infra` from the repo root.
+Requires PostgreSQL on `localhost:5432` and, for avatars, an S3-compatible store on `localhost:9000`.
+Start both (plus Mailpit) with `make infra` from the repo root — the store is RustFS
+(console http://localhost:9001, `rustfsadmin` / `rustfsadmin`); the dev profile creates the `fate` bucket.
 
 ```bash
 ./gradlew bootRun
@@ -126,6 +131,8 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 | V6 | `telegram_link_tokens` table |
 | V7 | Demo user seed (`admin@admin.com`) |
 | V8 | `vote_options` table; `winner_option_id` / `winner_option_title` in draw_history; `winner_email` nullable |
+| V9–V14 | Vote version, draw-history indexes, notification outbox, canonical emails, outbox dead-letter state |
+| V15 | `users.avatar_updated_at` (avatar version; the image lives in object storage) |
 
 ## Environment Variables
 
@@ -141,6 +148,11 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 | `MAIL_PORT` | `1025` | SMTP port |
 | `FRONTEND_URL` | `http://localhost:3000` | CORS origin and email links |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OpenTelemetry collector |
+| `S3_ENABLED` | `false` (`true` in `dev`) | Object storage for avatars; when off, avatar uploads answer 409 |
+| `S3_ENDPOINT` | `http://localhost:9000` | S3 API endpoint (RustFS locally, any S3-compatible service in production) |
+| `S3_REGION` / `S3_BUCKET` | `us-east-1` / `fate` | Bucket location and name |
+| `S3_ACCESS_KEY` / `S3_SECRET_KEY` | — (`rustfsadmin` in `dev`) | Required when storage is enabled |
+| `S3_PATH_STYLE` | `true` | Path-style addressing; set `false` for providers that require virtual-hosted style |
 
 ## Testing Patterns
 

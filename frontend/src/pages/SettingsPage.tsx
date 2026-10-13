@@ -1,11 +1,17 @@
+import { useRef } from 'react'
 import { useTelegramLink } from '@/hooks/useTelegramLink'
+import { useAvatar } from '@/hooks/useAvatar'
+import { AVATAR_ACCEPT } from '@/api/users'
 import { Button } from '@/components/ui/button'
-import { Bot, Copy, Link2, Link2Off } from 'lucide-react'
+import { UserAvatar } from '@/components/UserAvatar'
+import { Bot, Copy, ImageUp, Link2, Link2Off, Trash2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 
 export function SettingsPage() {
-  const { displayName, email } = useAuthStore()
+  const { displayName, email, avatarUrl } = useAuthStore()
   const { token, clearToken, getLinkToken, copyToken } = useTelegramLink()
+  const { upload, remove, selectFile } = useAvatar()
+  const fileInput = useRef<HTMLInputElement>(null)
 
   return (
     <div className="max-w-lg mx-auto">
@@ -16,14 +22,51 @@ export function SettingsPage() {
           Профиль
         </h2>
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-fate-gold/15 border border-fate-gold/30 flex items-center justify-center text-lg font-semibold text-fate-gold">
-            {displayName?.[0]?.toUpperCase()}
-          </div>
-          <div>
+          <UserAvatar avatarUrl={avatarUrl} displayName={displayName} className="w-12 h-12 text-lg" />
+          <div className="min-w-0">
             <p className="font-medium text-fate-text">{displayName}</p>
-            <p className="text-sm text-fate-muted">{email}</p>
+            <p className="text-sm text-fate-muted truncate">{email}</p>
           </div>
         </div>
+
+        <input
+          ref={fileInput}
+          type="file"
+          accept={AVATAR_ACCEPT}
+          aria-label="Файл аватара"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) selectFile(file)
+            // Reset so choosing the same file again still fires onChange
+            e.target.value = ''
+          }}
+        />
+        <div className="flex flex-wrap gap-2 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileInput.current?.click()}
+            isLoading={upload.isPending}
+            className="flex items-center gap-2"
+          >
+            <ImageUp className="w-4 h-4" />
+            {avatarUrl ? 'Сменить аватар' : 'Загрузить аватар'}
+          </Button>
+          {avatarUrl && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => remove.mutate()}
+              isLoading={remove.isPending}
+              className="flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Удалить
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-fate-muted mt-2">PNG, JPEG или GIF до 2 МБ</p>
       </div>
 
       <div className="glass p-6">

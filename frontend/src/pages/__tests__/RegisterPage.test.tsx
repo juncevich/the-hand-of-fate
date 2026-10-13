@@ -79,6 +79,7 @@ describe('RegisterPage', () => {
       userId: '1',
       email: 'ivan@example.com',
       displayName: 'Ivan',
+      avatarUrl: null,
     })
 
     render(<RegisterPage />, { wrapper: createWrapper() })
@@ -145,6 +146,7 @@ describe('RegisterPage', () => {
       userId: '1',
       email: 'ivan@example.com',
       displayName: 'Ivan',
+      avatarUrl: null,
     })
 
     render(<RegisterPage />, { wrapper: createWrapper() })

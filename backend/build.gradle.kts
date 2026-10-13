@@ -42,6 +42,7 @@ val grpcKotlinVersion    = "1.5.0"
 val protobufVersion      = "4.36.2"
 val coroutinesVersion    = "1.11.0"
 val modulithVersion      = "2.1.1"
+val awsSdkVersion        = "2.46.7"
 
 // The Spring Boot BOM pins older gRPC / protobuf releases; override its version
 // properties so the runtime matches the protoc / protoc-gen-grpc-java used for codegen.
@@ -83,6 +84,17 @@ dependencies {
     // ── Database ─────────────────────────────────────────────────────────────
     runtimeOnly("org.postgresql:postgresql:42.7.13")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
+
+    // ── Object storage (S3 API) ─────────────────────────────────────────────
+    // Only the S3 protocol is used, so any S3-compatible store works (RustFS locally,
+    // a managed bucket in production). The JDK URLConnection transport replaces the
+    // default Apache/Netty clients to keep the dependency tree small.
+    implementation(platform("software.amazon.awssdk:bom:$awsSdkVersion"))
+    implementation("software.amazon.awssdk:s3") {
+        exclude(group = "software.amazon.awssdk", module = "apache-client")
+        exclude(group = "software.amazon.awssdk", module = "netty-nio-client")
+    }
+    implementation("software.amazon.awssdk:url-connection-client")
 
     // ── Observability ─────────────────────────────────────────────────────────
     implementation("org.springframework.boot:spring-boot-starter-opentelemetry")

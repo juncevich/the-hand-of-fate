@@ -40,16 +40,17 @@ cp .env.example .env          # add BOT_TOKEN
 ./dev-stop.sh                 # stop infrastructure
 # or via make:
 make dev-local                # same as dev-start.sh
-make infra                    # start only postgres + mailpit
+make infra                    # start only postgres + mailpit + rustfs
 make infra-down               # stop infrastructure
 ```
-- `docker-compose.infra.yml` — lightweight compose file with only postgres and mailpit (used by `dev-start.sh`)
+- `docker-compose.infra.yml` — lightweight compose file with only postgres, mailpit and rustfs (used by `dev-start.sh`)
 - `dev-start.sh` handles stale process cleanup, colored log output per service, conditional bot startup (skipped if `BOT_TOKEN` unset)
 
 - Frontend:  http://localhost:3000
 - Backend:   http://localhost:8080
 - Swagger:   http://localhost:8080/swagger-ui.html
 - Mailpit:   http://localhost:8025
+- RustFS:    http://localhost:9001 (S3 console, `rustfsadmin`/`rustfsadmin`; S3 API on :9000)
 - Grafana:   http://localhost:3001  (admin/admin)
 
 **Default demo user** (seeded by migration V7, **dev/test profiles only**): `admin@admin.com` / `admin`. The seed is gated behind the Flyway placeholder `seedDemoUser`, which defaults to `false` and is set to `true` only by the `dev`/`test` profiles — so it is never created in production.
@@ -176,6 +177,7 @@ cd perf
 - `useVoteList(page)` — paginated vote list query
 - `useVoteDetail(id)` — vote query + all mutations (draw, reopen, addParticipant, removeParticipant, addOption, removeOption, deleteVote)
 - `useTelegramLink()` — get/copy link token flow
+- `useAvatar()` — upload (client-side 2 MB check) / delete avatar, updates `authStore.avatarUrl`
 
 **Vote detail sub-components** (`frontend/src/components/vote/`):
 - `VoteHeader` — title, status/mode badges, draw and reopen buttons
@@ -200,7 +202,7 @@ A vote can draw from two mutually exclusive sources — if options exist they ta
 
 ### Backend Module Architecture (Hexagonal / Ports & Adapters)
 
-The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**. Modules are: `auth`, `vote`, `shared`, `grpc`. Each module has an `internal/` subtree that is private to the module.
+The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**. Modules are: `auth`, `vote`, `shared`, `grpc`, `storage`. Each module has an `internal/` subtree that is private to the module.
 
 ```
 <module>/
@@ -217,6 +219,14 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 ```
 
 `ModularityTest` (`backend/src/test/kotlin/com/juncevich/fate/ModularityTest.kt`) verifies module boundaries are respected and generates PlantUML diagrams.
+
+### Object Storage & Avatars
+- `storage` module: public port `ObjectStorage` (put/get/delete) with an S3 adapter (AWS SDK v2, `url-connection-client`). It depends only on `shared` (`ModularityTest`). Any S3-compatible store works; locally it is **RustFS** (MinIO no longer ships community Docker images)
+- `app.storage.enabled` (`S3_ENABLED`) defaults to `false` so a deployment without a bucket still boots: `DisabledObjectStorage` is wired instead and avatar uploads answer 409. The `dev` profile enables it with RustFS credentials and `create-bucket: true`; integration tests start a RustFS Testcontainer in `AbstractApiIntegrationTest`
+- Avatars (`auth/internal/service/AvatarService`): the upload is decoded with ImageIO (PNG/JPEG/GIF, ≤ 4096 px per side checked from the header before decoding), center-cropped and re-encoded as a 256×256 PNG, which also drops EXIF. One object per user (`avatars/<userId>.png`) is overwritten on change, so no orphans; `users.avatar_updated_at` (V15) is both the "has avatar" flag and the URL version
+- The S3 write happens before the DB update, outside any transaction; on delete the row is cleared first and a failed object delete is only logged
+- `GET /api/v1/users/{id}/avatar` is public (an `<img src>` cannot carry the in-memory access token); `?v=` matching the current version → `Cache-Control: immutable`, otherwise `no-cache` + ETag/304. `AuthResponse.avatarUrl` carries the versioned URL; the frontend keeps it in `authStore` and renders it with `UserAvatar` (falls back to the initial)
+- Upload limits: `spring.servlet.multipart` 2 MB file / 3 MB request; nginx `client_max_body_size 3m` on `/api/`
 
 ### Threading Model
 - **Virtual threads (Project Loom)** enabled via `spring.threads.virtual.enabled: true`
@@ -303,6 +313,7 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 - V8: vote_options table (title, position, unique per vote); adds `winner_option_id` / `winner_option_title` to draw_history; makes `winner_email` nullable
 - V9–V13: vote version, draw-history indexes, `notification_outbox`, canonical participant emails
 - V14: `notification_outbox.failed_at` dead-letter state + claim/purge indexes
+- V15: `users.avatar_updated_at` (avatar version; image stored in object storage)
 
 ### Key Environment Variables
 | Variable | Default | Description |
@@ -325,6 +336,10 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 | `REFRESH_COOKIE_SECURE` | `true` | Secure flag on the refresh cookie; forced to `false` by the `dev` profile for local HTTP |
 | `SPRINGDOC_ENABLED` | `false` | Swagger UI + `/v3/api-docs`. Off in prod; the `dev` profile turns it on for local use |
 | `app.rate-limit.capacity` / `app.rate-limit.window-seconds` | `10` / `60` | Per-IP request budget on `/api/v1/auth/{login,register,refresh}` |
+| `S3_ENABLED` | `false` (`true` in `dev`) | Object storage for avatars; off → avatar upload/delete answer 409 |
+| `S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` | `http://localhost:9000` / `us-east-1` / `fate` | S3-compatible store |
+| `S3_ACCESS_KEY` / `S3_SECRET_KEY` | — (`rustfsadmin` in `dev`) | Required when storage is enabled (startup fails otherwise) |
+| `S3_PATH_STYLE` | `true` | Path-style addressing |
 
 ## CI/CD
 

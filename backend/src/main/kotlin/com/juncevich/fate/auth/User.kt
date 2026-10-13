@@ -11,6 +11,8 @@ data class User(
     var displayName: String,
     var telegramId: Long? = null,
     var telegramName: String? = null,
+    /** When the avatar was last replaced; `null` when the user has none. */
+    var avatarUpdatedAt: Instant? = null,
     val createdAt: Instant = Instant.now(),
     var updatedAt: Instant = Instant.now(),
 )

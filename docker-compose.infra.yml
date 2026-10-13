@@ -25,5 +25,23 @@ services:
       - "1025:1025"   # SMTP
       - "8025:8025"   # Web UI
 
+  # S3-compatible object storage (avatars). Dev-only credentials; console on :9001.
+  rustfs:
+    image: rustfs/rustfs:1.0.1
+    restart: unless-stopped
+    environment:
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - rustfs_data:/data
+
 volumes:
   postgres_data:
+  rustfs_data:

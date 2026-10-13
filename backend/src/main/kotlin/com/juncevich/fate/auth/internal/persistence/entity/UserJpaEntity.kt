@@ -24,6 +24,8 @@ class UserJpaEntity(
     var telegramId: Long? = null,
     @Column(name = "telegram_name", length = 100)
     var telegramName: String? = null,
+    @Column(name = "avatar_updated_at")
+    var avatarUpdatedAt: Instant? = null,
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: Instant = Instant.now(),

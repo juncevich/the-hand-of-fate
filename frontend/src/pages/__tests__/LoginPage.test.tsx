@@ -79,6 +79,7 @@ describe('LoginPage', () => {
       userId: '1',
       email: 'test@example.com',
       displayName: 'Test',
+      avatarUrl: null,
     })
 
     const user = userEvent.setup()
@@ -146,6 +147,7 @@ describe('LoginPage', () => {
       userId: '1',
       email: 'test@example.com',
       displayName: 'Test',
+      avatarUrl: null,
     })
 
     const user = userEvent.setup()

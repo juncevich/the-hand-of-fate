@@ -108,7 +108,8 @@ class AuthService(
                     accessToken = accessToken,
                     userId = user.id.toString(),
                     email = user.email,
-                    displayName = user.displayName
+                    displayName = user.displayName,
+                    avatarUrl = user.avatarUrl()
                 ),
             refreshToken = rawRefresh
         )

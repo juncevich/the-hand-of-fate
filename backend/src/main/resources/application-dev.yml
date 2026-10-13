@@ -11,6 +11,12 @@ app:
   # Cookies are served over plain HTTP locally, so the Secure flag must be off
   # or the browser will silently drop the refresh cookie.
   refresh-cookie-secure: false
+  # Local RustFS from docker-compose(.infra).yml; the bucket is created on first start.
+  storage:
+    enabled: ${S3_ENABLED:true}
+    access-key: ${S3_ACCESS_KEY:rustfsadmin}
+    secret-key: ${S3_SECRET_KEY:rustfsadmin}
+    create-bucket: true
 
 springdoc:
   # Swagger UI / OpenAPI docs are a local-dev convenience only.

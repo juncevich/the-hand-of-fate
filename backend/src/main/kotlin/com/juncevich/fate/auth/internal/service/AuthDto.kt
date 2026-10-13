@@ -24,6 +24,7 @@ data class AuthResponse(
     val userId: String,
     val email: String,
     val displayName: String,
+    val avatarUrl: String?,
 )
 
 data class AuthTokens(

@@ -5,6 +5,7 @@ export interface AuthPayload {
   userId: string
   email: string
   displayName: string
+  avatarUrl: string | null
 }
 
 export const authApi = {

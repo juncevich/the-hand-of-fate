@@ -39,3 +39,23 @@ describe('session cache isolation', () => {
     expect(queryClient.getQueryData(['votes', 0, 'alice'])).toBeUndefined()
   })
 })
+
+describe('avatar', () => {
+  beforeEach(() => useAuthStore.getState().clearAuth())
+
+  it('keeps the avatar from the session payload, updates it and clears it on logout', () => {
+    useAuthStore.getState().setAuth({ ...alice, avatarUrl: '/a?v=1' })
+    expect(useAuthStore.getState().avatarUrl).toBe('/a?v=1')
+
+    useAuthStore.getState().setAvatarUrl('/a?v=2')
+    expect(useAuthStore.getState().avatarUrl).toBe('/a?v=2')
+
+    useAuthStore.getState().clearAuth()
+    expect(useAuthStore.getState().avatarUrl).toBeNull()
+  })
+
+  it('defaults to no avatar when the payload has none', () => {
+    useAuthStore.getState().setAuth(alice)
+    expect(useAuthStore.getState().avatarUrl).toBeNull()
+  })
+})

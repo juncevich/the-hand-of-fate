@@ -108,6 +108,23 @@ class AuthServiceTest {
     }
 
     @Test
+    fun `login - returns a versioned avatar url only when the user has an avatar`() {
+        val withAvatar = makeUser().apply { avatarUpdatedAt = Instant.ofEpochMilli(1234) }
+        every { userRepositoryPort.findByEmail("user@test.com") } returns withAvatar
+        every { passwordEncoder.matches(any(), any()) } returns true
+        every { jwtTokenProvider.createAccessToken(any(), any()) } returns "access-token"
+        every { refreshTokenRepositoryPort.save(any()) } answers { firstArg() }
+
+        assertEquals(
+            "/api/v1/users/${withAvatar.id}/avatar?v=1234",
+            authService.login("user@test.com", "pass").response.avatarUrl
+        )
+
+        every { userRepositoryPort.findByEmail("user@test.com") } returns makeUser()
+        assertNull(authService.login("user@test.com", "pass").response.avatarUrl)
+    }
+
+    @Test
     fun `login - throws for unknown email`() {
         every { userRepositoryPort.findByEmail("ghost@test.com") } returns null
         every { passwordEncoder.encode(any()) } returns "dummy-hash"

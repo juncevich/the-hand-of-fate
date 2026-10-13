@@ -12,6 +12,8 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.context.WebApplicationContext
+import org.testcontainers.containers.GenericContainer
+import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.postgresql.PostgreSQLContainer
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
@@ -47,7 +49,20 @@ abstract class AbstractApiIntegrationTest {
     }
 
     companion object {
+        private const val STORAGE_KEY = "test-storage-key"
+
         private val postgres: PostgreSQLContainer = PostgreSQLContainer("postgres:17").also { it.start() }
+
+        // Same S3-compatible server as local development (docker-compose.infra.yml).
+        private val rustfs: GenericContainer<*> =
+            GenericContainer("rustfs/rustfs:1.0.1")
+                .withEnv("RUSTFS_VOLUMES", "/data")
+                .withEnv("RUSTFS_ADDRESS", "0.0.0.0:9000")
+                .withEnv("RUSTFS_ACCESS_KEY", STORAGE_KEY)
+                .withEnv("RUSTFS_SECRET_KEY", STORAGE_KEY)
+                .withExposedPorts(9000)
+                .waitingFor(Wait.forListeningPort())
+                .also { it.start() }
 
         @DynamicPropertySource
         @JvmStatic
@@ -57,6 +72,11 @@ abstract class AbstractApiIntegrationTest {
             registry.add("spring.datasource.url", postgres::getJdbcUrl)
             registry.add("spring.datasource.username", postgres::getUsername)
             registry.add("spring.datasource.password", postgres::getPassword)
+            registry.add("app.storage.enabled") { true }
+            registry.add("app.storage.create-bucket") { true }
+            registry.add("app.storage.endpoint") { "http://${rustfs.host}:${rustfs.getMappedPort(9000)}" }
+            registry.add("app.storage.access-key") { STORAGE_KEY }
+            registry.add("app.storage.secret-key") { STORAGE_KEY }
         }
     }
 

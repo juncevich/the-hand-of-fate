@@ -10,6 +10,11 @@ vi.mock('@/api/telegram', () => ({
   telegramApi: { getLinkToken: vi.fn() },
 }))
 
+vi.mock('@/api/users', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/users')>()),
+  usersApi: { uploadAvatar: vi.fn(), deleteAvatar: vi.fn() },
+}))
+
 vi.mock('@/components/ui/toaster', () => ({ toast: vi.fn() }))
 
 function renderPage() {
@@ -85,5 +90,65 @@ describe('SettingsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /Получить код для привязки/i }))
 
     await waitFor(() => expect(toast).toHaveBeenCalledWith('Ошибка', 'Не удалось получить токен', 'error'))
+  })
+
+  describe('avatar', () => {
+    const png = () => new File(['png-bytes'], 'me.png', { type: 'image/png' })
+
+    it('uploads the chosen file and shows the new avatar', async () => {
+      const { usersApi } = await import('@/api/users')
+      const { toast } = await import('@/components/ui/toaster')
+      vi.mocked(usersApi.uploadAvatar).mockResolvedValueOnce({ avatarUrl: '/api/v1/users/u1/avatar?v=1' })
+      const user = userEvent.setup()
+      renderPage()
+
+      await user.upload(screen.getByLabelText('Файл аватара'), png())
+
+      expect(await screen.findByRole('img', { name: 'Аватар alice' })).toHaveAttribute('src', '/api/v1/users/u1/avatar?v=1')
+      expect(vi.mocked(usersApi.uploadAvatar).mock.calls[0][0]).toBeInstanceOf(File)
+      expect(useAuthStore.getState().avatarUrl).toBe('/api/v1/users/u1/avatar?v=1')
+      expect(toast).toHaveBeenCalledWith('Аватар обновлён')
+      expect(screen.getByRole('button', { name: /Сменить аватар/i })).toBeInTheDocument()
+    })
+
+    it('rejects files over 2 MB without uploading', async () => {
+      const { usersApi } = await import('@/api/users')
+      const { toast } = await import('@/components/ui/toaster')
+      const user = userEvent.setup()
+      renderPage()
+
+      const big = new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' })
+      await user.upload(screen.getByLabelText('Файл аватара'), big)
+
+      expect(usersApi.uploadAvatar).not.toHaveBeenCalled()
+      expect(toast).toHaveBeenCalledWith('Ошибка', 'Файл больше 2 МБ', 'error')
+    })
+
+    it('shows the server error when the upload is rejected', async () => {
+      const { usersApi } = await import('@/api/users')
+      const { toast } = await import('@/components/ui/toaster')
+      vi.mocked(usersApi.uploadAvatar).mockRejectedValueOnce(new Error('Avatar must be a PNG, JPEG or GIF image'))
+      const user = userEvent.setup()
+      renderPage()
+
+      await user.upload(screen.getByLabelText('Файл аватара'), png())
+
+      await waitFor(() => expect(toast).toHaveBeenCalledWith('Ошибка', 'Avatar must be a PNG, JPEG or GIF image', 'error'))
+      expect(useAuthStore.getState().avatarUrl).toBeNull()
+    })
+
+    it('removes the avatar and falls back to the initial', async () => {
+      const { usersApi } = await import('@/api/users')
+      vi.mocked(usersApi.deleteAvatar).mockResolvedValueOnce({} as never)
+      useAuthStore.getState().setAvatarUrl('/api/v1/users/u1/avatar?v=1')
+      renderPage()
+
+      expect(screen.getByRole('img', { name: 'Аватар alice' })).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: /Удалить/i }))
+
+      expect(await screen.findByText('A')).toBeInTheDocument()
+      expect(screen.queryByRole('img')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Удалить/i })).not.toBeInTheDocument()
+    })
   })
 })

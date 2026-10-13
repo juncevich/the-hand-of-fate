@@ -4,9 +4,10 @@ import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
 import { authApi } from '@/api/auth'
 import { Button } from '@/components/ui/button'
+import { UserAvatar } from '@/components/UserAvatar'
 
 export function Topbar() {
-  const { displayName, clearAuth } = useAuthStore()
+  const { displayName, avatarUrl, clearAuth } = useAuthStore()
   const { theme, toggleTheme } = useThemeStore()
   const navigate = useNavigate()
 
@@ -37,6 +38,7 @@ export function Topbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
+          <UserAvatar avatarUrl={avatarUrl} displayName={displayName} className="w-8 h-8 text-sm" />
           <span className="text-sm text-fate-muted hidden sm:block">
             {displayName}
           </span>

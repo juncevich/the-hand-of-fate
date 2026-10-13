@@ -30,6 +30,7 @@ describe('App', () => {
       userId: 'u1',
       email: 'a@x.y',
       displayName: 'Alice',
+      avatarUrl: null,
     })
 
     render(<App />)

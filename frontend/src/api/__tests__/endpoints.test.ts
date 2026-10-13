@@ -3,9 +3,10 @@ import { apiClient, refreshSession } from '../client'
 import { authApi } from '../auth'
 import { telegramApi } from '../telegram'
 import { votesApi } from '../votes'
+import { usersApi } from '../users'
 
 vi.mock('../client', () => ({
-  apiClient: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
+  apiClient: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
   refreshSession: vi.fn(),
 }))
 
@@ -16,6 +17,7 @@ describe('API modules', () => {
     vi.clearAllMocks()
     vi.mocked(apiClient.get).mockImplementation(() => ok('get-data'))
     vi.mocked(apiClient.post).mockImplementation(() => ok('post-data'))
+    vi.mocked(apiClient.put).mockImplementation(() => ok('put-data'))
     vi.mocked(apiClient.delete).mockImplementation(() => ok(undefined))
   })
 
@@ -38,7 +40,7 @@ describe('API modules', () => {
     })
 
     it('silentRefresh uses the shared session refresh', async () => {
-      const payload = { accessToken: 't', userId: 'u', email: 'a@test.com', displayName: 'A' }
+      const payload = { accessToken: 't', userId: 'u', email: 'a@test.com', displayName: 'A', avatarUrl: null }
       vi.mocked(refreshSession).mockResolvedValueOnce(payload)
       await expect(authApi.silentRefresh()).resolves.toEqual(payload)
       expect(refreshSession).toHaveBeenCalledOnce()
@@ -56,6 +58,22 @@ describe('API modules', () => {
     it('unlink deletes the telegram link', async () => {
       await telegramApi.unlink()
       expect(apiClient.delete).toHaveBeenCalledWith('/telegram/unlink')
+    })
+  })
+
+  describe('usersApi', () => {
+    it('uploadAvatar puts the file as multipart form data', async () => {
+      const file = new File(['x'], 'me.png', { type: 'image/png' })
+      await expect(usersApi.uploadAvatar(file)).resolves.toBe('put-data')
+      const [url, form, config] = vi.mocked(apiClient.put).mock.calls[0]
+      expect(url).toBe('/users/me/avatar')
+      expect((form as FormData).get('file')).toBe(file)
+      expect(config).toEqual({ headers: { 'Content-Type': 'multipart/form-data' } })
+    })
+
+    it('deleteAvatar deletes the current avatar', async () => {
+      await usersApi.deleteAvatar()
+      expect(apiClient.delete).toHaveBeenCalledWith('/users/me/avatar')
     })
   })
 

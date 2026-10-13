@@ -1,5 +1,17 @@
 # Dependency Updates
 
+## 2026-10-13 — Object storage for avatars
+
+### AWS SDK for Java v2 `2.46.7` (`software.amazon.awssdk:s3` via `bom`, new)
+- Latest release; only the S3 protocol is used, so the backend works with any S3-compatible store (RustFS locally, a managed bucket later)
+- `apache-client` and `netty-nio-client` are excluded in favour of `url-connection-client` (JDK `HttpURLConnection`) to keep the dependency tree small
+- Request/response checksums are set to `WHEN_REQUIRED`: since 2.30 the SDK adds CRC checksums to every request by default, which several S3-compatible servers reject
+
+### Local S3 server: RustFS `1.0.1` (`rustfs/rustfs`, docker-compose + integration tests)
+- MinIO was not used: its community edition no longer publishes Docker images (the `minio/minio` Docker Hub repository returns 404) and is in maintenance mode. RustFS is Apache-2.0, S3-compatible and configured through environment variables only
+
+Verified: `./gradlew check` (unit + integration tests, including `AvatarApiIntegrationTest` against a real RustFS container), coverage 98.4% lines / 90.2% branches.
+
 ## 2026-09-26 — JaCoCo coverage
 
 ### JaCoCo `0.8.15` (Gradle `jacoco` plugin, new)

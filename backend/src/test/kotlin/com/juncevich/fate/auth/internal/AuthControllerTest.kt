@@ -53,7 +53,8 @@ class AuthControllerTest {
                     accessToken = "access-token",
                     userId = UUID.randomUUID().toString(),
                     email = "user@test.com",
-                    displayName = "User"
+                    displayName = "User",
+                    avatarUrl = null
                 ),
             refreshToken = "refresh-token"
         )

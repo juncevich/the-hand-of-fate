@@ -24,6 +24,7 @@ const MOCK_USER = {
   userId:       'user-1',
   email:        'demo@example.com',
   displayName:  'Demo User',
+  avatarUrl:    null as string | null,
 }
 
 let seq = 100
@@ -119,6 +120,22 @@ async function route(req: IncomingMessage, res: ServerResponse, pathname: string
     if (method === 'POST') return json(res, MOCK_USER)          // login / register / refresh
     if (method === 'DELETE') return noContent(res)              // logout (DELETE variant)
     return noContent(res)
+  }
+
+  // ── Avatar (mock: any upload becomes a generated placeholder image) ─────────
+  if (parts[0] === 'users' && parts[2] === 'avatar') {
+    if (parts[1] === 'me' && method === 'PUT') {
+      req.resume()
+      MOCK_USER.avatarUrl = `/api/v1/users/${MOCK_USER.userId}/avatar?v=${Date.now()}`
+      return json(res, { avatarUrl: MOCK_USER.avatarUrl })
+    }
+    if (parts[1] === 'me' && method === 'DELETE') { MOCK_USER.avatarUrl = null; return noContent(res) }
+    if (method === 'GET' && MOCK_USER.avatarUrl) {
+      res.writeHead(200, { 'Content-Type': 'image/svg+xml' })
+      return res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#c9a227"/>'
+        + '<circle cx="32" cy="25" r="11" fill="#1a1a2e"/><rect x="14" y="40" width="36" height="20" rx="10" fill="#1a1a2e"/></svg>')
+    }
+    return notFound(res)
   }
 
   // ── Votes list / create ───────────────────────────────────────────────────
