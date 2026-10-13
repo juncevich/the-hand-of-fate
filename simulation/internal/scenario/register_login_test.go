@@ -24,8 +24,8 @@ func newAuthServer(t *testing.T, registerStatus, refreshStatus int) (*httptest.S
 		case "/api/v1/auth/refresh":
 			var body client.RefreshRequest
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			if body.RefreshToken != "rt-1" {
-				t.Errorf("refresh token = %q, want rt-1", body.RefreshToken)
+			if body.RefreshToken == nil || *body.RefreshToken != "rt-1" {
+				t.Errorf("refresh token = %v, want rt-1", body.RefreshToken)
 			}
 			if got := r.Header.Get("Authorization"); got != "Bearer at-1" {
 				t.Errorf("Authorization = %q, want Bearer at-1", got)

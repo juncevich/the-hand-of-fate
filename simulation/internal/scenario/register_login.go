@@ -9,10 +9,10 @@ import (
 
 // RegisterAndLogin registers a new random user, logs in, then refreshes the token.
 // Returns the authenticated client and AuthResponse.
-func RegisterAndLogin(base string, log *zap.Logger) (*client.Client, client.AuthResponse, error) {
+func RegisterAndLogin(base string, log *zap.Logger) (*client.Client, client.Session, error) {
 	c, err := client.New(base, log)
 	if err != nil {
-		return nil, client.AuthResponse{}, fmt.Errorf("new client: %w", err)
+		return nil, client.Session{}, fmt.Errorf("new client: %w", err)
 	}
 
 	email := randomEmail()

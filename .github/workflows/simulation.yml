@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - simulation/**
+      - api/openapi.yaml
       - .github/workflows/simulation.yml
   pull_request:
     paths:
       - simulation/**
+      - api/openapi.yaml
       - .github/workflows/simulation.yml
 
 concurrency:
@@ -30,6 +32,9 @@ jobs:
 
       - name: Download dependencies
         run: cd simulation && go mod download
+
+      - name: Check generated API models are up to date
+        run: cd simulation && go generate ./... && git diff --exit-code -- internal/client/models.gen.go
 
       - name: Check formatting
         run: test -z "$(gofmt -l simulation)"

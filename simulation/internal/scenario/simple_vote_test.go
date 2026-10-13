@@ -63,7 +63,7 @@ func newSimpleVoteServer(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{
+			writeJSON(w, client.VoteDetailDto{
 				ID:      "v1",
 				Title:   "Test Vote",
 				Mode:    "SIMPLE",
@@ -71,17 +71,17 @@ func newSimpleVoteServer(t *testing.T) *httptest.Server {
 				Options: []client.VoteOptionDto{{ID: "o1", Title: "Option Alpha"}},
 			})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.Page[client.VoteSummary]{
-				Content:       []client.VoteSummary{{ID: "v1", Title: "Test Vote"}},
+			writeJSON(w, client.PageResponseVoteSummaryDto{
+				Content:       []client.VoteSummaryDto{{ID: "v1", Title: "Test Vote"}},
 				TotalElements: 1,
 				TotalPages:    1,
 			})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
-			writeJSON(w, client.VoteDetail{ID: "v1", Title: "Test Vote", Mode: "SIMPLE"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1", Title: "Test Vote", Mode: "SIMPLE"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
 			writeJSON(w, draw)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history/page":
-			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
+			writeJSON(w, client.PageResponseDrawHistoryDto{Content: history, TotalPages: 1})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/reopen":
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/close":
@@ -124,11 +124,11 @@ func TestSimpleVoteScenario_DrawError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1", Title: "T", Mode: "SIMPLE"})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.Page[client.VoteSummary]{Content: []client.VoteSummary{{ID: "v1"}}})
+			writeJSON(w, client.PageResponseVoteSummaryDto{Content: []client.VoteSummaryDto{{ID: "v1"}}})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
-			writeJSON(w, client.VoteDetail{ID: "v1"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -150,7 +150,7 @@ func TestSimpleVoteScenario_ListVotesError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1", Title: "T", Mode: "SIMPLE"})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -171,9 +171,9 @@ func TestSimpleVoteScenario_GetVoteError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1", Title: "T", Mode: "SIMPLE"})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.Page[client.VoteSummary]{Content: []client.VoteSummary{{ID: "v1"}}})
+			writeJSON(w, client.PageResponseVoteSummaryDto{Content: []client.VoteSummaryDto{{ID: "v1"}}})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
@@ -196,11 +196,11 @@ func TestSimpleVoteScenario_GetHistoryError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1", Title: "T", Mode: "SIMPLE"})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.Page[client.VoteSummary]{Content: []client.VoteSummary{{ID: "v1"}}})
+			writeJSON(w, client.PageResponseVoteSummaryDto{Content: []client.VoteSummaryDto{{ID: "v1"}}})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
-			writeJSON(w, client.VoteDetail{ID: "v1"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
 			writeJSON(w, draw)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history/page":
@@ -227,15 +227,15 @@ func TestSimpleVoteScenario_ReopenError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1", Title: "T", Mode: "SIMPLE"})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.Page[client.VoteSummary]{Content: []client.VoteSummary{{ID: "v1"}}})
+			writeJSON(w, client.PageResponseVoteSummaryDto{Content: []client.VoteSummaryDto{{ID: "v1"}}})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
-			writeJSON(w, client.VoteDetail{ID: "v1"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
 			writeJSON(w, draw)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history/page":
-			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
+			writeJSON(w, client.PageResponseDrawHistoryDto{Content: history, TotalPages: 1})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/reopen":
 			w.WriteHeader(http.StatusInternalServerError)
 		default:
@@ -258,15 +258,15 @@ func TestSimpleVoteScenario_CloseError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1", Title: "T", Mode: "SIMPLE"})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.Page[client.VoteSummary]{Content: []client.VoteSummary{{ID: "v1"}}})
+			writeJSON(w, client.PageResponseVoteSummaryDto{Content: []client.VoteSummaryDto{{ID: "v1"}}})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
-			writeJSON(w, client.VoteDetail{ID: "v1"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
 			writeJSON(w, draw)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history/page":
-			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
+			writeJSON(w, client.PageResponseDrawHistoryDto{Content: history, TotalPages: 1})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/reopen":
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/close":
@@ -291,15 +291,15 @@ func TestSimpleVoteScenario_DeleteError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "v1", Title: "T", Mode: "SIMPLE"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1", Title: "T", Mode: "SIMPLE"})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.Page[client.VoteSummary]{Content: []client.VoteSummary{{ID: "v1"}}})
+			writeJSON(w, client.PageResponseVoteSummaryDto{Content: []client.VoteSummaryDto{{ID: "v1"}}})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1":
-			writeJSON(w, client.VoteDetail{ID: "v1"})
+			writeJSON(w, client.VoteDetailDto{ID: "v1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/draw":
 			writeJSON(w, draw)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/v1/history/page":
-			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
+			writeJSON(w, client.PageResponseDrawHistoryDto{Content: history, TotalPages: 1})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/reopen":
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/v1/close":

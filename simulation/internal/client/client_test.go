@@ -255,7 +255,7 @@ func TestLogout_ServerError(t *testing.T) {
 // ── Votes ─────────────────────────────────────────────────────────────────────
 
 func TestCreateVote(t *testing.T) {
-	expected := client.VoteDetail{ID: "vote-1", Title: "Lunch Spot", Mode: "SIMPLE"}
+	expected := client.VoteDetailDto{ID: "vote-1", Title: "Lunch Spot", Mode: "SIMPLE"}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/votes" {
 			w.WriteHeader(http.StatusNotFound)
@@ -267,7 +267,8 @@ func TestCreateVote(t *testing.T) {
 	defer srv.Close()
 
 	c, _ := client.New(srv.URL, newLogger(t))
-	got, err := c.CreateVote(client.CreateVoteRequest{Title: "Lunch Spot", Mode: "SIMPLE"})
+	mode := client.VoteModeSIMPLE
+	got, err := c.CreateVote(client.CreateVoteWebRequest{Title: "Lunch Spot", Mode: &mode})
 	if err != nil {
 		t.Fatalf("CreateVote() error: %v", err)
 	}
@@ -281,20 +282,20 @@ func TestCreateVote_SetsContentType(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotCT = r.Header.Get("Content-Type")
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(toJSON(client.VoteDetail{ID: "v"}))
+		_, _ = w.Write(toJSON(client.VoteDetailDto{ID: "v"}))
 	}))
 	defer srv.Close()
 
 	c, _ := client.New(srv.URL, newLogger(t))
-	_, _ = c.CreateVote(client.CreateVoteRequest{Title: "T", Mode: "SIMPLE"})
+	_, _ = c.CreateVote(client.CreateVoteWebRequest{Title: "T"})
 	if gotCT != "application/json" {
 		t.Errorf("Content-Type = %q, want application/json", gotCT)
 	}
 }
 
 func TestListVotes(t *testing.T) {
-	page := client.Page[client.VoteSummary]{
-		Content:       []client.VoteSummary{{ID: "v1", Title: "Vote 1"}},
+	page := client.PageResponseVoteSummaryDto{
+		Content:       []client.VoteSummaryDto{{ID: "v1", Title: "Vote 1"}},
 		TotalElements: 1,
 		TotalPages:    1,
 		Number:        0,
@@ -322,7 +323,7 @@ func TestListVotes(t *testing.T) {
 }
 
 func TestGetVote(t *testing.T) {
-	detail := client.VoteDetail{ID: "vote-42", Title: "Decisions"}
+	detail := client.VoteDetailDto{ID: "vote-42", Title: "Decisions"}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/votes/vote-42" {
 			w.WriteHeader(http.StatusNotFound)
@@ -523,7 +524,7 @@ func TestGetHistory(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(toJSON(client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1}))
+		_, _ = w.Write(toJSON(client.PageResponseDrawHistoryDto{Content: history, TotalPages: 1}))
 	}))
 	defer srv.Close()
 
@@ -603,7 +604,7 @@ func TestGetHistoryCollectsAllPages(t *testing.T) {
 		page := r.URL.Query().Get("page")
 		requests++
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(toJSON(client.Page[client.DrawHistoryDto]{
+		_, _ = w.Write(toJSON(client.PageResponseDrawHistoryDto{
 			Content: []client.DrawHistoryDto{{ID: "h" + page}}, TotalPages: 2, TotalElements: 2,
 		}))
 	}))

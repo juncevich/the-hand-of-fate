@@ -36,7 +36,7 @@ func newFairRotationServer(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "vf", Title: "Fair Vote", Mode: "FAIR_ROTATION", Status: "OPEN"})
+			writeJSON(w, client.VoteDetailDto{ID: "vf", Title: "Fair Vote", Mode: "FAIR_ROTATION", Status: "OPEN"})
 
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/draw":
 			if !drawn.CompareAndSwap(false, true) {
@@ -74,7 +74,7 @@ func newFairRotationServer(t *testing.T) *httptest.Server {
 			w.WriteHeader(http.StatusNoContent)
 
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/vf/history/page":
-			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
+			writeJSON(w, client.PageResponseDrawHistoryDto{Content: history, TotalPages: 1})
 
 		case r.Method == http.MethodDelete && r.URL.Path == "/api/v1/votes/vf":
 			w.WriteHeader(http.StatusNoContent)
@@ -115,7 +115,7 @@ func TestFairRotationScenario_DrawError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
+			writeJSON(w, client.VoteDetailDto{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/draw":
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -138,7 +138,7 @@ func TestFairRotationScenario_ReopenError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
+			writeJSON(w, client.VoteDetailDto{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/draw":
 			drawCount.Add(1)
 			email := "a@x.com"
@@ -163,7 +163,7 @@ func TestFairRotationScenario_AddParticipantError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
+			writeJSON(w, client.VoteDetailDto{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/draw":
 			n := drawCount.Add(1)
 			email := "a@x.com"
@@ -194,7 +194,7 @@ func TestFairRotationScenario_ReopenAfterRoundError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
+			writeJSON(w, client.VoteDetailDto{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/draw":
 			n := drawCount.Add(1)
 			email := "a@x.com"
@@ -230,7 +230,7 @@ func TestFairRotationScenario_RemoveParticipantError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
+			writeJSON(w, client.VoteDetailDto{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/draw":
 			n := drawCount.Add(1)
 			email := "a@x.com"
@@ -262,7 +262,7 @@ func TestFairRotationScenario_GetHistoryError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
+			writeJSON(w, client.VoteDetailDto{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/draw":
 			n := drawCount.Add(1)
 			email := "a@x.com"
@@ -302,7 +302,7 @@ func TestFairRotationScenario_DeleteError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes":
-			writeJSON(w, client.VoteDetail{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
+			writeJSON(w, client.VoteDetailDto{ID: "vf", Title: "T", Mode: "FAIR_ROTATION"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/votes/vf/draw":
 			n := drawCount.Add(1)
 			winner := emails[(n-1)%3]
@@ -318,7 +318,7 @@ func TestFairRotationScenario_DeleteError(t *testing.T) {
 		case strings.HasPrefix(r.URL.Path, "/api/v1/votes/vf/participants/") && r.Method == http.MethodDelete:
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/votes/vf/history/page":
-			writeJSON(w, client.Page[client.DrawHistoryDto]{Content: history, TotalPages: 1})
+			writeJSON(w, client.PageResponseDrawHistoryDto{Content: history, TotalPages: 1})
 		case r.Method == http.MethodDelete && r.URL.Path == "/api/v1/votes/vf":
 			w.WriteHeader(http.StatusInternalServerError)
 		default:

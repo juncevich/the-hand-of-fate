@@ -48,8 +48,13 @@ class SecurityConfig(
                     .permitAll()
                     .requestMatchers("/actuator/health/**", "/actuator/prometheus")
                     .permitAll()
-                    .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
-                    .permitAll()
+                    .requestMatchers(
+                        "/v3/api-docs",
+                        "/v3/api-docs.yaml",
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html"
+                    ).permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
                     .anyRequest()

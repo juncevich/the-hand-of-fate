@@ -18,7 +18,9 @@ simulation/
   cmd/simulate/main.go          — entry point; -url and -scenario flags
   internal/
     client/
-      models.go                 — all API DTOs (Auth, Vote, Draw, Telegram)
+      models.gen.go             — API DTOs generated from api/openapi.yaml (`go generate ./...`)
+      models.go                 — go:generate directive + Session (auth response + refresh cookie)
+      oapi-codegen.yaml         — oapi-codegen config (models only, plain-string IDs)
       client.go                 — typed HTTP client wrapping every REST endpoint
       client_test.go            — unit tests for every client method (httptest)
     scenario/

@@ -94,7 +94,15 @@ src/main/resources/
 | `DELETE` | `/api/v1/users/me/avatar` | Remove the avatar |
 | `GET`  | `/api/v1/users/{id}/avatar?v=…` | Avatar image (public, 256×256 PNG; immutable cache for the current `v`, ETag otherwise) |
 
-Interactive docs: http://localhost:8080/swagger-ui.html
+Interactive docs: http://localhost:8080/swagger-ui.html (dev profile only).
+
+The full contract is committed as [`api/openapi.yaml`](../api/openapi.yaml) and generated from the
+controllers by springdoc (`shared/internal/config/OpenApiConfig.kt`): bearer auth by default,
+`@SecurityRequirements` (empty) on public endpoints, `ProblemDetail` as the error body, and Kotlin
+constructor parameters without a default value marked `required`. After changing an endpoint or a
+DTO, run `./gradlew openApiUpdate` (or `make openapi` from the repo root, which also regenerates the
+frontend types and simulation models) and commit the result — `OpenApiSpecIntegrationTest` fails the
+build when the file is stale.
 
 ## Running Locally
 
@@ -115,6 +123,7 @@ Start both (plus Mailpit) with `make infra` from the repo root — the store is 
 ./gradlew test                              # all unit tests
 ./gradlew test --tests "*.DrawServiceTest"  # single class
 ./gradlew generateProto                     # regenerate gRPC stubs from proto/
+./gradlew openApiUpdate                     # rewrite ../api/openapi.yaml from the controllers (Docker)
 ```
 
 ## Database Migrations

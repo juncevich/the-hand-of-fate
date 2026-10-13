@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - backend/**
+      - api/openapi.yaml
       - proto/**
       - .github/workflows/backend.yml
   pull_request:
     paths:
       - backend/**
+      - api/openapi.yaml
       - proto/**
       - .github/workflows/backend.yml
 

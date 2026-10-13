@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - frontend/**
+      - api/openapi.yaml
       - .github/workflows/frontend.yml
   pull_request:
     paths:
       - frontend/**
+      - api/openapi.yaml
       - .github/workflows/frontend.yml
 
 concurrency:
@@ -30,6 +32,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - run: cd frontend && npm ci
+      - name: Check generated API types are up to date
+        run: cd frontend && npm run check:api
       - run: cd frontend && npm run lint
       - run: cd frontend && npm run test
 

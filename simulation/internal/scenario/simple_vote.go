@@ -20,9 +20,9 @@ func SimpleVoteScenario(c *client.Client, log *zap.Logger) error {
 
 	// 1. Create vote with options
 	opts := randomOptions(4)
-	vote, err := c.CreateVote(client.CreateVoteRequest{
+	vote, err := c.CreateVote(client.CreateVoteWebRequest{
 		Title:   randomVoteTitle(),
-		Mode:    "SIMPLE",
+		Mode:    ptr(client.VoteModeSIMPLE),
 		Options: opts,
 	})
 	if err != nil {
@@ -35,7 +35,7 @@ func SimpleVoteScenario(c *client.Client, log *zap.Logger) error {
 	if err != nil {
 		return fmt.Errorf("list votes: %w", err)
 	}
-	log.Info("listed votes", zap.Int("total", page.TotalElements))
+	log.Info("listed votes", zap.Int64("total", page.TotalElements))
 
 	// Fetch detail
 	detail, err := c.GetVote(vote.ID)

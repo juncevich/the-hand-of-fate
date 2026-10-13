@@ -1,0 +1,54 @@
+name: API Contract CI
+
+# api/openapi.yaml is generated from the backend controllers (`./gradlew openApiUpdate`);
+# backend CI fails when it drifts from the code. This workflow validates the contract itself
+# and guards the frontend/simulation clients against breaking changes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - api/**
+      - .github/workflows/api.yml
+  pull_request:
+    paths:
+      - api/**
+      - .github/workflows/api.yml
+
+concurrency:
+  group: api-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  api-check:
+    name: API — Lint & breaking changes
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history so the breaking-change check can read the spec from the PR base branch.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: simulation/go.mod
+          cache: false
+
+      - name: Lint OpenAPI spec
+        run: npx -y @redocly/cli@2.55.0 lint api/openapi.yaml
+
+      # The SPA and the bot-independent clients deploy separately from the backend, so a
+      # removed endpoint/field or a newly required request field must be a deliberate change.
+      - name: Check for breaking API changes
+        if: github.event_name == 'pull_request'
+        run: |
+          if ! git show "origin/${{ github.base_ref }}:api/openapi.yaml" > "$RUNNER_TEMP/base-openapi.yaml" 2>/dev/null; then
+            echo "No api/openapi.yaml on ${{ github.base_ref }} yet; skipping"
+            exit 0
+          fi
+          go run github.com/oasdiff/oasdiff@v1.33.0 breaking \
+            "$RUNNER_TEMP/base-openapi.yaml" api/openapi.yaml --fail-on ERR

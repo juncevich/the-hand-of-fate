@@ -99,9 +99,14 @@ management:
 springdoc:
   # Disabled by default so the API surface/schemas are not exposed in production;
   # the dev profile re-enables it (see application-dev.yml).
+  # The generated spec is committed as api/openapi.yaml, so keep its output stable.
+  writer-with-order-by-keys: true
+  default-produces-media-type: application/json
   api-docs:
     enabled: ${SPRINGDOC_ENABLED:false}
     path: /v3/api-docs
+    # 3.0 rather than 3.1: oapi-codegen (simulation) and oasdiff fully support only 3.0.
+    version: openapi_3_0
   swagger-ui:
     enabled: ${SPRINGDOC_ENABLED:false}
     path: /swagger-ui.html

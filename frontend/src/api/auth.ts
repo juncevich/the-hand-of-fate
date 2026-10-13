@@ -1,18 +1,15 @@
 import { apiClient, refreshSession } from './client'
+import type { components } from './generated/schema'
 
-export interface AuthPayload {
-  accessToken: string
-  userId: string
-  email: string
-  displayName: string
-  avatarUrl: string | null
-}
+export type AuthPayload = components['schemas']['AuthResponse']
+type RegisterRequest = components['schemas']['RegisterRequest']
+type LoginRequest = components['schemas']['LoginRequest']
 
 export const authApi = {
-  register: (data: { email: string; password: string; displayName: string }) =>
+  register: (data: RegisterRequest) =>
     apiClient.post<AuthPayload>('/auth/register', data).then((r) => r.data),
 
-  login: (data: { email: string; password: string }) =>
+  login: (data: LoginRequest) =>
     apiClient.post<AuthPayload>('/auth/login', data).then((r) => r.data),
 
   logout: () =>

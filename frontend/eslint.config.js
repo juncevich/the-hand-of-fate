@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint'
 import reactHooks from 'eslint-plugin-react-hooks'
 
 export default defineConfig(
-  { ignores: ['dist/**', 'node_modules/**'] },
+  { ignores: ['dist/**', 'node_modules/**', 'src/api/generated/**'] },
   {
     files: ['**/*.ts', '**/*.tsx'],
     extends: [tseslint.configs.recommended, reactHooks.configs.flat['recommended-latest']],

@@ -15,12 +15,13 @@ bot/         Go 1.27.1 Telegram bot, gRPC client to backend
 perf/        Gatling 3.13.5 + Kotlin load/smoke tests
 simulation/  Go 1.27.1 user-behaviour simulator (functional end-to-end flows)
 proto/       Shared protobuf definitions (proto/fate/v1/fate.proto)
+api/         REST contract api/openapi.yaml (generated from the backend controllers, committed)
 infra/
   nginx/     Nginx reverse proxy configs
   monitoring/ OTel Collector, Loki, Mimir, Grafana provisioning
   k8s/       Kubernetes manifests + kustomize overlays (staging/production, not active)
 .github/
-  workflows/ backend.yml + frontend.yml + bot.yml + perf.yml + simulation.yml + deploy-*.yml + server-setup.yml
+  workflows/ backend.yml + frontend.yml + bot.yml + perf.yml + simulation.yml + api.yml + deploy-*.yml + server-setup.yml
 ```
 
 ## Common Commands
@@ -93,6 +94,20 @@ make proto-backend      # backend Java/Kotlin stubs via Gradle
 # Install Go proto plugins (needed for make proto-bot):
 make install-proto-tools
 ```
+
+### OpenAPI (REST contract)
+```bash
+# From repo root:
+make openapi            # openapi-spec + openapi-clients
+make openapi-spec       # backend: ./gradlew openApiUpdate → api/openapi.yaml (boots the app on Testcontainers)
+make openapi-clients    # frontend: npm run gen:api → src/api/generated/schema.ts; simulation: go generate ./...
+```
+- Code-first: the controllers are the source of truth; `api/openapi.yaml` is their committed snapshot (OpenAPI 3.0 — oapi-codegen and oasdiff fully support only 3.0)
+- After changing a controller or a REST DTO: `make openapi` and commit the spec together with both generated clients. `OpenApiSpecIntegrationTest` (backend `check`), `npm run check:api` (frontend CI) and the simulation CI fail on a stale file
+- Spec shaping lives in `shared/internal/config/OpenApiConfig.kt`: bearer auth is the default security (public endpoints use an empty `@SecurityRequirements`), every operation gets `401` (if authenticated) and a `default` `ProblemDetail` response, and `KotlinRequiredPropertiesConverter` marks constructor params without a default value as `required` (nullable ones stay `nullable`, since Jackson writes nulls). Shared names (`bearerAuth`, `refreshCookie`, `ProblemDetail`) are in `shared/OpenApiDocs.kt`
+- Give every endpoint `@Operation(operationId = ...)` — generated clients use it — and a status via `@ResponseStatus` (or `@ApiResponse` when the method must return `ResponseEntity` for headers). Enums shared by several DTOs get `@Schema(enumAsRef = true)`
+- Frontend: `src/types/vote.ts` and `src/api/*.ts` alias `components['schemas'][...]` from the generated file; don't hand-write REST types. `openapi-typescript` declares `typescript@^5` as a peer, so an npm `overrides` entry points it at the TS 6 alias
+- Simulation: `internal/client/models.gen.go` via `oapi-codegen` (a `tool` in `simulation/go.mod`, config `internal/client/oapi-codegen.yaml`: models only, UUID/email as plain strings, int32 as `int`, nullable fields as pointers)
 
 ### Bot (Go)
 ```bash
@@ -354,13 +369,15 @@ Services run directly on Ubuntu via systemd (no Docker). Nginx serves the fronte
 | Go        | from `go.mod` (1.27) |
 | Node.js   | 26 (`frontend/.nvmrc`) |
 
-### CI workflows (backend.yml / frontend.yml / bot.yml / perf.yml / simulation.yml)
+### CI workflows (backend.yml / frontend.yml / bot.yml / perf.yml / simulation.yml / api.yml)
 Each project has its own workflow file, triggered on PR and push to `main` via path filters.
 - `backend.yml`: `backend-test` (spotless + detekt + `./gradlew check`, uploads the JaCoCo report as artifact `backend-coverage`) → `backend-build` (artifact: `backend-jar`)
 - `frontend.yml`: `frontend-test` (`npm run lint` + `npm run test`) → `frontend-build` (artifact: `frontend-dist`)
 - `bot.yml`: `bot-test` (buf lint/breaking + gofmt + go vet + staticcheck + go test) → `build-bot` (artifact: `bot-binary`, built on `main` only)
 - `perf.yml`: `perf-check` — spotless + detekt + `compileGatlingKotlin`. Lint/compile only; `gatlingRun` is a load test against a live backend and is run manually, not gated in CI.
-- `simulation.yml`: `simulation-test` — gofmt + go vet + staticcheck + go test + build. The scenarios themselves (`go run ./cmd/simulate`) need a running backend and are not run in CI.
+- `simulation.yml`: `simulation-test` — generated-models check + gofmt + go vet + staticcheck + go test + build. The scenarios themselves (`go run ./cmd/simulate`) need a running backend and are not run in CI.
+- `api.yml`: `api-check` on changes to `api/**` — Redocly lint of `api/openapi.yaml` and, on PRs, `oasdiff breaking` against the base branch (the REST analogue of `buf breaking`).
+- `frontend.yml` also runs `npm run check:api`; backend, frontend and simulation workflows all trigger on `api/openapi.yaml`.
 
 ### Deploy workflows (deploy-backend.yml / deploy-frontend.yml / deploy-bot.yml)
 Each component has its own deploy workflow triggered by its CI workflow completing and via `workflow_dispatch`.

@@ -102,46 +102,46 @@ func extractRefreshToken(resp *http.Response) string {
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
-func (c *Client) Register(req RegisterRequest) (AuthResponse, error) {
+func (c *Client) Register(req RegisterRequest) (Session, error) {
 	resp, err := c.do("POST", "/api/v1/auth/register", req)
 	if err != nil {
-		return AuthResponse{}, err
+		return Session{}, err
 	}
-	auth, err := decode[AuthResponse](resp)
+	auth, err := decode[Session](resp)
 	if err != nil {
-		return AuthResponse{}, err
+		return Session{}, err
 	}
 	auth.RefreshToken = extractRefreshToken(resp)
 	return auth, nil
 }
 
-func (c *Client) Login(req LoginRequest) (AuthResponse, error) {
+func (c *Client) Login(req LoginRequest) (Session, error) {
 	resp, err := c.do("POST", "/api/v1/auth/login", req)
 	if err != nil {
-		return AuthResponse{}, err
+		return Session{}, err
 	}
-	auth, err := decode[AuthResponse](resp)
+	auth, err := decode[Session](resp)
 	if err != nil {
-		return AuthResponse{}, err
+		return Session{}, err
 	}
 	auth.RefreshToken = extractRefreshToken(resp)
 	return auth, nil
 }
 
-func (c *Client) Refresh(refreshToken string) (AuthResponse, error) {
+func (c *Client) Refresh(refreshToken string) (Session, error) {
 	// Untyped nil when there is no token: a nil *RefreshRequest stored in `any`
 	// is non-nil and would be sent as a JSON "null" body.
 	var body any
 	if refreshToken != "" {
-		body = RefreshRequest{RefreshToken: refreshToken}
+		body = RefreshRequest{RefreshToken: &refreshToken}
 	}
 	resp, err := c.do("POST", "/api/v1/auth/refresh", body)
 	if err != nil {
-		return AuthResponse{}, err
+		return Session{}, err
 	}
-	auth, err := decode[AuthResponse](resp)
+	auth, err := decode[Session](resp)
 	if err != nil {
-		return AuthResponse{}, err
+		return Session{}, err
 	}
 	auth.RefreshToken = extractRefreshToken(resp)
 	return auth, nil
@@ -152,7 +152,7 @@ func (c *Client) Logout(refreshToken string) error {
 	// is non-nil and would be sent as a JSON "null" body.
 	var body any
 	if refreshToken != "" {
-		body = RefreshRequest{RefreshToken: refreshToken}
+		body = RefreshRequest{RefreshToken: &refreshToken}
 	}
 	resp, err := c.do("POST", "/api/v1/auth/logout", body)
 	if err != nil {
@@ -163,29 +163,29 @@ func (c *Client) Logout(refreshToken string) error {
 
 // ── Votes ─────────────────────────────────────────────────────────────────────
 
-func (c *Client) CreateVote(req CreateVoteRequest) (VoteDetail, error) {
+func (c *Client) CreateVote(req CreateVoteWebRequest) (VoteDetailDto, error) {
 	resp, err := c.do("POST", "/api/v1/votes", req)
 	if err != nil {
-		return VoteDetail{}, err
+		return VoteDetailDto{}, err
 	}
-	return decode[VoteDetail](resp)
+	return decode[VoteDetailDto](resp)
 }
 
-func (c *Client) ListVotes(page, size int) (Page[VoteSummary], error) {
+func (c *Client) ListVotes(page, size int) (PageResponseVoteSummaryDto, error) {
 	path := fmt.Sprintf("/api/v1/votes?page=%d&size=%d&sort=createdAt,desc", page, size)
 	resp, err := c.do("GET", path, nil)
 	if err != nil {
-		return Page[VoteSummary]{}, err
+		return PageResponseVoteSummaryDto{}, err
 	}
-	return decode[Page[VoteSummary]](resp)
+	return decode[PageResponseVoteSummaryDto](resp)
 }
 
-func (c *Client) GetVote(id string) (VoteDetail, error) {
+func (c *Client) GetVote(id string) (VoteDetailDto, error) {
 	resp, err := c.do("GET", "/api/v1/votes/"+id, nil)
 	if err != nil {
-		return VoteDetail{}, err
+		return VoteDetailDto{}, err
 	}
-	return decode[VoteDetail](resp)
+	return decode[VoteDetailDto](resp)
 }
 
 func (c *Client) DeleteVote(id string) error {
@@ -260,7 +260,7 @@ func (c *Client) GetHistory(voteID string) ([]DrawHistoryDto, error) {
 		if err != nil {
 			return nil, err
 		}
-		result, err := decode[Page[DrawHistoryDto]](resp)
+		result, err := decode[PageResponseDrawHistoryDto](resp)
 		if err != nil {
 			return nil, err
 		}

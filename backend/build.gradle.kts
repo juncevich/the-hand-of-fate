@@ -195,6 +195,29 @@ tasks.check {
     dependsOn(integrationTest)
 }
 
+// ── OpenAPI contract ─────────────────────────────────────────────────────────
+// api/openapi.yaml (repo root) is the committed REST contract the frontend and the simulation
+// generate their types from. OpenApiSpecIntegrationTest fails when it drifts from the
+// controllers; `./gradlew openApiUpdate` rewrites it from the running application.
+val openApiSpec = layout.projectDirectory.file("../api/openapi.yaml")
+
+integrationTest {
+    systemProperty("openapi.spec", openApiSpec.asFile.absolutePath)
+    inputs.file(openApiSpec).withPropertyName("openApiSpec").optional()
+}
+
+val openApiUpdate by tasks.registering(Test::class) {
+    description = "Regenerates api/openapi.yaml from the REST controllers"
+    group = "documentation"
+    useJUnitPlatform()
+    testClassesDirs = integrationTestSourceSet.output.classesDirs
+    classpath = integrationTestSourceSet.runtimeClasspath
+    filter { includeTestsMatching("com.juncevich.fate.OpenApiSpecIntegrationTest") }
+    systemProperty("openapi.spec", openApiSpec.asFile.absolutePath)
+    systemProperty("openapi.update", "true")
+    outputs.upToDateWhen { false }
+}
+
 // ── Coverage (JaCoCo) ────────────────────────────────────────────────────────
 // `./gradlew jacocoTestReport` merges unit + integration test coverage into
 // build/reports/jacoco/test/{html,jacocoTestReport.xml}; `check` produces it too and

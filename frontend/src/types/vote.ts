@@ -1,70 +1,18 @@
-export type VoteMode = 'SIMPLE' | 'FAIR_ROTATION'
-export type VoteStatus = 'PENDING' | 'DRAWN' | 'CLOSED'
+// REST types are generated from the backend contract (api/openapi.yaml → `npm run gen:api`);
+// this module only gives them the names the app uses.
+import type { components } from '@/api/generated/schema'
 
-export interface VoteSummary {
-  id: string
-  title: string
-  mode: VoteMode
-  status: VoteStatus
-  currentRound: number
-  participantCount: number
-  isCreator: boolean
-  createdAt: string
-}
+type Schemas = components['schemas']
 
-export interface VoteOption {
-  id: string
-  title: string
-}
+export type VoteSummary = Schemas['VoteSummaryDto']
+export type VoteDetail = Schemas['VoteDetailDto']
+export type VoteOption = Schemas['VoteOptionDto']
+export type Participant = Schemas['ParticipantDto']
+export type DrawHistoryEntry = Schemas['DrawHistoryDto']
+export type DrawResult = Schemas['DrawResultResponse']
+export type CreateVoteRequest = Schemas['CreateVoteWebRequest']
+export type VoteMode = Schemas['VoteMode']
+export type VoteStatus = Schemas['VoteStatus']
 
-export interface VoteDetail {
-  id: string
-  title: string
-  description: string | null
-  mode: VoteMode
-  status: VoteStatus
-  currentRound: number
-  participants: Participant[]
-  options: VoteOption[]
-  lastResult: DrawHistoryEntry | null
-  isCreator: boolean
-  createdAt: string
-}
-
-export interface Participant {
-  email: string
-  displayName: string | null
-}
-
-export interface DrawHistoryEntry {
-  id: string
-  winnerEmail: string | null
-  winnerDisplayName: string | null
-  winnerOptionTitle: string | null
-  round: number
-  drawnAt: string
-}
-
-export interface DrawResult {
-  winnerEmail: string | null
-  winnerDisplayName: string | null
-  winnerOptionTitle: string | null
-  round: number
-  newRoundStarted: boolean
-}
-
-export interface CreateVoteRequest {
-  title: string
-  description?: string
-  mode: VoteMode
-  participantEmails: string[]
-  options: string[]
-}
-
-export interface Page<T> {
-  content: T[]
-  totalElements: number
-  totalPages: number
-  number: number
-  size: number
-}
+// OpenAPI has no generics: every PageResponse* schema shares this shape, only `content` differs.
+export type Page<T> = Omit<Schemas['PageResponseVoteSummaryDto'], 'content'> & { content: T[] }

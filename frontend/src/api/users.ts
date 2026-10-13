@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import type { components } from './generated/schema'
 
 /** Server-side limit (spring.servlet.multipart.max-file-size); checked early to skip a doomed upload. */
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024
@@ -10,7 +11,7 @@ export const usersApi = {
     form.append('file', file)
     return apiClient
       // The client defaults to JSON; multipart lets axios add the boundary itself
-      .put<{ avatarUrl: string }>('/users/me/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .put<components['schemas']['AvatarResponse']>('/users/me/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } })
       .then((r) => r.data)
   },
 

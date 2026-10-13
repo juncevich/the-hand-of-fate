@@ -5,11 +5,15 @@ import com.juncevich.fate.vote.internal.domain.DrawHistory
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
 import com.juncevich.fate.vote.internal.domain.VoteParticipant
+import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
 import java.util.UUID
 
+// enumAsRef: one shared schema in api/openapi.yaml instead of a copy inlined into every DTO
+@Schema(enumAsRef = true)
 enum class VoteMode { SIMPLE, FAIR_ROTATION }
 
+@Schema(enumAsRef = true)
 enum class VoteStatus { PENDING, DRAWN, CLOSED }
 
 data class CreateVoteCommand(

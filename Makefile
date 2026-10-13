@@ -1,4 +1,4 @@
-.PHONY: proto proto-bot proto-backend install-proto-tools dev dev-local infra infra-down
+.PHONY: proto proto-bot proto-backend install-proto-tools openapi openapi-spec openapi-clients dev dev-local infra infra-down
 
 proto: proto-bot proto-backend
 
@@ -11,6 +11,17 @@ proto-bot: install-proto-tools
 
 proto-backend:
 	cd backend && ./gradlew generateProto --no-daemon -q
+
+# REST contract: regenerate api/openapi.yaml from the controllers (needs Docker for
+# Testcontainers), then the frontend types and simulation models generated from it.
+openapi: openapi-spec openapi-clients
+
+openapi-spec:
+	cd backend && ./gradlew openApiUpdate --no-daemon -q
+
+openapi-clients:
+	cd frontend && npm run gen:api
+	cd simulation && go generate ./...
 
 dev:
 	docker compose up -d

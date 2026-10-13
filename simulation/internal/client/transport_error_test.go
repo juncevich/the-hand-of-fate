@@ -37,7 +37,7 @@ func TestMethods_TransportError(t *testing.T) {
 		},
 		"Logout": func() error { return c.Logout("rt") },
 		"CreateVote": func() error {
-			_, err := c.CreateVote(client.CreateVoteRequest{Title: "t"})
+			_, err := c.CreateVote(client.CreateVoteWebRequest{Title: "t"})
 			return err
 		},
 		"ListVotes": func() error {

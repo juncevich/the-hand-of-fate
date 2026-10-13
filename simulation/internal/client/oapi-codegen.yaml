@@ -1,0 +1,29 @@
+# Models for the REST contract (api/openapi.yaml, generated from the backend controllers).
+# Regenerate with `go generate ./...`; the HTTP client itself stays hand-written in client.go.
+package: client
+generate:
+  models: true
+output: models.gen.go
+output-options:
+  # Go initialisms: ID, UserID, AvatarURL
+  name-normalizer: ToCamelCaseWithInitialisms
+  # Nullable and optional scalars stay pointers (nil = null/absent); slices need none
+  prefer-skip-optional-pointer-on-container-types: true
+  # Multipart avatar upload would pull in github.com/oapi-codegen/runtime; the simulation doesn't use it
+  exclude-operation-ids:
+    - uploadAvatar
+  type-mapping:
+    string:
+      formats:
+        # IDs and emails are only passed through to URLs/requests; keep them plain strings
+        uuid:
+          type: string
+        email:
+          type: string
+    integer:
+      formats:
+        int32:
+          type: int
+compatibility:
+  # VoteModeSIMPLE rather than a bare SIMPLE in the package namespace
+  always-prefix-enum-values: true

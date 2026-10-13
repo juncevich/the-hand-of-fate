@@ -24,9 +24,9 @@ func FairRotationScenario(c *client.Client, log *zap.Logger) error {
 		randomEmail(),
 	}
 
-	vote, err := c.CreateVote(client.CreateVoteRequest{
+	vote, err := c.CreateVote(client.CreateVoteWebRequest{
 		Title:             randomVoteTitle() + " (fair)",
-		Mode:              "FAIR_ROTATION",
+		Mode:              ptr(client.VoteModeFAIRROTATION),
 		ParticipantEmails: participants,
 	})
 	if err != nil {

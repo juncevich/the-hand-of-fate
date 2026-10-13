@@ -16,6 +16,11 @@ management:
     export:
       enabled: false
 
+# OpenApiSpecIntegrationTest diffs /v3/api-docs.yaml against the committed api/openapi.yaml.
+springdoc:
+  api-docs:
+    enabled: true
+
 app:
   notifications:
     delivery-enabled: false
