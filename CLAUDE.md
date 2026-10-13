@@ -380,7 +380,9 @@ Each project has its own workflow file, triggered on PR and push to `main` via p
 - `frontend.yml` also runs `npm run check:api`; backend, frontend and simulation workflows all trigger on `api/openapi.yaml`.
 
 ### Deploy workflows (deploy-backend.yml / deploy-frontend.yml / deploy-bot.yml)
-Each component has its own deploy workflow triggered by its CI workflow completing and via `workflow_dispatch`.
+Each component has its own deploy workflow, normally triggered by its CI workflow completing and via `workflow_dispatch`.
+
+> **Currently disabled:** there is no target environment, so the `workflow_run` trigger is commented out in all three deploy workflows — they run only on manual `workflow_dispatch`. Uncomment the trigger to re-enable auto-deploy.
 
 **`gate` job** — checks if the triggering CI workflow succeeded; on `workflow_dispatch` finds the latest successful CI run. Skips deploy (`ready=false`) if not.
 

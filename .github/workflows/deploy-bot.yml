@@ -1,10 +1,11 @@
 name: Deploy Bot
 
 on:
-  workflow_run:
-    workflows: [Bot CI]
-    types: [completed]
-    branches: [main]
+  # Auto-deploy disabled: no target environment right now. Uncomment to re-enable.
+  # workflow_run:
+  #   workflows: [Bot CI]
+  #   types: [completed]
+  #   branches: [main]
   workflow_dispatch:
 
 permissions:
