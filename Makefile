@@ -1,5 +1,5 @@
 .PHONY: proto proto-bot proto-backend install-proto-tools openapi openapi-spec openapi-clients dev dev-local infra infra-down \
-        k8s-up k8s-down k8s-delete k8s-status k8s-dev k8s-dev-down
+        k8s-up k8s-down k8s-delete k8s-status k8s-dev k8s-dev-down k8s-check
 
 proto: proto-bot proto-backend
 
@@ -58,3 +58,7 @@ k8s-dev:
 # Remove what Tilt deployed (the rustfs PVC is kept, Postgres' StatefulSet volume too)
 k8s-dev-down:
 	tilt down --context hand-of-fate
+
+# Static checks of manifests, mounted configs and scripts (what .github/workflows/k8s.yml runs)
+k8s-check:
+	./infra/k8s/check.sh

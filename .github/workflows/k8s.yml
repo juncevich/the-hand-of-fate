@@ -1,0 +1,46 @@
+name: Kubernetes CI
+
+# Static checks for the local minikube setup (no cluster): both overlays render, every object
+# matches its Kubernetes schema, the mounted configs (OTel Collector, Loki, gateway nginx) are
+# valid for the pinned images, and the scripts pass shellcheck. All of it is
+# infra/k8s/check.sh — run `make k8s-check` locally for the same result.
+# infra/nginx and infra/monitoring are shared with docker-compose, so they trigger it too.
+on:
+  push:
+    branches: [main]
+    paths:
+      - infra/k8s/**
+      - infra/nginx/**
+      - infra/monitoring/**
+      - k8s-start.sh
+      - k8s-stop.sh
+      - .github/workflows/k8s.yml
+  pull_request:
+    paths:
+      - infra/k8s/**
+      - infra/nginx/**
+      - infra/monitoring/**
+      - k8s-start.sh
+      - k8s-stop.sh
+      - .github/workflows/k8s.yml
+
+concurrency:
+  group: k8s-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  k8s-check:
+    name: Kubernetes — Manifests & configs
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # kustomize and kubeconform run via `go run <module>@<version>` (pinned in check.sh).
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: simulation/go.mod
+          cache: false
+
+      - name: Check manifests, configs and scripts
+        run: ./infra/k8s/check.sh

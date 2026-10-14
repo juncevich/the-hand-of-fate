@@ -21,7 +21,7 @@ infra/
   monitoring/ OTel Collector, Loki, Mimir, Grafana provisioning
   k8s/       Kubernetes manifests: base/ (apps) + overlays/local (minikube; no prod environment planned)
 .github/
-  workflows/ backend.yml + frontend.yml + bot.yml + perf.yml + simulation.yml + api.yml + deploy-*.yml + server-setup.yml
+  workflows/ backend.yml + frontend.yml + bot.yml + perf.yml + simulation.yml + api.yml + k8s.yml + deploy-*.yml + server-setup.yml
 ```
 
 ## Common Commands
@@ -61,7 +61,7 @@ make infra-down               # stop infrastructure
 ./k8s-start.sh --only backend        # rebuild + restart selected apps (backend,frontend,bot)
 ./k8s-stop.sh                        # stop the cluster, data kept
 ./k8s-stop.sh --delete               # delete the cluster with all data
-# or via make: k8s-up / k8s-down / k8s-delete / k8s-status
+# or via make: k8s-up / k8s-down / k8s-delete / k8s-status; `make k8s-check` = static checks (as in CI)
 
 make k8s-dev                         # hot-reload loop: k8s-start.sh --cluster-only + `tilt up` (UI http://localhost:10350)
 make k8s-dev-down                    # `tilt down` — removes the workloads, keeps the Postgres/RustFS volumes
@@ -397,7 +397,7 @@ Services run directly on Ubuntu via systemd (no Docker). Nginx serves the fronte
 | Go        | from `go.mod` (1.27) |
 | Node.js   | 26 (`frontend/.nvmrc`) |
 
-### CI workflows (backend.yml / frontend.yml / bot.yml / perf.yml / simulation.yml / api.yml)
+### CI workflows (backend.yml / frontend.yml / bot.yml / perf.yml / simulation.yml / api.yml / k8s.yml)
 Each project has its own workflow file, triggered on PR and push to `main` via path filters.
 - `backend.yml`: `backend-test` (spotless + detekt + `./gradlew check`, uploads the JaCoCo report as artifact `backend-coverage`) → `backend-build` (artifact: `backend-jar`)
 - `frontend.yml`: `frontend-test` (`npm run lint` + `npm run test`) → `frontend-build` (artifact: `frontend-dist`)
@@ -405,6 +405,7 @@ Each project has its own workflow file, triggered on PR and push to `main` via p
 - `perf.yml`: `perf-check` — spotless + detekt + `compileGatlingKotlin`. Lint/compile only; `gatlingRun` is a load test against a live backend and is run manually, not gated in CI.
 - `simulation.yml`: `simulation-test` — generated-models check + gofmt + go vet + staticcheck + go test + build. The scenarios themselves (`go run ./cmd/simulate`) need a running backend and are not run in CI.
 - `api.yml`: `api-check` on changes to `api/**` — Redocly lint of `api/openapi.yaml` and, on PRs, `oasdiff breaking` against the base branch (the REST analogue of `buf breaking`).
+- `k8s.yml`: `k8s-check` on changes to `infra/k8s/**`, `infra/nginx/**`, `infra/monitoring/**`, `k8s-*.sh` — runs `infra/k8s/check.sh` (also `make k8s-check`, needs Go + Docker, no cluster): renders both overlays (kustomize v5.8.2), `kubeconform -strict`, validates the OTel Collector (compose config and the k8s merge), Loki and gateway nginx configs with the image versions the manifests pin, shellcheck on the k8s scripts. `infra/nginx` and `infra/monitoring` are shared with docker-compose, so this also guards the compose configs.
 - `frontend.yml` also runs `npm run check:api`; backend, frontend and simulation workflows all trigger on `api/openapi.yaml`.
 
 ### Deploy workflows (deploy-backend.yml / deploy-frontend.yml / deploy-bot.yml)
