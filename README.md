@@ -99,7 +99,7 @@ Option 3 — full stack in local Kubernetes (minikube, `brew install minikube`):
 make k8s-dev              # hot reload in the cluster via Tilt (`brew install tilt`), UI → http://localhost:10350
 ```
 
-Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432`.
+Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432` · Grafana (metrics + pod logs): http://localhost:30300.
 
 ### Backend
 ```bash

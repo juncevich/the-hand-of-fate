@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-data
+  annotations:
+    tilt.dev/down-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki
+  labels:
+    app.kubernetes.io/name: loki
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate   # ReadWriteOnce volume
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: loki
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: loki
+    spec:
+      securityContext:
+        fsGroup: 10001   # the image runs as uid 10001; makes the volume writable
+      containers:
+        - name: loki
+          image: grafana/loki:3.4.2
+          args: ["-config.file=/etc/loki/loki.yaml"]
+          ports:
+            - name: http
+              containerPort: 3100
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/loki
+              readOnly: true
+            - name: data
+              mountPath: /loki
+      volumes:
+        - name: config
+          configMap:
+            name: loki-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: loki-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+spec:
+  selector:
+    app.kubernetes.io/name: loki
+  ports:
+    - name: http
+      port: 3100
+      targetPort: http

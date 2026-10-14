@@ -1,0 +1,13 @@
+# Point the backend's OTLP metrics/traces export at the collector (default: localhost:4318).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  template:
+    spec:
+      containers:
+        - name: backend
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector:4318

@@ -1,0 +1,39 @@
+# Merged over infra/monitoring/otel-collector.yaml (the collector gets both via --config;
+# maps merge, lists are replaced). Adds the pods' stdout/stderr to the logs pipeline, so
+# every workload in the namespace reaches Loki without an in-app log exporter.
+extensions:
+  # Read offsets survive collector restarts (hostPath), so `start_at: beginning` picks up
+  # what pods logged before the collector came up without re-sending it later.
+  file_storage/filelog:
+    directory: /var/lib/otelcol/filelog
+    create_directory: true
+
+receivers:
+  filelog:
+    # /var/log/pods/<namespace>_<pod>_<uid>/<container>/<n>.log; with the docker runtime
+    # these are symlinks into /var/lib/docker/containers (both mounted read-only).
+    include: [/var/log/pods/hand-of-fate_*/*/*.log]
+    exclude: [/var/log/pods/hand-of-fate_otel-collector-*/*/*.log]
+    start_at: beginning
+    storage: file_storage/filelog
+    include_file_path: true
+    operators:
+      # Parses the docker/CRI line format and sets k8s.namespace.name, k8s.pod.name,
+      # k8s.container.name from the file path.
+      - type: container
+
+processors:
+  # Loki's service_name label: the container name (backend, gateway, …) unless set.
+  resource/service-name:
+    attributes:
+      - action: insert
+        key: service.name
+        from_attribute: k8s.container.name
+
+service:
+  extensions: [file_storage/filelog]
+  pipelines:
+    logs:
+      receivers:  [otlp, filelog]
+      processors: [memory_limiter, resource, resource/service-name, batch]
+      exporters:  [otlphttp/loki]

@@ -74,9 +74,11 @@ make k8s-dev-down                    # `tilt down` — removes the workloads, ke
   - frontend: Vite dev server (`frontend/Dockerfile.dev`), `frontend/` synced live, HMR over the gateway (nginx proxies the WebSocket upgrade). `package*.json` / `vite.config.ts` changes rebuild the image. The tilt overlay drops the gateway CSP (React Refresh injects an inline script) via `.tilt-build/nginx.conf`, which the Tiltfile generates — build that overlay only through Tilt
   - backend: `backend-jar` local resource (`./gradlew bootJar`) → `.tilt-build/backend/app.jar` → thin `backend/Dockerfile.dev` → pod restart (~30 s from save to ready). Swagger via Tilt port-forward: http://localhost:18080/swagger-ui.html
   - bot: host `go build` (GOOS=linux) → `.tilt-build/bot/fate-bot` → `bot/Dockerfile.dev`; only when `BOT_TOKEN` is set
-  - `rustfs-data` PVC carries `tilt.dev/down-policy: keep`; Postgres' StatefulSet volume is never deleted by Tilt
+  - `rustfs-data`, `loki-data`, `mimir-data`, `grafana-data` PVCs carry `tilt.dev/down-policy: keep`; Postgres' StatefulSet volume is never deleted by Tilt
+- **Monitoring** — `infra/k8s/components/observability/` (a kustomize Component included by `overlays/local`; drop it from `components:` to run without): OTel Collector DaemonSet, Loki, Mimir, Grafana, all on the `infra/monitoring/*` configs. The collector additionally gets `otel-collector-k8s.yaml` (second `--config`, merged): a `filelog` receiver tails `/var/log/pods/hand-of-fate_*` (with the docker runtime those are symlinks into `/var/lib/docker/containers`), so every pod's stdout lands in Loki with `service_name` = container name (`backend`, `nginx` for the gateway, …) and `k8s_*` labels. `start_at: beginning` + `file_storage` offsets on a hostPath: startup logs are kept, collector restarts don't duplicate. The backend's OTLP metrics go to Mimir via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`
 - Host access goes through NodePorts published by `minikube start --ports` (fixed at cluster creation — `--delete` and recreate after changing them). The 30xxx ports don't clash with docker-compose, so both setups can run at once:
-  - App (gateway): http://localhost:30080 · Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432`
+  - App (gateway): http://localhost:30080 · Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432` · Grafana: http://localhost:30300 (admin/admin)
+  - `k8s-start.sh` warns when the node doesn't publish a port from `HOST_PORTS` (cluster created before the port was added)
   - Swagger: `kubectl --context hand-of-fate -n hand-of-fate port-forward svc/backend 18080:8080`
 - Everything uses kubectl context `hand-of-fate` explicitly; the scripts never touch other contexts. Cluster size: `MINIKUBE_CPUS` (4) / `MINIKUBE_MEMORY` (6g), applied on creation
 
@@ -338,7 +340,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 
 ### Observability
 - Backend: `spring-boot-starter-opentelemetry` (Micrometer OTLP registry + OTel tracing bridge) → OTLP → OTel Collector; endpoint from `OTEL_EXPORTER_OTLP_ENDPOINT`
-- OTel Collector: metrics → Mimir, logs → Loki
+- OTel Collector: metrics → Mimir, logs → Loki (OTLP exporter to Loki's native `/otlp` endpoint), traces → `debug` only (no trace backend). In minikube the collector also ships all pod logs (see Option 3)
 - Custom metrics: `vote.created{mode}`, `vote.draw.performed{mode,round}`, `vote.participants.count`
 - Grafana: pre-provisioned datasources (Mimir, Loki); add dashboard JSON files under `infra/monitoring/grafana/provisioning/dashboards/`
 

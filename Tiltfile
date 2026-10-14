@@ -6,7 +6,7 @@
 #   backend   Gradle bootJar on the host → thin image (backend/Dockerfile.dev) → pod restart
 #   bot       go build on the host → thin image (bot/Dockerfile.dev); only when BOT_TOKEN is set
 #
-# Everything else (Postgres, RustFS, Mailpit, gateway) comes from infra/k8s/overlays/tilt,
+# Everything else (Postgres, RustFS, Mailpit, gateway, monitoring) comes from infra/k8s/overlays/tilt,
 # i.e. the same manifests k8s-start.sh deploys.
 
 PROFILE = 'hand-of-fate'
@@ -99,4 +99,14 @@ k8s_resource(
     'rustfs',
     links=[link('http://localhost:30901/rustfs/console/', 'RustFS console')],
     labels=['infra'],
+)
+
+# ── Monitoring (infra/k8s/components/observability) ──────────────────────────
+k8s_resource('otel-collector', labels=['monitoring'])
+k8s_resource('loki', labels=['monitoring'])
+k8s_resource('mimir', labels=['monitoring'])
+k8s_resource(
+    'grafana',
+    links=[link('http://localhost:30300', 'Grafana (admin / admin)')],
+    labels=['monitoring'],
 )

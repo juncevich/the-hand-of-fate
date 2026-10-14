@@ -12,6 +12,11 @@ resources:
   - mailpit.yaml
   - external-services.yaml
 
+# OTel Collector + Loki + Mimir + Grafana; remove this line to run without monitoring
+# (and its NodePort in external-services.yaml).
+components:
+  - ../../components/observability
+
 patches:
   - path: backend-wait-for-postgres.yaml
 

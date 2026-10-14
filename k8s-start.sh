@@ -15,7 +15,7 @@ PROFILE=hand-of-fate
 NAMESPACE=hand-of-fate
 APPS=(backend frontend bot)
 # nodePorts from external-services.yaml: gateway, postgres, mailpit UI, rustfs console
-HOST_PORTS=(30080 30432 30025 30901)
+HOST_PORTS=(30080 30432 30025 30901 30300)   # + grafana
 
 MINIKUBE_CPUS="${MINIKUBE_CPUS:-4}"
 MINIKUBE_MEMORY="${MINIKUBE_MEMORY:-6g}"
@@ -76,6 +76,14 @@ if [[ "$runtime" != "docker" ]]; then
   echo "WARNING: '$PROFILE' doesn't run the docker runtime, which Tilt (make k8s-dev) needs." >&2
   echo "         Recreate it once: ./k8s-stop.sh --delete && ./k8s-start.sh" >&2
 fi
+# Port publishing is fixed when the node container is created; a newer HOST_PORTS needs a
+# recreate.
+for p in "${HOST_PORTS[@]}"; do
+  if ! docker port "$PROFILE" "$p/tcp" &>/dev/null; then
+    echo "WARNING: port $p isn't published by the '$PROFILE' node (created before it was added)." >&2
+    echo "         Recreate it once: ./k8s-stop.sh --delete && ./k8s-start.sh" >&2
+  fi
+done
 "$CLUSTER_ONLY" && exit 0
 
 # ── Images ──────────────────────────────────────────────────────────────────
@@ -122,6 +130,11 @@ kc rollout status statefulset/postgres --timeout=180s
 for d in rustfs mailpit backend frontend gateway; do
   kc rollout status "deployment/$d" --timeout=300s
 done
+# Monitoring (components/observability) — skipped when the component is switched off.
+if kc get daemonset/otel-collector &>/dev/null; then
+  kc rollout status daemonset/otel-collector --timeout=180s
+  for d in loki mimir grafana; do kc rollout status "deployment/$d" --timeout=300s; done
+fi
 # After a resume the rollout status above is stale (pods are still restarting), so also
 # wait until a request makes it through the gateway to the backend (401 = no token).
 for _ in $(seq 1 90); do
@@ -137,6 +150,7 @@ cat <<EOF
   Mailpit   → http://localhost:30025
   RustFS    → http://localhost:30901/rustfs/console/  (rustfsadmin / rustfsadmin)
   Postgres  → localhost:30432             (fate / fate, db fate)
+  Grafana   → http://localhost:30300      (admin / admin; Mimir metrics, Loki pod logs)
 
   Swagger:  kubectl --context $PROFILE -n $NAMESPACE port-forward svc/backend 18080:8080
             → http://localhost:18080/swagger-ui.html

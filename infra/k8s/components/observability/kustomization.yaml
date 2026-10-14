@@ -1,0 +1,36 @@
+# Metrics + logs stack, the k8s twin of the observability services in docker-compose.yml:
+#   backend ──OTLP metrics/traces──▶ otel-collector ──▶ Mimir (metrics) / debug (traces)
+#   pod stdout (filelog, DaemonSet) ─▶ otel-collector ──▶ Loki (logs)
+#   Grafana (http://localhost:30300) reads Mimir and Loki.
+# Configs come from infra/monitoring/ unchanged (k8s additions for the collector only), so
+# the build needs `--load-restrictor LoadRestrictionsNone`, like the base. Included by
+# overlays/local; drop it from `components:` there to run without monitoring.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - otel-collector.yaml
+  - loki.yaml
+  - mimir.yaml
+  - grafana.yaml
+
+configMapGenerator:
+  - name: otel-collector-config
+    files:
+      - config.yaml=../../../monitoring/otel-collector.yaml
+      - k8s.yaml=otel-collector-k8s.yaml
+  - name: loki-config
+    files:
+      - loki.yaml=../../../monitoring/loki.yaml
+  - name: mimir-config
+    files:
+      - mimir.yaml=../../../monitoring/mimir.yaml
+  - name: grafana-datasources
+    files:
+      - datasources.yaml=../../../monitoring/grafana/provisioning/datasources/datasources.yaml
+  - name: grafana-dashboards
+    files:
+      - provider.yaml=../../../monitoring/grafana/provisioning/dashboards/provider.yaml
+
+patches:
+  - path: backend-otlp.yaml

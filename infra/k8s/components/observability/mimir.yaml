@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mimir-data
+  annotations:
+    tilt.dev/down-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mimir
+  labels:
+    app.kubernetes.io/name: mimir
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate   # ReadWriteOnce volume
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mimir
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mimir
+    spec:
+      containers:
+        - name: mimir
+          image: grafana/mimir:2.15.0
+          args: ["--config.file=/etc/mimir/mimir.yaml"]
+          ports:
+            - name: http
+              containerPort: 9009
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/mimir
+              readOnly: true
+            - name: data
+              mountPath: /data/mimir
+      volumes:
+        - name: config
+          configMap:
+            name: mimir-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: mimir-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mimir
+spec:
+  selector:
+    app.kubernetes.io/name: mimir
+  ports:
+    - name: http
+      port: 9009
+      targetPort: http
