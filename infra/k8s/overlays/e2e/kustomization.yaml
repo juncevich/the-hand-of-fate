@@ -1,0 +1,15 @@
+# The local overlay as CI's end-to-end job deploys it (.github/workflows/e2e.yml,
+# `K8S_OVERLAY=e2e ./k8s-start.sh`). Only difference: the backend's per-IP auth rate limit
+# is raised, because the simulation registers and logs in a fresh user per scenario from
+# one address. The filter itself stays on.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../local
+
+configMapGenerator:
+  - name: backend-config
+    behavior: merge
+    literals:
+      - APP_RATELIMIT_CAPACITY=1000
