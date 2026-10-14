@@ -139,6 +139,7 @@ services:
     depends_on:
       - loki
       - mimir
+      - tempo
 
   loki:
     image: grafana/loki:3.4.2
@@ -160,6 +161,16 @@ services:
     ports:
       - "9009:9009"
 
+  tempo:
+    image: grafana/tempo:2.9.0
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    volumes:
+      - ./infra/monitoring/tempo.yaml:/etc/tempo/config.yaml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"   # HTTP API (Grafana datasource)
+
   grafana:
     image: grafana/grafana:11.6.0
     restart: unless-stopped
@@ -175,10 +186,12 @@ services:
     depends_on:
       - loki
       - mimir
+      - tempo
 
 volumes:
   postgres_data:
   rustfs_data:
   loki_data:
   mimir_data:
+  tempo_data:
   grafana_data:

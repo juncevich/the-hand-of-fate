@@ -1,7 +1,7 @@
-# Metrics + logs stack, the k8s twin of the observability services in docker-compose.yml:
-#   backend ──OTLP metrics/traces──▶ otel-collector ──▶ Mimir (metrics) / debug (traces)
+# Metrics, logs and traces stack, the k8s twin of the observability services in docker-compose.yml:
+#   backend ──OTLP metrics/traces──▶ otel-collector ──▶ Mimir (metrics) / Tempo (traces)
 #   pod stdout (filelog, DaemonSet) ─▶ otel-collector ──▶ Loki (logs)
-#   Grafana (http://localhost:30300) reads Mimir and Loki.
+#   Grafana (http://localhost:30300) reads Mimir, Loki and Tempo; dashboard "Hand of Fate — Overview".
 # Configs come from infra/monitoring/ unchanged (k8s additions for the collector only), so
 # the build needs `--load-restrictor LoadRestrictionsNone`, like the base. Included by
 # overlays/local; drop it from `components:` there to run without monitoring.
@@ -12,6 +12,7 @@ resources:
   - otel-collector.yaml
   - loki.yaml
   - mimir.yaml
+  - tempo.yaml
   - grafana.yaml
 
 configMapGenerator:
@@ -25,12 +26,16 @@ configMapGenerator:
   - name: mimir-config
     files:
       - mimir.yaml=../../../monitoring/mimir.yaml
+  - name: tempo-config
+    files:
+      - tempo.yaml=../../../monitoring/tempo.yaml
   - name: grafana-datasources
     files:
       - datasources.yaml=../../../monitoring/grafana/provisioning/datasources/datasources.yaml
   - name: grafana-dashboards
     files:
       - provider.yaml=../../../monitoring/grafana/provisioning/dashboards/provider.yaml
+      - hand-of-fate-overview.json=../../../monitoring/grafana/provisioning/dashboards/hand-of-fate-overview.json
 
 patches:
   - path: backend-otlp.yaml

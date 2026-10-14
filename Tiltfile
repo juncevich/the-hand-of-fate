@@ -105,6 +105,7 @@ k8s_resource(
 k8s_resource('otel-collector', labels=['monitoring'])
 k8s_resource('loki', labels=['monitoring'])
 k8s_resource('mimir', labels=['monitoring'])
+k8s_resource('tempo', labels=['monitoring'])
 k8s_resource(
     'grafana',
     links=[link('http://localhost:30300', 'Grafana (admin / admin)')],

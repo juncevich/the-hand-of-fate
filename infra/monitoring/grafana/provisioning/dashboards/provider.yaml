@@ -9,4 +9,4 @@ providers:
     updateIntervalSeconds: 30
     options:
       path: /etc/grafana/provisioning/dashboards
-      foldersFromFilesStructure: true
+      foldersFromFilesStructure: false   # all dashboards go to `folder` above

@@ -1,5 +1,5 @@
 .PHONY: proto proto-bot proto-backend install-proto-tools openapi openapi-spec openapi-clients dev dev-local infra infra-down \
-        k8s-up k8s-down k8s-delete k8s-status k8s-dev k8s-dev-down k8s-check
+        k8s-up k8s-down k8s-delete k8s-status k8s-dev k8s-dev-down k8s-check k8s-e2e
 
 proto: proto-bot proto-backend
 
@@ -62,3 +62,8 @@ k8s-dev-down:
 # Static checks of manifests, mounted configs and scripts (what .github/workflows/k8s.yml runs)
 k8s-check:
 	./infra/k8s/check.sh
+
+# End-to-end checks against the running cluster (what .github/workflows/e2e.yml runs);
+# deploy with the e2e overlay first: K8S_OVERLAY=e2e ./k8s-start.sh
+k8s-e2e:
+	./infra/k8s/e2e.sh

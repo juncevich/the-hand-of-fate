@@ -52,7 +52,7 @@ make infra-down               # stop infrastructure
 - Swagger:   http://localhost:8080/swagger-ui.html
 - Mailpit:   http://localhost:8025
 - RustFS:    http://localhost:9001 (S3 console, `rustfsadmin`/`rustfsadmin`; S3 API on :9000)
-- Grafana:   http://localhost:3001  (admin/admin)
+- Grafana:   http://localhost:3001  (admin/admin; dashboard "Hand of Fate — Overview", Mimir/Loki/Tempo)
 
 **Option 3 — everything in local Kubernetes (minikube):**
 ```bash
@@ -74,8 +74,8 @@ make k8s-dev-down                    # `tilt down` — removes the workloads, ke
   - frontend: Vite dev server (`frontend/Dockerfile.dev`), `frontend/` synced live, HMR over the gateway (nginx proxies the WebSocket upgrade). `package*.json` / `vite.config.ts` changes rebuild the image. The tilt overlay drops the gateway CSP (React Refresh injects an inline script) via `.tilt-build/nginx.conf`, which the Tiltfile generates — build that overlay only through Tilt
   - backend: `backend-jar` local resource (`./gradlew bootJar`) → `.tilt-build/backend/app.jar` → thin `backend/Dockerfile.dev` → pod restart (~30 s from save to ready). Swagger via Tilt port-forward: http://localhost:18080/swagger-ui.html
   - bot: host `go build` (GOOS=linux) → `.tilt-build/bot/fate-bot` → `bot/Dockerfile.dev`; only when `BOT_TOKEN` is set
-  - `rustfs-data`, `loki-data`, `mimir-data`, `grafana-data` PVCs carry `tilt.dev/down-policy: keep`; Postgres' StatefulSet volume is never deleted by Tilt
-- **Monitoring** — `infra/k8s/components/observability/` (a kustomize Component included by `overlays/local`; drop it from `components:` to run without): OTel Collector DaemonSet, Loki, Mimir, Grafana, all on the `infra/monitoring/*` configs. The collector additionally gets `otel-collector-k8s.yaml` (second `--config`, merged): a `filelog` receiver tails `/var/log/pods/hand-of-fate_*` (with the docker runtime those are symlinks into `/var/lib/docker/containers`), so every pod's stdout lands in Loki with `service_name` = container name (`backend`, `nginx` for the gateway, …) and `k8s_*` labels. `start_at: beginning` + `file_storage` offsets on a hostPath: startup logs are kept, collector restarts don't duplicate. The backend's OTLP metrics go to Mimir via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`
+  - `rustfs-data`, `loki-data`, `mimir-data`, `tempo-data`, `grafana-data` PVCs carry `tilt.dev/down-policy: keep`; Postgres' StatefulSet volume is never deleted by Tilt
+- **Monitoring** — `infra/k8s/components/observability/` (a kustomize Component included by `overlays/local`; drop it from `components:` to run without): OTel Collector DaemonSet, Loki, Mimir, Tempo, Grafana (with the provisioned dashboards), all on the `infra/monitoring/*` configs. The collector additionally gets `otel-collector-k8s.yaml` (second `--config`, merged): a `filelog` receiver tails `/var/log/pods/hand-of-fate_*` (with the docker runtime those are symlinks into `/var/lib/docker/containers`), so every pod's stdout lands in Loki with `service_name` = container name (`backend`, `nginx` for the gateway, …) and `k8s_*` labels. `start_at: beginning` + `file_storage` offsets on a hostPath: startup logs are kept, collector restarts don't duplicate. The backend's OTLP metrics go to Mimir via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`
 - Host access goes through NodePorts published by `minikube start --ports` (fixed at cluster creation — `--delete` and recreate after changing them). The 30xxx ports don't clash with docker-compose, so both setups can run at once:
   - App (gateway): http://localhost:30080 · Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432` · Grafana: http://localhost:30300 (admin/admin)
   - `k8s-start.sh` warns when the node doesn't publish a port from `HOST_PORTS` (cluster created before the port was added)
@@ -339,10 +339,11 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 - For pages that use `useParams`, wrap in `<Routes><Route path="/path/:id" element={...} /></Routes>` with `initialEntries`
 
 ### Observability
-- Backend: `spring-boot-starter-opentelemetry` (Micrometer OTLP registry + OTel tracing bridge) → OTLP → OTel Collector; endpoint from `OTEL_EXPORTER_OTLP_ENDPOINT`
-- OTel Collector: metrics → Mimir, logs → Loki (OTLP exporter to Loki's native `/otlp` endpoint), traces → `debug` only (no trace backend). In minikube the collector also ships all pod logs (see Option 3)
-- Custom metrics: `vote.created{mode}`, `vote.draw.performed{mode,round}`, `vote.participants.count`
-- Grafana: pre-provisioned datasources (Mimir, Loki); add dashboard JSON files under `infra/monitoring/grafana/provisioning/dashboards/`
+- Backend: `spring-boot-starter-opentelemetry` (Micrometer OTLP registry + OTel tracing bridge) → OTLP → OTel Collector; endpoint from `OTEL_EXPORTER_OTLP_ENDPOINT`. Log lines carry `[<traceId>-<spanId>]`
+- OTel Collector (`infra/monitoring/otel-collector.yaml`): metrics → Mimir, traces → Tempo (`infra/monitoring/tempo.yaml`, single binary, local storage, 72 h retention), logs → Loki (OTLP to Loki's native `/otlp` endpoint). In minikube the collector also ships all pod logs (see Option 3)
+- Metric names in Mimir (OTLP → Prometheus naming, `job="hand-of-fate-backend"`): `http_server_requests_milliseconds_*` (uri/method/status), `vote_created_total{mode}`, `vote_draw_performed_total{mode}`, `notification_failed_total{type}` / `notification_dead_total{type}` (created on the first failure), `jvm_*`, `hikaricp_*`, `process_cpu_usage`
+- Grafana: provisioned datasources with fixed uids `mimir` / `loki` / `tempo` (Loki → Tempo via a derived field on the trace id in log lines, Tempo → Loki via `tracesToLogsV2`), and dashboards from `infra/monitoring/grafana/provisioning/dashboards/*.json` into the "Hand of Fate" folder — currently `hand-of-fate-overview.json` (HTTP, votes/draws, notifications, JVM, Hikari, backend warn/error logs). Keep panel queries on the uids above; in minikube add a new dashboard file to the `grafana-dashboards` generator in `infra/k8s/components/observability/kustomization.yaml` too
+- Tempo HTTP API: compose http://localhost:3200; `infra/k8s/check.sh` validates the Tempo config (`-config.verify=true`) and dashboard JSON
 
 ### Database Migrations
 Flyway, files in `backend/src/main/resources/db/migration/`:

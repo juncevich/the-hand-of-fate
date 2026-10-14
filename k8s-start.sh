@@ -7,10 +7,14 @@
 #   ./k8s-start.sh --skip-build          redeploy manifests only (reuse built images)
 #   ./k8s-start.sh --only backend,bot    rebuild + restart just these (backend|frontend|bot)
 #   ./k8s-start.sh --cluster-only        only create/resume the cluster (used by make k8s-dev)
+#   K8S_OVERLAY=e2e ./k8s-start.sh       deploy another overlay built on `local` (CI uses e2e)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OVERLAY="$ROOT/infra/k8s/overlays/local"
+LOCAL_OVERLAY="$ROOT/infra/k8s/overlays/local"   # owns .secrets.env for every overlay
+OVERLAY_NAME="${K8S_OVERLAY:-local}"
+OVERLAY="$ROOT/infra/k8s/overlays/$OVERLAY_NAME"
+[[ -f "$OVERLAY/kustomization.yaml" ]] || { echo "Unknown overlay: $OVERLAY_NAME" >&2; exit 2; }
 PROFILE=hand-of-fate
 NAMESPACE=hand-of-fate
 APPS=(backend frontend bot)
@@ -28,7 +32,7 @@ while [[ $# -gt 0 ]]; do
     --skip-build)   BUILD=false ;;
     --only)         ONLY="${2:?--only needs a list, e.g. backend,bot}"; shift ;;
     --cluster-only) CLUSTER_ONLY=true ;;
-    -h|--help)      sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)      sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)            echo "Unknown argument: $1" >&2; exit 2 ;;
   esac
   shift
@@ -49,8 +53,12 @@ done
 docker info &>/dev/null || { echo "ERROR: Docker is not running" >&2; exit 1; }
 
 # ── Secrets from .env ───────────────────────────────────────────────────────
-"$OVERLAY/write-secrets.sh"
-BOT_TOKEN="$(sed -n 's/^BOT_TOKEN=//p' "$OVERLAY/.secrets.env")"
+"$LOCAL_OVERLAY/write-secrets.sh"
+BOT_TOKEN="$(sed -n 's/^BOT_TOKEN=//p' "$LOCAL_OVERLAY/.secrets.env")"
+# Without a token the bot is scaled to 0 below, so don't spend a build on it (unless asked).
+if [[ -z "$BOT_TOKEN" && -z "$ONLY" ]]; then
+  APPS=(backend frontend)
+fi
 
 # ── Cluster ─────────────────────────────────────────────────────────────────
 host_state="$(minikube status -p "$PROFILE" --format '{{.Host}}' 2>/dev/null || true)"
@@ -107,7 +115,7 @@ fi
 # Deployments that already run old images; freshly created ones start on the new build anyway.
 existing=" $(kc get deployments -o name 2>/dev/null | tr '\n' ' ') "
 
-echo "==> Applying infra/k8s/overlays/local..."
+echo "==> Applying infra/k8s/overlays/$OVERLAY_NAME..."
 kubectl kustomize --load-restrictor LoadRestrictionsNone "$OVERLAY" \
   | kubectl --context "$PROFILE" apply -f -
 
@@ -133,7 +141,7 @@ done
 # Monitoring (components/observability) — skipped when the component is switched off.
 if kc get daemonset/otel-collector &>/dev/null; then
   kc rollout status daemonset/otel-collector --timeout=180s
-  for d in loki mimir grafana; do kc rollout status "deployment/$d" --timeout=300s; done
+  for d in loki mimir tempo grafana; do kc rollout status "deployment/$d" --timeout=300s; done
 fi
 # After a resume the rollout status above is stale (pods are still restarting), so also
 # wait until a request makes it through the gateway to the backend (401 = no token).
@@ -150,7 +158,7 @@ cat <<EOF
   Mailpit   → http://localhost:30025
   RustFS    → http://localhost:30901/rustfs/console/  (rustfsadmin / rustfsadmin)
   Postgres  → localhost:30432             (fate / fate, db fate)
-  Grafana   → http://localhost:30300      (admin / admin; Mimir metrics, Loki pod logs)
+  Grafana   → http://localhost:30300      (admin / admin; Mimir metrics, Loki pod logs, Tempo traces)
 
   Swagger:  kubectl --context $PROFILE -n $NAMESPACE port-forward svc/backend 18080:8080
             → http://localhost:18080/swagger-ui.html
