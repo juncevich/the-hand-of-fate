@@ -4,7 +4,6 @@ import com.juncevich.fate.auth.internal.domain.RefreshToken
 import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.auth.internal.service.AuthService
-import com.juncevich.fate.auth.internal.service.RegisterRequest
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
 import com.juncevich.fate.shared.ConflictException
@@ -47,20 +46,20 @@ class AuthServiceTest {
 
     @Test
     fun `register - creates user and returns tokens`() {
-        val request = RegisterRequest(email = "new@test.com", password = "password123", displayName = "New User")
-        val user = makeUser(request.email)
+        val user = makeUser("new@test.com")
 
-        every { userRepositoryPort.existsByEmail(request.email) } returns false
-        every { passwordEncoder.encode(request.password) } returns "hashedPassword"
+        every { userRepositoryPort.existsByEmail("new@test.com") } returns false
+        every { passwordEncoder.encode("password123") } returns "hashedPassword"
         every { userRepositoryPort.save(any()) } returns user
         every { jwtTokenProvider.createAccessToken(any(), any()) } returns "access-token"
         every { refreshTokenRepositoryPort.save(any()) } answers { firstArg() }
 
-        val result = authService.register(request)
+        val result = authService.register("new@test.com", "password123", "New User")
 
-        assertEquals("access-token", result.response.accessToken)
+        assertEquals("access-token", result.accessToken)
         assertNotNull(result.refreshToken)
-        assertEquals(request.email, result.response.email)
+        assertEquals("new@test.com", result.email)
+        assertEquals(user.id, result.userId)
         verify { userRepositoryPort.save(any()) }
         verify { refreshTokenRepositoryPort.save(any()) }
     }
@@ -70,7 +69,7 @@ class AuthServiceTest {
         every { userRepositoryPort.existsByEmail("taken@test.com") } returns true
 
         assertThrows<ConflictException> {
-            authService.register(RegisterRequest("taken@test.com", "pass12345", "Name"))
+            authService.register("taken@test.com", "pass12345", "Name")
         }
 
         verify(exactly = 0) { userRepositoryPort.save(any()) }
@@ -78,7 +77,6 @@ class AuthServiceTest {
 
     @Test
     fun `register - normalizes email to lowercase`() {
-        val request = RegisterRequest(email = "UPPER@TEST.COM", password = "password123", displayName = "User")
         val user = makeUser("upper@test.com")
 
         every { userRepositoryPort.existsByEmail("upper@test.com") } returns false
@@ -87,7 +85,7 @@ class AuthServiceTest {
         every { jwtTokenProvider.createAccessToken(any(), any()) } returns "token"
         every { refreshTokenRepositoryPort.save(any()) } answers { firstArg() }
 
-        authService.register(request)
+        authService.register("UPPER@TEST.COM", "password123", "User")
 
         verify { userRepositoryPort.save(match { it.email == "upper@test.com" }) }
     }
@@ -102,9 +100,9 @@ class AuthServiceTest {
 
         val result = authService.login("user@test.com", "correctPass")
 
-        assertEquals("access-token", result.response.accessToken)
+        assertEquals("access-token", result.accessToken)
         assertNotNull(result.refreshToken)
-        assertEquals("user@test.com", result.response.email)
+        assertEquals("user@test.com", result.email)
     }
 
     @Test
@@ -117,11 +115,11 @@ class AuthServiceTest {
 
         assertEquals(
             "/api/v1/users/${withAvatar.id}/avatar?v=1234",
-            authService.login("user@test.com", "pass").response.avatarUrl
+            authService.login("user@test.com", "pass").avatarUrl
         )
 
         every { userRepositoryPort.findByEmail("user@test.com") } returns makeUser()
-        assertNull(authService.login("user@test.com", "pass").response.avatarUrl)
+        assertNull(authService.login("user@test.com", "pass").avatarUrl)
     }
 
     @Test
@@ -187,7 +185,7 @@ class AuthServiceTest {
 
         val result = authService.refresh("raw-token")
 
-        assertEquals("new-access-token", result.response.accessToken)
+        assertEquals("new-access-token", result.accessToken)
         verify { refreshTokenRepositoryPort.delete(storedToken) }
     }
 

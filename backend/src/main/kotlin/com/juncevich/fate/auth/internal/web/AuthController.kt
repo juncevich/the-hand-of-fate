@@ -1,11 +1,7 @@
 package com.juncevich.fate.auth.internal.web
 
 import com.juncevich.fate.auth.AuthenticatedUser
-import com.juncevich.fate.auth.internal.service.AuthResponse
 import com.juncevich.fate.auth.internal.service.AuthService
-import com.juncevich.fate.auth.internal.service.LoginRequest
-import com.juncevich.fate.auth.internal.service.RefreshRequest
-import com.juncevich.fate.auth.internal.service.RegisterRequest
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.OpenApiDocs
@@ -58,11 +54,11 @@ class AuthController(
     fun register(
         @Valid @RequestBody request: RegisterRequest,
     ): ResponseEntity<AuthResponse> {
-        val tokens = authService.register(request)
+        val tokens = authService.register(request.email, request.password, request.displayName)
         return ResponseEntity
             .status(201)
             .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken).toString())
-            .body(tokens.response)
+            .body(tokens.toResponse())
     }
 
     @PostMapping("/login")
@@ -82,7 +78,7 @@ class AuthController(
         return ResponseEntity
             .ok()
             .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken).toString())
-            .body(tokens.response)
+            .body(tokens.toResponse())
     }
 
     @PostMapping("/refresh")
@@ -110,7 +106,7 @@ class AuthController(
         return ResponseEntity
             .ok()
             .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken).toString())
-            .body(tokens.response)
+            .body(tokens.toResponse())
     }
 
     @PostMapping("/logout")

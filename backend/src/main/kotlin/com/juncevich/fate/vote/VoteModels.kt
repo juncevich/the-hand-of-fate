@@ -1,6 +1,5 @@
 package com.juncevich.fate.vote
 
-import com.fasterxml.jackson.annotation.JsonProperty
 import com.juncevich.fate.vote.internal.domain.DrawHistory
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
@@ -24,28 +23,31 @@ data class CreateVoteCommand(
     val options: List<String>? = null,
 )
 
-data class VoteSummaryDto(
+// Read models of the module API. Adapters map them to their own wire format (REST DTOs in
+// `internal/web`, protobuf in `grpc`), so they carry no serialization annotations.
+
+data class VoteSummaryView(
     val id: UUID,
     val title: String,
     val mode: VoteMode,
     val status: VoteStatus,
     val currentRound: Int,
     val participantCount: Long,
-    @get:JsonProperty("isCreator") val isCreator: Boolean,
+    val isCreator: Boolean,
     val createdAt: Instant,
 )
 
-data class VoteOptionDto(
+data class VoteOptionView(
     val id: UUID,
     val title: String,
 )
 
-data class ParticipantDto(
+data class ParticipantView(
     val email: String,
     val displayName: String?,
 )
 
-data class DrawHistoryDto(
+data class DrawHistoryView(
     val id: UUID,
     val winnerEmail: String?,
     val winnerDisplayName: String?,
@@ -54,26 +56,26 @@ data class DrawHistoryDto(
     val drawnAt: Instant,
 )
 
-data class VoteDetailDto(
+data class VoteDetailView(
     val id: UUID,
     val title: String,
     val description: String?,
     val mode: VoteMode,
     val status: VoteStatus,
     val currentRound: Int,
-    val participants: List<ParticipantDto>,
-    val options: List<VoteOptionDto>,
-    val lastResult: DrawHistoryDto?,
-    @get:JsonProperty("isCreator") val isCreator: Boolean,
+    val participants: List<ParticipantView>,
+    val options: List<VoteOptionView>,
+    val lastResult: DrawHistoryView?,
+    val isCreator: Boolean,
     val createdAt: Instant,
 )
 
-// ── Domain → DTO mappings ──────────────────────────────────────────────────────
+// ── Domain → view mappings ──────────────────────────────────────────────────────
 
-fun Vote.toSummaryDto(
+fun Vote.toSummaryView(
     participantCount: Long,
     isCreator: Boolean,
-) = VoteSummaryDto(
+) = VoteSummaryView(
     id = id,
     title = title,
     mode = mode,
@@ -84,29 +86,29 @@ fun Vote.toSummaryDto(
     createdAt = createdAt
 )
 
-fun Vote.toDetailDto(
+fun Vote.toDetailView(
     participants: List<VoteParticipant>,
     options: List<VoteOption>,
     lastResult: DrawHistory?,
     requesterId: UUID? = null,
-) = VoteDetailDto(
+) = VoteDetailView(
     id = id,
     title = title,
     description = description,
     mode = mode,
     status = status,
     currentRound = currentRound,
-    participants = participants.map { ParticipantDto(it.email, it.displayName) },
-    options = options.map { VoteOptionDto(it.id, it.title) },
-    lastResult = lastResult?.toDto(),
+    participants = participants.map { ParticipantView(it.email, it.displayName) },
+    options = options.map { VoteOptionView(it.id, it.title) },
+    lastResult = lastResult?.toView(),
     isCreator = requesterId != null && creator.id == requesterId,
     createdAt = createdAt
 )
 
-fun DrawHistory.toDto() =
+fun DrawHistory.toView() =
     when (this) {
         is DrawHistory.ParticipantWinner -> {
-            DrawHistoryDto(
+            DrawHistoryView(
                 id = id,
                 winnerEmail = email,
                 winnerDisplayName = displayName,
@@ -117,7 +119,7 @@ fun DrawHistory.toDto() =
         }
 
         is DrawHistory.OptionWinner -> {
-            DrawHistoryDto(
+            DrawHistoryView(
                 id = id,
                 winnerEmail = null,
                 winnerDisplayName = null,

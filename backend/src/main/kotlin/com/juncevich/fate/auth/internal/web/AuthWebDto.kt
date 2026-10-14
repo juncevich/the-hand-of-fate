@@ -1,5 +1,6 @@
-package com.juncevich.fate.auth.internal.service
+package com.juncevich.fate.auth.internal.web
 
+import com.juncevich.fate.auth.internal.service.AuthTokens
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
@@ -27,7 +28,12 @@ data class AuthResponse(
     val avatarUrl: String?,
 )
 
-data class AuthTokens(
-    val response: AuthResponse,
-    val refreshToken: String,
-)
+// The refresh token is deliberately left out: it only travels in the httpOnly cookie.
+fun AuthTokens.toResponse() =
+    AuthResponse(
+        accessToken = accessToken,
+        userId = userId.toString(),
+        email = email,
+        displayName = displayName,
+        avatarUrl = avatarUrl
+    )

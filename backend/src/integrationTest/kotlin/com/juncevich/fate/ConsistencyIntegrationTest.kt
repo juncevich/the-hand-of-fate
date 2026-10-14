@@ -3,7 +3,6 @@ package com.juncevich.fate
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.auth.internal.service.AuthService
-import com.juncevich.fate.auth.internal.service.RegisterRequest
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.NotFoundException
@@ -39,13 +38,13 @@ class ConsistencyIntegrationTest
         private val jdbc: JdbcTemplate,
         private val transactions: PlatformTransactionManager,
     ) : AbstractApiIntegrationTest() {
-        private fun newUser() = auth.register(RegisterRequest("${UUID.randomUUID()}@test.com", "password123", "Test"))
+        private fun newUser() = auth.register("${UUID.randomUUID()}@test.com", "password123", "Test")
 
         private fun newVote(userId: UUID) = votes.createVote(userId, CreateVoteCommand("Vote", null, VoteMode.FAIR_ROTATION, emptyList(), listOf("Winner")))
 
         @Test
         fun `deleted winning option remains readable in details and history`() {
-            val userId = UUID.fromString(newUser().response.userId)
+            val userId = newUser().userId
             val vote = newVote(userId)
             votes.draw(vote.id, userId)
             votes.reopen(vote.id, userId)
@@ -60,7 +59,7 @@ class ConsistencyIntegrationTest
         @ParameterizedTest
         @ValueSource(strings = ["addParticipant", "removeParticipant", "addOption", "removeOption"])
         fun `composition changes wait for draw and reject the committed DRAWN status`(operation: String) {
-            val userId = UUID.fromString(newUser().response.userId)
+            val userId = newUser().userId
             val vote = newVote(userId)
             val email = checkNotNull(users.findById(userId)).email
             val (draw, change) =
@@ -92,7 +91,7 @@ class ConsistencyIntegrationTest
 
         @Test
         fun `parallel telegram linking consumes token once`() {
-            val userId = UUID.fromString(newUser().response.userId)
+            val userId = newUser().userId
             val token = telegram.generateLinkToken(userId).token
             val firstId = UUID.randomUUID().mostSignificantBits
             val secondId = UUID.randomUUID().mostSignificantBits
@@ -109,7 +108,7 @@ class ConsistencyIntegrationTest
         @Test
         fun `expired refresh and link tokens are deleted despite rejecting the request`() {
             val tokens = newUser()
-            val userId = UUID.fromString(tokens.response.userId)
+            val userId = tokens.userId
             jdbc.update("UPDATE refresh_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = ?", userId)
             assertThrows<BadCredentialsException> { auth.refresh(tokens.refreshToken) }
             assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM refresh_tokens WHERE user_id = ?", Int::class.java, userId))
@@ -123,29 +122,29 @@ class ConsistencyIntegrationTest
         @Test
         fun `normalized duplicate registration returns conflict`() {
             val email = "${UUID.randomUUID()}@test.com"
-            auth.register(RegisterRequest(email, "password123", "Test"))
-            assertThrows<ConflictException> { auth.register(RegisterRequest(" ${email.uppercase()} ", "password123", "Test")) }
+            auth.register(email, "password123", "Test")
+            assertThrows<ConflictException> { auth.register(" ${email.uppercase()} ", "password123", "Test") }
         }
 
         @Test
         fun `participants are normalized deduplicated and can access the vote`() {
             val creator = newUser()
             val participant = newUser()
-            val creatorId = UUID.fromString(creator.response.userId)
-            val email = participant.response.email
+            val creatorId = creator.userId
+            val email = participant.email
             val vote =
                 votes.createVote(
                     creatorId,
-                    CreateVoteCommand(" Vote ", null, VoteMode.SIMPLE, listOf(" ${email.uppercase()} ", email, creator.response.email), null)
+                    CreateVoteCommand(" Vote ", null, VoteMode.SIMPLE, listOf(" ${email.uppercase()} ", email, creator.email), null)
                 )
             assertEquals("Vote", vote.title)
-            assertEquals(setOf(creator.response.email, email), vote.participants.map { it.email }.toSet())
-            assertEquals(vote.id, votes.getVote(vote.id, UUID.fromString(participant.response.userId), email).id)
+            assertEquals(setOf(creator.email, email), vote.participants.map { it.email }.toSet())
+            assertEquals(vote.id, votes.getVote(vote.id, participant.userId, email).id)
         }
 
         @Test
         fun `history pages retain totals and have stable order for equal timestamps`() {
-            val userId = UUID.fromString(newUser().response.userId)
+            val userId = newUser().userId
             val vote = newVote(userId)
             repeat(3) { index ->
                 votes.draw(vote.id, userId)
@@ -163,7 +162,7 @@ class ConsistencyIntegrationTest
             assertEquals(first.content.map { it.id }, votes.getHistory(vote.id, userId, email, PageRequest.of(0, 2)).content.map { it.id })
             assertThrows<BadRequestException> { votes.getHistory(vote.id, userId, email, PageRequest.of(0, 101)) }
 
-            val token = auth.login(email, "password123").response.accessToken
+            val token = auth.login(email, "password123").accessToken
             mockMvc
                 .get("/api/v1/votes/${vote.id}/history/page?page=1&size=2") {
                     header("Authorization", "Bearer $token")
@@ -179,7 +178,7 @@ class ConsistencyIntegrationTest
         @ValueSource(strings = ["", " ", "long"])
         fun `service rejects invalid option titles both on creation and addition`(input: String) {
             val title = if (input == "long") "x".repeat(256) else input
-            val userId = UUID.fromString(newUser().response.userId)
+            val userId = newUser().userId
             assertThrows<BadRequestException> {
                 votes.createVote(userId, CreateVoteCommand("Vote", null, VoteMode.SIMPLE, emptyList(), listOf(title)))
             }
@@ -190,24 +189,24 @@ class ConsistencyIntegrationTest
         @Test
         fun `duplicate option returns conflict and leaves vote intact`() {
             val tokens = newUser()
-            val userId = UUID.fromString(tokens.response.userId)
+            val userId = tokens.userId
             val vote = newVote(userId)
             mockMvc
                 .post("/api/v1/votes/${vote.id}/options") {
-                    header("Authorization", "Bearer ${tokens.response.accessToken}")
+                    header("Authorization", "Bearer ${tokens.accessToken}")
                     contentType = MediaType.APPLICATION_JSON
                     content = """{"title":" Winner "}"""
                 }.andExpect { status { isConflict() } }
-            assertEquals(listOf("Winner"), votes.getVote(vote.id, userId, tokens.response.email).options.map { it.title })
+            assertEquals(listOf("Winner"), votes.getVote(vote.id, userId, tokens.email).options.map { it.title })
         }
 
         @Test
         fun `email migration merges legacy aliases and preserves historical wins`() {
             val creator = newUser()
             val participant = newUser()
-            val userId = UUID.fromString(creator.response.userId)
+            val userId = creator.userId
             val vote = newVote(userId)
-            val email = participant.response.email
+            val email = participant.email
             val insert = "INSERT INTO vote_participants (vote_id, email) VALUES (?, ?)"
             jdbc.update(insert, vote.id, " ${email.uppercase()} ")
             jdbc.update(insert, vote.id, email)
@@ -217,7 +216,7 @@ class ConsistencyIntegrationTest
                     .ClassPathResource("db/migration/V13__normalize_participant_emails.sql")
             val migration = resource.inputStream.bufferedReader().use { it.readText() }
             jdbc.execute(migration)
-            val detail = votes.getVote(vote.id, UUID.fromString(participant.response.userId), email)
+            val detail = votes.getVote(vote.id, participant.userId, email)
             assertEquals(1, detail.participants.count { it.email == email })
             assertEquals(email, detail.lastResult?.winnerEmail)
         }

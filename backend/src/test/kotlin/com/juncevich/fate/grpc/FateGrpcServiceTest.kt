@@ -51,7 +51,7 @@ class FateGrpcServiceTest {
             val user = user(telegramId = 42)
             val voteId = UUID.randomUUID()
             val createdVote =
-                VoteDetailDto(
+                VoteDetailView(
                     id = voteId,
                     title = "Lunch",
                     description = null,
@@ -60,8 +60,8 @@ class FateGrpcServiceTest {
                     currentRound = 1,
                     participants =
                         listOf(
-                            ParticipantDto(user.email, user.displayName),
-                            ParticipantDto("friend@example.com", null)
+                            ParticipantView(user.email, user.displayName),
+                            ParticipantView("friend@example.com", null)
                         ),
                     options = emptyList(),
                     lastResult = null,
@@ -106,7 +106,7 @@ class FateGrpcServiceTest {
             val vote = vote(creator = user)
             val history =
                 listOf(
-                    DrawHistoryDto(
+                    DrawHistoryView(
                         id = UUID.randomUUID(),
                         winnerEmail = "friend@example.com",
                         winnerDisplayName = "Friend",
@@ -308,7 +308,7 @@ class FateGrpcServiceTest {
                                 it.participantEmails == listOf(" ", "")
                         }
                 )
-            } returns detail(options = listOf(VoteOptionDto(UUID.randomUUID(), "Pizza")))
+            } returns detail(options = listOf(VoteOptionView(UUID.randomUUID(), "Pizza")))
 
             val response =
                 service.createVote(
@@ -592,7 +592,7 @@ class FateGrpcServiceTest {
     private fun summary(
         title: String,
         status: DomainVoteStatus = DomainVoteStatus.PENDING,
-    ) = VoteSummaryDto(
+    ) = VoteSummaryView(
         id = UUID.randomUUID(),
         title = title,
         mode = DomainVoteMode.SIMPLE,
@@ -605,16 +605,16 @@ class FateGrpcServiceTest {
 
     private fun detail(
         description: String? = null,
-        options: List<VoteOptionDto> = emptyList(),
-        lastResult: DrawHistoryDto? = null,
-    ) = VoteDetailDto(
+        options: List<VoteOptionView> = emptyList(),
+        lastResult: DrawHistoryView? = null,
+    ) = VoteDetailView(
         id = UUID.randomUUID(),
         title = "Lunch",
         description = description,
         mode = DomainVoteMode.SIMPLE,
         status = DomainVoteStatus.DRAWN,
         currentRound = 1,
-        participants = listOf(ParticipantDto("friend@example.com", null)),
+        participants = listOf(ParticipantView("friend@example.com", null)),
         options = options,
         lastResult = lastResult,
         isCreator = true,
@@ -691,7 +691,7 @@ class FateGrpcServiceTest {
         email: String? = null,
         displayName: String? = null,
         optionTitle: String? = null,
-    ) = DrawHistoryDto(
+    ) = DrawHistoryView(
         id = UUID.randomUUID(),
         winnerEmail = email,
         winnerDisplayName = displayName,

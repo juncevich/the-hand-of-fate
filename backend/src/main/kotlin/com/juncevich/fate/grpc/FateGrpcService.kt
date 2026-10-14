@@ -230,7 +230,7 @@ class FateGrpcService(
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private fun buildVoteDetailsResponse(vote: VoteDetailDto): GetVoteDetailsResponse {
+    private fun buildVoteDetailsResponse(vote: VoteDetailView): GetVoteDetailsResponse {
         val builder =
             GetVoteDetailsResponse
                 .newBuilder()
@@ -263,7 +263,7 @@ class FateGrpcService(
         return builder.build()
     }
 
-    private fun DrawHistoryDto.toDrawResultInfo(): DrawResultInfo =
+    private fun DrawHistoryView.toDrawResultInfo(): DrawResultInfo =
         DrawResultInfo
             .newBuilder()
             .setWinnerEmail(winnerEmail.orEmpty())

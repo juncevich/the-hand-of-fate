@@ -34,18 +34,22 @@ class AuthService(
         checkNotNull(passwordEncoder.encode(UUID.randomUUID().toString())) { "Password encoding failed" }
     }
 
-    fun register(request: RegisterRequest): AuthTokens {
-        val email = normalizeEmail(request.email)
-        ensureState(!userRepositoryPort.existsByEmail(email)) { "Email already registered" }
+    fun register(
+        email: String,
+        password: String,
+        displayName: String,
+    ): AuthTokens {
+        val normalizedEmail = normalizeEmail(email)
+        ensureState(!userRepositoryPort.existsByEmail(normalizedEmail)) { "Email already registered" }
         val user =
             userRepositoryPort.save(
                 User(
-                    email = email,
+                    email = normalizedEmail,
                     passwordHash =
-                        checkNotNull(passwordEncoder.encode(request.password)) {
+                        checkNotNull(passwordEncoder.encode(password)) {
                             "Password encoding failed"
                         },
-                    displayName = request.displayName
+                    displayName = displayName
                 )
             )
         return issueTokens(user)
@@ -103,15 +107,12 @@ class AuthService(
             )
         )
         return AuthTokens(
-            response =
-                AuthResponse(
-                    accessToken = accessToken,
-                    userId = user.id.toString(),
-                    email = user.email,
-                    displayName = user.displayName,
-                    avatarUrl = user.avatarUrl()
-                ),
-            refreshToken = rawRefresh
+            accessToken = accessToken,
+            refreshToken = rawRefresh,
+            userId = user.id,
+            email = user.email,
+            displayName = user.displayName,
+            avatarUrl = user.avatarUrl()
         )
     }
 

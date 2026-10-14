@@ -42,7 +42,7 @@ class VoteService(
     fun createVote(
         creatorId: UUID,
         request: CreateVoteCommand,
-    ): VoteDetailDto {
+    ): VoteDetailView {
         val creator = userQueryService.findProfileById(creatorId) ?: throw NotFoundException("User not found")
 
         val title = requireValidTitle(request.title)
@@ -88,7 +88,7 @@ class VoteService(
 
         invitedEmails.forEach { email -> events.publishEvent(vote.invitationFor(email)) }
 
-        return vote.toDetailDto(participants, options, null, creator.id)
+        return vote.toDetailView(participants, options, null, creator.id)
     }
 
     @Transactional(readOnly = true)
@@ -96,7 +96,7 @@ class VoteService(
         userId: UUID,
         email: String,
         pageable: Pageable,
-    ): Page<VoteSummaryDto> {
+    ): Page<VoteSummaryView> {
         val votes = voteRepositoryPort.findAllByUserIdOrParticipantEmail(userId, email, pageable)
         val voteIds = votes.content.map { it.id }
         val participantCounts =
@@ -106,7 +106,7 @@ class VoteService(
                 participantRepositoryPort.countByVoteIds(voteIds).associate { it.voteId to it.participantCount }
             }
         return votes.map { vote ->
-            vote.toSummaryDto(participantCounts[vote.id] ?: 0, vote.creator.id == userId)
+            vote.toSummaryView(participantCounts[vote.id] ?: 0, vote.creator.id == userId)
         }
     }
 
@@ -115,13 +115,13 @@ class VoteService(
         voteId: UUID,
         requesterId: UUID,
         requesterEmail: String,
-    ): VoteDetailDto {
+    ): VoteDetailView {
         val vote = getVoteOrThrow(voteId)
         checkCanView(vote, requesterId, requesterEmail)
         val participants = participantRepositoryPort.findAllByVoteId(voteId)
         val options = voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(voteId)
         val lastResult = drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDescIdDesc(voteId)
-        return vote.toDetailDto(participants, options, lastResult, requesterId)
+        return vote.toDetailView(participants, options, lastResult, requesterId)
     }
 
     fun addParticipant(
@@ -234,7 +234,7 @@ class VoteService(
         voteId: UUID,
         requesterId: UUID,
         requesterEmail: String,
-    ): List<DrawHistoryDto> = getHistory(voteId, requesterId, requesterEmail, PageRequest.of(0, 100)).content
+    ): List<DrawHistoryView> = getHistory(voteId, requesterId, requesterEmail, PageRequest.of(0, 100)).content
 
     @Transactional(readOnly = true)
     fun getHistory(
@@ -242,12 +242,16 @@ class VoteService(
         requesterId: UUID,
         requesterEmail: String,
         pageable: Pageable,
-    ): Page<DrawHistoryDto> {
+    ): Page<DrawHistoryView> {
         val vote = getVoteOrThrow(voteId)
         checkCanView(vote, requesterId, requesterEmail)
         ensureValid(pageable.isPaged && pageable.pageSize <= 100) { "History page size must be between 1 and 100" }
         val boundedPage = PageRequest.of(pageable.pageNumber, pageable.pageSize)
-        return drawHistoryRepositoryPort.findAllByVoteIdOrderByDrawnAtDescIdDesc(voteId, boundedPage).map { it.toDto() }
+        return drawHistoryRepositoryPort
+            .findAllByVoteIdOrderByDrawnAtDescIdDesc(
+                voteId,
+                boundedPage
+            ).map { it.toView() }
     }
 
     @Transactional(readOnly = true)
@@ -255,10 +259,10 @@ class VoteService(
         voteId: UUID,
         requesterId: UUID,
         requesterEmail: String,
-    ): DrawHistoryDto? {
+    ): DrawHistoryView? {
         val vote = getVoteOrThrow(voteId)
         checkCanView(vote, requesterId, requesterEmail)
-        return drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDescIdDesc(voteId)?.toDto()
+        return drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDescIdDesc(voteId)?.toView()
     }
 
     private fun getVoteForUpdateOrThrow(voteId: UUID): Vote =

@@ -56,7 +56,7 @@ class VoteControllerTest {
     }
 
     private fun summaryDto(id: UUID = voteId) =
-        VoteSummaryDto(
+        VoteSummaryView(
             id = id,
             title = "Test Vote",
             mode = VoteMode.SIMPLE,
@@ -68,14 +68,14 @@ class VoteControllerTest {
         )
 
     private fun detailDto(id: UUID = voteId) =
-        VoteDetailDto(
+        VoteDetailView(
             id = id,
             title = "Test Vote",
             description = null,
             mode = VoteMode.SIMPLE,
             status = VoteStatus.PENDING,
             currentRound = 1,
-            participants = listOf(ParticipantDto("user@test.com", "User")),
+            participants = listOf(ParticipantView("user@test.com", "User")),
             options = emptyList(),
             lastResult = null,
             isCreator = true,
@@ -91,6 +91,7 @@ class VoteControllerTest {
             status { isOk() }
             jsonPath("$.content[0].id") { value(voteId.toString()) }
             jsonPath("$.content[0].title") { value("Test Vote") }
+            jsonPath("$.content[0].isCreator") { value(true) }
         }
     }
 
@@ -129,6 +130,8 @@ class VoteControllerTest {
             status { isOk() }
             jsonPath("$.id") { value(voteId.toString()) }
             jsonPath("$.status") { value("PENDING") }
+            jsonPath("$.isCreator") { value(true) }
+            jsonPath("$.participants[0].email") { value("user@test.com") }
         }
     }
 

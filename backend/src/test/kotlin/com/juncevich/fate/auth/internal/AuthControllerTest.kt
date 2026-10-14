@@ -1,7 +1,6 @@
 package com.juncevich.fate.auth.internal
 
 import com.juncevich.fate.auth.AuthenticatedUser
-import com.juncevich.fate.auth.internal.service.AuthResponse
 import com.juncevich.fate.auth.internal.service.AuthService
 import com.juncevich.fate.auth.internal.service.AuthTokens
 import com.juncevich.fate.auth.internal.token.JwtProperties
@@ -48,15 +47,12 @@ class AuthControllerTest {
 
     private fun authTokens() =
         AuthTokens(
-            response =
-                AuthResponse(
-                    accessToken = "access-token",
-                    userId = UUID.randomUUID().toString(),
-                    email = "user@test.com",
-                    displayName = "User",
-                    avatarUrl = null
-                ),
-            refreshToken = "refresh-token"
+            accessToken = "access-token",
+            refreshToken = "refresh-token",
+            userId = UUID.randomUUID(),
+            email = "user@test.com",
+            displayName = "User",
+            avatarUrl = null
         )
 
     private fun setAuth(id: UUID = UUID.randomUUID()) {
@@ -67,7 +63,7 @@ class AuthControllerTest {
 
     @Test
     fun `POST register - valid body - returns 201`() {
-        every { authService.register(any()) } returns authTokens()
+        every { authService.register("user@test.com", "password123", "User") } returns authTokens()
 
         mockMvc
             .post("/api/v1/auth/register") {
@@ -76,6 +72,8 @@ class AuthControllerTest {
             }.andExpect {
                 status { isCreated() }
                 jsonPath("$.accessToken") { value("access-token") }
+                jsonPath("$.email") { value("user@test.com") }
+                jsonPath("$.refreshToken") { doesNotExist() }
                 header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
             }
     }

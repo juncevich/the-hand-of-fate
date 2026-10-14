@@ -1,7 +1,7 @@
 package com.juncevich.fate.vote.internal.web
 
 import com.juncevich.fate.auth.AuthenticatedUser
-import com.juncevich.fate.vote.*
+import com.juncevich.fate.vote.VoteService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -25,21 +25,22 @@ class VoteController(
     fun createVote(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @Valid @RequestBody request: CreateVoteWebRequest,
-    ): VoteDetailDto = voteService.createVote(user.id, request.toCommand())
+    ): VoteDetailDto = voteService.createVote(user.id, request.toCommand()).toDto()
 
     @GetMapping
     @Operation(operationId = "listVotes", summary = "List votes the user created or participates in")
     fun listVotes(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @ParameterObject @PageableDefault(size = 20) pageable: Pageable,
-    ): PageResponse<VoteSummaryDto> = voteService.listVotes(user.id, user.email, pageable).toResponse()
+    ): PageResponse<VoteSummaryDto> =
+        voteService.listVotes(user.id, user.email, pageable).map { it.toDto() }.toResponse()
 
     @GetMapping("/{id}")
     @Operation(operationId = "getVote", summary = "Get vote details")
     fun getVote(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
-    ): VoteDetailDto = voteService.getVote(id, user.id, user.email)
+    ): VoteDetailDto = voteService.getVote(id, user.id, user.email).toDto()
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -104,16 +105,7 @@ class VoteController(
     fun draw(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
-    ): DrawResultResponse {
-        val result: DrawResult = voteService.draw(id, user.id)
-        return DrawResultResponse(
-            winnerEmail = result.winnerEmail,
-            winnerDisplayName = result.winnerDisplayName,
-            winnerOptionTitle = result.winnerOptionTitle,
-            round = result.round,
-            newRoundStarted = result.newRoundStarted
-        )
-    }
+    ): DrawResultResponse = voteService.draw(id, user.id).toResponse()
 
     @PostMapping("/{id}/reopen")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -145,7 +137,7 @@ class VoteController(
     fun getHistory(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
-    ): List<DrawHistoryDto> = voteService.getHistory(id, user.id, user.email)
+    ): List<DrawHistoryDto> = voteService.getHistory(id, user.id, user.email).map { it.toDto() }
 
     @GetMapping("/{id}/history/page")
     @Operation(operationId = "getHistoryPage", summary = "Paginated draw history, newest first")
@@ -153,5 +145,10 @@ class VoteController(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,
         @ParameterObject pageable: Pageable,
-    ): PageResponse<DrawHistoryDto> = voteService.getHistory(id, user.id, user.email, pageable).toResponse()
+    ): PageResponse<DrawHistoryDto> =
+        voteService
+            .getHistory(id, user.id, user.email, pageable)
+            .map {
+                it.toDto()
+            }.toResponse()
 }
