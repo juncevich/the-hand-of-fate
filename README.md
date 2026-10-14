@@ -96,6 +96,7 @@ Option 3 — full stack in local Kubernetes (minikube, `brew install minikube`):
 ```bash
 ./k8s-start.sh            # create/resume cluster, build images, deploy → http://localhost:30080
 ./k8s-stop.sh             # stop (data kept); --delete removes the cluster
+make k8s-dev              # hot reload in the cluster via Tilt (`brew install tilt`), UI → http://localhost:10350
 ```
 
 Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432`.

@@ -1,5 +1,5 @@
 .PHONY: proto proto-bot proto-backend install-proto-tools openapi openapi-spec openapi-clients dev dev-local infra infra-down \
-        k8s-up k8s-down k8s-delete k8s-status
+        k8s-up k8s-down k8s-delete k8s-status k8s-dev k8s-dev-down
 
 proto: proto-bot proto-backend
 
@@ -49,3 +49,12 @@ k8s-delete:
 
 k8s-status:
 	kubectl --context hand-of-fate -n hand-of-fate get pods,svc,pvc
+
+# Hot-reload loop in the same cluster (Tiltfile); Ctrl+C leaves the workloads running
+k8s-dev:
+	./k8s-start.sh --cluster-only
+	tilt up --context hand-of-fate
+
+# Remove what Tilt deployed (the rustfs PVC is kept, Postgres' StatefulSet volume too)
+k8s-dev-down:
+	tilt down --context hand-of-fate

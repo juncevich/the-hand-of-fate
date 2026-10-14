@@ -1,0 +1,17 @@
+# Thin image for the Tilt loop (make k8s-dev): the boot jar is built on the host by Gradle
+# (incremental, warm daemon) and copied in, so a change costs a compile + a JVM restart
+# instead of the full multi-stage build. The build context is .tilt-build/backend.
+# Production image: Dockerfile.
+FROM eclipse-temurin:26-jre-alpine
+
+RUN addgroup -S fate && adduser -S fate -G fate
+USER fate
+
+WORKDIR /app
+
+COPY app.jar app.jar
+
+EXPOSE 8080 9090
+
+# C1 only: faster startup matters more than peak throughput in the dev loop.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-XX:TieredStopAtLevel=1", "-jar", "app.jar"]

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Full stack in a local minikube cluster (profile `hand-of-fate`). Idempotent: creates or
-# resumes the cluster, builds the images into minikube's Docker daemon, applies
-# infra/k8s/overlays/local and waits for the rollout.
+# resumes the cluster, builds the images, applies infra/k8s/overlays/local and waits for
+# the rollout. For the hot-reload loop use `make k8s-dev` (Tilt) instead.
 #
 #   ./k8s-start.sh                       build everything and deploy
 #   ./k8s-start.sh --skip-build          redeploy manifests only (reuse built images)
 #   ./k8s-start.sh --only backend,bot    rebuild + restart just these (backend|frontend|bot)
+#   ./k8s-start.sh --cluster-only        only create/resume the cluster (used by make k8s-dev)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,11 +22,13 @@ MINIKUBE_MEMORY="${MINIKUBE_MEMORY:-6g}"
 
 BUILD=true
 ONLY=""
+CLUSTER_ONLY=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --skip-build) BUILD=false ;;
-    --only)       ONLY="${2:?--only needs a list, e.g. backend,bot}"; shift ;;
-    -h|--help)    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --skip-build)   BUILD=false ;;
+    --only)         ONLY="${2:?--only needs a list, e.g. backend,bot}"; shift ;;
+    --cluster-only) CLUSTER_ONLY=true ;;
+    -h|--help)      sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)            echo "Unknown argument: $1" >&2; exit 2 ;;
   esac
   shift
@@ -46,19 +49,8 @@ done
 docker info &>/dev/null || { echo "ERROR: Docker is not running" >&2; exit 1; }
 
 # ── Secrets from .env ───────────────────────────────────────────────────────
-if [[ -f "$ROOT/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "$ROOT/.env"
-  set +a
-fi
-BOT_TOKEN="${BOT_TOKEN:-}"
-[[ "$BOT_TOKEN" == "your_telegram_bot_token_here" ]] && BOT_TOKEN=""
-umask 077
-cat >"$OVERLAY/.secrets.env" <<EOF
-GRPC_SHARED_SECRET=${GRPC_SHARED_SECRET:-dev-grpc-shared-secret-for-testing-only}
-BOT_TOKEN=${BOT_TOKEN}
-EOF
+"$OVERLAY/write-secrets.sh"
+BOT_TOKEN="$(sed -n 's/^BOT_TOKEN=//p' "$OVERLAY/.secrets.env")"
 
 # ── Cluster ─────────────────────────────────────────────────────────────────
 host_state="$(minikube status -p "$PROFILE" --format '{{.Host}}' 2>/dev/null || true)"
@@ -71,9 +63,20 @@ else
   echo "==> Creating minikube '$PROFILE' (cpus=$MINIKUBE_CPUS, memory=$MINIKUBE_MEMORY)..."
   port_args=()
   for p in "${HOST_PORTS[@]}"; do port_args+=(--ports "127.0.0.1:$p:$p"); done
-  minikube start -p "$PROFILE" --driver=docker \
+  # Docker runtime: Tilt builds images straight into the node's Docker daemon (no push/load).
+  minikube start -p "$PROFILE" --driver=docker --container-runtime=docker \
     --cpus="$MINIKUBE_CPUS" --memory="$MINIKUBE_MEMORY" "${port_args[@]}"
 fi
+runtime="$(minikube profile list -o json 2>/dev/null | python3 -c '
+import json, sys
+for p in json.load(sys.stdin).get("valid", []):
+    if p["Name"] == sys.argv[1]:
+        print(p["Config"]["KubernetesConfig"]["ContainerRuntime"])' "$PROFILE" || true)"
+if [[ "$runtime" != "docker" ]]; then
+  echo "WARNING: '$PROFILE' doesn't run the docker runtime, which Tilt (make k8s-dev) needs." >&2
+  echo "         Recreate it once: ./k8s-stop.sh --delete && ./k8s-start.sh" >&2
+fi
+"$CLUSTER_ONLY" && exit 0
 
 # ── Images ──────────────────────────────────────────────────────────────────
 # Built by the host Docker (sharing its layer cache with docker-compose) and copied into

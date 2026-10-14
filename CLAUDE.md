@@ -62,10 +62,19 @@ make infra-down               # stop infrastructure
 ./k8s-stop.sh                        # stop the cluster, data kept
 ./k8s-stop.sh --delete               # delete the cluster with all data
 # or via make: k8s-up / k8s-down / k8s-delete / k8s-status
+
+make k8s-dev                         # hot-reload loop: k8s-start.sh --cluster-only + `tilt up` (UI http://localhost:10350)
+make k8s-dev-down                    # `tilt down` — removes the workloads, keeps the Postgres/RustFS volumes
 ```
 - Manifests: `infra/k8s/base/` (backend, frontend, bot, nginx `gateway` that reuses `infra/nginx/nginx.conf`) + `infra/k8s/overlays/local/` (Postgres StatefulSet, RustFS, Mailpit, dev config/secrets, NodePort services). Build with `kubectl kustomize --load-restrictor LoadRestrictionsNone infra/k8s/overlays/local` — the base reads the nginx config from outside its directory
 - Images are built by the host Docker (`buildx build --load`, cache shared with docker-compose) as `fate-*:dev` and copied into the node with `minikube image load` — never pushed; the tag doesn't change, so the script `rollout restart`s rebuilt apps
-- `k8s-start.sh` writes `overlays/local/.secrets.env` (gitignored) from `.env`: `GRPC_SHARED_SECRET`, `BOT_TOKEN`; without a token the bot is scaled to 0
+- `overlays/local/write-secrets.sh` (called by `k8s-start.sh` and the Tiltfile) writes `overlays/local/.secrets.env` (gitignored) from `.env`: `GRPC_SHARED_SECRET`, `BOT_TOKEN`; without a token the bot is scaled to 0 (Tilt doesn't deploy it)
+- The cluster runs the **docker** container runtime (`--container-runtime=docker`) so Tilt builds straight into the node's daemon; `k8s-start.sh` warns about an older containerd cluster — recreate it with `./k8s-stop.sh --delete`
+- **Tilt** (`Tiltfile`, `infra/k8s/overlays/tilt/`) deploys the same manifests with dev images:
+  - frontend: Vite dev server (`frontend/Dockerfile.dev`), `frontend/` synced live, HMR over the gateway (nginx proxies the WebSocket upgrade). `package*.json` / `vite.config.ts` changes rebuild the image. The tilt overlay drops the gateway CSP (React Refresh injects an inline script) via `.tilt-build/nginx.conf`, which the Tiltfile generates — build that overlay only through Tilt
+  - backend: `backend-jar` local resource (`./gradlew bootJar`) → `.tilt-build/backend/app.jar` → thin `backend/Dockerfile.dev` → pod restart (~30 s from save to ready). Swagger via Tilt port-forward: http://localhost:18080/swagger-ui.html
+  - bot: host `go build` (GOOS=linux) → `.tilt-build/bot/fate-bot` → `bot/Dockerfile.dev`; only when `BOT_TOKEN` is set
+  - `rustfs-data` PVC carries `tilt.dev/down-policy: keep`; Postgres' StatefulSet volume is never deleted by Tilt
 - Host access goes through NodePorts published by `minikube start --ports` (fixed at cluster creation — `--delete` and recreate after changing them). The 30xxx ports don't clash with docker-compose, so both setups can run at once:
   - App (gateway): http://localhost:30080 · Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432`
   - Swagger: `kubectl --context hand-of-fate -n hand-of-fate port-forward svc/backend 18080:8080`

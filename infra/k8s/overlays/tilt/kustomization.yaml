@@ -1,0 +1,31 @@
+# The local overlay as the Tiltfile deploys it: identical, except
+#  - the frontend runs the Vite dev server (frontend/Dockerfile.dev), not the nginx build;
+#  - the gateway drops the Content-Security-Policy header: @vitejs/plugin-react injects an
+#    inline React Refresh preamble that `script-src 'self'` blocks. The Tiltfile writes that
+#    variant of infra/nginx/nginx.conf to .tilt-build/nginx.conf, so build this overlay
+#    through Tilt only.
+# Images are rebuilt and retagged by Tilt.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../local
+
+configMapGenerator:
+  - name: gateway-nginx
+    behavior: replace
+    files:
+      - nginx.conf=../../../../.tilt-build/nginx.conf
+
+patches:
+  - path: frontend-vite.yaml
+  # Vite listens on 3000. A JSON patch, because a strategic merge keys `ports` by
+  # containerPort and would add a second `http` port instead of replacing 80. The Service
+  # and the readiness probe target the named port, so they follow.
+  - target:
+      kind: Deployment
+      name: frontend
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/ports/0/containerPort
+        value: 3000
