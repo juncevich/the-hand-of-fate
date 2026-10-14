@@ -1,5 +1,17 @@
 # Dependency Updates
 
+## 2026-10-15
+
+New direct dependencies for telemetry (`internal/telemetry`, `otelgrpc` in `internal/grpcclient`, command spans/metrics in `internal/handler`) — the `OTEL_EXPORTER_OTLP_ENDPOINT` setting existed but nothing used it.
+
+### go.opentelemetry.io/otel, otel/sdk, otel/sdk/metric, otel/metric, otel/trace — `v1.46.0` (otel, metric, trace, sdk, sdk/metric were indirect at `v1.44.0` via grpc)
+### go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc, otlpmetric/otlpmetricgrpc — `v1.46.0` (new)
+### go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc — `v0.71.0` (new)
+- `v1.47.0` / `v0.72.0` exist but were released 2026-10-02, under two weeks old; `v1.46.0` / `v0.71.0` (2026-08-25/26) are the latest matching pair before that. `otelgrpc v0.71.0` requires `grpc v1.83.2`, so `google.golang.org/grpc` stays at `v1.84.0`
+- Pulled-in indirects: `go.opentelemetry.io/proto/otlp` `v1.11.0`, `grpc-ecosystem/grpc-gateway/v2` `v2.30.0`, `cenkalti/backoff/v5` `v5.0.3`, `go.opentelemetry.io/auto/sdk` `v1.2.1`, `go-logr/logr` `v1.4.3 → v1.4.4`, `go-logr/stdr` `v1.2.2`, `google/uuid` `v1.6.0`, `cespare/xxhash/v2` `v2.3.0`, `genproto/googleapis/api` pseudo-version bump
+
+`go vet`, `gofmt`, `staticcheck@latest` and `go test -race ./...` pass.
+
 ## 2026-09-25
 
 Re-checked against the Go module proxy (`go list -m -u all`) and go.dev release info, per the user's request to check and update with majors in scope. No new major branches exist for any direct dependency.

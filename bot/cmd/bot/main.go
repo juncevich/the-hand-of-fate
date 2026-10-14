@@ -13,6 +13,7 @@ import (
 	"github.com/juncevich/the-hand-of-fate/bot/internal/config"
 	"github.com/juncevich/the-hand-of-fate/bot/internal/grpcclient"
 	"github.com/juncevich/the-hand-of-fate/bot/internal/handler"
+	"github.com/juncevich/the-hand-of-fate/bot/internal/telemetry"
 )
 
 // shutdownGracePeriod bounds how long we wait for in-flight message handlers
@@ -33,6 +34,19 @@ func main() {
 	if cfg.GRPCSharedSecretIsDefault {
 		log.Warn("GRPC_SHARED_SECRET is not set, using the well-known dev default - do not use this in any shared or public environment")
 	}
+
+	// ── Telemetry (before the gRPC client, whose stats handler uses the providers) ──
+	shutdownTelemetry, err := telemetry.Setup(context.Background(), cfg.OTELExporterEndpoint, cfg.OTELSDKDisabled, log)
+	if err != nil {
+		log.Fatal("failed to set up telemetry", zap.Error(err))
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdownTelemetry(ctx); err != nil {
+			log.Warn("telemetry shutdown", zap.Error(err))
+		}
+	}()
 
 	// ── gRPC client ───────────────────────────────────────────────────────────
 	fateClient, conn, err := grpcclient.New(cfg.GRPCServerAddr, cfg.GRPCSharedSecret, log)

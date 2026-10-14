@@ -184,6 +184,8 @@ cd perf
 | `google.golang.org/grpc`           | v1.84.0  | gRPC client   |
 | `google.golang.org/genproto/googleapis/rpc` | (pseudo-version, via grpc) | `errdetails.ErrorInfo` |
 | `google.golang.org/protobuf`       | v1.36.12 | Proto runtime |
+| `go.opentelemetry.io/otel` (+ `sdk`, `sdk/metric`, `otlptracegrpc`, `otlpmetricgrpc`) | v1.46.0 | Traces + metrics over OTLP/gRPC |
+| `go.opentelemetry.io/contrib/.../grpc/otelgrpc` | v0.71.0 | gRPC client spans/metrics, `traceparent` propagation |
 
 ### Telegram Bot Commands
 | Command                                                 | Description                                                                                                                       |
@@ -340,9 +342,10 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 
 ### Observability
 - Backend: `spring-boot-starter-opentelemetry` (Micrometer OTLP registry + OTel tracing bridge) → OTLP → OTel Collector; endpoint from `OTEL_EXPORTER_OTLP_ENDPOINT`. Log lines carry `[<traceId>-<spanId>]`
+- Bot: `bot/internal/telemetry` (OTel Go SDK) → OTLP/gRPC → collector as `service.name=fate-bot`; a span per Telegram command with `otelgrpc` client child spans whose `traceparent` continues the trace in the backend; metrics `bot_commands_total{command,outcome}`, `bot_command_duration_seconds_*`. `OTEL_SDK_DISABLED=true` turns export off (see bot/README.md)
 - OTel Collector (`infra/monitoring/otel-collector.yaml`): metrics → Mimir, traces → Tempo (`infra/monitoring/tempo.yaml`, single binary, local storage, 72 h retention), logs → Loki (OTLP to Loki's native `/otlp` endpoint). In minikube the collector also ships all pod logs (see Option 3)
 - Metric names in Mimir (OTLP → Prometheus naming, `job="hand-of-fate-backend"`): `http_server_requests_milliseconds_*` (uri/method/status), `vote_created_total{mode}`, `vote_draw_performed_total{mode}`, `notification_failed_total{type}` / `notification_dead_total{type}` (created on the first failure), `jvm_*`, `hikaricp_*`, `process_cpu_usage`
-- Grafana: provisioned datasources with fixed uids `mimir` / `loki` / `tempo` (Loki → Tempo via a derived field on the trace id in log lines, Tempo → Loki via `tracesToLogsV2`), and dashboards from `infra/monitoring/grafana/provisioning/dashboards/*.json` into the "Hand of Fate" folder — currently `hand-of-fate-overview.json` (HTTP, votes/draws, notifications, JVM, Hikari, backend warn/error logs). Keep panel queries on the uids above; in minikube add a new dashboard file to the `grafana-dashboards` generator in `infra/k8s/components/observability/kustomization.yaml` too
+- Grafana: provisioned datasources with fixed uids `mimir` / `loki` / `tempo` (Loki → Tempo via a derived field on the trace id in log lines, Tempo → Loki via `tracesToLogsV2`), and dashboards from `infra/monitoring/grafana/provisioning/dashboards/*.json` into the "Hand of Fate" folder — currently `hand-of-fate-overview.json` (HTTP, votes/draws, notifications, JVM, Hikari, Telegram bot commands, backend warn/error logs). Keep panel queries on the uids above; in minikube add a new dashboard file to the `grafana-dashboards` generator in `infra/k8s/components/observability/kustomization.yaml` too
 - Tempo HTTP API: compose http://localhost:3200; `infra/k8s/check.sh` validates the Tempo config (`-config.verify=true`) and dashboard JSON
 
 ### Database Migrations

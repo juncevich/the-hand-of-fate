@@ -5,6 +5,7 @@ import (
 	"time"
 
 	fatev1 "github.com/juncevich/the-hand-of-fate/bot/gen/fate/v1"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -51,6 +52,10 @@ func New(addr string, sharedSecret string, log *zap.Logger) (fatev1.FateServiceC
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithPerRPCCredentials(sharedSecretCredentials{secret: sharedSecret}),
 		grpc.WithDefaultServiceConfig(retryServiceConfig),
+		// A client span + rpc.client.* metrics per call, and the W3C traceparent in the
+		// metadata so the backend's spans join the command's trace (global providers from
+		// the telemetry package; no-ops when export is disabled).
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                30 * time.Second,
 			Timeout:             10 * time.Second,

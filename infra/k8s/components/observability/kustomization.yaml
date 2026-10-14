@@ -1,5 +1,5 @@
 # Metrics, logs and traces stack, the k8s twin of the observability services in docker-compose.yml:
-#   backend ──OTLP metrics/traces──▶ otel-collector ──▶ Mimir (metrics) / Tempo (traces)
+#   backend, bot ──OTLP metrics/traces──▶ otel-collector ──▶ Mimir (metrics) / Tempo (traces)
 #   pod stdout (filelog, DaemonSet) ─▶ otel-collector ──▶ Loki (logs)
 #   Grafana (http://localhost:30300) reads Mimir, Loki and Tempo; dashboard "Hand of Fate — Overview".
 # Configs come from infra/monitoring/ unchanged (k8s additions for the collector only), so
@@ -39,3 +39,4 @@ configMapGenerator:
 
 patches:
   - path: backend-otlp.yaml
+  - path: bot-otlp.yaml

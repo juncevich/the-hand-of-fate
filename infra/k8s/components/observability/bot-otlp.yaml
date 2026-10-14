@@ -1,0 +1,13 @@
+# Point the bot's OTLP/gRPC trace + metric export at the collector (default: localhost:4317).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bot
+spec:
+  template:
+    spec:
+      containers:
+        - name: bot
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector:4317

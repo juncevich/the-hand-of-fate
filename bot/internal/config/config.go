@@ -17,6 +17,7 @@ type Config struct {
 	GRPCSharedSecret          string
 	GRPCSharedSecretIsDefault bool
 	OTELExporterEndpoint      string
+	OTELSDKDisabled           bool
 	LogLevel                  string
 }
 
@@ -33,7 +34,9 @@ func Load() (*Config, error) {
 		GRPCServerAddr:       viper.GetString("GRPC_SERVER_ADDR"),
 		GRPCSharedSecret:     viper.GetString("GRPC_SHARED_SECRET"),
 		OTELExporterEndpoint: viper.GetString("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		LogLevel:             viper.GetString("LOG_LEVEL"),
+		// The standard OpenTelemetry switch; set it to run without a collector quietly.
+		OTELSDKDisabled: viper.GetBool("OTEL_SDK_DISABLED"),
+		LogLevel:        viper.GetString("LOG_LEVEL"),
 	}
 	cfg.GRPCSharedSecretIsDefault = cfg.GRPCSharedSecret == defaultGRPCSharedSecret
 	if cfg.BotToken == "" {

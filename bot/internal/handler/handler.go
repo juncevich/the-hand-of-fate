@@ -114,12 +114,6 @@ func (h *Handler) Run(ctx context.Context) {
 }
 
 func (h *Handler) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
-	defer func() {
-		if r := recover(); r != nil {
-			h.log.Error("panic in handler", zap.Any("recover", r))
-		}
-	}()
-
 	cmd := msg.Command()
 	args := strings.TrimSpace(msg.CommandArguments())
 
@@ -127,6 +121,21 @@ func (h *Handler) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		zap.Int64("chat_id", msg.Chat.ID),
 		zap.String("command", cmd),
 	)
+
+	// Plain text (no command) is ignored below, so it gets no span or metrics either.
+	var tel *commandTelemetry
+	if cmd != "" {
+		ctx, tel = startCommand(ctx, cmd)
+	}
+	defer func() {
+		r := recover()
+		if r != nil {
+			h.log.Error("panic in handler", zap.Any("recover", r))
+		}
+		if tel != nil {
+			tel.finish(ctx, r != nil)
+		}
+	}()
 
 	switch cmd {
 	case "start", "help":

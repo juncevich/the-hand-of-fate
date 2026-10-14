@@ -52,7 +52,14 @@ Modes: `simple` (random draw each time) or `fair` / `fair_rotation` (every parti
 | `BOT_TOKEN` | — | **yes** | Telegram bot token from @BotFather |
 | `GRPC_SERVER_ADDR` | `localhost:9090` | no | Backend gRPC address |
 | `LOG_LEVEL` | `info` | no | Log level: info, debug, warn, error |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | no | OpenTelemetry collector (gRPC) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | no | OpenTelemetry collector (OTLP/gRPC) for traces and metrics |
+| `OTEL_SDK_DISABLED` | `false` | no | `true` turns telemetry export off (e.g. native runs without a collector; export errors are only logged at debug level anyway) |
+
+## Telemetry
+
+`internal/telemetry` exports traces and metrics as `service.name=fate-bot`:
+- a `telegram /<command>` span per command (plain text messages are ignored), with every backend call as an `otelgrpc` client child span — the W3C `traceparent` goes along in the gRPC metadata, so the backend's spans join the same trace in Tempo
+- `bot.commands{command, outcome}` (outcome `ok` / `panic`) and `bot.command.duration` (seconds); in Mimir `bot_commands_total` / `bot_command_duration_seconds_*` with `job="fate-bot"`, plus `otelgrpc`'s `rpc.client.*` metrics. Unknown commands share the `unknown` label
 
 ## Running Locally
 

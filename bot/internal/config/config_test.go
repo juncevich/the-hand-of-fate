@@ -80,6 +80,24 @@ func TestLoad(t *testing.T) {
 			},
 		},
 		{
+			name: "telemetry export enabled by default",
+			env:  map[string]string{"BOT_TOKEN": "tok"},
+			check: func(t *testing.T, cfg *Config) {
+				if cfg.OTELSDKDisabled {
+					t.Fatal("OTELSDKDisabled = true, want false")
+				}
+			},
+		},
+		{
+			name: "OTEL_SDK_DISABLED turns telemetry export off",
+			env:  map[string]string{"BOT_TOKEN": "tok", "OTEL_SDK_DISABLED": "true"},
+			check: func(t *testing.T, cfg *Config) {
+				if !cfg.OTELSDKDisabled {
+					t.Fatal("OTELSDKDisabled = false, want true")
+				}
+			},
+		},
+		{
 			name: "default GRPCSharedSecret is flagged as default",
 			env:  map[string]string{"BOT_TOKEN": "tok"},
 			check: func(t *testing.T, cfg *Config) {
