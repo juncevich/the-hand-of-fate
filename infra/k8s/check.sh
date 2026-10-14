@@ -7,7 +7,8 @@
 #   3. the configs mounted into the pods are valid for the image versions the manifests pin:
 #      OTel Collector (compose config alone and merged with the k8s one), Loki, Tempo, gateway
 #      nginx; Grafana dashboards are valid JSON
-#   4. shellcheck on the k8s scripts
+#   4. third-party image versions match between docker-compose*.yml and the manifests
+#   5. shellcheck on the k8s scripts
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -69,6 +70,45 @@ for dashboard in "$mon"/grafana/provisioning/dashboards/*.json; do
   echo "    $(basename "$dashboard") ok"
 done
 
+step "Image versions: docker-compose ↔ k8s"
+# The same third-party image is pinned in docker-compose*.yml and in the manifests; a bump on
+# one side only would make the two setups (and the config validation above) diverge.
+python3 - "$OUT/local.yaml" docker-compose.yml docker-compose.infra.yml <<'PY'
+import re
+import sys
+
+
+def images(path):
+    found = {}
+    for ref in re.findall(r'^\s*(?:-\s*)?image:\s*["\']?([^\s"\']+)', open(path).read(), re.M):
+        if "${" in ref or "fate-" in ref:  # our own app images, tagged per environment
+            continue
+        repo, sep, tag = ref.rpartition(":")
+        if not sep or "/" in tag:  # no tag (the colon belonged to a registry port)
+            repo, tag = ref, "latest"
+        found.setdefault(repo, set()).add(tag)
+    return found
+
+
+k8s = images(sys.argv[1])
+compose = {}
+for path in sys.argv[2:]:
+    for repo, tags in images(path).items():
+        compose.setdefault(repo, set()).update(tags)
+
+errors = [f"{side}: {repo} is pinned to several tags {sorted(tags)}"
+          for side, found in (("k8s", k8s), ("compose", compose))
+          for repo, tags in sorted(found.items()) if len(tags) > 1]
+shared = sorted(k8s.keys() & compose.keys())
+errors += [f"{repo}: compose {sorted(compose[repo])} vs k8s {sorted(k8s[repo])}"
+           for repo in shared if compose[repo] != k8s[repo]]
+for error in errors:
+    print(f"    MISMATCH {error}")
+if errors:
+    sys.exit(1)
+print(f"    {len(shared)} shared images in sync")
+PY
+
 step "Gateway nginx config ($(image_of nginx))"
 for conf in infra/nginx/nginx.conf .tilt-build/nginx.conf; do
   # Upstreams are resolved at load time; point them anywhere.
@@ -78,7 +118,7 @@ for conf in infra/nginx/nginx.conf .tilt-build/nginx.conf; do
   echo "    $conf ok"
 done
 
-# ── 4. Scripts ──────────────────────────────────────────────────────────────
+# ── 5. Scripts ──────────────────────────────────────────────────────────────
 step "shellcheck"
 docker run --rm -v "$ROOT:/mnt:ro" -w /mnt "$SHELLCHECK_IMAGE" \
   k8s-start.sh k8s-stop.sh infra/k8s/check.sh infra/k8s/e2e.sh infra/k8s/overlays/local/write-secrets.sh

@@ -1,10 +1,11 @@
 name: Kubernetes CI
 
-# Static checks for the local minikube setup (no cluster): both overlays render, every object
-# matches its Kubernetes schema, the mounted configs (OTel Collector, Loki, gateway nginx) are
-# valid for the pinned images, and the scripts pass shellcheck. All of it is
-# infra/k8s/check.sh — run `make k8s-check` locally for the same result.
-# infra/nginx and infra/monitoring are shared with docker-compose, so they trigger it too.
+# Static checks for the local minikube setup (no cluster): every overlay renders, every object
+# matches its Kubernetes schema, the mounted configs (OTel Collector, Loki, Tempo, gateway
+# nginx, Grafana dashboards) are valid for the pinned images, third-party image versions match
+# docker-compose, and the scripts pass shellcheck. All of it is infra/k8s/check.sh — run
+# `make k8s-check` locally for the same result. infra/nginx, infra/monitoring and the compose
+# files are shared with / compared against docker-compose, so they trigger it too.
 on:
   push:
     branches: [main]
@@ -12,6 +13,8 @@ on:
       - infra/k8s/**
       - infra/nginx/**
       - infra/monitoring/**
+      - docker-compose.yml
+      - docker-compose.infra.yml
       - k8s-start.sh
       - k8s-stop.sh
       - .github/workflows/k8s.yml
@@ -20,6 +23,8 @@ on:
       - infra/k8s/**
       - infra/nginx/**
       - infra/monitoring/**
+      - docker-compose.yml
+      - docker-compose.infra.yml
       - k8s-start.sh
       - k8s-stop.sh
       - .github/workflows/k8s.yml

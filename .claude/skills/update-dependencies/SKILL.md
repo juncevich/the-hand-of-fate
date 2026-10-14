@@ -16,6 +16,7 @@ Updates dependency versions in one or more of this monorepo's projects and recor
 | `bot` | `bot/go.mod` | `go list -m -u all` / Go proxy |
 | `perf` | `perf/build.gradle.kts` | same as backend (Gradle/Maven) |
 | `simulation` | `simulation/go.mod` | same as bot (Go proxy) |
+| infra images | `docker-compose.yml`, `docker-compose.infra.yml` **and** the manifests under `infra/k8s/` (Postgres, Mailpit, RustFS, nginx, OTel Collector, Loki, Mimir, Tempo, Grafana) | the image's registry tags (Docker Hub / its release notes) |
 
 Only touch the project(s) the user asked about, unless they say "all" / "everywhere."
 
@@ -60,4 +61,5 @@ Only touch the project(s) the user asked about, unless they say "all" / "everywh
 
 - Don't silently skip majors without saying so — always state whether majors were in scope for this pass.
 - Don't invent a changelog entry for a package that didn't actually change.
+- Infra images are pinned twice — compose files and k8s manifests. Bump both together; `make k8s-check` fails on a mismatch and also re-validates the collector/Loki/Tempo/nginx configs against the new image versions.
 - Cross-check artifacts that publish in lockstep (e.g. `io.grpc:*` submodules, `protobuf-java`/`protobuf-kotlin`) move together — verify the family, not just one artifact.
