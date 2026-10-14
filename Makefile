@@ -1,4 +1,5 @@
-.PHONY: proto proto-bot proto-backend install-proto-tools openapi openapi-spec openapi-clients dev dev-local infra infra-down
+.PHONY: proto proto-bot proto-backend install-proto-tools openapi openapi-spec openapi-clients dev dev-local infra infra-down \
+        k8s-up k8s-down k8s-delete k8s-status
 
 proto: proto-bot proto-backend
 
@@ -35,3 +36,16 @@ infra:
 
 infra-down:
 	docker compose -f docker-compose.infra.yml down
+
+# Full stack in local minikube (profile hand-of-fate) — see k8s-start.sh / k8s-stop.sh
+k8s-up:
+	./k8s-start.sh
+
+k8s-down:
+	./k8s-stop.sh
+
+k8s-delete:
+	./k8s-stop.sh --delete
+
+k8s-status:
+	kubectl --context hand-of-fate -n hand-of-fate get pods,svc,pvc

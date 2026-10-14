@@ -50,7 +50,7 @@ proto/      Shared protobuf definitions (fate/v1/fate.proto)
 infra/
   nginx/      Nginx reverse proxy config
   monitoring/ OTel Collector, Loki, Mimir, Grafana provisioning
-  k8s/        Kubernetes manifests + Kustomize overlays (not active)
+  k8s/        Kubernetes manifests: base + local minikube overlay
 .github/
   workflows/  backend.yml, frontend.yml, bot.yml, deploy.yml, server-setup.yml
 ```
@@ -90,6 +90,15 @@ Option 2 — infrastructure in Docker, apps native (hot-reload):
 ./dev-start.sh    # starts postgres + mailpit, then backend/frontend/bot natively
 ./dev-stop.sh     # stop infrastructure
 ```
+
+Option 3 — full stack in local Kubernetes (minikube, `brew install minikube`):
+
+```bash
+./k8s-start.sh            # create/resume cluster, build images, deploy → http://localhost:30080
+./k8s-stop.sh             # stop (data kept); --delete removes the cluster
+```
+
+Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432`.
 
 ### Backend
 ```bash

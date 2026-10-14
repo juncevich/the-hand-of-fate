@@ -1,0 +1,57 @@
+# Local minikube environment (profile `hand-of-fate`), driven by ../../../../k8s-start.sh.
+# Build with `--load-restrictor LoadRestrictionsNone` (the base reads infra/nginx/nginx.conf).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: hand-of-fate
+
+resources:
+  - ../../base
+  - postgres.yaml
+  - rustfs.yaml
+  - mailpit.yaml
+  - external-services.yaml
+
+patches:
+  - path: backend-wait-for-postgres.yaml
+
+# Built on the host and `minikube image load`-ed by k8s-start.sh, never pulled.
+images:
+  - name: fate-backend
+    newTag: dev
+  - name: fate-frontend
+    newTag: dev
+  - name: fate-bot
+    newTag: dev
+
+configMapGenerator:
+  - name: backend-config
+    literals:
+      # Dev profile: seeds admin@admin.com / admin, non-Secure refresh cookie, Swagger on,
+      # RustFS credentials and bucket auto-creation (application-dev.yml).
+      - SPRING_PROFILES_ACTIVE=dev
+      - DB_URL=jdbc:postgresql://postgres:5432/fate
+      - MAIL_HOST=mailpit
+      - MAIL_PORT=1025
+      - FRONTEND_URL=http://localhost:30080
+      - S3_ENDPOINT=http://rustfs:9000
+
+# Dev-only credentials, the same values docker-compose.yml uses.
+secretGenerator:
+  - name: backend-secrets
+    literals:
+      - DB_USERNAME=fate
+      - DB_PASSWORD=fate
+      - JWT_ACCESS_SECRET=dev-secret-key-at-least-256-bits-long-for-testing-purposes-only
+  - name: postgres-secrets
+    literals:
+      - POSTGRES_USER=fate
+      - POSTGRES_PASSWORD=fate
+  - name: rustfs-secrets
+    literals:
+      - RUSTFS_ACCESS_KEY=rustfsadmin
+      - RUSTFS_SECRET_KEY=rustfsadmin
+  # GRPC_SHARED_SECRET + BOT_TOKEN, written from the root .env by k8s-start.sh (gitignored).
+  - name: shared-secrets
+    envs:
+      - .secrets.env

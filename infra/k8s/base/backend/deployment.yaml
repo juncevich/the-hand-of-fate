@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app.kubernetes.io/name: backend
+spec:
+  # One replica: RateLimitFilter keeps its counters in memory, so N replicas would
+  # multiply the per-IP auth budget by N.
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backend
+    spec:
+      terminationGracePeriodSeconds: 40   # server.shutdown: graceful
+      containers:
+        - name: backend
+          image: fate-backend
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: grpc
+              containerPort: 9090
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secrets
+          env:
+            # The bot reaches gRPC across the pod network; the shared secret still
+            # authenticates every call.
+            - name: GRPC_BIND_ADDRESS
+              value: 0.0.0.0
+            - name: GRPC_SHARED_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shared-secrets
+                  key: GRPC_SHARED_SECRET
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              # No CPU limit: throttling stretches JVM startup and Flyway migrations.
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 36   # up to 3 minutes for JVM start + migrations
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp   # Tomcat work dir, multipart uploads
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

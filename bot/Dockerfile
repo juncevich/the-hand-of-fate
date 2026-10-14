@@ -2,9 +2,9 @@ FROM golang:1.27-alpine AS build
 
 WORKDIR /repo
 
-# Install buf
+# Install buf (`uname -m` → x86_64 / aarch64, matching the release asset names)
 RUN apk add --no-cache curl && \
-    curl -sSL https://github.com/bufbuild/buf/releases/download/v1.50.0/buf-Linux-x86_64 \
+    curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.50.0/buf-Linux-$(uname -m)" \
       -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf
 
 # Install Go proto plugins

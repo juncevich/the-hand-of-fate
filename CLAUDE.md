@@ -19,7 +19,7 @@ api/         REST contract api/openapi.yaml (generated from the backend controll
 infra/
   nginx/     Nginx reverse proxy configs
   monitoring/ OTel Collector, Loki, Mimir, Grafana provisioning
-  k8s/       Kubernetes manifests + kustomize overlays (staging/production, not active)
+  k8s/       Kubernetes manifests: base/ (apps) + overlays/local (minikube; no prod environment planned)
 .github/
   workflows/ backend.yml + frontend.yml + bot.yml + perf.yml + simulation.yml + api.yml + deploy-*.yml + server-setup.yml
 ```
@@ -53,6 +53,23 @@ make infra-down               # stop infrastructure
 - Mailpit:   http://localhost:8025
 - RustFS:    http://localhost:9001 (S3 console, `rustfsadmin`/`rustfsadmin`; S3 API on :9000)
 - Grafana:   http://localhost:3001  (admin/admin)
+
+**Option 3 — everything in local Kubernetes (minikube):**
+```bash
+./k8s-start.sh                       # create/resume minikube profile `hand-of-fate`, build images, deploy, wait
+./k8s-start.sh --skip-build          # re-apply manifests only
+./k8s-start.sh --only backend        # rebuild + restart selected apps (backend,frontend,bot)
+./k8s-stop.sh                        # stop the cluster, data kept
+./k8s-stop.sh --delete               # delete the cluster with all data
+# or via make: k8s-up / k8s-down / k8s-delete / k8s-status
+```
+- Manifests: `infra/k8s/base/` (backend, frontend, bot, nginx `gateway` that reuses `infra/nginx/nginx.conf`) + `infra/k8s/overlays/local/` (Postgres StatefulSet, RustFS, Mailpit, dev config/secrets, NodePort services). Build with `kubectl kustomize --load-restrictor LoadRestrictionsNone infra/k8s/overlays/local` — the base reads the nginx config from outside its directory
+- Images are built by the host Docker (`buildx build --load`, cache shared with docker-compose) as `fate-*:dev` and copied into the node with `minikube image load` — never pushed; the tag doesn't change, so the script `rollout restart`s rebuilt apps
+- `k8s-start.sh` writes `overlays/local/.secrets.env` (gitignored) from `.env`: `GRPC_SHARED_SECRET`, `BOT_TOKEN`; without a token the bot is scaled to 0
+- Host access goes through NodePorts published by `minikube start --ports` (fixed at cluster creation — `--delete` and recreate after changing them). The 30xxx ports don't clash with docker-compose, so both setups can run at once:
+  - App (gateway): http://localhost:30080 · Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432`
+  - Swagger: `kubectl --context hand-of-fate -n hand-of-fate port-forward svc/backend 18080:8080`
+- Everything uses kubectl context `hand-of-fate` explicitly; the scripts never touch other contexts. Cluster size: `MINIKUBE_CPUS` (4) / `MINIKUBE_MEMORY` (6g), applied on creation
 
 **Default demo user** (seeded by migration V7, **dev/test profiles only**): `admin@admin.com` / `admin`. The seed is gated behind the Flyway placeholder `seedDemoUser`, which defaults to `false` and is set to `true` only by the `dev`/`test` profiles — so it is never created in production.
 

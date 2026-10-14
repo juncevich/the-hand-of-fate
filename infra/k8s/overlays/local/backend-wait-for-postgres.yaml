@@ -1,0 +1,13 @@
+# Postgres and backend are applied together; without this the backend crash-loops (with
+# growing back-off) until the database accepts connections.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:17.4-alpine
+          command: ["sh", "-c", "until pg_isready -h postgres -p 5432 -q; do sleep 2; done"]
