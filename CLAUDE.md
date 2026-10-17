@@ -192,13 +192,15 @@ cd perf
 |---------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
 | `/start`, `/help`                                       | Welcome message and command list                                                                                                  |
 | `/link <token>`                                         | Link Telegram to app account (token from Settings page)                                                                           |
-| `/votes`                                                | List your votes with status and participant count                                                                                 |
+| `/votes [page]`                                         | List your votes with status and participant count (10 per page; pages start at 1)                                                 |
 | `/vote <id>`                                            | Vote details — title, mode, participants/options                                                                                  |
 | `/newvote <title> \| <emails> \| <mode> [\| <options>]` | Create a new vote; `<emails>` — comma-separated, `<mode>` — `simple`/`fair`, `<options>` — optional comma-separated named options |
 | `/draw <id>`                                            | Perform a draw for a vote (creator only)                                                                                          |
 | `/result <id>`                                          | Show last draw result for a vote                                                                                                  |
 | `/history <id> [page]`                                         | Paginated draw history (20 entries; pages start at 1)                                                                                                      |
 | `/unlink`                                               | Unlink Telegram account                                                                                                           |
+
+The bot answers only in private chats and identifies the user by `message.From.ID` (in a group the chat id is shared by every member). A command sent in a group gets a "private messages only" reply; `/link` there also triggers a best-effort delete of the message and a warning to generate a new token. Replies use Telegram HTML parse mode: user-supplied values go through `esc()`; messages over 4096 UTF-16 units are split between lines, and markup Telegram rejects (400) is resent as plain text.
 
 ## Architecture
 
@@ -208,7 +210,7 @@ cd perf
 - Frontend keeps `accessToken` in Zustand (memory only); `refreshToken` stays in an httpOnly cookie; all requests use `withCredentials: true`
 - On app mount, `authApi.silentRefresh()` attempts to restore session via httpOnly cookie (`withCredentials: true`, empty body); failure is silently ignored (user stays logged out)
 - On 401, Axios interceptor silently calls `/api/v1/auth/refresh`, shares a refresh Promise with initial session restoration and retries each protected request once
-- **Brute-force protection**: `RateLimitFilter` (in-memory fixed-window, per client IP) throttles `/api/v1/auth/{login,register,refresh}` — returns `429` with `Retry-After` past `app.rate-limit.capacity` per `app.rate-limit.window-seconds`. Single-instance only; move to a shared store (Redis) if scaled horizontally.
+- **Brute-force protection**: `RateLimitFilter` (in-memory fixed-window, per client IP) throttles `/api/v1/auth/{login,register,refresh}` — returns `429` with `Retry-After` past `app.rate-limit.capacity` per `app.rate-limit.window-seconds`. The client IP is `request.remoteAddr` as resolved by Tomcat's RemoteIpValve (`server.forward-headers-strategy: native`): `X-Forwarded-For` counts only when the direct peer is a trusted internal proxy (loopback/private ranges; override `server.tomcat.remoteip.internal-proxies`), so a client reaching the backend directly can't spoof it. `LoginThrottle` additionally limits failed logins per account (normalized email, unknown addresses included): past `app.rate-limit.login-failures-per-account` per `login-failure-window-seconds` login answers `429` + `Retry-After` without checking the password; a success resets the count. Both are single-instance only; move to a shared store (Redis) if scaled horizontally.
 - **Fail-fast secrets**: `SecretsValidator` (`@Profile("!dev & !test")`) aborts startup if `JWT_ACCESS_SECRET` / `GRPC_SHARED_SECRET` are missing, too short, or left at a checked-in dev default — so production cannot boot with insecure secrets. Local runs use the `dev` profile to bypass this.
 
 ### Frontend State & Data Fetching
@@ -285,11 +287,12 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 - **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching for both participants and options; picks draw target automatically (options if any exist, otherwise participants)
 - **VoteService**: CRUD for votes including creating `VoteOption` entities from request; `addOption()` / `removeOption()` for post-creation management; all vote mutations acquire the same pessimistic row lock; `@Version` additionally guards stale saves
 - **Notifications**: `NotificationRecorder` persists one outbox job per recipient inside the vote transaction. Payloads are versioned DTOs (`NotificationPayloads.kt`), not the domain events. `NotificationWorker` claims jobs with `SKIP LOCKED`, delivers outside DB transactions, retries with exponential backoff and marks jobs failed after `app.notifications.max-attempts` (metric `notification.dead`), purging them after `failed-retention` (see `NotificationProperties`, backend/README.md). `NotificationAdapter` handles SMTP delivery and propagates failures to the worker.
+- **Email budget**: `EmailBudget` caps the emails one user's actions trigger (invitations + draw-result recipients) to `app.notifications.email-budget-per-user` (`EMAIL_BUDGET_PER_USER`, 200) per rolling `email-budget-window` (24 h), recorded in the append-only `email_budget_ledger` (V17) under a per-user advisory lock — deleting a vote or participant frees nothing. Invitations beyond it are rejected (`TooManyRequestsException`, 429 / `RESOURCE_EXHAUSTED`, the whole create/add rolls back); a draw beyond it still happens, only its result emails are dropped (metric `notification.suppressed`). Entries past the window are purged hourly
 - **EmailService**: sends styled HTML emails (dark theme) for vote invitations and draw results
 - **FateGrpcService**: gRPC server implementation; uses `runCatching` + `StatusRuntimeException` for error mapping; maps `VoteOptionInfo` proto messages for options
 
 ### Error Handling
-- Client-facing errors extend the sealed `shared.FateException` via one of four open categories: `BadRequestException` (400 / `INVALID_ARGUMENT`), `NotFoundException` (404 / `NOT_FOUND`), `ForbiddenException` (403 / `PERMISSION_DENIED`), `ConflictException` (409 / `FAILED_PRECONDITION`). Their message is shown to the caller
+- Client-facing errors extend the sealed `shared.FateException` via one of five open categories: `BadRequestException` (400 / `INVALID_ARGUMENT`), `NotFoundException` (404 / `NOT_FOUND`), `ForbiddenException` (403 / `PERMISSION_DENIED`), `ConflictException` (409 / `FAILED_PRECONDITION`), `TooManyRequestsException` (429 / `RESOURCE_EXHAUSTED`, a used-up quota). Their message is shown to the caller
 - Mapping lives in exactly two places: `ErrorHandler` (REST) and `grpc/GrpcErrors.kt` (`grpcRead {}` / `grpcMutation {}`); `ErrorMappingContractTest` fails if a category is added without mapping it on both sides
 - `ErrorHandler` extends `ResponseEntityExceptionHandler`, so Spring MVC errors (malformed JSON, bad path UUID, 405, unknown route) keep their 4xx status; bean-validation errors go through the `handleMethodArgumentNotValid` override (never add an `@ExceptionHandler` for an exception the base class already handles — startup fails on the ambiguous mapping)
 - gRPC error contract is documented atop `proto/fate/v1/fate.proto`. An unlinked Telegram account is `NOT_FOUND` + `google.rpc.ErrorInfo{domain: "fate.v1", reason: "TELEGRAM_NOT_LINKED"}`; the bot (`isTelegramNotLinked`) uses it to tell that apart from a missing vote
@@ -312,7 +315,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 ### Telegram Bot Linking
 1. User opens Settings page → clicks "Get link token" → `GET /api/v1/telegram/link-token`
 2. Backend creates a `telegram_link_tokens` record (5-min expiry), returns the token
-3. User sends `/link <token>` to the bot
+3. User sends `/link <token>` to the bot **in a private chat**
 4. Bot calls `LinkTelegramAccount` gRPC → backend validates token, sets `users.telegram_id`
 5. Bot notifies via Telegram; backend sends emails for invitations and draw results
 
@@ -361,6 +364,8 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 - V9–V13: vote version, draw-history indexes, `notification_outbox`, canonical participant emails
 - V14: `notification_outbox.failed_at` dead-letter state + claim/purge indexes
 - V15: `users.avatar_updated_at` (avatar version; image stored in object storage)
+- V16: unlinks Telegram links to group chats (`telegram_id <= 0`) and adds `CHECK (telegram_id > 0)`
+- V17: `email_budget_ledger` (per-user email budget, see Notifications)
 
 ### Key Environment Variables
 | Variable | Default | Description |
@@ -383,6 +388,8 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 | `REFRESH_COOKIE_SECURE` | `true` | Secure flag on the refresh cookie; forced to `false` by the `dev` profile for local HTTP |
 | `SPRINGDOC_ENABLED` | `false` | Swagger UI + `/v3/api-docs`. Off in prod; the `dev` profile turns it on for local use |
 | `app.rate-limit.capacity` / `app.rate-limit.window-seconds` | `10` / `60` | Per-IP request budget on `/api/v1/auth/{login,register,refresh}` |
+| `app.rate-limit.login-failures-per-account` / `login-failure-window-seconds` | `10` / `900` | Failed logins per account (any IP) before login answers 429 |
+| `EMAIL_BUDGET_PER_USER` | `200` | Notification emails one user's actions may trigger per 24 h (`app.notifications.email-budget-per-user`) |
 | `S3_ENABLED` | `false` (`true` in `dev`) | Object storage for avatars; off → avatar upload/delete answer 409 |
 | `S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` | `http://localhost:9000` / `us-east-1` / `fate` | S3-compatible store |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | — (`rustfsadmin` in `dev`) | Required when storage is enabled (startup fails otherwise) |

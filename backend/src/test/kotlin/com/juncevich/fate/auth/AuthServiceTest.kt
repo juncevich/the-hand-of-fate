@@ -1,9 +1,12 @@
 package com.juncevich.fate.auth
 
+import com.juncevich.fate.auth.internal.config.RateLimitProperties
 import com.juncevich.fate.auth.internal.domain.RefreshToken
 import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.auth.internal.service.AuthService
+import com.juncevich.fate.auth.internal.service.LoginThrottle
+import com.juncevich.fate.auth.internal.service.LoginThrottledException
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
 import com.juncevich.fate.shared.ConflictException
@@ -34,7 +37,8 @@ class AuthServiceTest {
             refreshTokenRepositoryPort,
             passwordEncoder,
             jwtTokenProvider,
-            jwtProperties
+            jwtProperties,
+            LoginThrottle(RateLimitProperties(loginFailuresPerAccount = 2))
         )
 
     private fun makeUser(email: String = "user@test.com") =
@@ -88,6 +92,44 @@ class AuthServiceTest {
         authService.register("UPPER@TEST.COM", "password123", "User")
 
         verify { userRepositoryPort.save(match { it.email == "upper@test.com" }) }
+    }
+
+    @Test
+    fun `login - throttles an account after repeated failures without checking the password`() {
+        every { userRepositoryPort.findByEmail("user@test.com") } returns makeUser()
+        every { passwordEncoder.matches(any(), any()) } returns false
+
+        repeat(2) { assertThrows<BadCredentialsException> { authService.login(" User@Test.com", "wrong") } }
+        val ex = assertThrows<LoginThrottledException> { authService.login("user@test.com", "wrong") }
+
+        assertTrue(ex.retryAfterSeconds in 1..900)
+        verify(exactly = 2) { passwordEncoder.matches(any(), any()) }
+    }
+
+    @Test
+    fun `login - throttles unknown emails the same way, so throttling does not reveal accounts`() {
+        every { userRepositoryPort.findByEmail("ghost@test.com") } returns null
+        every { passwordEncoder.encode(any()) } returns "dummy-hash"
+        every { passwordEncoder.matches(any(), any()) } returns false
+
+        repeat(2) { assertThrows<BadCredentialsException> { authService.login("ghost@test.com", "x") } }
+        assertThrows<LoginThrottledException> { authService.login("ghost@test.com", "x") }
+    }
+
+    @Test
+    fun `login - a successful login clears earlier failures`() {
+        every { userRepositoryPort.findByEmail("user@test.com") } returns makeUser()
+        every { passwordEncoder.matches("wrong", any()) } returns false
+        every { passwordEncoder.matches("correctPass", any()) } returns true
+        every { jwtTokenProvider.createAccessToken(any(), any()) } returns "access-token"
+        every { refreshTokenRepositoryPort.save(any()) } answers { firstArg() }
+
+        assertThrows<BadCredentialsException> { authService.login("user@test.com", "wrong") }
+        authService.login("user@test.com", "correctPass")
+        assertThrows<BadCredentialsException> { authService.login("user@test.com", "wrong") }
+
+        // Two failures in total, but the success in between reset the budget.
+        assertThrows<BadCredentialsException> { authService.login("user@test.com", "wrong") }
     }
 
     @Test

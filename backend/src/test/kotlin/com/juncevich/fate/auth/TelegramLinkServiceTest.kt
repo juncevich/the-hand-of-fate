@@ -3,6 +3,7 @@ package com.juncevich.fate.auth
 import com.juncevich.fate.auth.internal.domain.TelegramLinkToken
 import com.juncevich.fate.auth.internal.port.TelegramLinkTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
+import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.NotFoundException
 import io.mockk.*
@@ -116,6 +117,16 @@ class TelegramLinkServiceTest {
         assertThrows<NotFoundException> {
             service.linkAccount("bad-token", 42L, "user")
         }
+    }
+
+    @Test
+    fun `linkAccount - rejects group chat ids without consuming the token`() {
+        listOf(0L, -1001234567890L).forEach { chatId ->
+            assertThrows<BadRequestException> {
+                service.linkAccount("token123", chatId, "group")
+            }
+        }
+        verify(exactly = 0) { linkTokenRepositoryPort.findByToken(any()) }
     }
 
     @Test

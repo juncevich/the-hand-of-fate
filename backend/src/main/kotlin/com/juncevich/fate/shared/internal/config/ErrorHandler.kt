@@ -5,6 +5,7 @@ import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.FateException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
+import com.juncevich.fate.shared.TooManyRequestsException
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpHeaders
@@ -132,4 +133,5 @@ private fun FateException.httpStatus(): HttpStatus =
         is NotFoundException -> HttpStatus.NOT_FOUND
         is ForbiddenException -> HttpStatus.FORBIDDEN
         is ConflictException -> HttpStatus.CONFLICT
+        is TooManyRequestsException -> HttpStatus.TOO_MANY_REQUESTS
     }

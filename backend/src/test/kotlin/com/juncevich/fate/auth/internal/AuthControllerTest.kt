@@ -3,6 +3,7 @@ package com.juncevich.fate.auth.internal
 import com.juncevich.fate.auth.AuthenticatedUser
 import com.juncevich.fate.auth.internal.service.AuthService
 import com.juncevich.fate.auth.internal.service.AuthTokens
+import com.juncevich.fate.auth.internal.service.LoginThrottledException
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.web.AuthController
 import com.juncevich.fate.shared.internal.config.ErrorHandler
@@ -126,6 +127,22 @@ class AuthControllerTest {
                 status { isOk() }
                 jsonPath("$.accessToken") { value("access-token") }
                 header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
+            }
+    }
+
+    @Test
+    fun `POST login - throttled account - returns 429 with Retry-After`() {
+        every { authService.login(any(), any()) } throws LoginThrottledException(retryAfterSeconds = 120)
+
+        mockMvc
+            .post("/api/v1/auth/login") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"email":"user@test.com","password":"password123"}"""
+            }.andExpect {
+                status { isTooManyRequests() }
+                header { string("Retry-After", "120") }
+                jsonPath("$.status") { value(429) }
+                jsonPath("$.title") { value("Too many failed login attempts, please try again later") }
             }
     }
 

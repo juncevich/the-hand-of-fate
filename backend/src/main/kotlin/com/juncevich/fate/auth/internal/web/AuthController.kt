@@ -2,6 +2,7 @@ package com.juncevich.fate.auth.internal.web
 
 import com.juncevich.fate.auth.AuthenticatedUser
 import com.juncevich.fate.auth.internal.service.AuthService
+import com.juncevich.fate.auth.internal.service.LoginThrottledException
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.OpenApiDocs
@@ -20,6 +21,8 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
+import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -62,7 +65,11 @@ class AuthController(
     }
 
     @PostMapping("/login")
-    @Operation(operationId = "login", summary = "Log in and start a session")
+    @Operation(
+        operationId = "login",
+        summary = "Log in and start a session",
+        description = "Answers 429 after too many requests from this client or failed attempts for this account."
+    )
     @SecurityRequirements
     @ApiResponse(responseCode = "200", description = "Logged in; the refresh token is set as a cookie")
     @ApiResponse(
@@ -139,6 +146,18 @@ class AuthController(
             .header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())
             .build()
     }
+
+    // Same 429 contract as RateLimitFilter, whose limit is per IP rather than per account.
+    @ExceptionHandler(LoginThrottledException::class)
+    fun handleLoginThrottled(ex: LoginThrottledException): ResponseEntity<ProblemDetail> =
+        ResponseEntity
+            .status(HttpStatus.TOO_MANY_REQUESTS)
+            .header(HttpHeaders.RETRY_AFTER, ex.retryAfterSeconds.toString())
+            .body(
+                ProblemDetail.forStatus(HttpStatus.TOO_MANY_REQUESTS).apply {
+                    title = "Too many failed login attempts, please try again later"
+                }
+            )
 
     private fun refreshCookie(value: String): ResponseCookie =
         ResponseCookie

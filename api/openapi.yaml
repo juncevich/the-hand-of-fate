@@ -23,6 +23,8 @@ tags:
 paths:
   /api/v1/auth/login:
     post:
+      description: Answers 429 after too many requests from this client or failed
+        attempts for this account.
       operationId: login
       requestBody:
         content:

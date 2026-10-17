@@ -26,6 +26,8 @@ type fakeTelegram struct {
 
 	requestErr error
 	sendErr    error
+	// sendErrs, when set, are returned by successive Send calls before falling back to sendErr.
+	sendErrs []error
 }
 
 func (f *fakeTelegram) GetUpdatesChan(tgbotapi.UpdateConfig) tgbotapi.UpdatesChannel {
@@ -51,6 +53,13 @@ func (f *fakeTelegram) Send(c tgbotapi.Chattable) (tgbotapi.Message, error) {
 		f.messages = append(f.messages, msg)
 		f.mu.Unlock()
 	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.sendErrs) > 0 {
+		err := f.sendErrs[0]
+		f.sendErrs = f.sendErrs[1:]
+		return tgbotapi.Message{}, err
+	}
 	return tgbotapi.Message{}, f.sendErr
 }
 
@@ -61,6 +70,8 @@ func (f *fakeTelegram) messageCount() int {
 }
 
 type fakeFateClient struct {
+	linkReq       *fatev1.LinkTelegramAccountRequest
+	votesReq      *fatev1.GetMyVotesRequest
 	createReq     *fatev1.CreateVoteRequest
 	detailsReq    *fatev1.GetVoteDetailsRequest
 	historyReq    *fatev1.GetVoteHistoryRequest
@@ -85,7 +96,8 @@ type fakeFateClient struct {
 	historyErr     error
 }
 
-func (f *fakeFateClient) LinkTelegramAccount(_ context.Context, _ *fatev1.LinkTelegramAccountRequest, _ ...grpc.CallOption) (*fatev1.LinkTelegramAccountResponse, error) {
+func (f *fakeFateClient) LinkTelegramAccount(_ context.Context, req *fatev1.LinkTelegramAccountRequest, _ ...grpc.CallOption) (*fatev1.LinkTelegramAccountResponse, error) {
+	f.linkReq = req
 	if f.linkErr != nil {
 		return nil, f.linkErr
 	}
@@ -105,7 +117,8 @@ func (f *fakeFateClient) UnlinkTelegramAccount(_ context.Context, _ *fatev1.Unli
 	return &fatev1.UnlinkTelegramAccountResponse{Success: true}, nil
 }
 
-func (f *fakeFateClient) GetMyVotes(_ context.Context, _ *fatev1.GetMyVotesRequest, _ ...grpc.CallOption) (*fatev1.GetMyVotesResponse, error) {
+func (f *fakeFateClient) GetMyVotes(_ context.Context, req *fatev1.GetMyVotesRequest, _ ...grpc.CallOption) (*fatev1.GetMyVotesResponse, error) {
+	f.votesReq = req
 	if f.votesErr != nil {
 		return nil, f.votesErr
 	}
@@ -254,7 +267,7 @@ func TestHandleNewVoteCreatesVoteThroughBackend(t *testing.T) {
 	bot := &fakeTelegram{}
 	client := &fakeFateClient{}
 	h := New(bot, client, zaptest.NewLogger(t))
-	msg := &tgbotapi.Message{Chat: &tgbotapi.Chat{ID: 42}}
+	msg := &tgbotapi.Message{Chat: privateChat(42), From: &tgbotapi.User{ID: 42}}
 
 	h.handleNewVote(context.Background(), msg, "Lunch | a@example.com,b@example.com | fair")
 
@@ -276,7 +289,7 @@ func TestHandleVoteInfoGetsDetailsFromBackend(t *testing.T) {
 	bot := &fakeTelegram{}
 	client := &fakeFateClient{}
 	h := New(bot, client, zaptest.NewLogger(t))
-	msg := &tgbotapi.Message{Chat: &tgbotapi.Chat{ID: 42}}
+	msg := &tgbotapi.Message{Chat: privateChat(42), From: &tgbotapi.User{ID: 42}}
 
 	h.handleVoteInfo(context.Background(), msg, "vote-1")
 
@@ -292,14 +305,14 @@ func TestHandleHistoryGetsHistoryFromBackend(t *testing.T) {
 	bot := &fakeTelegram{}
 	client := &fakeFateClient{}
 	h := New(bot, client, zaptest.NewLogger(t))
-	msg := &tgbotapi.Message{Chat: &tgbotapi.Chat{ID: 42}}
+	msg := &tgbotapi.Message{Chat: privateChat(42), From: &tgbotapi.User{ID: 42}}
 
 	h.handleHistory(context.Background(), msg, "vote-1")
 
 	if client.historyReq == nil || client.historyReq.TelegramId != 42 || client.historyReq.VoteId != "vote-1" {
 		t.Fatalf("unexpected history request: %#v", client.historyReq)
 	}
-	if len(bot.messages) != 1 || !strings.Contains(bot.messages[0].Text, "Раунд *2*") {
+	if len(bot.messages) != 1 || !strings.Contains(bot.messages[0].Text, "Раунд <b>2</b>") {
 		t.Fatalf("unexpected sent messages: %#v", bot.messages)
 	}
 }
@@ -308,7 +321,7 @@ func TestHandleResultSendsTelegramIDToBackend(t *testing.T) {
 	bot := &fakeTelegram{}
 	client := &fakeFateClient{}
 	h := New(bot, client, zaptest.NewLogger(t))
-	msg := &tgbotapi.Message{Chat: &tgbotapi.Chat{ID: 42}}
+	msg := &tgbotapi.Message{Chat: privateChat(42), From: &tgbotapi.User{ID: 42}}
 
 	h.handleResult(context.Background(), msg, "vote-1")
 
@@ -318,10 +331,14 @@ func TestHandleResultSendsTelegramIDToBackend(t *testing.T) {
 }
 
 // makeCommandMsg builds a message that looks like a bot command to tgbotapi.
+func privateChat(id int64) *tgbotapi.Chat {
+	return &tgbotapi.Chat{ID: id, Type: "private"}
+}
+
 func makeCommandMsg(chatID int64, cmd string) *tgbotapi.Message {
 	text := "/" + cmd
 	return &tgbotapi.Message{
-		Chat: &tgbotapi.Chat{ID: chatID},
+		Chat: privateChat(chatID), From: &tgbotapi.User{ID: chatID},
 		Text: text,
 		Entities: []tgbotapi.MessageEntity{
 			{Type: "bot_command", Offset: 0, Length: len(text)},
@@ -341,6 +358,7 @@ func TestGrpcErrMsg(t *testing.T) {
 		{"NOT_FOUND vote", status.Error(codes.NotFound, "Vote not found"), "Голосование не найдено"},
 		{"NOT_FOUND foreign ErrorInfo", foreignNotFoundErr(), "Голосование не найдено"},
 		{"FAILED_PRECONDITION", status.Error(codes.FailedPrecondition, "x"), "недоступно"},
+		{"RESOURCE_EXHAUSTED", status.Error(codes.ResourceExhausted, "x"), "лимит"},
 		{"PERMISSION_DENIED", status.Error(codes.PermissionDenied, "x"), "нет прав"},
 		{"INVALID_ARGUMENT", status.Error(codes.InvalidArgument, "x"), "Некорректные"},
 		{"generic gRPC", status.Error(codes.Internal, "x"), "Ошибка сервера"},
@@ -366,7 +384,7 @@ func TestHandleMessageDispatch(t *testing.T) {
 		{"start", makeCommandMsg(42, "start"), "The Hand of Fate", 1},
 		{"help", makeCommandMsg(42, "help"), "The Hand of Fate", 1},
 		{"unknown command", makeCommandMsg(42, "bogus"), "Неизвестная команда", 1},
-		{"non-command text", &tgbotapi.Message{Chat: &tgbotapi.Chat{ID: 42}, Text: "hello"}, "", 0},
+		{"non-command text", &tgbotapi.Message{Chat: privateChat(42), Text: "hello"}, "", 0},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -417,22 +435,13 @@ func TestHandleLink(t *testing.T) {
 			},
 			wantContains: "Ошибка сервера",
 		},
-		{
-			name:  "nil From does not panic",
-			token: "abc123",
-			from:  nil,
-			client: &fakeFateClient{
-				linkResp: &fatev1.LinkTelegramAccountResponse{Success: true, DisplayName: "X"},
-			},
-			wantContains: "Аккаунт привязан",
-		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			bot := &fakeTelegram{}
 			h := New(bot, tc.client, zaptest.NewLogger(t))
 			msg := &tgbotapi.Message{
-				Chat: &tgbotapi.Chat{ID: 42},
+				Chat: privateChat(42),
 				From: tc.from,
 			}
 
@@ -506,9 +515,9 @@ func TestHandleVotes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			bot := &fakeTelegram{}
 			h := New(bot, tc.client, zaptest.NewLogger(t))
-			msg := &tgbotapi.Message{Chat: &tgbotapi.Chat{ID: 42}}
+			msg := &tgbotapi.Message{Chat: privateChat(42), From: &tgbotapi.User{ID: 42}}
 
-			h.handleVotes(context.Background(), msg)
+			h.handleVotes(context.Background(), msg, "")
 
 			if len(bot.messages) == 0 {
 				t.Fatal("no message sent")
@@ -582,7 +591,7 @@ func TestHandleDraw(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			bot := &fakeTelegram{}
 			h := New(bot, tc.client, zaptest.NewLogger(t))
-			msg := &tgbotapi.Message{Chat: &tgbotapi.Chat{ID: 42}}
+			msg := &tgbotapi.Message{Chat: privateChat(42), From: &tgbotapi.User{ID: 42}}
 
 			h.handleDraw(context.Background(), msg, tc.voteID)
 
@@ -622,7 +631,7 @@ func TestHandleUnlink(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			bot := &fakeTelegram{}
 			h := New(bot, tc.client, zaptest.NewLogger(t))
-			msg := &tgbotapi.Message{Chat: &tgbotapi.Chat{ID: 42}}
+			msg := &tgbotapi.Message{Chat: privateChat(42), From: &tgbotapi.User{ID: 42}}
 
 			h.handleUnlink(context.Background(), msg)
 

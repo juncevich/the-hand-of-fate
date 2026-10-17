@@ -142,6 +142,8 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 | V8 | `vote_options` table; `winner_option_id` / `winner_option_title` in draw_history; `winner_email` nullable |
 | V9–V14 | Vote version, draw-history indexes, notification outbox, canonical emails, outbox dead-letter state |
 | V15 | `users.avatar_updated_at` (avatar version; the image lives in object storage) |
+| V16 | Drop Telegram links to group chats, `CHECK (telegram_id > 0)` |
+| V17 | `email_budget_ledger` — per-user notification email budget |
 
 ## Environment Variables
 
@@ -179,6 +181,8 @@ All vote mutations acquire the same PostgreSQL row lock. Refresh and Telegram li
 Migration V11 adds `notification_outbox` (V14 adds the `failed_at` dead-letter state). Vote events are recorded in the vote transaction, with one job per recipient. Payloads are dedicated versioned DTOs (`InvitationPayload`, `DrawResultPayload`, `NOTIFICATION_PAYLOAD_VERSION`), not the domain events, so refactoring an event does not break queued jobs; an unreadable or unsupported-version payload is marked failed immediately. `NotificationWorker` polls every second, claims at most `batch-size` jobs, and performs SMTP delivery outside DB transactions. A claimed job is leased (`lease`, default 2 minutes) so a crashed worker's job is recovered. The worker is designed for a single backend instance: under heavy SMTP retries a batch can outlive the lease, and a second instance would re-claim and send duplicates. SMTP connection/read/write timeouts are 5/10/10 seconds.
 
 Failed jobs are retried with exponential backoff: `retry-base-delay` (1 minute) doubling per attempt up to `retry-max-delay` (6 hours). After `max-attempts` (10, about 8.5 hours of retries) the job gets `failed_at` and keeps `last_error` for investigation; this increments `notification.dead{type}`, while every failed attempt increments `notification.failed{type}`. Failed jobs are deleted after `failed-retention` (14 days). After resolving the cause, operators can requeue a selected job by setting `failed_at = NULL`, `attempts = 0`, `available_at = now()` and `claim_id = NULL`. Successful jobs are deleted. Delivery is at least once: a crash after SMTP accepts a message but before acknowledgment can cause a duplicate.
+
+Each user's actions may trigger at most `email-budget-per-user` (200) emails per rolling `email-budget-window` (24 hours), counting invitations and every draw-result recipient (`EmailBudget`, ledger table from V17, serialized per user with a transaction-scoped advisory lock). An invitation that does not fit is rejected with 429 / `RESOURCE_EXHAUSTED` and the whole request rolls back; a draw that does not fit still happens, but its result emails are skipped and counted in `notification.suppressed`. Deleting votes or participants does not return budget.
 
 `app.notifications.delivery-enabled=false` disables delivery while retaining durable recording. `app.notifications.poll-delay-ms` controls the poll interval (default 1000) and `app.notifications.purge-delay-ms` the failed-job purge interval (default 1 hour); the remaining settings live in `NotificationProperties`. Integration tests disable automatic delivery except tests that verify the complete delivery flow.
 

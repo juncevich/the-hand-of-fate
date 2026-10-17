@@ -27,6 +27,7 @@ class AuthService(
     private val passwordEncoder: PasswordEncoder,
     private val jwtTokenProvider: JwtTokenProvider,
     private val jwtProperties: JwtProperties,
+    private val loginThrottle: LoginThrottle,
 ) {
     // Precomputed once so the login() timing-mitigation branch doesn't hash a fresh
     // random string (and thus a fresh salt) on every unknown-email attempt.
@@ -59,13 +60,17 @@ class AuthService(
         email: String,
         password: String,
     ): AuthTokens {
-        val user = userRepositoryPort.findByEmail(email.lowercase().trim())
+        val normalizedEmail = email.lowercase().trim()
+        loginThrottle.ensureAllowed(normalizedEmail)
+        val user = userRepositoryPort.findByEmail(normalizedEmail)
         // Always run the hash comparison, even for an unknown email, so response
         // time doesn't leak whether the address is registered (timing side-channel).
         val matches = passwordEncoder.matches(password, user?.passwordHash ?: dummyPasswordHash)
         if (user == null || !matches) {
+            loginThrottle.recordFailure(normalizedEmail)
             throw BadCredentialsException("Invalid credentials")
         }
+        loginThrottle.reset(normalizedEmail)
         return issueTokens(user)
     }
 

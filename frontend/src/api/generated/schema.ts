@@ -13,7 +13,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Log in and start a session */
+        /**
+         * Log in and start a session
+         * @description Answers 429 after too many requests from this client or failed attempts for this account.
+         */
         post: operations["login"];
         delete?: never;
         options?: never;

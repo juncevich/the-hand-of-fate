@@ -6,6 +6,7 @@ import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.shared.ensureState
+import com.juncevich.fate.shared.ensureValid
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -49,6 +50,8 @@ class TelegramLinkService(
         telegramId: Long,
         telegramName: String,
     ): User {
+        // Group and channel chat ids are negative: an account may only be bound to a person.
+        ensureValid(telegramId > 0) { "Telegram account can only be linked from a private chat" }
         val linkToken =
             linkTokenRepositoryPort.findByToken(token)
                 ?: throw NotFoundException("Invalid or expired link token")

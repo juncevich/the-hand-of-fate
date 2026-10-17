@@ -73,17 +73,14 @@ class RateLimitFilter(
         )
     }
 
-    private fun clientIp(request: HttpServletRequest): String {
-        // Use the LAST X-Forwarded-For entry — the hop appended by our own reverse
-        // proxy (nginx `$proxy_add_x_forwarded_for`). Earlier entries are supplied
-        // by the client and are trivially spoofable, so keying on them would let an
-        // attacker bypass the limit by rotating a fake header value per request.
-        val forwarded = request.getHeader("X-Forwarded-For")
-        if (!forwarded.isNullOrBlank()) {
-            return forwarded.substringAfterLast(',').trim()
-        }
-        return request.remoteAddr ?: "unknown"
-    }
+    /**
+     * The servlet container has already resolved the client address: with
+     * `server.forward-headers-strategy: native`, Tomcat's RemoteIpValve takes it from
+     * X-Forwarded-For only when the request came through a trusted (internal) proxy such as
+     * our nginx. Parsing the header here instead would let a client that reaches the backend
+     * directly pick its own key and bypass the limit.
+     */
+    private fun clientIp(request: HttpServletRequest): String = request.remoteAddr ?: "unknown"
 
     private class Window(
         val windowIndex: AtomicLong,

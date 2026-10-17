@@ -5,6 +5,7 @@ import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.FateException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
+import com.juncevich.fate.shared.TooManyRequestsException
 import com.juncevich.fate.shared.internal.config.ErrorHandler
 import io.grpc.Status
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -23,7 +24,8 @@ class ErrorMappingContractTest {
             BadRequestException::class to (HttpStatus.BAD_REQUEST to Status.Code.INVALID_ARGUMENT),
             NotFoundException::class to (HttpStatus.NOT_FOUND to Status.Code.NOT_FOUND),
             ForbiddenException::class to (HttpStatus.FORBIDDEN to Status.Code.PERMISSION_DENIED),
-            ConflictException::class to (HttpStatus.CONFLICT to Status.Code.FAILED_PRECONDITION)
+            ConflictException::class to (HttpStatus.CONFLICT to Status.Code.FAILED_PRECONDITION),
+            TooManyRequestsException::class to (HttpStatus.TOO_MANY_REQUESTS to Status.Code.RESOURCE_EXHAUSTED)
         )
 
     @Test

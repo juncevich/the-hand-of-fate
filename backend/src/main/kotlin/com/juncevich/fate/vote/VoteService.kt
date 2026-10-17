@@ -14,11 +14,13 @@ import com.juncevich.fate.vote.internal.VoteDrawn
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
 import com.juncevich.fate.vote.internal.domain.VoteParticipant
+import com.juncevich.fate.vote.internal.notification.EmailBudget
 import com.juncevich.fate.vote.internal.port.DrawHistoryRepositoryPort
 import com.juncevich.fate.vote.internal.port.ParticipantRepositoryPort
 import com.juncevich.fate.vote.internal.port.VoteOptionRepositoryPort
 import com.juncevich.fate.vote.internal.port.VoteRepositoryPort
 import io.micrometer.core.instrument.MeterRegistry
+import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
@@ -38,7 +40,10 @@ class VoteService(
     private val drawService: DrawService,
     private val events: ApplicationEventPublisher,
     private val meterRegistry: MeterRegistry,
+    private val emailBudget: EmailBudget,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     fun createVote(
         creatorId: UUID,
         request: CreateVoteCommand,
@@ -64,6 +69,7 @@ class VoteService(
                 .orEmpty()
                 .map(::requireValidTitle)
                 .distinct()
+        emailBudget.reserveOrThrow(creator.id, invitedEmails.size)
 
         val vote =
             voteRepositoryPort.save(
@@ -139,6 +145,7 @@ class VoteService(
         val participantCount = participantRepositoryPort.countByVoteIds(listOf(voteId)).sumOf { it.participantCount }
         ensureValid(participantCount < VoteLimits.MAX_PARTICIPANTS) { participantLimitMessage() }
 
+        emailBudget.reserveOrThrow(requesterId, 1)
         val user = userQueryService.findProfileByEmail(normalizedEmail)
         participantRepositoryPort.save(
             VoteParticipant(voteId = voteId, email = normalizedEmail, displayName = user?.displayName)
@@ -194,8 +201,13 @@ class VoteService(
 
         val result = drawService.draw(vote)
 
-        val participants = participantRepositoryPort.findAllByVoteId(voteId)
-        events.publishEvent(VoteDrawn(vote.id, vote.title, result, participants.map { it.email }))
+        val recipients = participantRepositoryPort.findAllByVoteId(voteId).map { it.email }.distinct()
+        // The draw itself is never refused: over the budget only its result emails are dropped.
+        if (emailBudget.tryReserve(requesterId, recipients.size)) {
+            events.publishEvent(VoteDrawn(vote.id, vote.title, result, recipients))
+        } else {
+            log.warn("Result emails for draw of vote {} suppressed: email budget exhausted", vote.id)
+        }
 
         return result
     }

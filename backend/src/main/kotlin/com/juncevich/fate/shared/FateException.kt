@@ -5,7 +5,7 @@ package com.juncevich.fate.shared
  * transport status in `ErrorHandler` (REST) and `GrpcErrors` (gRPC), and its message is
  * shown to the caller — so never put internal details into it.
  *
- * Only these four categories extend the root directly, which keeps status mapping exhaustive;
+ * Only these five categories extend the root directly, which keeps status mapping exhaustive;
  * modules may refine a category with their own subclass (e.g. `VoteNotFoundException : NotFoundException`).
  * Anything else thrown — `IllegalStateException`, `NoSuchElementException`, ... — is a bug
  * and is reported as an internal error without its message.
@@ -31,6 +31,11 @@ open class ForbiddenException(
 
 /** 409 / FAILED_PRECONDITION — the resource is in a state that conflicts with the requested action. */
 open class ConflictException(
+    message: String,
+) : FateException(message)
+
+/** 429 / RESOURCE_EXHAUSTED — the caller used up a quota; retrying later may succeed. */
+open class TooManyRequestsException(
     message: String,
 ) : FateException(message)
 

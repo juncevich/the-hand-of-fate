@@ -18,13 +18,21 @@ Each command handler calls `fate.v1.FateService` over gRPC. Proto definitions: `
 
 ## Commands
 
+Commands work only in private chats with the bot: the backend identity is the sender's user id
+(`message.From.ID`), never the chat id, which in a group is shared by every member. In a group the bot
+answers with a "private messages only" hint; for `/link` it also tries to delete the message (needs
+admin rights) and asks the user to generate a new token, since the posted one may have been copied.
+
+Replies use Telegram's HTML parse mode — escape every user-supplied value with `esc()`. Long replies
+are split into several messages, and if Telegram rejects the markup the text is resent unformatted.
+
 | Command | Arguments | Description |
 |---------|-----------|-------------|
 | `/start` | — | Welcome message |
 | `/help` | — | Command reference |
 | `/link` | `<token>` | Link Telegram to app account (token from Settings → Telegram Bot) |
 | `/unlink` | — | Unlink account |
-| `/votes` | — | List your votes with status and participant count |
+| `/votes` | `[page]` | List your votes with status and participant count (10 per page; pages start at 1) |
 | `/vote` | `<id>` | Vote details — title, mode, participants/options |
 | `/newvote` | `<title> \| <emails> \| <mode> [\| <options>]` | Create a vote |
 | `/draw` | `<id>` | Perform a draw (creator only) |

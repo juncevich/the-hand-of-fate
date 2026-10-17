@@ -110,7 +110,7 @@ func TestHandleNewVoteErrors(t *testing.T) {
 			name:   "invalid args shows usage",
 			client: &fakeFateClient{},
 			args:   "Lunch | | nope",
-			want:   []string{"неизвестный режим", "Формат: `/newvote"},
+			want:   []string{"неизвестный режим", "Формат: <code>/newvote"},
 		},
 		{
 			name:   "gRPC error",
@@ -205,7 +205,7 @@ func TestHandleVoteInfo(t *testing.T) {
 		{
 			name:   "missing id",
 			client: &fakeFateClient{},
-			want:   []string{"Укажите ID голосования: `/vote <id>`"},
+			want:   []string{"Укажите ID голосования: <code>/vote &lt;id&gt;</code>"},
 		},
 		{
 			name:   "gRPC error",
@@ -227,8 +227,8 @@ func TestHandleVoteInfo(t *testing.T) {
 			args: "v1",
 			want: []string{
 				"Варианты (1)", "• Pizza",
-				"• anon@example.com (`anon@example.com`)",
-				"Последний победитель: *Pizza*, раунд 2",
+				"• anon@example.com (<code>anon@example.com</code>)",
+				"Последний победитель: <b>Pizza</b>, раунд 2",
 				"завершено", "честная ротация",
 			},
 		},
@@ -255,7 +255,7 @@ func TestHandleResult(t *testing.T) {
 		{
 			name:   "missing id",
 			client: &fakeFateClient{},
-			want:   []string{"Укажите ID голосования: `/result <id>`"},
+			want:   []string{"Укажите ID голосования: <code>/result &lt;id&gt;</code>"},
 		},
 		{
 			name:   "gRPC error",
@@ -276,8 +276,8 @@ func TestHandleResult(t *testing.T) {
 				Result:    &fatev1.DrawResultInfo{WinnerOptionTitle: "Pizza", Round: 4, DrawnAt: "2026-04-25T00:00:00Z"},
 			}},
 			args:   "v1",
-			want:   []string{"раунда *4*", "*Pizza*", "2026-04-25T00:00:00Z"},
-			reject: []string{"`"},
+			want:   []string{"раунда <b>4</b>", "<b>Pizza</b>", "2026-04-25T00:00:00Z"},
+			reject: []string{"<code>"},
 		},
 		{
 			name: "participant without display name falls back to email",
@@ -286,7 +286,7 @@ func TestHandleResult(t *testing.T) {
 				Result:    &fatev1.DrawResultInfo{WinnerEmail: "a@example.com", Round: 1},
 			}},
 			args: "v1",
-			want: []string{"*a@example.com*", "`a@example.com`"},
+			want: []string{"<b>a@example.com</b>", "<code>a@example.com</code>"},
 		},
 	}
 	for _, tc := range tests {
@@ -316,7 +316,7 @@ func TestHandleHistory(t *testing.T) {
 		{
 			name:   "missing id",
 			client: &fakeFateClient{},
-			want:   []string{"Укажите ID голосования: `/history <id>`"},
+			want:   []string{"Укажите ID голосования: <code>/history &lt;id&gt;"},
 		},
 		{
 			name:   "gRPC error",
@@ -337,7 +337,7 @@ func TestHandleHistory(t *testing.T) {
 				{WinnerOptionTitle: "Sushi", Round: 1, DrawnAt: "d1"},
 			}}},
 			args: "v1",
-			want: []string{"Раунд *2*: Pizza\n_d2_", "Раунд *1*: Sushi\n_d1_"},
+			want: []string{"Раунд <b>2</b>: Pizza\n<i>d2</i>", "Раунд <b>1</b>: Sushi\n<i>d1</i>"},
 		},
 	}
 	for _, tc := range tests {
@@ -377,8 +377,8 @@ func TestSendLogsTelegramErrorWithoutPanicking(t *testing.T) {
 	if bot.messageCount() != 1 {
 		t.Fatalf("send attempts = %d, want 1", bot.messageCount())
 	}
-	if bot.messages[0].ParseMode != tgbotapi.ModeMarkdown {
-		t.Fatalf("parse mode = %q, want Markdown", bot.messages[0].ParseMode)
+	if bot.messages[0].ParseMode != tgbotapi.ModeHTML {
+		t.Fatalf("parse mode = %q, want HTML", bot.messages[0].ParseMode)
 	}
 }
 

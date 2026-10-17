@@ -6,6 +6,7 @@ import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.FateException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
+import com.juncevich.fate.shared.TooManyRequestsException
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
@@ -58,6 +59,7 @@ internal object GrpcErrors {
             is NotFoundException -> Status.NOT_FOUND
             is ForbiddenException -> Status.PERMISSION_DENIED
             is ConflictException -> Status.FAILED_PRECONDITION
+            is TooManyRequestsException -> Status.RESOURCE_EXHAUSTED
         }
 }
 

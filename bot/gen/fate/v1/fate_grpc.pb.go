@@ -33,6 +33,9 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
+// Identity: every telegram_id is the Telegram *user* id of the sender (always positive), never a
+// chat id — group chat ids are shared by all members and are rejected when linking.
+//
 // Error contract. Mutating RPCs report expected failures in `success` / `message`; every other
 // failure is a gRPC status:
 //
@@ -42,6 +45,7 @@ const (
 //	                     reason: "TELEGRAM_NOT_LINKED"}
 //	PERMISSION_DENIED    the caller may not access the vote
 //	FAILED_PRECONDITION  the vote's state does not allow the action
+//	RESOURCE_EXHAUSTED   the user used up a quota (e.g. the notification email budget)
 //	UNAUTHENTICATED      missing or invalid x-grpc-shared-secret
 //	INTERNAL             unexpected server error; the description is generic
 type FateServiceClient interface {
@@ -155,6 +159,9 @@ func (c *fateServiceClient) GetVoteHistory(ctx context.Context, in *GetVoteHisto
 // All implementations must embed UnimplementedFateServiceServer
 // for forward compatibility.
 //
+// Identity: every telegram_id is the Telegram *user* id of the sender (always positive), never a
+// chat id — group chat ids are shared by all members and are rejected when linking.
+//
 // Error contract. Mutating RPCs report expected failures in `success` / `message`; every other
 // failure is a gRPC status:
 //
@@ -164,6 +171,7 @@ func (c *fateServiceClient) GetVoteHistory(ctx context.Context, in *GetVoteHisto
 //	                     reason: "TELEGRAM_NOT_LINKED"}
 //	PERMISSION_DENIED    the caller may not access the vote
 //	FAILED_PRECONDITION  the vote's state does not allow the action
+//	RESOURCE_EXHAUSTED   the user used up a quota (e.g. the notification email budget)
 //	UNAUTHENTICATED      missing or invalid x-grpc-shared-secret
 //	INTERNAL             unexpected server error; the description is generic
 type FateServiceServer interface {

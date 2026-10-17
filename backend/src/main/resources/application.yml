@@ -68,6 +68,12 @@ spring:
 server:
   port: 8080
   shutdown: graceful
+  # Tomcat's RemoteIpValve: request.remoteAddr (used by RateLimitFilter) and the scheme come from
+  # X-Forwarded-For/-Proto only when the direct peer is a trusted proxy. Trusted by default are
+  # loopback and private ranges (nginx on the same host, docker/k8s networks); a client hitting
+  # the backend directly cannot spoof its address. Override with
+  # server.tomcat.remoteip.internal-proxies (a regex) if the proxy sits on a public address.
+  forward-headers-strategy: native
 
 grpc:
   shared-secret: ${GRPC_SHARED_SECRET:changeme-dev-grpc-shared-secret}
@@ -133,6 +139,11 @@ app:
     retry-base-delay: 1m
     retry-max-delay: 6h
     failed-retention: 14d
+    # Emails one user's actions (invitations, draw results) may trigger per rolling window
+    # (see EmailBudget): inviting beyond it is rejected with 429, draws still run but their
+    # result emails are dropped (metric notification.suppressed).
+    email-budget-per-user: ${EMAIL_BUDGET_PER_USER:200}
+    email-budget-window: 24h
   refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
   # S3-compatible object storage for avatars (see StorageProperties). Disabled unless
   # configured: avatar endpoints then answer 409 and users simply have no avatar.

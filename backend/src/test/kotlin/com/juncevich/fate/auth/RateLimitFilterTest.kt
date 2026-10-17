@@ -47,14 +47,15 @@ class RateLimitFilterTest {
     }
 
     @Test
-    fun `keys on the proxy-appended forwarded-for hop, not the spoofable client prefix`() {
+    fun `keys on the container-resolved address and ignores a client-supplied forwarded-for`() {
         val filter = RateLimitFilter(RateLimitProperties(enabled = true, capacity = 1, windowSeconds = 60))
 
-        // Attacker rotates the client-supplied prefix but the real hop (last entry,
-        // appended by nginx) stays constant — the second request must be blocked.
+        // Tomcat's RemoteIpValve has already applied X-Forwarded-For from trusted proxies to
+        // remoteAddr; a client reaching the backend directly must not dodge the limit by
+        // rotating the header itself.
         val first = MockHttpServletResponse()
         filter.doFilter(
-            request("10.0.0.1").apply { addHeader("X-Forwarded-For", "1.1.1.1, 9.9.9.9") },
+            request("9.9.9.9").apply { addHeader("X-Forwarded-For", "1.1.1.1") },
             first,
             MockFilterChain()
         )
@@ -62,7 +63,7 @@ class RateLimitFilterTest {
 
         val second = MockHttpServletResponse()
         filter.doFilter(
-            request("10.0.0.1").apply { addHeader("X-Forwarded-For", "2.2.2.2, 9.9.9.9") },
+            request("9.9.9.9").apply { addHeader("X-Forwarded-For", "2.2.2.2") },
             second,
             MockFilterChain()
         )

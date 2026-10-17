@@ -7,6 +7,7 @@ import java.time.Duration
  * Outbox delivery policy. A failed job is retried with exponential backoff
  * ([retryBaseDelay] doubling up to [retryMaxDelay]); after [maxAttempts] it is marked failed,
  * counted in `notification.dead` and deleted once [failedRetention] has passed.
+ * [emailBudgetPerUser] caps the emails one user's actions may trigger per [emailBudgetWindow] (see `EmailBudget`).
  */
 @ConfigurationProperties(prefix = "app.notifications")
 data class NotificationProperties(
@@ -19,8 +20,11 @@ data class NotificationProperties(
     val retryBaseDelay: Duration = Duration.ofMinutes(1),
     val retryMaxDelay: Duration = Duration.ofHours(6),
     val failedRetention: Duration = Duration.ofDays(14),
+    val emailBudgetPerUser: Int = 200,
+    val emailBudgetWindow: Duration = Duration.ofHours(24),
 ) {
     init {
+        require(emailBudgetPerUser > 0) { "app.notifications.email-budget-per-user must be positive" }
         require(batchSize > 0) { "app.notifications.batch-size must be positive" }
         require(maxAttempts > 0) { "app.notifications.max-attempts must be positive" }
     }

@@ -7,6 +7,9 @@ option java_package = "com.juncevich.fate.grpc";
 option java_multiple_files = true;
 option java_outer_classname = "FateProto";
 
+// Identity: every telegram_id is the Telegram *user* id of the sender (always positive), never a
+// chat id — group chat ids are shared by all members and are rejected when linking.
+//
 // Error contract. Mutating RPCs report expected failures in `success` / `message`; every other
 // failure is a gRPC status:
 //   INVALID_ARGUMENT     malformed request (bad vote id, pagination, input validation)
@@ -15,6 +18,7 @@ option java_outer_classname = "FateProto";
 //                        reason: "TELEGRAM_NOT_LINKED"}
 //   PERMISSION_DENIED    the caller may not access the vote
 //   FAILED_PRECONDITION  the vote's state does not allow the action
+//   RESOURCE_EXHAUSTED   the user used up a quota (e.g. the notification email budget)
 //   UNAUTHENTICATED      missing or invalid x-grpc-shared-secret
 //   INTERNAL             unexpected server error; the description is generic
 service FateService {

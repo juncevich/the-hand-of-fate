@@ -2,12 +2,15 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"html"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf16"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	fatev1 "github.com/juncevich/the-hand-of-fate/bot/gen/fate/v1"
@@ -17,20 +20,33 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const helpText = `✦ *The Hand of Fate Bot*
+// Messages are sent with ParseMode HTML: every value that comes from users (titles, names,
+// options, descriptions, backend messages) must go through esc(), static markup must not.
+const helpText = `✦ <b>The Hand of Fate Bot</b>
 
 Доступные команды:
 
 /start — Приветствие
-/link <токен> — Привязать Telegram к аккаунту
-/newvote <название> | <email1,email2> | <simple|fair> | <вариант1,вариант2> — Создать голосование
-/votes — Посмотреть свои голосования
-/vote <id> — Информация о голосовании
-/draw <id> — Выполнить жеребьёвку
-/result <id> — Последний результат голосования
-/history <id> — История результатов
+/link &lt;токен&gt; — Привязать Telegram к аккаунту
+/newvote &lt;название&gt; | &lt;email1,email2&gt; | &lt;simple|fair&gt; | &lt;вариант1,вариант2&gt; — Создать голосование
+/votes [страница] — Посмотреть свои голосования
+/vote &lt;id&gt; — Информация о голосовании
+/draw &lt;id&gt; — Выполнить жеребьёвку
+/result &lt;id&gt; — Последний результат голосования
+/history &lt;id&gt; [страница] — История результатов
 /unlink — Отвязать аккаунт
-/help — Эта справка`
+/help — Эта справка
+
+Бот работает только в личных сообщениях.`
+
+const privateOnlyText = "🔒 Я работаю только в личных сообщениях — напишите мне напрямую."
+
+const groupLinkText = "🔒 Привязка возможна только в личных сообщениях.\n\n" +
+	"⚠️ Токен был отправлен в общий чат и мог быть скопирован. Сгенерируйте новый в настройках приложения " +
+	"и отправьте его мне в личку."
+
+// votesPageSize keeps a /votes page far below Telegram's message limit.
+const votesPageSize = 10
 
 type TelegramAPI interface {
 	GetUpdatesChan(config tgbotapi.UpdateConfig) tgbotapi.UpdatesChannel
@@ -119,6 +135,7 @@ func (h *Handler) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 
 	h.log.Info("message received",
 		zap.Int64("chat_id", msg.Chat.ID),
+		zap.String("chat_type", chatType(msg)),
 		zap.String("command", cmd),
 	)
 
@@ -137,6 +154,11 @@ func (h *Handler) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		}
 	}()
 
+	if cmd != "" && !isPrivate(msg) {
+		h.rejectNonPrivate(msg, cmd)
+		return
+	}
+
 	switch cmd {
 	case "start", "help":
 		h.send(msg.Chat.ID, helpText, true)
@@ -145,7 +167,7 @@ func (h *Handler) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		h.handleLink(ctx, msg, args)
 
 	case "votes":
-		h.handleVotes(ctx, msg)
+		h.handleVotes(ctx, msg, args)
 
 	case "newvote":
 		h.handleNewVote(ctx, msg, args)
@@ -172,17 +194,41 @@ func (h *Handler) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 	}
 }
 
+// isPrivate reports whether msg comes from a one-to-one chat with a known sender. Commands act
+// on behalf of msg.From: in a group the chat ID is shared by every member, so it must never be
+// used as the account identity, and a link token posted there is visible to everyone.
+func isPrivate(msg *tgbotapi.Message) bool {
+	return msg.From != nil && msg.Chat != nil && msg.Chat.IsPrivate()
+}
+
+func chatType(msg *tgbotapi.Message) string {
+	if msg.Chat == nil {
+		return ""
+	}
+	return msg.Chat.Type
+}
+
+func (h *Handler) rejectNonPrivate(msg *tgbotapi.Message, cmd string) {
+	if msg.Chat == nil {
+		return
+	}
+	if cmd != "link" {
+		h.send(msg.Chat.ID, privateOnlyText, false)
+		return
+	}
+	// Best effort: works only where the bot may delete messages (group admin).
+	if _, err := h.bot.Request(tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)); err != nil {
+		h.log.Warn("could not delete link token posted in a group", zap.Int64("chat_id", msg.Chat.ID), zap.Error(err))
+	}
+	h.send(msg.Chat.ID, groupLinkText, false)
+}
+
 func (h *Handler) handleLink(ctx context.Context, msg *tgbotapi.Message, token string) {
 	if token == "" {
 		h.send(msg.Chat.ID,
-			"Укажите токен: `/link ВАШ_ТОКЕН`\n\nПолучите токен в настройках приложения → Telegram бот",
+			"Укажите токен: <code>/link ВАШ_ТОКЕН</code>\n\nПолучите токен в настройках приложения → Telegram бот",
 			true)
 		return
-	}
-
-	var telegramName string
-	if msg.From != nil {
-		telegramName = msg.From.UserName
 	}
 
 	gctx, cancel := grpcCtx(ctx)
@@ -190,8 +236,8 @@ func (h *Handler) handleLink(ctx context.Context, msg *tgbotapi.Message, token s
 
 	resp, err := h.client.LinkTelegramAccount(gctx, &fatev1.LinkTelegramAccountRequest{
 		LinkToken:    token,
-		TelegramId:   msg.Chat.ID,
-		TelegramName: telegramName,
+		TelegramId:   msg.From.ID,
+		TelegramName: msg.From.UserName,
 	})
 	if err != nil {
 		h.send(msg.Chat.ID, h.grpcErrMsg(err), false)
@@ -199,7 +245,7 @@ func (h *Handler) handleLink(ctx context.Context, msg *tgbotapi.Message, token s
 	}
 
 	if resp.Success {
-		h.send(msg.Chat.ID, fmt.Sprintf("✅ Аккаунт привязан!\n\nДобро пожаловать, *%s*!", resp.DisplayName), true)
+		h.send(msg.Chat.ID, fmt.Sprintf("✅ Аккаунт привязан!\n\nДобро пожаловать, <b>%s</b>!", esc(resp.DisplayName)), true)
 	} else {
 		h.send(msg.Chat.ID, fmt.Sprintf("❌ %s", resp.Message), false)
 	}
@@ -211,11 +257,20 @@ var voteStatusEmoji = map[fatev1.VoteStatus]string{
 	fatev1.VoteStatus_VOTE_STATUS_CLOSED:  "🔒",
 }
 
-func (h *Handler) handleVotes(ctx context.Context, msg *tgbotapi.Message) {
+func (h *Handler) handleVotes(ctx context.Context, msg *tgbotapi.Message, args string) {
+	page := 1
+	if args != "" {
+		var ok bool
+		if page, ok = parsePage(args); !ok {
+			h.send(msg.Chat.ID, "Используйте /votes [страница]", false)
+			return
+		}
+	}
+
 	gctx, cancel := grpcCtx(ctx)
 	defer cancel()
 
-	resp, err := h.client.GetMyVotes(gctx, &fatev1.GetMyVotesRequest{TelegramId: msg.Chat.ID})
+	resp, err := h.client.GetMyVotes(gctx, &fatev1.GetMyVotesRequest{TelegramId: msg.From.ID})
 	if err != nil {
 		h.send(msg.Chat.ID, h.grpcErrMsg(err), false)
 		return
@@ -226,9 +281,19 @@ func (h *Handler) handleVotes(ctx context.Context, msg *tgbotapi.Message) {
 		return
 	}
 
+	// The backend returns every vote at once; paging here keeps each reply readable and
+	// well under Telegram's per-message limit.
+	totalPages := (len(resp.Votes) + votesPageSize - 1) / votesPageSize
+	if page > totalPages {
+		h.send(msg.Chat.ID, fmt.Sprintf("Страницы %d нет, всего страниц: %d", page, totalPages), false)
+		return
+	}
+	from := (page - 1) * votesPageSize
+	to := min(from+votesPageSize, len(resp.Votes))
+
 	var sb strings.Builder
-	sb.WriteString("✦ *Ваши голосования:*\n\n")
-	for _, v := range resp.Votes {
+	sb.WriteString("✦ <b>Ваши голосования:</b>\n\n")
+	for _, v := range resp.Votes[from:to] {
 		statusEmoji := voteStatusEmoji[v.Status]
 		modeEmoji := "⚡"
 		if v.Mode == fatev1.VoteMode_VOTE_MODE_FAIR_ROTATION {
@@ -238,26 +303,41 @@ func (h *Handler) handleVotes(ctx context.Context, msg *tgbotapi.Message) {
 		if v.IsCreator {
 			creatorTag = " 👑"
 		}
-		sb.WriteString(fmt.Sprintf("%s %s *%s*%s\n", statusEmoji, modeEmoji, v.Title, creatorTag))
-		sb.WriteString(fmt.Sprintf("  ID: `%s`\n", v.VoteId))
+		sb.WriteString(fmt.Sprintf("%s %s <b>%s</b>%s\n", statusEmoji, modeEmoji, esc(v.Title), creatorTag))
+		sb.WriteString(fmt.Sprintf("  ID: <code>%s</code>\n", esc(v.VoteId)))
 		sb.WriteString(fmt.Sprintf("  Участников: %d", v.ParticipantCount))
 		if v.Mode == fatev1.VoteMode_VOTE_MODE_FAIR_ROTATION {
 			sb.WriteString(fmt.Sprintf(" | Раунд %d", v.CurrentRound))
 		}
 		sb.WriteString("\n\n")
 	}
+	if totalPages > 1 {
+		sb.WriteString(fmt.Sprintf("Страница %d из %d\n", page, totalPages))
+		if page < totalPages {
+			sb.WriteString(fmt.Sprintf("Следующая: <code>/votes %d</code>", page+1))
+		}
+	}
 
 	h.send(msg.Chat.ID, sb.String(), true)
+}
+
+// parsePage accepts a 1-based page number that fits the proto's int32 page field.
+func parsePage(raw string) (int, bool) {
+	page, err := strconv.Atoi(raw)
+	if err != nil || page < 1 || page > 2147483647 {
+		return 0, false
+	}
+	return page, true
 }
 
 func (h *Handler) handleNewVote(ctx context.Context, msg *tgbotapi.Message, args string) {
 	request, err := parseCreateVoteArgs(args)
 	if err != nil {
-		h.send(msg.Chat.ID, fmt.Sprintf("❌ %s\n\n%s", err.Error(), newVoteUsage()), true)
+		h.send(msg.Chat.ID, fmt.Sprintf("❌ %s\n\n%s", esc(err.Error()), newVoteUsage()), true)
 		return
 	}
 
-	request.TelegramId = msg.Chat.ID
+	request.TelegramId = msg.From.ID
 
 	gctx, cancel := grpcCtx(ctx)
 	defer cancel()
@@ -274,9 +354,9 @@ func (h *Handler) handleNewVote(ctx context.Context, msg *tgbotapi.Message, args
 
 	vote := resp.Vote
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("✅ *Голосование создано*\n\n*%s*\nID: `%s`\nУчастников: %d\nРежим: %s",
-		vote.Title,
-		vote.VoteId,
+	sb.WriteString(fmt.Sprintf("✅ <b>Голосование создано</b>\n\n<b>%s</b>\nID: <code>%s</code>\nУчастников: %d\nРежим: %s",
+		esc(vote.Title),
+		esc(vote.VoteId),
 		len(vote.Participants),
 		formatMode(vote.Mode),
 	))
@@ -288,7 +368,7 @@ func (h *Handler) handleNewVote(ctx context.Context, msg *tgbotapi.Message, args
 
 func (h *Handler) handleVoteInfo(ctx context.Context, msg *tgbotapi.Message, voteID string) {
 	if voteID == "" {
-		h.send(msg.Chat.ID, "Укажите ID голосования: `/vote <id>`\n\nПосмотреть ID: /votes", true)
+		h.send(msg.Chat.ID, "Укажите ID голосования: <code>/vote &lt;id&gt;</code>\n\nПосмотреть ID: /votes", true)
 		return
 	}
 
@@ -297,7 +377,7 @@ func (h *Handler) handleVoteInfo(ctx context.Context, msg *tgbotapi.Message, vot
 
 	resp, err := h.client.GetVoteDetails(gctx, &fatev1.GetVoteDetailsRequest{
 		VoteId:     voteID,
-		TelegramId: msg.Chat.ID,
+		TelegramId: msg.From.ID,
 	})
 	if err != nil {
 		h.send(msg.Chat.ID, h.grpcErrMsg(err), false)
@@ -305,18 +385,19 @@ func (h *Handler) handleVoteInfo(ctx context.Context, msg *tgbotapi.Message, vot
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("✦ *%s*\n", resp.Title))
-	sb.WriteString(fmt.Sprintf("ID: `%s`\n", resp.VoteId))
+	sb.WriteString(fmt.Sprintf("✦ <b>%s</b>\n", esc(resp.Title)))
+	sb.WriteString(fmt.Sprintf("ID: <code>%s</code>\n", esc(resp.VoteId)))
 	sb.WriteString(fmt.Sprintf("Статус: %s\n", formatStatus(resp.Status)))
 	sb.WriteString(fmt.Sprintf("Режим: %s\n", formatMode(resp.Mode)))
 	if resp.Description != "" {
-		sb.WriteString(fmt.Sprintf("\n_%s_\n", resp.Description))
+		// Not wrapped in <i>: a multi-line description would span lines, and send() may split there.
+		sb.WriteString(fmt.Sprintf("\n%s\n", esc(resp.Description)))
 	}
 
 	if len(resp.Options) > 0 {
 		sb.WriteString(fmt.Sprintf("\nВарианты (%d):\n", len(resp.Options)))
 		for _, o := range resp.Options {
-			sb.WriteString(fmt.Sprintf("• %s\n", o.Title))
+			sb.WriteString(fmt.Sprintf("• %s\n", esc(o.Title)))
 		}
 	}
 
@@ -326,11 +407,11 @@ func (h *Handler) handleVoteInfo(ctx context.Context, msg *tgbotapi.Message, vot
 		if name == "" {
 			name = p.Email
 		}
-		sb.WriteString(fmt.Sprintf("• %s (`%s`)\n", name, p.Email))
+		sb.WriteString(fmt.Sprintf("• %s (<code>%s</code>)\n", esc(name), esc(p.Email)))
 	}
 	if resp.LastResult != nil {
 		label := drawResultLabel(resp.LastResult)
-		sb.WriteString(fmt.Sprintf("\nПоследний победитель: *%s*, раунд %d", label, resp.LastResult.Round))
+		sb.WriteString(fmt.Sprintf("\nПоследний победитель: <b>%s</b>, раунд %d", esc(label), resp.LastResult.Round))
 	}
 
 	h.send(msg.Chat.ID, sb.String(), true)
@@ -338,7 +419,7 @@ func (h *Handler) handleVoteInfo(ctx context.Context, msg *tgbotapi.Message, vot
 
 func (h *Handler) handleDraw(ctx context.Context, msg *tgbotapi.Message, voteID string) {
 	if voteID == "" {
-		h.send(msg.Chat.ID, "Укажите ID голосования: `/draw <id>`\n\nПосмотреть ID: /votes", true)
+		h.send(msg.Chat.ID, "Укажите ID голосования: <code>/draw &lt;id&gt;</code>\n\nПосмотреть ID: /votes", true)
 		return
 	}
 
@@ -347,7 +428,7 @@ func (h *Handler) handleDraw(ctx context.Context, msg *tgbotapi.Message, voteID 
 
 	resp, err := h.client.DrawVote(gctx, &fatev1.DrawVoteRequest{
 		VoteId:     voteID,
-		TelegramId: msg.Chat.ID,
+		TelegramId: msg.From.ID,
 	})
 	if err != nil {
 		h.send(msg.Chat.ID, h.grpcErrMsg(err), false)
@@ -359,8 +440,8 @@ func (h *Handler) handleDraw(ctx context.Context, msg *tgbotapi.Message, voteID 
 		return
 	}
 
-	text := fmt.Sprintf("✨ *Рука Судьбы выбрала!*\n\n🏆 *Победитель раунда %d:*\n%s",
-		resp.Round, resp.Message)
+	text := fmt.Sprintf("✨ <b>Рука Судьбы выбрала!</b>\n\n🏆 <b>Победитель раунда %d:</b>\n%s",
+		resp.Round, esc(resp.Message))
 	if resp.NewRoundStarted {
 		text += "\n\n🔄 Все варианты/участники выиграли — начинается новый раунд!"
 	}
@@ -369,7 +450,7 @@ func (h *Handler) handleDraw(ctx context.Context, msg *tgbotapi.Message, voteID 
 
 func (h *Handler) handleResult(ctx context.Context, msg *tgbotapi.Message, voteID string) {
 	if voteID == "" {
-		h.send(msg.Chat.ID, "Укажите ID голосования: `/result <id>`", true)
+		h.send(msg.Chat.ID, "Укажите ID голосования: <code>/result &lt;id&gt;</code>", true)
 		return
 	}
 
@@ -378,7 +459,7 @@ func (h *Handler) handleResult(ctx context.Context, msg *tgbotapi.Message, voteI
 
 	resp, err := h.client.GetLastDrawResult(gctx, &fatev1.GetLastDrawResultRequest{
 		VoteId:     voteID,
-		TelegramId: msg.Chat.ID,
+		TelegramId: msg.From.ID,
 	})
 	if err != nil {
 		h.send(msg.Chat.ID, h.grpcErrMsg(err), false)
@@ -392,18 +473,18 @@ func (h *Handler) handleResult(ctx context.Context, msg *tgbotapi.Message, voteI
 
 	r := resp.Result
 	label := drawResultLabel(r)
-	text := fmt.Sprintf("✦ *Последний результат*\n\n🏆 Победитель раунда *%d*:\n*%s*\n\n_%s_",
-		r.Round, label, r.DrawnAt)
+	text := fmt.Sprintf("✦ <b>Последний результат</b>\n\n🏆 Победитель раунда <b>%d</b>:\n<b>%s</b>\n\n<i>%s</i>",
+		r.Round, esc(label), esc(r.DrawnAt))
 	if r.WinnerEmail != "" && r.WinnerOptionTitle == "" {
-		text = fmt.Sprintf("✦ *Последний результат*\n\n🏆 Победитель раунда *%d*:\n*%s*\n`%s`\n\n_%s_",
-			r.Round, label, r.WinnerEmail, r.DrawnAt)
+		text = fmt.Sprintf("✦ <b>Последний результат</b>\n\n🏆 Победитель раунда <b>%d</b>:\n<b>%s</b>\n<code>%s</code>\n\n<i>%s</i>",
+			r.Round, esc(label), esc(r.WinnerEmail), esc(r.DrawnAt))
 	}
 	h.send(msg.Chat.ID, text, true)
 }
 
 func (h *Handler) handleHistory(ctx context.Context, msg *tgbotapi.Message, voteID string) {
 	if voteID == "" {
-		h.send(msg.Chat.ID, "Укажите ID голосования: `/history <id>`", true)
+		h.send(msg.Chat.ID, "Укажите ID голосования: <code>/history &lt;id&gt; [страница]</code>", true)
 		return
 	}
 
@@ -414,9 +495,8 @@ func (h *Handler) handleHistory(ctx context.Context, msg *tgbotapi.Message, vote
 		return
 	}
 	if len(args) == 2 {
-		var err error
-		page, err = strconv.Atoi(args[1])
-		if err != nil || page < 1 || page > 2147483647 {
+		var ok bool
+		if page, ok = parsePage(args[1]); !ok {
 			h.send(msg.Chat.ID, "Номер страницы должен быть положительным числом", false)
 			return
 		}
@@ -429,7 +509,7 @@ func (h *Handler) handleHistory(ctx context.Context, msg *tgbotapi.Message, vote
 		VoteId:     voteID,
 		Page:       int32(page - 1),
 		PageSize:   20,
-		TelegramId: msg.Chat.ID,
+		TelegramId: msg.From.ID,
 	})
 	if err != nil {
 		h.send(msg.Chat.ID, h.grpcErrMsg(err), false)
@@ -441,19 +521,20 @@ func (h *Handler) handleHistory(ctx context.Context, msg *tgbotapi.Message, vote
 	}
 
 	var sb strings.Builder
-	sb.WriteString("✦ *История результатов*\n\n")
+	sb.WriteString("✦ <b>История результатов</b>\n\n")
 	for _, r := range resp.Results {
-		label := drawResultLabel(r)
+		label := esc(drawResultLabel(r))
 		if r.WinnerEmail != "" && r.WinnerOptionTitle == "" {
-			sb.WriteString(fmt.Sprintf("Раунд *%d*: %s (`%s`)\n_%s_\n\n", r.Round, label, r.WinnerEmail, r.DrawnAt))
+			sb.WriteString(fmt.Sprintf("Раунд <b>%d</b>: %s (<code>%s</code>)\n<i>%s</i>\n\n",
+				r.Round, label, esc(r.WinnerEmail), esc(r.DrawnAt)))
 		} else {
-			sb.WriteString(fmt.Sprintf("Раунд *%d*: %s\n_%s_\n\n", r.Round, label, r.DrawnAt))
+			sb.WriteString(fmt.Sprintf("Раунд <b>%d</b>: %s\n<i>%s</i>\n\n", r.Round, label, esc(r.DrawnAt)))
 		}
 	}
 	if resp.TotalPages > 1 {
 		sb.WriteString(fmt.Sprintf("Страница %d из %d\n", page, resp.TotalPages))
 		if int32(page) < resp.TotalPages {
-			sb.WriteString(fmt.Sprintf("Следующая: `/history %s %d`", voteID, page+1))
+			sb.WriteString(fmt.Sprintf("Следующая: <code>/history %s %d</code>", esc(voteID), page+1))
 		}
 	}
 	h.send(msg.Chat.ID, sb.String(), true)
@@ -464,7 +545,7 @@ func (h *Handler) handleUnlink(ctx context.Context, msg *tgbotapi.Message) {
 	defer cancel()
 
 	resp, err := h.client.UnlinkTelegramAccount(gctx, &fatev1.UnlinkTelegramAccountRequest{
-		TelegramId: msg.Chat.ID,
+		TelegramId: msg.From.ID,
 	})
 	if err != nil {
 		h.send(msg.Chat.ID, h.grpcErrMsg(err), false)
@@ -477,14 +558,95 @@ func (h *Handler) handleUnlink(ctx context.Context, msg *tgbotapi.Message) {
 	}
 }
 
-func (h *Handler) send(chatID int64, text string, markdown bool) {
-	msg := tgbotapi.NewMessage(chatID, text)
-	if markdown {
-		msg.ParseMode = tgbotapi.ModeMarkdown
+// maxMessageLength is Telegram's limit on a message's text, in UTF-16 code units.
+const maxMessageLength = 4096
+
+// send delivers text, split into several messages when it exceeds Telegram's limit. With
+// formatted set it is parsed as HTML; should Telegram still reject the markup, the same text
+// is resent without formatting so the user always gets a reply.
+func (h *Handler) send(chatID int64, text string, formatted bool) {
+	for _, chunk := range splitMessage(text, maxMessageLength) {
+		h.sendChunk(chatID, chunk, formatted)
 	}
-	if _, err := h.bot.Send(msg); err != nil {
+}
+
+func (h *Handler) sendChunk(chatID int64, text string, formatted bool) {
+	msg := tgbotapi.NewMessage(chatID, text)
+	if formatted {
+		msg.ParseMode = tgbotapi.ModeHTML
+	}
+	_, err := h.bot.Send(msg)
+	var apiErr *tgbotapi.Error
+	if err != nil && formatted && errors.As(err, &apiErr) && apiErr.Code == 400 {
+		h.log.Warn("Telegram rejected formatted message, resending as plain text",
+			zap.Int64("chat_id", chatID), zap.Error(err))
+		_, err = h.bot.Send(tgbotapi.NewMessage(chatID, plainText(text)))
+	}
+	if err != nil {
 		h.log.Error("failed to send message", zap.Int64("chat_id", chatID), zap.Error(err))
 	}
+}
+
+// esc escapes a user-supplied value for Telegram's HTML parse mode.
+func esc(s string) string {
+	return html.EscapeString(s)
+}
+
+var htmlTag = regexp.MustCompile(`<[^>]*>`)
+
+// plainText turns the bot's HTML markup back into the text a user would read.
+func plainText(s string) string {
+	return html.UnescapeString(htmlTag.ReplaceAllString(s, ""))
+}
+
+func utf16Len(s string) int {
+	return len(utf16.Encode([]rune(s)))
+}
+
+// splitMessage cuts text into chunks of at most limit UTF-16 units. It breaks between lines,
+// where the bot's markup is always balanced, and only hard-splits a line that alone is too long.
+func splitMessage(text string, limit int) []string {
+	if utf16Len(text) <= limit {
+		return []string{text}
+	}
+	var chunks []string
+	var cur strings.Builder
+	curLen := 0
+	flush := func() {
+		if chunk := strings.TrimRight(cur.String(), "\n"); chunk != "" {
+			chunks = append(chunks, chunk)
+		}
+		cur.Reset()
+		curLen = 0
+	}
+	for _, line := range strings.SplitAfter(text, "\n") {
+		lineLen := utf16Len(line)
+		if curLen+lineLen > limit {
+			flush()
+		}
+		for lineLen > limit {
+			head, tail := cutUTF16(line, limit)
+			chunks = append(chunks, head)
+			line, lineLen = tail, utf16Len(tail)
+		}
+		cur.WriteString(line)
+		curLen += lineLen
+	}
+	flush()
+	return chunks
+}
+
+// cutUTF16 splits s after at most limit UTF-16 units without breaking a rune.
+func cutUTF16(s string, limit int) (string, string) {
+	n := 0
+	for i, r := range s {
+		w := utf16.RuneLen(r)
+		if n+w > limit {
+			return s[:i], s[i:]
+		}
+		n += w
+	}
+	return s, ""
 }
 
 func (h *Handler) grpcErrMsg(err error) string {
@@ -496,7 +658,7 @@ func (h *Handler) grpcErrMsg(err error) string {
 	switch st.Code() {
 	case codes.NotFound:
 		if isTelegramNotLinked(st) {
-			return "❌ Telegram аккаунт не привязан.\n\nПолучите токен в настройках приложения и выполните /link <токен>"
+			return "❌ Telegram аккаунт не привязан.\n\nПолучите токен в настройках приложения и выполните /link <токен> в личных сообщениях"
 		}
 		return "❌ Голосование не найдено."
 	case codes.InvalidArgument:
@@ -505,6 +667,8 @@ func (h *Handler) grpcErrMsg(err error) string {
 		return "❌ У вас нет прав для этого действия."
 	case codes.FailedPrecondition:
 		return "❌ Действие недоступно в текущем состоянии голосования."
+	case codes.ResourceExhausted:
+		return "❌ Достигнут лимит. Попробуйте позже."
 	default:
 		h.log.Error("gRPC error", zap.Error(err))
 		return "❌ Ошибка сервера. Попробуйте позже."
@@ -619,7 +783,8 @@ func parseMode(raw string) (fatev1.VoteMode, error) {
 }
 
 func newVoteUsage() string {
-	return "Формат: `/newvote Название | email1,email2 | simple | вариант1,вариант2`\nРежимы: `simple` или `fair`.\nВарианты — необязательно."
+	return "Формат: <code>/newvote Название | email1,email2 | simple | вариант1,вариант2</code>\n" +
+		"Режимы: <code>simple</code> или <code>fair</code>.\nВарианты — необязательно."
 }
 
 func formatStatus(status fatev1.VoteStatus) string {

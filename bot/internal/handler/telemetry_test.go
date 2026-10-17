@@ -131,7 +131,7 @@ func TestPlainTextIsNotInstrumented(t *testing.T) {
 	spansBefore := len(spanRecorder.Ended())
 	h := New(&fakeTelegram{}, &fakeFateClient{}, zaptest.NewLogger(t))
 
-	h.handleMessage(context.Background(), &tgbotapi.Message{Chat: &tgbotapi.Chat{ID: 1}, Text: "hello"})
+	h.handleMessage(context.Background(), &tgbotapi.Message{Chat: privateChat(1), From: &tgbotapi.User{ID: 1}, Text: "hello"})
 
 	if got := len(spanRecorder.Ended()) - spansBefore; got != 0 {
 		t.Errorf("plain text produced %d spans, want 0", got)
