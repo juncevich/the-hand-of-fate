@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
-import type { VoteMode } from '@/types/vote'
+import type { DrawTarget, VoteMode } from '@/types/vote'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -18,6 +18,8 @@ export function CreateVoteDialog() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [mode, setMode] = useState<VoteMode>('SIMPLE')
+  const [drawTarget, setDrawTarget] = useState<DrawTarget>('PARTICIPANTS')
+  const drawsOptions = drawTarget === 'OPTIONS'
 
   const optionList = useTagList()
   const emailList = useTagList({
@@ -42,6 +44,7 @@ export function CreateVoteDialog() {
     setTitle('')
     setDescription('')
     setMode('SIMPLE')
+    setDrawTarget('PARTICIPANTS')
     optionList.reset()
     emailList.reset()
     setOpen(false)
@@ -53,8 +56,10 @@ export function CreateVoteDialog() {
         title,
         description: description || undefined,
         mode,
+        drawTarget,
         participantEmails: emailList.items,
-        options: optionList.items,
+        // Options typed before switching back to participants are not sent: such a vote can't have them.
+        options: drawsOptions ? optionList.items : [],
       },
       { onSuccess: resetAndClose },
     )
@@ -124,48 +129,80 @@ export function CreateVoteDialog() {
             </div>
           </div>
 
-          {/* Options */}
+          {/* Draw target */}
           <div className="space-y-1.5">
-            <Label>Варианты выбора</Label>
-            <p className="text-xs text-fate-muted">
-              Если варианты заданы — жеребьёвка выбирает из них, а не из участников
-            </p>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Например: Пицца"
-                value={optionList.input}
-                onChange={(e) => optionList.setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    addOption()
-                  }
-                }}
-              />
-              <Button type="button" variant="outline" size="icon" onClick={addOption}>
-                <Plus className="w-4 h-4" />
-              </Button>
+            <Label>Кого выбирает жеребьёвка</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(['PARTICIPANTS', 'OPTIONS'] as DrawTarget[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={drawTarget === t}
+                  onClick={() => setDrawTarget(t)}
+                  className={`p-3 rounded-lg border text-sm text-left transition-all ${
+                    drawTarget === t
+                      ? 'border-fate-gold bg-fate-gold/10 text-fate-gold'
+                      : 'border-fate-border text-fate-muted hover:border-white/20'
+                  }`}
+                >
+                  <div className="font-medium">{t === 'PARTICIPANTS' ? 'Участника' : 'Вариант'}</div>
+                  <div className="text-xs mt-1 opacity-70">
+                    {t === 'PARTICIPANTS'
+                      ? 'Победитель — один из приглашённых'
+                      : 'Победитель — один из вариантов'}
+                  </div>
+                </button>
+              ))}
             </div>
-            {optionList.items.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {optionList.items.map((opt) => (
-                  <span
-                    key={opt}
-                    className="flex items-center gap-1 bg-fate-gold/10 border border-fate-gold/30 rounded-full px-3 py-1 text-xs text-fate-gold"
-                  >
-                    {opt}
-                    <button onClick={() => optionList.remove(opt)}>
-                      <X className="w-3 h-3 hover:text-red-400" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
+            <p className="text-xs text-fate-muted">Изменить это после создания нельзя</p>
           </div>
+
+          {/* Options */}
+          {drawsOptions && (
+            <div className="space-y-1.5">
+              <Label>Варианты выбора</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Например: Пицца"
+                  value={optionList.input}
+                  onChange={(e) => optionList.setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addOption()
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" size="icon" onClick={addOption}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              {optionList.items.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {optionList.items.map((opt) => (
+                    <span
+                      key={opt}
+                      className="flex items-center gap-1 bg-fate-gold/10 border border-fate-gold/30 rounded-full px-3 py-1 text-xs text-fate-gold"
+                    >
+                      {opt}
+                      <button onClick={() => optionList.remove(opt)}>
+                        <X className="w-3 h-3 hover:text-red-400" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Participants */}
           <div className="space-y-1.5">
-            <Label>Участники</Label>
+            <Label>{drawsOptions ? 'Наблюдатели' : 'Участники'}</Label>
+            {drawsOptions && (
+              <p className="text-xs text-fate-muted">
+                Получат приглашение и результат, но в жеребьёвке не участвуют
+              </p>
+            )}
             <div className="flex gap-2">
               <Input
                 placeholder="email@example.com"

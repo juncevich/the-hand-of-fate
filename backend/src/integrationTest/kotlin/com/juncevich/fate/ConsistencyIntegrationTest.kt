@@ -10,6 +10,7 @@ import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.vote.CreateVoteCommand
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteService
+import com.juncevich.fate.vote.internal.WinnerPicker
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -81,6 +82,33 @@ class ConsistencyIntegrationTest
             val detail = votes.getVote(vote.id, userId, email)
             assertEquals(listOf("Winner"), detail.options.map { it.title })
             assertEquals(listOf(email), detail.participants.map { it.email })
+        }
+
+        @Test
+        fun `a stored draw audit reproduces the recorded winner`() {
+            val userId = newUser().userId
+            val vote =
+                votes.createVote(
+                    userId,
+                    CreateVoteCommand("Audit", null, VoteMode.SIMPLE, emptyList(), listOf("A", "B", "C"))
+                )
+            val result = votes.draw(vote.id, userId)
+
+            val (seed, candidates, winnerId) =
+                jdbc.queryForObject(
+                    "SELECT seed, candidates, winner_option_id FROM draw_history WHERE vote_id = ?",
+                    { rs, _ ->
+                        @Suppress("UNCHECKED_CAST")
+                        Triple(rs.getString(1), (rs.getArray(2).array as Array<String>).toList(), rs.getString(3))
+                    },
+                    vote.id
+                )
+            assertEquals(vote.options.map { it.id.toString() }.sorted(), candidates)
+            assertEquals(winnerId, candidates[WinnerPicker.index(seed, candidates.size)])
+            assertEquals(vote.options.single { it.id.toString() == winnerId }.title, result.winnerOptionTitle)
+            // The TEXT[] column also maps back when the entity is read through JPA.
+            val email = checkNotNull(users.findById(userId)).email
+            assertEquals(result.winnerOptionTitle, votes.getHistory(vote.id, userId, email).single().winnerOptionTitle)
         }
 
         @Test

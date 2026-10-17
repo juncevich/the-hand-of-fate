@@ -34,6 +34,9 @@ export const votesApi = {
   removeOption: (id: string, optionId: string) =>
     apiClient.delete(`/votes/${id}/options/${optionId}`),
 
+  reorderOptions: (id: string, optionIds: string[]) =>
+    apiClient.put(`/votes/${id}/options/order`, { optionIds }),
+
   draw: (id: string) =>
     apiClient.post<DrawResult>(`/votes/${id}/draw`).then((r) => r.data),
 

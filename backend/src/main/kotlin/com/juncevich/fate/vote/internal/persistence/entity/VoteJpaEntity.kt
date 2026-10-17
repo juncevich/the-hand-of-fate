@@ -1,6 +1,7 @@
 package com.juncevich.fate.vote.internal.persistence.entity
 
 import com.juncevich.fate.shared.uuidV7
+import com.juncevich.fate.vote.DrawTarget
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
 import jakarta.persistence.*
@@ -28,6 +29,10 @@ class VoteJpaEntity(
     @JdbcType(PostgreSQLEnumJdbcType::class)
     @Column(nullable = false, length = 20)
     var mode: VoteMode = VoteMode.SIMPLE,
+    @Enumerated(EnumType.STRING)
+    @JdbcType(PostgreSQLEnumJdbcType::class)
+    @Column(name = "draw_target", nullable = false, updatable = false, length = 20)
+    val drawTarget: DrawTarget = DrawTarget.PARTICIPANTS,
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType::class)
     @Column(nullable = false, length = 20)

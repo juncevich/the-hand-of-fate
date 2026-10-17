@@ -21,7 +21,13 @@ class VoteController(
 ) {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(operationId = "createVote", summary = "Create a vote")
+    @Operation(
+        operationId = "createVote",
+        summary = "Create a vote",
+        description =
+            "Without drawTarget the vote draws from options when any are given, otherwise from participants. " +
+                "Options are rejected when drawTarget is PARTICIPANTS."
+    )
     fun createVote(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @Valid @RequestBody request: CreateVoteWebRequest,
@@ -85,6 +91,21 @@ class VoteController(
         voteService.addOption(id, user.id, request.title)
     }
 
+    @PutMapping("/{id}/options/order")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(
+        operationId = "reorderOptions",
+        summary = "Reorder the options (creator only)",
+        description = "optionIds must list every option of the vote exactly once, in the new order."
+    )
+    fun reorderOptions(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: ReorderOptionsRequest,
+    ) {
+        voteService.reorderOptions(id, user.id, request.optionIds)
+    }
+
     @DeleteMapping("/{id}/options/{optionId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(operationId = "removeOption", summary = "Remove an option (creator only)")
@@ -100,7 +121,7 @@ class VoteController(
     @Operation(
         operationId = "drawVote",
         summary = "Draw a winner (creator only)",
-        description = "Draws from the options if the vote has any, otherwise from the participants."
+        description = "Draws from the vote's drawTarget: its options, or its participants."
     )
     fun draw(
         @AuthenticationPrincipal user: AuthenticatedUser,

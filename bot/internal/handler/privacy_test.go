@@ -209,3 +209,43 @@ func TestHandleVotesSinglePageHasNoPager(t *testing.T) {
 		t.Fatalf("message = %q, want no pager", texts[0])
 	}
 }
+
+func TestVoteInfoShowsDrawTargetAndObservers(t *testing.T) {
+	client := &fakeFateClient{detailsResp: &fatev1.GetVoteDetailsResponse{
+		VoteId:       "v1",
+		Title:        "Lunch",
+		DrawTarget:   fatev1.DrawTarget_DRAW_TARGET_OPTIONS,
+		Options:      []*fatev1.VoteOptionInfo{{OptionId: "o1", Title: "Pizza"}},
+		Participants: []*fatev1.ParticipantInfo{{Email: "a@example.com"}},
+	}}
+
+	texts := runCommand(t, client, makeCommandMsgWithArgs(42, "vote", "v1"))
+
+	assertSingleReply(t, texts, "Жеребьёвка: из вариантов", "Наблюдатели (1)")
+}
+
+func TestVoteInfoForParticipantsVote(t *testing.T) {
+	client := &fakeFateClient{detailsResp: &fatev1.GetVoteDetailsResponse{
+		VoteId:       "v1",
+		Title:        "Lunch",
+		DrawTarget:   fatev1.DrawTarget_DRAW_TARGET_PARTICIPANTS,
+		Participants: []*fatev1.ParticipantInfo{{Email: "a@example.com"}},
+	}}
+
+	texts := runCommand(t, client, makeCommandMsgWithArgs(42, "vote", "v1"))
+
+	assertSingleReply(t, texts, "Жеребьёвка: из участников", "Участники (1)")
+}
+
+func TestNewVoteReplyShowsDrawTarget(t *testing.T) {
+	client := &fakeFateClient{createResp: &fatev1.CreateVoteResponse{Success: true, Vote: &fatev1.GetVoteDetailsResponse{
+		VoteId:     "v1",
+		Title:      "Lunch",
+		DrawTarget: fatev1.DrawTarget_DRAW_TARGET_OPTIONS,
+		Options:    []*fatev1.VoteOptionInfo{{Title: "Pizza"}},
+	}}}
+
+	texts := runCommand(t, client, makeCommandMsgWithArgs(42, "newvote", "Lunch | | simple | Pizza"))
+
+	assertSingleReply(t, texts, "Жеребьёвка: из вариантов")
+}

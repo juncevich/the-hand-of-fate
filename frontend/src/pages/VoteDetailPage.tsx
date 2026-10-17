@@ -22,6 +22,7 @@ export function VoteDetailPage() {
     removeParticipant,
     addOption,
     removeOption,
+    reorderOptions,
     deleteVote,
   } = useVoteDetail(id!)
 
@@ -52,14 +53,18 @@ export function VoteDetailPage() {
 
       {vote.lastResult && <VoteLastResult result={vote.lastResult} />}
 
-      <VoteOptions
-        options={vote.options}
-        isCreator={vote.isCreator}
-        status={vote.status}
-        onAdd={(title) => addOption.mutate(title)}
-        onRemove={(optionId) => removeOption.mutate(optionId)}
-        isAddLoading={addOption.isPending}
-      />
+      {vote.drawTarget === 'OPTIONS' && (
+        <VoteOptions
+          options={vote.options}
+          isCreator={vote.isCreator}
+          status={vote.status}
+          onAdd={(title) => addOption.mutate(title)}
+          onRemove={(optionId) => removeOption.mutate(optionId)}
+          onReorder={(optionIds) => reorderOptions.mutate(optionIds)}
+          isAddLoading={addOption.isPending}
+          isReorderLoading={reorderOptions.isPending}
+        />
+      )}
 
       <VoteParticipants
         participants={vote.participants}
@@ -68,6 +73,7 @@ export function VoteDetailPage() {
         onAdd={(email) => addParticipant.mutate(email)}
         onRemove={(email) => removeParticipant.mutate(email)}
         isAddLoading={addParticipant.isPending}
+        observers={vote.drawTarget === 'OPTIONS'}
       />
 
       <VoteHistory voteId={id!} />

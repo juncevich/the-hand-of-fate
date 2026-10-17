@@ -122,6 +122,56 @@ func (VoteMode) EnumDescriptor() ([]byte, []int) {
 	return file_fate_v1_fate_proto_rawDescGZIP(), []int{1}
 }
 
+// What a draw picks the winner from.
+type DrawTarget int32
+
+const (
+	DrawTarget_DRAW_TARGET_UNSPECIFIED  DrawTarget = 0
+	DrawTarget_DRAW_TARGET_PARTICIPANTS DrawTarget = 1
+	DrawTarget_DRAW_TARGET_OPTIONS      DrawTarget = 2
+)
+
+// Enum value maps for DrawTarget.
+var (
+	DrawTarget_name = map[int32]string{
+		0: "DRAW_TARGET_UNSPECIFIED",
+		1: "DRAW_TARGET_PARTICIPANTS",
+		2: "DRAW_TARGET_OPTIONS",
+	}
+	DrawTarget_value = map[string]int32{
+		"DRAW_TARGET_UNSPECIFIED":  0,
+		"DRAW_TARGET_PARTICIPANTS": 1,
+		"DRAW_TARGET_OPTIONS":      2,
+	}
+)
+
+func (x DrawTarget) Enum() *DrawTarget {
+	p := new(DrawTarget)
+	*p = x
+	return p
+}
+
+func (x DrawTarget) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DrawTarget) Descriptor() protoreflect.EnumDescriptor {
+	return file_fate_v1_fate_proto_enumTypes[2].Descriptor()
+}
+
+func (DrawTarget) Type() protoreflect.EnumType {
+	return &file_fate_v1_fate_proto_enumTypes[2]
+}
+
+func (x DrawTarget) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DrawTarget.Descriptor instead.
+func (DrawTarget) EnumDescriptor() ([]byte, []int) {
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{2}
+}
+
 type LinkTelegramAccountRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LinkToken     string                 `protobuf:"bytes,1,opt,name=link_token,json=linkToken,proto3" json:"link_token,omitempty"`
@@ -434,8 +484,10 @@ type CreateVoteRequest struct {
 	Mode              VoteMode               `protobuf:"varint,4,opt,name=mode,proto3,enum=fate.v1.VoteMode" json:"mode,omitempty"`
 	ParticipantEmails []string               `protobuf:"bytes,5,rep,name=participant_emails,json=participantEmails,proto3" json:"participant_emails,omitempty"`
 	Options           []string               `protobuf:"bytes,6,rep,name=options,proto3" json:"options,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Fixed once the vote exists. UNSPECIFIED: OPTIONS when options are given, else PARTICIPANTS.
+	DrawTarget    DrawTarget `protobuf:"varint,7,opt,name=draw_target,json=drawTarget,proto3,enum=fate.v1.DrawTarget" json:"draw_target,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateVoteRequest) Reset() {
@@ -508,6 +560,13 @@ func (x *CreateVoteRequest) GetOptions() []string {
 		return x.Options
 	}
 	return nil
+}
+
+func (x *CreateVoteRequest) GetDrawTarget() DrawTarget {
+	if x != nil {
+		return x.DrawTarget
+	}
+	return DrawTarget_DRAW_TARGET_UNSPECIFIED
 }
 
 type CreateVoteResponse struct {
@@ -767,16 +826,18 @@ func (x *VoteOptionInfo) GetTitle() string {
 }
 
 type GetVoteDetailsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	VoteId        string                 `protobuf:"bytes,1,opt,name=vote_id,json=voteId,proto3" json:"vote_id,omitempty"`
-	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Mode          VoteMode               `protobuf:"varint,4,opt,name=mode,proto3,enum=fate.v1.VoteMode" json:"mode,omitempty"`
-	Status        VoteStatus             `protobuf:"varint,5,opt,name=status,proto3,enum=fate.v1.VoteStatus" json:"status,omitempty"`
-	CurrentRound  int32                  `protobuf:"varint,6,opt,name=current_round,json=currentRound,proto3" json:"current_round,omitempty"`
-	Participants  []*ParticipantInfo     `protobuf:"bytes,7,rep,name=participants,proto3" json:"participants,omitempty"`
-	LastResult    *DrawResultInfo        `protobuf:"bytes,8,opt,name=last_result,json=lastResult,proto3" json:"last_result,omitempty"`
-	Options       []*VoteOptionInfo      `protobuf:"bytes,9,rep,name=options,proto3" json:"options,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	VoteId       string                 `protobuf:"bytes,1,opt,name=vote_id,json=voteId,proto3" json:"vote_id,omitempty"`
+	Title        string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description  string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Mode         VoteMode               `protobuf:"varint,4,opt,name=mode,proto3,enum=fate.v1.VoteMode" json:"mode,omitempty"`
+	Status       VoteStatus             `protobuf:"varint,5,opt,name=status,proto3,enum=fate.v1.VoteStatus" json:"status,omitempty"`
+	CurrentRound int32                  `protobuf:"varint,6,opt,name=current_round,json=currentRound,proto3" json:"current_round,omitempty"`
+	Participants []*ParticipantInfo     `protobuf:"bytes,7,rep,name=participants,proto3" json:"participants,omitempty"`
+	LastResult   *DrawResultInfo        `protobuf:"bytes,8,opt,name=last_result,json=lastResult,proto3" json:"last_result,omitempty"`
+	Options      []*VoteOptionInfo      `protobuf:"bytes,9,rep,name=options,proto3" json:"options,omitempty"`
+	// With DRAW_TARGET_OPTIONS the participants are observers and are never drawn.
+	DrawTarget    DrawTarget `protobuf:"varint,10,opt,name=draw_target,json=drawTarget,proto3,enum=fate.v1.DrawTarget" json:"draw_target,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -872,6 +933,13 @@ func (x *GetVoteDetailsResponse) GetOptions() []*VoteOptionInfo {
 		return x.Options
 	}
 	return nil
+}
+
+func (x *GetVoteDetailsResponse) GetDrawTarget() DrawTarget {
+	if x != nil {
+		return x.DrawTarget
+	}
+	return DrawTarget_DRAW_TARGET_UNSPECIFIED
 }
 
 type ParticipantInfo struct {
@@ -1411,7 +1479,7 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\vtelegram_id\x18\x01 \x01(\x03R\n" +
 	"telegramId\"@\n" +
 	"\x12GetMyVotesResponse\x12*\n" +
-	"\x05votes\x18\x01 \x03(\v2\x14.fate.v1.VoteSummaryR\x05votes\"\xdc\x01\n" +
+	"\x05votes\x18\x01 \x03(\v2\x14.fate.v1.VoteSummaryR\x05votes\"\x92\x02\n" +
 	"\x11CreateVoteRequest\x12\x1f\n" +
 	"\vtelegram_id\x18\x01 \x01(\x03R\n" +
 	"telegramId\x12\x14\n" +
@@ -1419,7 +1487,9 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12%\n" +
 	"\x04mode\x18\x04 \x01(\x0e2\x11.fate.v1.VoteModeR\x04mode\x12-\n" +
 	"\x12participant_emails\x18\x05 \x03(\tR\x11participantEmails\x12\x18\n" +
-	"\aoptions\x18\x06 \x03(\tR\aoptions\"}\n" +
+	"\aoptions\x18\x06 \x03(\tR\aoptions\x124\n" +
+	"\vdraw_target\x18\a \x01(\x0e2\x13.fate.v1.DrawTargetR\n" +
+	"drawTarget\"}\n" +
 	"\x12CreateVoteResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x123\n" +
@@ -1439,7 +1509,7 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"telegramId\"C\n" +
 	"\x0eVoteOptionInfo\x12\x1b\n" +
 	"\toption_id\x18\x01 \x01(\tR\boptionId\x12\x14\n" +
-	"\x05title\x18\x02 \x01(\tR\x05title\"\x8d\x03\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\"\xc3\x03\n" +
 	"\x16GetVoteDetailsResponse\x12\x17\n" +
 	"\avote_id\x18\x01 \x01(\tR\x06voteId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -1450,7 +1520,10 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\fparticipants\x18\a \x03(\v2\x18.fate.v1.ParticipantInfoR\fparticipants\x128\n" +
 	"\vlast_result\x18\b \x01(\v2\x17.fate.v1.DrawResultInfoR\n" +
 	"lastResult\x121\n" +
-	"\aoptions\x18\t \x03(\v2\x17.fate.v1.VoteOptionInfoR\aoptions\"g\n" +
+	"\aoptions\x18\t \x03(\v2\x17.fate.v1.VoteOptionInfoR\aoptions\x124\n" +
+	"\vdraw_target\x18\n" +
+	" \x01(\x0e2\x13.fate.v1.DrawTargetR\n" +
+	"drawTarget\"g\n" +
 	"\x0fParticipantInfo\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1b\n" +
@@ -1501,7 +1574,12 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\bVoteMode\x12\x19\n" +
 	"\x15VOTE_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10VOTE_MODE_SIMPLE\x10\x01\x12\x1b\n" +
-	"\x17VOTE_MODE_FAIR_ROTATION\x10\x022\xa8\x05\n" +
+	"\x17VOTE_MODE_FAIR_ROTATION\x10\x02*`\n" +
+	"\n" +
+	"DrawTarget\x12\x1b\n" +
+	"\x17DRAW_TARGET_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18DRAW_TARGET_PARTICIPANTS\x10\x01\x12\x17\n" +
+	"\x13DRAW_TARGET_OPTIONS\x10\x022\xa8\x05\n" +
 	"\vFateService\x12`\n" +
 	"\x13LinkTelegramAccount\x12#.fate.v1.LinkTelegramAccountRequest\x1a$.fate.v1.LinkTelegramAccountResponse\x12f\n" +
 	"\x15UnlinkTelegramAccount\x12%.fate.v1.UnlinkTelegramAccountRequest\x1a&.fate.v1.UnlinkTelegramAccountResponse\x12E\n" +
@@ -1527,66 +1605,69 @@ func file_fate_v1_fate_proto_rawDescGZIP() []byte {
 	return file_fate_v1_fate_proto_rawDescData
 }
 
-var file_fate_v1_fate_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_fate_v1_fate_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_fate_v1_fate_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_fate_v1_fate_proto_goTypes = []any{
 	(VoteStatus)(0),                       // 0: fate.v1.VoteStatus
 	(VoteMode)(0),                         // 1: fate.v1.VoteMode
-	(*LinkTelegramAccountRequest)(nil),    // 2: fate.v1.LinkTelegramAccountRequest
-	(*LinkTelegramAccountResponse)(nil),   // 3: fate.v1.LinkTelegramAccountResponse
-	(*UnlinkTelegramAccountRequest)(nil),  // 4: fate.v1.UnlinkTelegramAccountRequest
-	(*UnlinkTelegramAccountResponse)(nil), // 5: fate.v1.UnlinkTelegramAccountResponse
-	(*GetMyVotesRequest)(nil),             // 6: fate.v1.GetMyVotesRequest
-	(*GetMyVotesResponse)(nil),            // 7: fate.v1.GetMyVotesResponse
-	(*CreateVoteRequest)(nil),             // 8: fate.v1.CreateVoteRequest
-	(*CreateVoteResponse)(nil),            // 9: fate.v1.CreateVoteResponse
-	(*VoteSummary)(nil),                   // 10: fate.v1.VoteSummary
-	(*GetVoteDetailsRequest)(nil),         // 11: fate.v1.GetVoteDetailsRequest
-	(*VoteOptionInfo)(nil),                // 12: fate.v1.VoteOptionInfo
-	(*GetVoteDetailsResponse)(nil),        // 13: fate.v1.GetVoteDetailsResponse
-	(*ParticipantInfo)(nil),               // 14: fate.v1.ParticipantInfo
-	(*DrawResultInfo)(nil),                // 15: fate.v1.DrawResultInfo
-	(*DrawVoteRequest)(nil),               // 16: fate.v1.DrawVoteRequest
-	(*DrawVoteResponse)(nil),              // 17: fate.v1.DrawVoteResponse
-	(*GetLastDrawResultRequest)(nil),      // 18: fate.v1.GetLastDrawResultRequest
-	(*GetLastDrawResultResponse)(nil),     // 19: fate.v1.GetLastDrawResultResponse
-	(*GetVoteHistoryRequest)(nil),         // 20: fate.v1.GetVoteHistoryRequest
-	(*GetVoteHistoryResponse)(nil),        // 21: fate.v1.GetVoteHistoryResponse
+	(DrawTarget)(0),                       // 2: fate.v1.DrawTarget
+	(*LinkTelegramAccountRequest)(nil),    // 3: fate.v1.LinkTelegramAccountRequest
+	(*LinkTelegramAccountResponse)(nil),   // 4: fate.v1.LinkTelegramAccountResponse
+	(*UnlinkTelegramAccountRequest)(nil),  // 5: fate.v1.UnlinkTelegramAccountRequest
+	(*UnlinkTelegramAccountResponse)(nil), // 6: fate.v1.UnlinkTelegramAccountResponse
+	(*GetMyVotesRequest)(nil),             // 7: fate.v1.GetMyVotesRequest
+	(*GetMyVotesResponse)(nil),            // 8: fate.v1.GetMyVotesResponse
+	(*CreateVoteRequest)(nil),             // 9: fate.v1.CreateVoteRequest
+	(*CreateVoteResponse)(nil),            // 10: fate.v1.CreateVoteResponse
+	(*VoteSummary)(nil),                   // 11: fate.v1.VoteSummary
+	(*GetVoteDetailsRequest)(nil),         // 12: fate.v1.GetVoteDetailsRequest
+	(*VoteOptionInfo)(nil),                // 13: fate.v1.VoteOptionInfo
+	(*GetVoteDetailsResponse)(nil),        // 14: fate.v1.GetVoteDetailsResponse
+	(*ParticipantInfo)(nil),               // 15: fate.v1.ParticipantInfo
+	(*DrawResultInfo)(nil),                // 16: fate.v1.DrawResultInfo
+	(*DrawVoteRequest)(nil),               // 17: fate.v1.DrawVoteRequest
+	(*DrawVoteResponse)(nil),              // 18: fate.v1.DrawVoteResponse
+	(*GetLastDrawResultRequest)(nil),      // 19: fate.v1.GetLastDrawResultRequest
+	(*GetLastDrawResultResponse)(nil),     // 20: fate.v1.GetLastDrawResultResponse
+	(*GetVoteHistoryRequest)(nil),         // 21: fate.v1.GetVoteHistoryRequest
+	(*GetVoteHistoryResponse)(nil),        // 22: fate.v1.GetVoteHistoryResponse
 }
 var file_fate_v1_fate_proto_depIdxs = []int32{
-	10, // 0: fate.v1.GetMyVotesResponse.votes:type_name -> fate.v1.VoteSummary
+	11, // 0: fate.v1.GetMyVotesResponse.votes:type_name -> fate.v1.VoteSummary
 	1,  // 1: fate.v1.CreateVoteRequest.mode:type_name -> fate.v1.VoteMode
-	13, // 2: fate.v1.CreateVoteResponse.vote:type_name -> fate.v1.GetVoteDetailsResponse
-	0,  // 3: fate.v1.VoteSummary.status:type_name -> fate.v1.VoteStatus
-	1,  // 4: fate.v1.VoteSummary.mode:type_name -> fate.v1.VoteMode
-	1,  // 5: fate.v1.GetVoteDetailsResponse.mode:type_name -> fate.v1.VoteMode
-	0,  // 6: fate.v1.GetVoteDetailsResponse.status:type_name -> fate.v1.VoteStatus
-	14, // 7: fate.v1.GetVoteDetailsResponse.participants:type_name -> fate.v1.ParticipantInfo
-	15, // 8: fate.v1.GetVoteDetailsResponse.last_result:type_name -> fate.v1.DrawResultInfo
-	12, // 9: fate.v1.GetVoteDetailsResponse.options:type_name -> fate.v1.VoteOptionInfo
-	15, // 10: fate.v1.GetLastDrawResultResponse.result:type_name -> fate.v1.DrawResultInfo
-	15, // 11: fate.v1.GetVoteHistoryResponse.results:type_name -> fate.v1.DrawResultInfo
-	2,  // 12: fate.v1.FateService.LinkTelegramAccount:input_type -> fate.v1.LinkTelegramAccountRequest
-	4,  // 13: fate.v1.FateService.UnlinkTelegramAccount:input_type -> fate.v1.UnlinkTelegramAccountRequest
-	6,  // 14: fate.v1.FateService.GetMyVotes:input_type -> fate.v1.GetMyVotesRequest
-	8,  // 15: fate.v1.FateService.CreateVote:input_type -> fate.v1.CreateVoteRequest
-	11, // 16: fate.v1.FateService.GetVoteDetails:input_type -> fate.v1.GetVoteDetailsRequest
-	16, // 17: fate.v1.FateService.DrawVote:input_type -> fate.v1.DrawVoteRequest
-	18, // 18: fate.v1.FateService.GetLastDrawResult:input_type -> fate.v1.GetLastDrawResultRequest
-	20, // 19: fate.v1.FateService.GetVoteHistory:input_type -> fate.v1.GetVoteHistoryRequest
-	3,  // 20: fate.v1.FateService.LinkTelegramAccount:output_type -> fate.v1.LinkTelegramAccountResponse
-	5,  // 21: fate.v1.FateService.UnlinkTelegramAccount:output_type -> fate.v1.UnlinkTelegramAccountResponse
-	7,  // 22: fate.v1.FateService.GetMyVotes:output_type -> fate.v1.GetMyVotesResponse
-	9,  // 23: fate.v1.FateService.CreateVote:output_type -> fate.v1.CreateVoteResponse
-	13, // 24: fate.v1.FateService.GetVoteDetails:output_type -> fate.v1.GetVoteDetailsResponse
-	17, // 25: fate.v1.FateService.DrawVote:output_type -> fate.v1.DrawVoteResponse
-	19, // 26: fate.v1.FateService.GetLastDrawResult:output_type -> fate.v1.GetLastDrawResultResponse
-	21, // 27: fate.v1.FateService.GetVoteHistory:output_type -> fate.v1.GetVoteHistoryResponse
-	20, // [20:28] is the sub-list for method output_type
-	12, // [12:20] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	2,  // 2: fate.v1.CreateVoteRequest.draw_target:type_name -> fate.v1.DrawTarget
+	14, // 3: fate.v1.CreateVoteResponse.vote:type_name -> fate.v1.GetVoteDetailsResponse
+	0,  // 4: fate.v1.VoteSummary.status:type_name -> fate.v1.VoteStatus
+	1,  // 5: fate.v1.VoteSummary.mode:type_name -> fate.v1.VoteMode
+	1,  // 6: fate.v1.GetVoteDetailsResponse.mode:type_name -> fate.v1.VoteMode
+	0,  // 7: fate.v1.GetVoteDetailsResponse.status:type_name -> fate.v1.VoteStatus
+	15, // 8: fate.v1.GetVoteDetailsResponse.participants:type_name -> fate.v1.ParticipantInfo
+	16, // 9: fate.v1.GetVoteDetailsResponse.last_result:type_name -> fate.v1.DrawResultInfo
+	13, // 10: fate.v1.GetVoteDetailsResponse.options:type_name -> fate.v1.VoteOptionInfo
+	2,  // 11: fate.v1.GetVoteDetailsResponse.draw_target:type_name -> fate.v1.DrawTarget
+	16, // 12: fate.v1.GetLastDrawResultResponse.result:type_name -> fate.v1.DrawResultInfo
+	16, // 13: fate.v1.GetVoteHistoryResponse.results:type_name -> fate.v1.DrawResultInfo
+	3,  // 14: fate.v1.FateService.LinkTelegramAccount:input_type -> fate.v1.LinkTelegramAccountRequest
+	5,  // 15: fate.v1.FateService.UnlinkTelegramAccount:input_type -> fate.v1.UnlinkTelegramAccountRequest
+	7,  // 16: fate.v1.FateService.GetMyVotes:input_type -> fate.v1.GetMyVotesRequest
+	9,  // 17: fate.v1.FateService.CreateVote:input_type -> fate.v1.CreateVoteRequest
+	12, // 18: fate.v1.FateService.GetVoteDetails:input_type -> fate.v1.GetVoteDetailsRequest
+	17, // 19: fate.v1.FateService.DrawVote:input_type -> fate.v1.DrawVoteRequest
+	19, // 20: fate.v1.FateService.GetLastDrawResult:input_type -> fate.v1.GetLastDrawResultRequest
+	21, // 21: fate.v1.FateService.GetVoteHistory:input_type -> fate.v1.GetVoteHistoryRequest
+	4,  // 22: fate.v1.FateService.LinkTelegramAccount:output_type -> fate.v1.LinkTelegramAccountResponse
+	6,  // 23: fate.v1.FateService.UnlinkTelegramAccount:output_type -> fate.v1.UnlinkTelegramAccountResponse
+	8,  // 24: fate.v1.FateService.GetMyVotes:output_type -> fate.v1.GetMyVotesResponse
+	10, // 25: fate.v1.FateService.CreateVote:output_type -> fate.v1.CreateVoteResponse
+	14, // 26: fate.v1.FateService.GetVoteDetails:output_type -> fate.v1.GetVoteDetailsResponse
+	18, // 27: fate.v1.FateService.DrawVote:output_type -> fate.v1.DrawVoteResponse
+	20, // 28: fate.v1.FateService.GetLastDrawResult:output_type -> fate.v1.GetLastDrawResultResponse
+	22, // 29: fate.v1.FateService.GetVoteHistory:output_type -> fate.v1.GetVoteHistoryResponse
+	22, // [22:30] is the sub-list for method output_type
+	14, // [14:22] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_fate_v1_fate_proto_init() }
@@ -1599,7 +1680,7 @@ func file_fate_v1_fate_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fate_v1_fate_proto_rawDesc), len(file_fate_v1_fate_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,

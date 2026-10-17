@@ -130,6 +130,7 @@ describe('CreateVoteDialog', () => {
       id: '1',
       title: 'Мой опрос',
       mode: 'SIMPLE',
+      drawTarget: 'PARTICIPANTS',
       status: 'PENDING',
       currentRound: 1,
       isCreator: true,
@@ -155,6 +156,7 @@ describe('CreateVoteDialog', () => {
         title: 'Мой опрос',
         description: undefined,
         mode: 'SIMPLE',
+        drawTarget: 'PARTICIPANTS',
         participantEmails: ['ivan@example.com'],
         options: [],
       })
@@ -168,6 +170,7 @@ describe('CreateVoteDialog', () => {
       id: '1',
       title: 'Мой опрос',
       mode: 'SIMPLE',
+      drawTarget: 'PARTICIPANTS',
       status: 'PENDING',
       currentRound: 1,
       isCreator: true,
@@ -221,6 +224,7 @@ describe('CreateVoteDialog', () => {
       id: '1',
       title: 'Обед',
       mode: 'FAIR_ROTATION',
+      drawTarget: 'OPTIONS',
       status: 'PENDING',
       currentRound: 1,
       isCreator: true,
@@ -238,6 +242,9 @@ describe('CreateVoteDialog', () => {
     await user.type(screen.getByLabelText(/Название/i), 'Обед')
     await user.type(screen.getByLabelText(/Описание/i), 'Пятница')
     await user.click(screen.getByRole('button', { name: /Справедливый/i }))
+    expect(screen.queryByPlaceholderText('Например: Пицца')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^Вариант/ }))
+    expect(screen.getByText('Наблюдатели')).toBeInTheDocument()
 
     const optionInput = screen.getByPlaceholderText('Например: Пицца')
     await user.type(optionInput, 'Пицца{Enter}')
@@ -257,9 +264,29 @@ describe('CreateVoteDialog', () => {
         title: 'Обед',
         description: 'Пятница',
         mode: 'FAIR_ROTATION',
+        drawTarget: 'OPTIONS',
         participantEmails: [],
         options: ['Пицца', 'Суши'],
       })
+    })
+  })
+
+  it('does not send options typed before switching back to participants', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.create).mockResolvedValueOnce({} as never)
+
+    const user = userEvent.setup()
+    render(<CreateVoteDialog />, { wrapper: createWrapper() })
+    await user.click(screen.getByRole('button', { name: /Создать голосование/i }))
+    await user.type(screen.getByLabelText(/Название/i), 'Обед')
+    await user.click(screen.getByRole('button', { name: /^Вариант/ }))
+    await user.type(screen.getByPlaceholderText('Например: Пицца'), 'Пицца{Enter}')
+    await user.click(screen.getByRole('button', { name: /^Участника/ }))
+
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^Создать$/i }))
+
+    await waitFor(() => {
+      expect(votesApi.create).toHaveBeenCalledWith(expect.objectContaining({ drawTarget: 'PARTICIPANTS', options: [] }))
     })
   })
 })

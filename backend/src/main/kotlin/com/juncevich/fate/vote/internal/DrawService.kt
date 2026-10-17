@@ -2,6 +2,7 @@ package com.juncevich.fate.vote.internal
 
 import com.juncevich.fate.shared.ensureState
 import com.juncevich.fate.vote.DrawResult
+import com.juncevich.fate.vote.DrawTarget
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
 import com.juncevich.fate.vote.internal.domain.DrawHistory
@@ -33,6 +34,7 @@ class DrawService(
     private val voteOptionRepositoryPort: VoteOptionRepositoryPort,
     private val drawHistoryRepositoryPort: DrawHistoryRepositoryPort,
     private val meterRegistry: MeterRegistry,
+    private val winnerPicker: WinnerPicker,
 ) {
     @Transactional
     fun draw(vote: Vote): DrawResult {
@@ -40,14 +42,24 @@ class DrawService(
             "Vote must be in PENDING status to draw. Current status: ${vote.status}"
         }
 
-        val options = voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id)
-        val participants = if (options.isEmpty()) participantRepositoryPort.findAllByVoteId(vote.id) else emptyList()
-
+        val options =
+            when (vote.drawTarget) {
+                DrawTarget.OPTIONS -> voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id)
+                DrawTarget.PARTICIPANTS -> emptyList()
+            }
+        val participants =
+            when (vote.drawTarget) {
+                DrawTarget.OPTIONS -> emptyList()
+                DrawTarget.PARTICIPANTS -> participantRepositoryPort.findAllByVoteId(vote.id)
+            }
         ensureState(options.isNotEmpty() || participants.isNotEmpty()) {
-            "Cannot draw: vote has no options or participants"
+            when (vote.drawTarget) {
+                DrawTarget.OPTIONS -> "Cannot draw: add at least one option first"
+                DrawTarget.PARTICIPANTS -> "Cannot draw: vote has no participants"
+            }
         }
 
-        val (drawWinner, newRoundStarted) = selectWinner(vote, options, participants)
+        val (drawWinner, newRoundStarted, audit) = selectWinner(vote, options, participants)
 
         val history =
             when (drawWinner) {
@@ -57,7 +69,8 @@ class DrawService(
                             voteId = vote.id,
                             email = drawWinner.participant.email,
                             displayName = drawWinner.participant.displayName,
-                            round = vote.currentRound
+                            round = vote.currentRound,
+                            audit = audit
                         )
                     )
                 }
@@ -68,7 +81,8 @@ class DrawService(
                             voteId = vote.id,
                             optionId = drawWinner.option.id,
                             optionTitle = drawWinner.option.title,
-                            round = vote.currentRound
+                            round = vote.currentRound,
+                            audit = audit
                         )
                     )
                 }
@@ -118,58 +132,63 @@ class DrawService(
         vote: Vote,
         options: List<VoteOption>,
         participants: List<VoteParticipant>,
-    ): Pair<DrawWinner, Boolean> =
-        when {
-            options.isNotEmpty() -> {
-                when (vote.mode) {
-                    VoteMode.SIMPLE -> DrawWinner.Option(options.random()) to false
-                    VoteMode.FAIR_ROTATION -> drawFairRotationOption(vote, options)
-                }
-            }
-
-            else -> {
+    ): Selection =
+        if (options.isNotEmpty()) {
+            val (eligible, newRoundStarted) =
                 when (vote.mode) {
                     VoteMode.SIMPLE -> {
-                        DrawWinner.Participant(participants.random()) to false
+                        options to false
                     }
 
                     VoteMode.FAIR_ROTATION -> {
-                        val (winner, newRound) = drawFairRotation(vote, participants)
-                        DrawWinner.Participant(winner) to newRound
+                        eligibleThisRound(vote, options) {
+                            voteOptionRepositoryPort.findEligibleOptionsForRound(vote.id, vote.currentRound)
+                        }
                     }
                 }
-            }
+            // Ids, not titles: an option can be deleted and a new one added under the same title.
+            val byKey = eligible.associateBy { it.id.toString() }
+            val (key, audit) = winnerPicker.pick(byKey.keys)
+            Selection(DrawWinner.Option(byKey.getValue(key)), newRoundStarted, audit)
+        } else {
+            val (eligible, newRoundStarted) =
+                when (vote.mode) {
+                    VoteMode.SIMPLE -> {
+                        participants to false
+                    }
+
+                    VoteMode.FAIR_ROTATION -> {
+                        eligibleThisRound(vote, participants) {
+                            val emails =
+                                participantRepositoryPort
+                                    .findEligibleEmailsForRound(
+                                        vote.id,
+                                        vote.currentRound
+                                    ).toSet()
+                            participants.filter { it.email in emails }
+                        }
+                    }
+                }
+            val byKey = eligible.associateBy { it.email }
+            val (key, audit) = winnerPicker.pick(byKey.keys)
+            Selection(DrawWinner.Participant(byKey.getValue(key)), newRoundStarted, audit)
         }
 
-    private fun drawFairRotation(
+    /** FAIR_ROTATION: who has not won this round yet; once everyone has, a new round starts with all. */
+    private fun <T> eligibleThisRound(
         vote: Vote,
-        participants: List<VoteParticipant>,
-    ): Pair<VoteParticipant, Boolean> {
-        var eligibleEmails = participantRepositoryPort.findEligibleEmailsForRound(vote.id, vote.currentRound)
-        val newRoundStarted = eligibleEmails.isEmpty()
-
-        if (newRoundStarted) {
-            vote.currentRound++
-            eligibleEmails = participants.map { it.email }
-        }
-
-        val winnerEmail = eligibleEmails.random()
-        val winner = participants.first { it.email == winnerEmail }
-        return winner to newRoundStarted
+        all: List<T>,
+        notYetWon: () -> List<T>,
+    ): Pair<List<T>, Boolean> {
+        val eligible = notYetWon()
+        if (eligible.isNotEmpty()) return eligible to false
+        vote.currentRound++
+        return all to true
     }
 
-    private fun drawFairRotationOption(
-        vote: Vote,
-        options: List<VoteOption>,
-    ): Pair<DrawWinner.Option, Boolean> {
-        var eligibleOptions = voteOptionRepositoryPort.findEligibleOptionsForRound(vote.id, vote.currentRound)
-        val newRoundStarted = eligibleOptions.isEmpty()
-
-        if (newRoundStarted) {
-            vote.currentRound++
-            eligibleOptions = options
-        }
-
-        return DrawWinner.Option(eligibleOptions.random()) to newRoundStarted
-    }
+    private data class Selection(
+        val winner: DrawWinner,
+        val newRoundStarted: Boolean,
+        val audit: DrawAudit,
+    )
 }

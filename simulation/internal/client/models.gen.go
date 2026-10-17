@@ -7,6 +7,24 @@ import (
 	"time"
 )
 
+// Defines values for DrawTarget.
+const (
+	DrawTargetOPTIONS      DrawTarget = "OPTIONS"
+	DrawTargetPARTICIPANTS DrawTarget = "PARTICIPANTS"
+)
+
+// Valid indicates whether the value is a known member of the DrawTarget enum.
+func (e DrawTarget) Valid() bool {
+	switch e {
+	case DrawTargetOPTIONS:
+		return true
+	case DrawTargetPARTICIPANTS:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for VoteMode.
 const (
 	VoteModeFAIRROTATION VoteMode = "FAIR_ROTATION"
@@ -67,11 +85,12 @@ type AuthResponse struct {
 
 // CreateVoteWebRequest defines model for CreateVoteWebRequest.
 type CreateVoteWebRequest struct {
-	Description       *string   `json:"description,omitempty"`
-	Mode              *VoteMode `json:"mode,omitempty"`
-	Options           []string  `json:"options,omitempty"`
-	ParticipantEmails []string  `json:"participantEmails,omitempty"`
-	Title             string    `json:"title"`
+	Description       *string     `json:"description,omitempty"`
+	DrawTarget        *DrawTarget `json:"drawTarget,omitempty"`
+	Mode              *VoteMode   `json:"mode,omitempty"`
+	Options           []string    `json:"options,omitempty"`
+	ParticipantEmails []string    `json:"participantEmails,omitempty"`
+	Title             string      `json:"title"`
 }
 
 // DrawHistoryDto defines model for DrawHistoryDto.
@@ -92,6 +111,9 @@ type DrawResultResponse struct {
 	WinnerEmail       *string `json:"winnerEmail"`
 	WinnerOptionTitle *string `json:"winnerOptionTitle"`
 }
+
+// DrawTarget What a draw picks the winner from; fixed when the vote is created. With OPTIONS the participants are observers and are never drawn.
+type DrawTarget string
 
 // LinkTokenResponse defines model for LinkTokenResponse.
 type LinkTokenResponse struct {
@@ -156,11 +178,19 @@ type RegisterRequest struct {
 	Password    string `json:"password"`
 }
 
+// ReorderOptionsRequest defines model for ReorderOptionsRequest.
+type ReorderOptionsRequest struct {
+	OptionIds []string `json:"optionIds"`
+}
+
 // VoteDetailDto defines model for VoteDetailDto.
 type VoteDetailDto struct {
-	CreatedAt    time.Time        `json:"createdAt"`
-	CurrentRound int              `json:"currentRound"`
-	Description  *string          `json:"description"`
+	CreatedAt    time.Time `json:"createdAt"`
+	CurrentRound int       `json:"currentRound"`
+	Description  *string   `json:"description"`
+
+	// DrawTarget What a draw picks the winner from; fixed when the vote is created. With OPTIONS the participants are observers and are never drawn.
+	DrawTarget   DrawTarget       `json:"drawTarget"`
 	ID           string           `json:"id"`
 	IsCreator    bool             `json:"isCreator"`
 	LastResult   *DrawHistoryDto  `json:"lastResult"`
@@ -242,6 +272,9 @@ type CreateVoteJSONRequestBody = CreateVoteWebRequest
 
 // AddOptionJSONRequestBody defines body for AddOption for application/json ContentType.
 type AddOptionJSONRequestBody = AddOptionRequest
+
+// ReorderOptionsJSONRequestBody defines body for ReorderOptions for application/json ContentType.
+type ReorderOptionsJSONRequestBody = ReorderOptionsRequest
 
 // AddParticipantJSONRequestBody defines body for AddParticipant for application/json ContentType.
 type AddParticipantJSONRequestBody = AddParticipantRequest

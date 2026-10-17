@@ -1,6 +1,5 @@
 package com.juncevich.fate.vote
 
-import com.juncevich.fate.AbstractApiIntegrationTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -9,78 +8,10 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 import java.util.UUID
 
-class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private fun createUser(): Pair<String, String> {
-        val email = "vote-user-${UUID.randomUUID()}@test.com"
-        val token = registerAndGetToken(email)
-        return token to email
-    }
-
-    private fun createSimpleVote(
-        token: String,
-        title: String = "Test Vote",
-        participants: List<String> = emptyList(),
-    ): String {
-        val participantsJson = participants.joinToString(",") { "\"$it\"" }
-        val result =
-            mockMvc
-                .post("/api/v1/votes") {
-                    header("Authorization", "Bearer $token")
-                    contentType = MediaType.APPLICATION_JSON
-                    content =
-                        """{"title":"$title","mode":"SIMPLE","participantEmails":[$participantsJson]}"""
-                }.andReturn()
-        return parse(result.response.contentAsString)["id"].asString()
-    }
-
-    private fun createFairVote(
-        token: String,
-        title: String = "Fair Vote",
-        participants: List<String> = emptyList(),
-        options: List<String> = emptyList(),
-    ): String {
-        val participantsJson = participants.joinToString(",") { "\"$it\"" }
-        val optionsJson = options.joinToString(",") { "\"$it\"" }
-        val result =
-            mockMvc
-                .post("/api/v1/votes") {
-                    header("Authorization", "Bearer $token")
-                    contentType = MediaType.APPLICATION_JSON
-                    content =
-                        """{"title":"$title","mode":"FAIR_ROTATION",
-                        |"participantEmails":[$participantsJson],
-                        |"options":[$optionsJson]}
-                        """.trimMargin()
-                }.andReturn()
-        return parse(result.response.contentAsString)["id"].asString()
-    }
-
-    private fun draw(
-        token: String,
-        voteId: String,
-    ): String {
-        val result =
-            mockMvc
-                .post("/api/v1/votes/$voteId/draw") {
-                    header("Authorization", "Bearer $token")
-                }.andReturn()
-        return result.response.contentAsString
-    }
-
-    private fun reopen(
-        token: String,
-        voteId: String,
-    ) {
-        mockMvc
-            .post("/api/v1/votes/$voteId/reopen") {
-                header("Authorization", "Bearer $token")
-            }.andExpect { status { isNoContent() } }
-    }
-
+class VoteApiIntegrationTest : AbstractVoteApiIntegrationTest() {
     // ── Create vote ───────────────────────────────────────────────────────────
 
     @Test
@@ -371,57 +302,6 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
     // ── Options ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `POST votes options - add option - returns 204`() {
-        val (token) = createUser()
-        val voteId = createSimpleVote(token)
-
-        mockMvc
-            .post("/api/v1/votes/$voteId/options") {
-                header("Authorization", "Bearer $token")
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"title":"Option Alpha"}"""
-            }.andExpect { status { isNoContent() } }
-
-        mockMvc
-            .get("/api/v1/votes/$voteId") {
-                header("Authorization", "Bearer $token")
-            }.andExpect {
-                jsonPath("$.options[?(@.title == 'Option Alpha')]") { exists() }
-            }
-    }
-
-    @Test
-    fun `DELETE votes options by id - removes option - returns 204`() {
-        val (token) = createUser()
-        val voteId = createFairVote(token, options = listOf("Keep", "Remove"))
-
-        val detailResult =
-            mockMvc
-                .get("/api/v1/votes/$voteId") {
-                    header("Authorization", "Bearer $token")
-                }.andReturn()
-
-        val options = parse(detailResult.response.contentAsString)["options"]
-        val optionToRemove = checkNotNull(options.find { it["title"].asString() == "Remove" })
-        val optionId = optionToRemove["id"].asString()
-
-        mockMvc
-            .delete("/api/v1/votes/$voteId/options/$optionId") {
-                header("Authorization", "Bearer $token")
-            }.andExpect { status { isNoContent() } }
-
-        mockMvc
-            .get("/api/v1/votes/$voteId") {
-                header("Authorization", "Bearer $token")
-            }.andExpect {
-                jsonPath("$.options[?(@.title == 'Remove')]") { doesNotExist() }
-                jsonPath("$.options[?(@.title == 'Keep')]") { exists() }
-            }
-    }
-
-    // ── Draw ──────────────────────────────────────────────────────────────────
-
-    @Test
     fun `POST votes draw - SIMPLE participant draw - returns winner email`() {
         val (token, creatorEmail) = createUser()
         val extra = "draw-part-${UUID.randomUUID()}@test.com"
@@ -433,24 +313,6 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
         assertTrue(drawResult["winnerEmail"].asString() in setOf(creatorEmail, extra))
         assertEquals(1, drawResult["round"].asInt())
         assertEquals(false, drawResult["newRoundStarted"].asBoolean())
-    }
-
-    @Test
-    fun `POST votes draw - SIMPLE option draw - returns winner option title`() {
-        val (token) = createUser()
-        val voteId = createSimpleVote(token)
-
-        mockMvc
-            .post("/api/v1/votes/$voteId/options") {
-                header("Authorization", "Bearer $token")
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"title":"Option X"}"""
-            }.andExpect { status { isNoContent() } }
-
-        val drawResult = parse(draw(token, voteId))
-
-        assertEquals("Option X", drawResult["winnerOptionTitle"].asString())
-        assertTrue(drawResult["winnerEmail"].isNull)
     }
 
     @Test
@@ -511,33 +373,6 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
         assertEquals(true, round2Result["newRoundStarted"].asBoolean())
         assertEquals(2, round2Result["round"].asInt())
     }
-
-    @Test
-    fun `POST votes draw - FAIR_ROTATION options - all options win once per round`() {
-        val (token) = createUser()
-        val voteId = createFairVote(token, options = listOf("A", "B", "C"))
-
-        val winnersRound1 = mutableSetOf<String>()
-
-        repeat(3) { i ->
-            val result = parse(draw(token, voteId))
-            val winner = result["winnerOptionTitle"].asString()
-            assertTrue(winner in listOf("A", "B", "C"), "Winner must be a known option")
-            assertTrue(winnersRound1.add(winner), "Option $winner already won in round 1")
-            assertEquals(1, result["round"].asInt())
-
-            if (i < 2) reopen(token, voteId)
-        }
-
-        assertEquals(3, winnersRound1.size, "All 3 options must win exactly once in round 1")
-
-        reopen(token, voteId)
-        val round2 = parse(draw(token, voteId))
-        assertEquals(true, round2["newRoundStarted"].asBoolean())
-        assertEquals(2, round2["round"].asInt())
-    }
-
-    // ── Reopen ────────────────────────────────────────────────────────────────
 
     @Test
     fun `POST votes reopen - DRAWN vote - returns 204 and allows another draw`() {
@@ -705,21 +540,6 @@ class VoteApiIntegrationTest : AbstractApiIntegrationTest() {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = """{"email":"late@test.com"}"""
-            }.andExpect { status { isConflict() } }
-    }
-
-    @Test
-    fun `POST votes options - adding option to CLOSED vote - returns 409`() {
-        val (token) = createUser()
-        val voteId = createSimpleVote(token)
-
-        mockMvc.post("/api/v1/votes/$voteId/close") { header("Authorization", "Bearer $token") }
-
-        mockMvc
-            .post("/api/v1/votes/$voteId/options") {
-                header("Authorization", "Bearer $token")
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"title":"Late Option"}"""
             }.andExpect { status { isConflict() } }
     }
 }

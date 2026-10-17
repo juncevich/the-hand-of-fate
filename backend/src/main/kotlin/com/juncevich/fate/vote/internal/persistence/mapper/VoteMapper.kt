@@ -1,6 +1,7 @@
 package com.juncevich.fate.vote.internal.persistence.mapper
 
 import com.juncevich.fate.auth.UserProfile
+import com.juncevich.fate.vote.internal.DrawAudit
 import com.juncevich.fate.vote.internal.domain.DrawHistory
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
@@ -17,6 +18,7 @@ fun VoteJpaEntity.toDomain(creator: UserProfile) =
         description = description,
         creator = creator,
         mode = mode,
+        drawTarget = drawTarget,
         status = status,
         currentRound = currentRound,
         createdAt = createdAt,
@@ -31,6 +33,7 @@ fun Vote.toJpaEntity() =
         description = description,
         creatorId = creator.id,
         mode = mode,
+        drawTarget = drawTarget,
         status = status,
         currentRound = currentRound,
         createdAt = createdAt,
@@ -77,6 +80,7 @@ fun VoteOption.toJpaEntity(voteEntity: VoteJpaEntity) =
 fun DrawHistoryJpaEntity.toDomain(): DrawHistory {
     val email = winnerEmail
     val optionTitle = winnerOptionTitle
+    val audit = audit?.let { DrawAudit(it.seed, it.candidates) }
     return when {
         email != null -> {
             DrawHistory.ParticipantWinner(
@@ -85,7 +89,8 @@ fun DrawHistoryJpaEntity.toDomain(): DrawHistory {
                 email = email,
                 displayName = winnerDisplayName,
                 round = round,
-                drawnAt = drawnAt
+                drawnAt = drawnAt,
+                audit = audit
             )
         }
 
@@ -96,7 +101,8 @@ fun DrawHistoryJpaEntity.toDomain(): DrawHistory {
                 optionId = winnerOption?.id,
                 optionTitle = optionTitle,
                 round = round,
-                drawnAt = drawnAt
+                drawnAt = drawnAt,
+                audit = audit
             )
         }
 

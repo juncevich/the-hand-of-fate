@@ -5,6 +5,7 @@ import com.juncevich.fate.vote.internal.domain.DrawHistory
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
 import com.juncevich.fate.vote.internal.domain.VoteParticipant
+import com.juncevich.fate.vote.internal.persistence.entity.DrawAuditColumns
 import com.juncevich.fate.vote.internal.persistence.entity.DrawHistoryJpaEntity
 import com.juncevich.fate.vote.internal.persistence.jpa.DrawHistoryJpaRepository
 import com.juncevich.fate.vote.internal.persistence.jpa.VoteJpaRepository
@@ -136,6 +137,12 @@ class VoteOptionPersistenceAdapter(
     override fun findAllByVoteIdOrderedByPosition(voteId: UUID): List<VoteOption> =
         voteOptionJpaRepository.findAllByVoteIdOrderByPositionAscCreatedAtAsc(voteId).map { it.toDomain() }
 
+    // The (vote_id, position) uniqueness is checked at commit, so positions may swap meanwhile.
+    override fun updatePositions(
+        voteId: UUID,
+        orderedIds: List<UUID>,
+    ) = orderedIds.forEachIndexed { position, id -> voteOptionJpaRepository.updatePosition(voteId, id, position) }
+
     override fun deleteByVoteIdAndId(
         voteId: UUID,
         optionId: UUID,
@@ -164,7 +171,8 @@ class DrawHistoryPersistenceAdapter(
                         winnerEmail = history.email,
                         winnerDisplayName = history.displayName,
                         round = history.round,
-                        drawnAt = history.drawnAt
+                        drawnAt = history.drawnAt,
+                        audit = history.audit?.let { DrawAuditColumns(it.seed, it.candidates) }
                     )
                 }
 
@@ -175,7 +183,8 @@ class DrawHistoryPersistenceAdapter(
                         winnerOption = history.optionId?.let { voteOptionJpaRepository.getReferenceById(it) },
                         winnerOptionTitle = history.optionTitle,
                         round = history.round,
-                        drawnAt = history.drawnAt
+                        drawnAt = history.drawnAt,
+                        audit = history.audit?.let { DrawAuditColumns(it.seed, it.candidates) }
                     )
                 }
             }

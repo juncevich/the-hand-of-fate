@@ -2,6 +2,7 @@ package com.juncevich.fate.vote.internal.domain
 
 import com.juncevich.fate.auth.UserProfile
 import com.juncevich.fate.shared.uuidV7
+import com.juncevich.fate.vote.DrawTarget
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
 import java.time.Instant
@@ -13,6 +14,7 @@ class Vote(
     var description: String? = null,
     val creator: UserProfile,
     var mode: VoteMode = VoteMode.SIMPLE,
+    val drawTarget: DrawTarget = DrawTarget.PARTICIPANTS,
     var status: VoteStatus = VoteStatus.PENDING,
     var currentRound: Int = 1,
     val createdAt: Instant = Instant.now(),

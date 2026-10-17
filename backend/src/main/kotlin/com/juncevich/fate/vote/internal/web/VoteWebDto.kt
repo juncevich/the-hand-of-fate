@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.juncevich.fate.vote.CreateVoteCommand
 import com.juncevich.fate.vote.DrawHistoryView
 import com.juncevich.fate.vote.DrawResult
+import com.juncevich.fate.vote.DrawTarget
 import com.juncevich.fate.vote.VoteDetailView
 import com.juncevich.fate.vote.VoteLimits
 import com.juncevich.fate.vote.VoteMode
@@ -23,6 +24,7 @@ data class CreateVoteWebRequest(
     val mode: VoteMode = VoteMode.SIMPLE,
     @field:Size(max = VoteLimits.MAX_PARTICIPANTS) val participantEmails: List<@Email String> = emptyList(),
     @field:Size(max = VoteLimits.MAX_OPTIONS) val options: List<String>? = null,
+    val drawTarget: DrawTarget? = null,
 ) {
     fun toCommand() =
         CreateVoteCommand(
@@ -30,7 +32,8 @@ data class CreateVoteWebRequest(
             description = description,
             mode = mode,
             participantEmails = participantEmails,
-            options = options
+            options = options,
+            drawTarget = drawTarget
         )
 }
 
@@ -40,6 +43,10 @@ data class AddParticipantRequest(
 
 data class AddOptionRequest(
     @field:NotBlank @field:Size(max = 255) val title: String,
+)
+
+data class ReorderOptionsRequest(
+    @field:Size(max = VoteLimits.MAX_OPTIONS) val optionIds: List<UUID>,
 )
 
 // ── Responses ──────────────────────────────────────────────────────────────────
@@ -81,6 +88,7 @@ data class VoteDetailDto(
     val title: String,
     val description: String?,
     val mode: VoteMode,
+    val drawTarget: DrawTarget,
     val status: VoteStatus,
     val currentRound: Int,
     val participants: List<ParticipantDto>,
@@ -118,6 +126,7 @@ fun VoteDetailView.toDto() =
         title = title,
         description = description,
         mode = mode,
+        drawTarget = drawTarget,
         status = status,
         currentRound = currentRound,
         participants = participants.map { ParticipantDto(it.email, it.displayName) },

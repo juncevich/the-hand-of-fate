@@ -12,6 +12,7 @@ export type DrawHistoryEntry = Schemas['DrawHistoryDto']
 export type DrawResult = Schemas['DrawResultResponse']
 export type CreateVoteRequest = Schemas['CreateVoteWebRequest']
 export type VoteMode = Schemas['VoteMode']
+export type DrawTarget = Schemas['DrawTarget']
 export type VoteStatus = Schemas['VoteStatus']
 
 // OpenAPI has no generics: every PageResponse* schema shares this shape, only `content` differs.

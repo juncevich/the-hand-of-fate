@@ -30,6 +30,7 @@ import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import java.time.Instant
 import java.util.UUID
+import com.juncevich.fate.vote.DrawTarget as DomainDrawTarget
 import com.juncevich.fate.vote.VoteMode as DomainVoteMode
 import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 
@@ -56,6 +57,7 @@ class FateGrpcServiceTest {
                     title = "Lunch",
                     description = null,
                     mode = DomainVoteMode.FAIR_ROTATION,
+                    drawTarget = DomainDrawTarget.PARTICIPANTS,
                     status = DomainVoteStatus.PENDING,
                     currentRound = 1,
                     participants =
@@ -612,6 +614,7 @@ class FateGrpcServiceTest {
         title = "Lunch",
         description = description,
         mode = DomainVoteMode.SIMPLE,
+        drawTarget = if (options.isEmpty()) DomainDrawTarget.PARTICIPANTS else DomainDrawTarget.OPTIONS,
         status = DomainVoteStatus.DRAWN,
         currentRound = 1,
         participants = listOf(ParticipantView("friend@example.com", null)),

@@ -12,6 +12,7 @@ import org.springframework.grpc.server.service.GrpcService
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.Executors
+import com.juncevich.fate.vote.DrawTarget as DomainDrawTarget
 import com.juncevich.fate.vote.VoteMode as DomainVoteMode
 import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 
@@ -136,7 +137,8 @@ class FateGrpcService(
                             description = request.description.takeIf { it.isNotBlank() },
                             mode = mode,
                             participantEmails = participantEmails,
-                            options = options
+                            options = options,
+                            drawTarget = request.drawTarget.toDomain()
                         )
                 )
 
@@ -238,6 +240,7 @@ class FateGrpcService(
                 .setTitle(vote.title)
                 .setDescription(vote.description.orEmpty())
                 .setMode(vote.mode.toProto())
+                .setDrawTarget(vote.drawTarget.toProto())
                 .setStatus(vote.status.toProto())
                 .setCurrentRound(vote.currentRound)
                 .addAllParticipants(
@@ -294,6 +297,19 @@ class FateGrpcService(
         when (this) {
             DomainVoteMode.SIMPLE -> VoteMode.VOTE_MODE_SIMPLE
             DomainVoteMode.FAIR_ROTATION -> VoteMode.VOTE_MODE_FAIR_ROTATION
+        }
+
+    private fun DomainDrawTarget.toProto(): DrawTarget =
+        when (this) {
+            DomainDrawTarget.PARTICIPANTS -> DrawTarget.DRAW_TARGET_PARTICIPANTS
+            DomainDrawTarget.OPTIONS -> DrawTarget.DRAW_TARGET_OPTIONS
+        }
+
+    private fun DrawTarget.toDomain(): DomainDrawTarget? =
+        when (this) {
+            DrawTarget.DRAW_TARGET_PARTICIPANTS -> DomainDrawTarget.PARTICIPANTS
+            DrawTarget.DRAW_TARGET_OPTIONS -> DomainDrawTarget.OPTIONS
+            DrawTarget.DRAW_TARGET_UNSPECIFIED, DrawTarget.UNRECOGNIZED -> null
         }
 
     private fun VoteMode.toDomain(): DomainVoteMode =

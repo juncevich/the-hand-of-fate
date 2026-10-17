@@ -2,6 +2,8 @@ package com.juncevich.fate.vote.internal.persistence.entity
 
 import com.juncevich.fate.shared.uuidV7
 import jakarta.persistence.*
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import java.time.Instant
 import java.util.UUID
 
@@ -26,4 +28,16 @@ class DrawHistoryJpaEntity(
     val round: Int,
     @Column(name = "drawn_at", nullable = false)
     val drawnAt: Instant = Instant.now(),
+    /** `null` for draws recorded before V22 (both columns NULL). */
+    @Embedded
+    val audit: DrawAuditColumns? = null,
+)
+
+@Embeddable
+class DrawAuditColumns(
+    @Column(name = "seed", length = 64, updatable = false)
+    val seed: String,
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "candidates", columnDefinition = "TEXT[]", updatable = false)
+    val candidates: List<String>,
 )

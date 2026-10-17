@@ -363,6 +363,7 @@ func (h *Handler) handleNewVote(ctx context.Context, msg *tgbotapi.Message, args
 	if len(vote.Options) > 0 {
 		sb.WriteString(fmt.Sprintf("\nВариантов: %d", len(vote.Options)))
 	}
+	sb.WriteString(fmt.Sprintf("\nЖеребьёвка: %s", formatDrawTarget(vote.DrawTarget)))
 	h.send(msg.Chat.ID, sb.String(), true)
 }
 
@@ -389,6 +390,7 @@ func (h *Handler) handleVoteInfo(ctx context.Context, msg *tgbotapi.Message, vot
 	sb.WriteString(fmt.Sprintf("ID: <code>%s</code>\n", esc(resp.VoteId)))
 	sb.WriteString(fmt.Sprintf("Статус: %s\n", formatStatus(resp.Status)))
 	sb.WriteString(fmt.Sprintf("Режим: %s\n", formatMode(resp.Mode)))
+	sb.WriteString(fmt.Sprintf("Жеребьёвка: %s\n", formatDrawTarget(resp.DrawTarget)))
 	if resp.Description != "" {
 		// Not wrapped in <i>: a multi-line description would span lines, and send() may split there.
 		sb.WriteString(fmt.Sprintf("\n%s\n", esc(resp.Description)))
@@ -401,7 +403,12 @@ func (h *Handler) handleVoteInfo(ctx context.Context, msg *tgbotapi.Message, vot
 		}
 	}
 
-	sb.WriteString(fmt.Sprintf("\nУчастники (%d):\n", len(resp.Participants)))
+	participantsLabel := "Участники"
+	if resp.DrawTarget == fatev1.DrawTarget_DRAW_TARGET_OPTIONS {
+		// They see the vote and get its notifications but are never drawn.
+		participantsLabel = "Наблюдатели"
+	}
+	sb.WriteString(fmt.Sprintf("\n%s (%d):\n", participantsLabel, len(resp.Participants)))
 	for _, p := range resp.Participants {
 		name := p.DisplayName
 		if name == "" {
@@ -805,6 +812,13 @@ func formatMode(mode fatev1.VoteMode) string {
 		return "честная ротация"
 	}
 	return "обычный"
+}
+
+func formatDrawTarget(target fatev1.DrawTarget) string {
+	if target == fatev1.DrawTarget_DRAW_TARGET_OPTIONS {
+		return "из вариантов"
+	}
+	return "из участников"
 }
 
 func drawResultLabel(r *fatev1.DrawResultInfo) string {

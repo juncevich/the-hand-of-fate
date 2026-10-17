@@ -73,6 +73,7 @@ class VoteControllerTest {
             title = "Test Vote",
             description = null,
             mode = VoteMode.SIMPLE,
+            drawTarget = DrawTarget.PARTICIPANTS,
             status = VoteStatus.PENDING,
             currentRound = 1,
             participants = listOf(ParticipantView("user@test.com", "User")),
@@ -262,5 +263,19 @@ class VoteControllerTest {
                 jsonPath("$.title") { value("Validation failed") }
                 jsonPath("$.errors.title") { exists() }
             }
+    }
+
+    @Test
+    fun `PUT options order - returns 204 and passes the order on`() {
+        val ids = listOf(UUID.randomUUID(), UUID.randomUUID())
+        every { voteService.reorderOptions(voteId, userId, ids) } returns Unit
+
+        mockMvc
+            .put("/api/v1/votes/$voteId/options/order") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"optionIds":["${ids[0]}","${ids[1]}"]}"""
+            }.andExpect { status { isNoContent() } }
+
+        verify { voteService.reorderOptions(voteId, userId, ids) }
     }
 }

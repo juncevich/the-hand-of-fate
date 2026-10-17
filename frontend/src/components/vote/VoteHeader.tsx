@@ -57,6 +57,7 @@ export function VoteHeader({ vote, onDraw, onReopen, onDelete, isDrawLoading, is
           <Badge variant={vote.mode === 'FAIR_ROTATION' ? 'fairRotation' : 'simple'}>
             {vote.mode === 'FAIR_ROTATION' ? 'Справедливый' : 'Простой'}
           </Badge>
+          <Badge>{vote.drawTarget === 'OPTIONS' ? 'Из вариантов' : 'Из участников'}</Badge>
           {vote.mode === 'FAIR_ROTATION' && <Badge>Раунд {vote.currentRound}</Badge>}
         </div>
 

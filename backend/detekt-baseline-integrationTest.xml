@@ -2,6 +2,6 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>TooManyFunctions:VoteApiIntegrationTest.kt:VoteApiIntegrationTest : AbstractApiIntegrationTest</ID>
+    <ID>TooManyFunctions:VoteApiIntegrationTest.kt:VoteApiIntegrationTest : AbstractVoteApiIntegrationTest</ID>
   </CurrentIssues>
 </SmellBaseline>

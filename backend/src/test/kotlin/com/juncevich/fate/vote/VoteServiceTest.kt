@@ -73,7 +73,9 @@ class VoteServiceTest {
         creator: User,
         mode: VoteMode = VoteMode.SIMPLE,
         status: VoteStatus = VoteStatus.PENDING,
-    ) = Vote(id = id, title = "Test Vote", creator = creator.toProfile(), mode = mode).also { it.status = status }
+        drawTarget: DrawTarget = DrawTarget.PARTICIPANTS,
+    ) = Vote(id = id, title = "Test Vote", creator = creator.toProfile(), mode = mode, drawTarget = drawTarget)
+        .also { it.status = status }
 
     @Test
     fun `createVote - creates vote, participants, options and sends invitations`() {
@@ -583,7 +585,7 @@ class VoteServiceTest {
     @Test
     fun `addOption - saves a trimmed option`() {
         val creator = makeUser()
-        val vote = makeVote(creator = creator)
+        val vote = makeVote(creator = creator, drawTarget = DrawTarget.OPTIONS)
         every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
         every { voteOptionRepositoryPort.save(any()) } answers { firstArg() }
@@ -594,14 +596,127 @@ class VoteServiceTest {
     }
 
     @Test
+    fun `addOption - appends after the highest position, even with gaps left by removals`() {
+        val creator = makeUser()
+        val vote = makeVote(creator = creator, drawTarget = DrawTarget.OPTIONS)
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns
+            listOf(VoteOption(voteId = vote.id, title = "A", position = 0), VoteOption(voteId = vote.id, title = "C", position = 2))
+        every { voteOptionRepositoryPort.save(any()) } answers { firstArg() }
+
+        voteService.addOption(vote.id, creator.id, "D")
+
+        verify { voteOptionRepositoryPort.save(match { it.position == 3 }) }
+    }
+
+    private fun optionsVoteWith(
+        creator: User,
+        status: VoteStatus = VoteStatus.PENDING,
+    ): Pair<Vote, List<VoteOption>> {
+        val vote = makeVote(creator = creator, status = status, drawTarget = DrawTarget.OPTIONS)
+        val options = List(3) { VoteOption(voteId = vote.id, title = "Option $it", position = it) }
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns options
+        every { voteOptionRepositoryPort.updatePositions(vote.id, any()) } returns Unit
+        return vote to options
+    }
+
+    @Test
+    fun `reorderOptions - stores the new order`() {
+        val creator = makeUser()
+        val (vote, options) = optionsVoteWith(creator)
+        val newOrder = options.map { it.id }.reversed()
+
+        voteService.reorderOptions(vote.id, creator.id, newOrder)
+
+        verify { voteOptionRepositoryPort.updatePositions(vote.id, newOrder) }
+    }
+
+    @Test
+    fun `reorderOptions - rejects an order that is not a permutation of the options`() {
+        val creator = makeUser()
+        val (vote, options) = optionsVoteWith(creator)
+        val ids = options.map { it.id }
+
+        listOf(ids.drop(1), ids + ids[0], ids.drop(1) + UUID.randomUUID()).forEach { order ->
+            assertThrows<BadRequestException> { voteService.reorderOptions(vote.id, creator.id, order) }
+        }
+        verify(exactly = 0) { voteOptionRepositoryPort.updatePositions(any(), any()) }
+    }
+
+    @Test
+    fun `reorderOptions - only the creator may reorder, and only while pending`() {
+        val creator = makeUser()
+        val (vote, options) = optionsVoteWith(creator)
+        assertThrows<ForbiddenException> { voteService.reorderOptions(vote.id, UUID.randomUUID(), options.map { it.id }) }
+
+        val (drawn, drawnOptions) = optionsVoteWith(creator, VoteStatus.DRAWN)
+        assertThrows<ConflictException> { voteService.reorderOptions(drawn.id, creator.id, drawnOptions.map { it.id }) }
+    }
+
+    @Test
     fun `addOption - rejects when the vote already has the maximum number of options`() {
         val creator = makeUser()
-        val vote = makeVote(creator = creator)
+        val vote = makeVote(creator = creator, drawTarget = DrawTarget.OPTIONS)
         every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
         every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns
             List(VoteLimits.MAX_OPTIONS) { VoteOption(voteId = vote.id, title = "Option $it", position = it) }
 
         assertThrows<BadRequestException> { voteService.addOption(vote.id, creator.id, "One more") }
         verify(exactly = 0) { voteOptionRepositoryPort.save(any()) }
+    }
+
+    @Test
+    fun `addOption - rejects options on a vote that draws from participants`() {
+        val creator = makeUser()
+        val vote = makeVote(creator = creator)
+        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
+
+        assertThrows<ConflictException> { voteService.addOption(vote.id, creator.id, "Pizza") }
+        verify(exactly = 0) { voteOptionRepositoryPort.save(any()) }
+    }
+
+    private fun stubCreate(creator: User) {
+        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
+        every { voteRepositoryPort.save(any()) } answers { firstArg() }
+        every { userQueryService.findProfilesByEmailIn(any()) } returns listOf(creator.toProfile())
+        every { participantRepositoryPort.saveAll(any<List<VoteParticipant>>()) } answers { firstArg() }
+        every { voteOptionRepositoryPort.saveAll(any<List<VoteOption>>()) } answers { firstArg() }
+    }
+
+    private fun command(
+        options: List<String>?,
+        drawTarget: DrawTarget?,
+    ) = CreateVoteCommand(title = "Vote", options = options, drawTarget = drawTarget)
+
+    @Test
+    fun `createVote - infers the draw target from the options when none is given`() {
+        val creator = makeUser()
+        stubCreate(creator)
+
+        assertEquals(DrawTarget.OPTIONS, voteService.createVote(creator.id, command(listOf("A"), null)).drawTarget)
+        assertEquals(DrawTarget.PARTICIPANTS, voteService.createVote(creator.id, command(null, null)).drawTarget)
+    }
+
+    @Test
+    fun `createVote - an options vote may start without options`() {
+        val creator = makeUser()
+        stubCreate(creator)
+
+        val vote = voteService.createVote(creator.id, command(emptyList(), DrawTarget.OPTIONS))
+
+        assertEquals(DrawTarget.OPTIONS, vote.drawTarget)
+        verify { voteRepositoryPort.save(match { it.drawTarget == DrawTarget.OPTIONS }) }
+    }
+
+    @Test
+    fun `createVote - rejects options on a vote that draws from participants`() {
+        val creator = makeUser()
+        stubCreate(creator)
+
+        assertThrows<BadRequestException> {
+            voteService.createVote(creator.id, command(listOf("A"), DrawTarget.PARTICIPANTS))
+        }
+        verify(exactly = 0) { voteRepositoryPort.save(any()) }
     }
 }

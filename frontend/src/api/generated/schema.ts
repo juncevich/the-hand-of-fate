@@ -177,7 +177,10 @@ export interface paths {
         /** List votes the user created or participates in */
         get: operations["listVotes"];
         put?: never;
-        /** Create a vote */
+        /**
+         * Create a vote
+         * @description Without drawTarget the vote draws from options when any are given, otherwise from participants. Options are rejected when drawTarget is PARTICIPANTS.
+         */
         post: operations["createVote"];
         delete?: never;
         options?: never;
@@ -231,7 +234,7 @@ export interface paths {
         put?: never;
         /**
          * Draw a winner (creator only)
-         * @description Draws from the options if the vote has any, otherwise from the participants.
+         * @description Draws from the vote's drawTarget: its options, or its participants.
          */
         post: operations["drawVote"];
         delete?: never;
@@ -289,6 +292,26 @@ export interface paths {
         put?: never;
         /** Add a named option (creator only) */
         post: operations["addOption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/votes/{id}/options/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder the options (creator only)
+         * @description optionIds must list every option of the vote exactly once, in the new order.
+         */
+        put: operations["reorderOptions"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -386,6 +409,7 @@ export interface components {
         };
         CreateVoteWebRequest: {
             description?: string | null;
+            drawTarget?: components["schemas"]["DrawTarget"] | null;
             mode?: components["schemas"]["VoteMode"];
             options?: string[] | null;
             participantEmails?: string[];
@@ -410,6 +434,11 @@ export interface components {
             winnerEmail: string | null;
             winnerOptionTitle: string | null;
         };
+        /**
+         * @description What a draw picks the winner from; fixed when the vote is created. With OPTIONS the participants are observers and are never drawn.
+         * @enum {string}
+         */
+        DrawTarget: "PARTICIPANTS" | "OPTIONS";
         LinkTokenResponse: {
             /** Format: date-time */
             expiresAt: string;
@@ -473,12 +502,16 @@ export interface components {
             email: string;
             password: string;
         };
+        ReorderOptionsRequest: {
+            optionIds: string[];
+        };
         VoteDetailDto: {
             /** Format: date-time */
             createdAt: string;
             /** Format: int32 */
             currentRound: number;
             description: string | null;
+            drawTarget: components["schemas"]["DrawTarget"];
             /** Format: uuid */
             id: string;
             isCreator: boolean;
@@ -1243,6 +1276,46 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AddOptionRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error described by a problem detail */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reorderOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderOptionsRequest"];
             };
         };
         responses: {

@@ -193,7 +193,7 @@ cd perf
 | `/start`, `/help`                                       | Welcome message and command list                                                                                                  |
 | `/link <token>`                                         | Link Telegram to app account (token from Settings page)                                                                           |
 | `/votes [page]`                                         | List your votes with status and participant count (10 per page; pages start at 1)                                                 |
-| `/vote <id>`                                            | Vote details — title, mode, participants/options                                                                                  |
+| `/vote <id>`                                            | Vote details — title, mode, draw target, participants (observers of an options vote) and options                                  |
 | `/newvote <title> \| <emails> \| <mode> [\| <options>]` | Create a new vote; `<emails>` — comma-separated, `<mode>` — `simple`/`fair`, `<options>` — optional comma-separated named options |
 | `/draw <id>`                                            | Perform a draw for a vote (creator only)                                                                                          |
 | `/result <id>`                                          | Show last draw result for a vote                                                                                                  |
@@ -242,9 +242,11 @@ The bot answers only in private chats and identifies the user by `message.From.I
 `VoteLimits`: description ≤ 2000 chars, ≤ 100 participants (creator included), ≤ 100 options. Validated by the REST DTO and enforced again in `VoteService` (gRPC, add-participant/add-option) → 400 / gRPC failure response.
 
 ### Vote Draw Targets
-A vote can draw from two mutually exclusive sources — if options exist they take precedence:
-- **Participants** (default): draw winner from invited participants by email
-- **Options**: named entries (e.g., tasks, topics) stored in `vote_options` table; draw picks one option. Options are created at vote creation time or added/removed individually via REST API (`POST /{id}/options`, `DELETE /{id}/options/{optionId}`)
+Each vote has a `drawTarget` (`votes.draw_target`, V20), chosen at creation and never changed:
+- **PARTICIPANTS**: the winner is one of the invited participants. Such a vote cannot have options — creating it with options is 400, `addOption` is 409
+- **OPTIONS**: the winner is one of the named entries in `vote_options` (tasks, topics…). Participants are *observers*: they see the vote and get its emails but are never drawn (UI and bot label them so). A draw without options is 409 ("add at least one option first")
+- When a client omits it (REST `drawTarget`, gRPC `DRAW_TARGET_UNSPECIFIED`, the bot's `/newvote`), it is inferred: OPTIONS if options are given, else PARTICIPANTS — so older clients keep working
+- Options are created with the vote or managed via REST (`POST /{id}/options`, `DELETE /{id}/options/{optionId}`, `PUT /{id}/options/order` with every option id in the new order). Positions are `0..n-1`, unique per vote (`DEFERRABLE INITIALLY DEFERRED`, V21, so a reorder can swap them); a new option goes after the highest position
 
 `DrawWinner` is a sealed class with two subtypes: `Participant` and `Option`. `DrawHistory` stores the winner as either `winnerEmail` / `winnerDisplayName` (for participants) or `winnerOption` / `winnerOptionTitle` (for options — denormalized title for resilience to deletion).
 
@@ -285,7 +287,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 - Don't expose an `Executor`/`ExecutorService` bean: Spring Boot would back off from its virtual-thread `applicationTaskExecutor` used by `@Async`
 
 ### Key Backend Services
-- **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching for both participants and options; picks draw target automatically (options if any exist, otherwise participants)
+- **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching for both participants and options, by the vote's `drawTarget`. The winner comes from `WinnerPicker`: a fresh `SecureRandom` 32-byte seed per draw, candidates in canonical order (participant emails / option ids, sorted), index = SHA-256(seed ‖ counter) with rejection sampling (no modulo bias). Seed and candidates are stored in `draw_history.seed` / `candidates` (V22, not exposed by the API), so `candidates[WinnerPicker.index(seed, size)]` reproduces any recorded winner. `WinnerPickerTest` pins golden values — never change the algorithm. This proves reproducibility, not that the server didn't choose the seed (that would need commit-reveal)
 - **VoteService**: CRUD for votes including creating `VoteOption` entities from request; `addOption()` / `removeOption()` for post-creation management; all vote mutations acquire the same pessimistic row lock; `@Version` additionally guards stale saves
 - **Notifications**: `NotificationRecorder` persists one outbox job per recipient inside the vote transaction. Payloads are versioned DTOs (`NotificationPayloads.kt`), not the domain events. `NotificationWorker` claims jobs with `SKIP LOCKED`, delivers outside DB transactions, retries with exponential backoff and marks jobs failed after `app.notifications.max-attempts` (metric `notification.dead`), purging them after `failed-retention` (see `NotificationProperties`, backend/README.md). `NotificationAdapter` handles SMTP delivery and propagates failures to the worker.
 - **Email budget**: `EmailBudget` caps the emails one user's actions trigger (invitations + draw-result recipients) to `app.notifications.email-budget-per-user` (`EMAIL_BUDGET_PER_USER`, 200) per rolling `email-budget-window` (24 h), recorded in the append-only `email_budget_ledger` (V17) under a per-user advisory lock — deleting a vote or participant frees nothing. Invitations beyond it are rejected (`TooManyRequestsException`, 429 / `RESOURCE_EXHAUSTED`, the whole create/add rolls back); a draw beyond it still happens, only its result emails are dropped (metric `notification.suppressed`). Entries past the window are purged hourly
@@ -307,6 +309,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 - `FateGrpcService.kt` implements the service; `bot/internal/grpcclient/` wraps the Go stub
 - **Transport security:** the channel is plaintext (no TLS) authenticated only by `SharedSecretAuthInterceptor` (constant-time compare of `x-grpc-shared-secret`). The server binds to `127.0.0.1` by default (`GRPC_BIND_ADDRESS`) so it is not reachable off-host; only set `0.0.0.0` on a trusted network. For a topology where the bot and backend run on different hosts, add mTLS.
 - `getMyVotes` aggregates **all** of the caller's votes by paging server-side (up to `GRPC_MAX_PAGES` × 50), rather than returning only the first page.
+- **Draw target:** `DrawTarget` enum, `CreateVoteRequest.draw_target` (UNSPECIFIED → inferred) and `GetVoteDetailsResponse.draw_target`; the bot shows it in `/vote` / `/newvote` and calls participants of an OPTIONS vote "Наблюдатели"
 - **Key proto additions for vote options:**
   - `VoteOptionInfo { option_id, title }` — returned in `GetVoteDetailsResponse.options`
   - `CreateVoteRequest.options` — repeated string, optional; creates options server-side
@@ -369,6 +372,9 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 - V17: `email_budget_ledger` (per-user email budget, see Notifications)
 - V18: refresh-token families — `refresh_tokens.family_id` + `revoked_at` (see Auth Flow)
 - V19: drops indexes duplicated by UNIQUE constraints / composite indexes
+- V20: `votes.draw_target` (`draw_target` enum), backfilled from whether a vote has options
+- V21: option positions renumbered `0..n-1` + deferrable `UNIQUE (vote_id, position)`
+- V22: `draw_history.seed` + `candidates TEXT[]` (draw audit; NULL for older draws)
 
 ### Key Environment Variables
 | Variable | Default | Description |

@@ -33,7 +33,7 @@ are split into several messages, and if Telegram rejects the markup the text is 
 | `/link` | `<token>` | Link Telegram to app account (token from Settings → Telegram Bot) |
 | `/unlink` | — | Unlink account |
 | `/votes` | `[page]` | List your votes with status and participant count (10 per page; pages start at 1) |
-| `/vote` | `<id>` | Vote details — title, mode, participants/options |
+| `/vote` | `<id>` | Vote details — title, mode, what it draws from, participants (observers for an options vote) and options |
 | `/newvote` | `<title> \| <emails> \| <mode> [\| <options>]` | Create a vote |
 | `/draw` | `<id>` | Perform a draw (creator only) |
 | `/result` | `<id>` | Last draw result |

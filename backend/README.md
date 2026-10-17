@@ -89,6 +89,7 @@ src/main/resources/
 | `GET`  | `/api/v1/votes/{id}/history/page?page=0&size=20` | Paginated history, maximum page size 100 |
 | `POST` | `/api/v1/votes/{id}/options` | Add a named option |
 | `DELETE` | `/api/v1/votes/{id}/options/{optionId}` | Remove an option |
+| `PUT`  | `/api/v1/votes/{id}/options/order` | Reorder options (`{"optionIds": [...]}`, every option exactly once) |
 | `GET`  | `/api/v1/telegram/link-token` | Generate a one-time Telegram link token |
 | `PUT`  | `/api/v1/users/me/avatar` | Upload an avatar (`multipart/form-data`, part `file`; PNG/JPEG/GIF ≤ 2 MB) |
 | `DELETE` | `/api/v1/users/me/avatar` | Remove the avatar |
@@ -146,6 +147,9 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 | V17 | `email_budget_ledger` — per-user notification email budget |
 | V18 | Refresh-token families: `family_id`, `revoked_at` (rotation with reuse detection) |
 | V19 | Drop indexes duplicated by UNIQUE constraints or composite indexes |
+| V20 | `votes.draw_target` — PARTICIPANTS or OPTIONS, fixed at creation |
+| V21 | Option positions `0..n-1`, deferrable `UNIQUE (vote_id, position)` |
+| V22 | `draw_history.seed` / `candidates` — draw audit record |
 
 ## Environment Variables
 
@@ -175,6 +179,22 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 - Set `SecurityContextHolder` directly in `@BeforeEach` for endpoints using `@AuthenticationPrincipal`
 - `PageImpl` must be constructed with three args: `PageImpl(content, pageable, total)`
 - `ErrorHandler` masks exception details — tests assert `"Internal server error"`, not the original message
+
+### Verifying a draw
+
+Every draw since V22 stores its seed and its candidates in canonical order (participant emails or
+option ids, sorted). To check a recorded winner:
+
+```sql
+SELECT seed, candidates, winner_email, winner_option_id FROM draw_history WHERE id = '<draw id>';
+```
+
+then `candidates[WinnerPicker.index(seed, candidates.size)]` (0-based) must equal the winner's email or
+option id. `WinnerPicker.index` takes the first 63 bits of SHA-256(seed bytes ‖ counter as a big-endian
+int) for counter = 0, 1, …, skips values from the incomplete last block of `size` and returns the value
+modulo `size` — a few lines in any language (`WinnerPickerTest` has golden values). The record shows the
+winner follows from the seed; it cannot show the seed was not chosen after the fact, which would need a
+commit-reveal scheme.
 
 ### Consistency and notification delivery
 

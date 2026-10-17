@@ -5,6 +5,7 @@ import com.juncevich.fate.auth.toProfile
 import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.vote.*
 import com.juncevich.fate.vote.internal.DrawService
+import com.juncevich.fate.vote.internal.WinnerPicker
 import com.juncevich.fate.vote.internal.domain.DrawHistory
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
@@ -35,7 +36,8 @@ class DrawServiceTest {
             participantRepositoryPort,
             voteOptionRepositoryPort,
             drawHistoryRepositoryPort,
-            meterRegistry
+            meterRegistry,
+            WinnerPicker()
         )
 
     @BeforeEach
@@ -48,7 +50,9 @@ class DrawServiceTest {
     private fun makeVote(
         mode: VoteMode = VoteMode.SIMPLE,
         status: VoteStatus = VoteStatus.PENDING,
-    ) = Vote(title = "Test Vote", creator = makeUser().toProfile(), mode = mode).also { it.status = status }
+        drawTarget: DrawTarget = DrawTarget.PARTICIPANTS,
+    ) = Vote(title = "Test Vote", creator = makeUser().toProfile(), mode = mode, drawTarget = drawTarget)
+        .also { it.status = status }
 
     private fun makeParticipant(
         vote: Vote,
@@ -120,11 +124,20 @@ class DrawServiceTest {
     @Test
     fun `draw - throws when vote has no participants`() {
         val vote = makeVote()
-        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
         every { participantRepositoryPort.findAllByVoteId(vote.id) } returns emptyList()
 
         val ex = assertThrows<ConflictException> { drawService.draw(vote) }
-        assertTrue(ex.message!!.contains("no options or participants"))
+        assertTrue(ex.message!!.contains("no participants"))
+    }
+
+    @Test
+    fun `draw - an options vote without options asks for one instead of drawing participants`() {
+        val vote = makeVote(drawTarget = DrawTarget.OPTIONS)
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
+
+        val ex = assertThrows<ConflictException> { drawService.draw(vote) }
+        assertTrue(ex.message!!.contains("add at least one option"))
+        verify(exactly = 0) { participantRepositoryPort.findAllByVoteId(any()) }
     }
 
     @Test
@@ -167,7 +180,7 @@ class DrawServiceTest {
 
     @Test
     fun `draw FAIR_ROTATION option-mode - picks from eligible options only`() {
-        val vote = makeVote(VoteMode.FAIR_ROTATION)
+        val vote = makeVote(VoteMode.FAIR_ROTATION, drawTarget = DrawTarget.OPTIONS)
         val o1 = makeOption(vote, "already-won")
         val o2 = makeOption(vote, "eligible")
         val history = makeOptionHistory(vote, o2)
@@ -188,7 +201,7 @@ class DrawServiceTest {
 
     @Test
     fun `draw FAIR_ROTATION option-mode - starts new round when all options have won`() {
-        val vote = makeVote(VoteMode.FAIR_ROTATION)
+        val vote = makeVote(VoteMode.FAIR_ROTATION, drawTarget = DrawTarget.OPTIONS)
         val o1 = makeOption(vote, "sole")
         val history = makeOptionHistory(vote, o1, round = 2)
 
@@ -205,8 +218,8 @@ class DrawServiceTest {
     }
 
     @Test
-    fun `draw - options take precedence over participants when both exist`() {
-        val vote = makeVote(VoteMode.SIMPLE)
+    fun `draw - an options vote draws options and leaves participants out`() {
+        val vote = makeVote(VoteMode.SIMPLE, drawTarget = DrawTarget.OPTIONS)
         val option = makeOption(vote, "only-option")
         val history = makeOptionHistory(vote, option)
 
@@ -219,6 +232,18 @@ class DrawServiceTest {
         assertEquals(option.title, result.winnerOptionTitle)
         assertNull(result.winnerEmail)
         verify(exactly = 0) { participantRepositoryPort.findAllByVoteId(any()) }
+    }
+
+    @Test
+    fun `draw - a participants vote never looks at options`() {
+        val vote = makeVote(VoteMode.SIMPLE)
+        val participant = makeParticipant(vote, "p@test.com")
+        every { participantRepositoryPort.findAllByVoteId(vote.id) } returns listOf(participant)
+        every { drawHistoryRepositoryPort.save(any()) } returns makeHistory(vote, participant.email)
+        every { voteRepositoryPort.save(any()) } returns vote
+
+        assertEquals("p@test.com", drawService.draw(vote).winnerEmail)
+        verify(exactly = 0) { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(any()) }
     }
 
     @Test
@@ -244,7 +269,7 @@ class DrawServiceTest {
         val registry =
             io.micrometer.core.instrument.simple
                 .SimpleMeterRegistry()
-        val service = DrawService(voteRepositoryPort, participantRepositoryPort, voteOptionRepositoryPort, drawHistoryRepositoryPort, registry)
+        val service = DrawService(voteRepositoryPort, participantRepositoryPort, voteOptionRepositoryPort, drawHistoryRepositoryPort, registry, WinnerPicker())
         val vote = makeVote(VoteMode.SIMPLE)
         val participant = makeParticipant(vote, "a@test.com")
         every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
@@ -264,5 +289,44 @@ class DrawServiceTest {
                 .getTag("round")
         )
         registry.close()
+    }
+
+    @Test
+    fun `draw records an audit that reproduces the winner`() {
+        val vote = makeVote(VoteMode.SIMPLE)
+        val participants = listOf("c@test.com", "a@test.com", "b@test.com").map { makeParticipant(vote, it) }
+        every { participantRepositoryPort.findAllByVoteId(vote.id) } returns participants
+        every { drawHistoryRepositoryPort.save(any()) } answers { firstArg() }
+        every { voteRepositoryPort.save(any()) } returns vote
+
+        val result = drawService.draw(vote)
+
+        verify {
+            drawHistoryRepositoryPort.save(
+                match {
+                    val audit = checkNotNull(it.audit)
+                    audit.candidates == listOf("a@test.com", "b@test.com", "c@test.com") &&
+                        audit.candidates[WinnerPicker.index(audit.seed, 3)] == result.winnerEmail
+                }
+            )
+        }
+    }
+
+    @Test
+    fun `FAIR_ROTATION audit lists only the candidates still eligible this round`() {
+        val vote = makeVote(VoteMode.FAIR_ROTATION, drawTarget = DrawTarget.OPTIONS)
+        val options = List(3) { makeOption(vote, "Option $it") }
+        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns options
+        every { voteOptionRepositoryPort.findEligibleOptionsForRound(vote.id, 1) } returns options.drop(1)
+        every { drawHistoryRepositoryPort.save(any()) } answers { firstArg() }
+        every { voteRepositoryPort.save(any()) } returns vote
+
+        drawService.draw(vote)
+
+        verify {
+            drawHistoryRepositoryPort.save(
+                match { it.audit?.candidates == options.drop(1).map { o -> o.id.toString() }.sorted() }
+            )
+        }
     }
 }

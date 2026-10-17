@@ -10,6 +10,12 @@ interface VoteOptionRepositoryPort {
 
     fun findAllByVoteIdOrderedByPosition(voteId: UUID): List<VoteOption>
 
+    /** Sets each option's position to its index in [orderedIds]. */
+    fun updatePositions(
+        voteId: UUID,
+        orderedIds: List<UUID>,
+    )
+
     fun deleteByVoteIdAndId(
         voteId: UUID,
         optionId: UUID,

@@ -19,8 +19,9 @@ func OptionsVoteScenario(c *client.Client, log *zap.Logger) error {
 	log.Info("=== OptionsVoteScenario start ===")
 
 	vote, err := c.CreateVote(client.CreateVoteWebRequest{
-		Title: randomVoteTitle() + " (options)",
-		Mode:  ptr(client.VoteModeSIMPLE),
+		Title:      randomVoteTitle() + " (options)",
+		Mode:       ptr(client.VoteModeSIMPLE),
+		DrawTarget: ptr(client.DrawTargetOPTIONS),
 	})
 	if err != nil {
 		return fmt.Errorf("create vote: %w", err)

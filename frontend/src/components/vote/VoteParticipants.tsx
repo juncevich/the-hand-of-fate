@@ -10,16 +10,25 @@ interface Props {
   onAdd: (email: string) => void
   onRemove: (email: string) => void
   isAddLoading: boolean
+  /** The vote draws from options: participants only watch and get notified. */
+  observers?: boolean
 }
 
-export function VoteParticipants({ participants, isCreator, status, onAdd, onRemove, isAddLoading }: Props) {
+export function VoteParticipants({
+  participants, isCreator, status, onAdd, onRemove, isAddLoading, observers = false,
+}: Props) {
   const canEdit = isCreator && status === 'PENDING'
 
   return (
     <div className="glass p-6 mb-4">
       <h2 className="text-sm font-medium text-fate-muted mb-4 uppercase tracking-wider">
-        Участники ({participants.length})
+        {observers ? 'Наблюдатели' : 'Участники'} ({participants.length})
       </h2>
+      {observers && (
+        <p className="text-xs text-fate-muted -mt-2 mb-4">
+          Видят голосование и получают результаты, но в жеребьёвке не участвуют
+        </p>
+      )}
 
       <div className="space-y-2 mb-4">
         {participants.map((p) => (
@@ -49,7 +58,7 @@ export function VoteParticipants({ participants, isCreator, status, onAdd, onRem
 
       {canEdit && (
         <InlineAddForm
-          placeholder="Добавить участника по email"
+          placeholder={observers ? 'Добавить наблюдателя по email' : 'Добавить участника по email'}
           onAdd={onAdd}
           isLoading={isAddLoading}
           icon={<UserPlus className="w-4 h-4" />}

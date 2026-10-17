@@ -16,6 +16,7 @@ vi.mock('@/api/votes', () => ({
     removeParticipant: vi.fn(),
     addOption: vi.fn(),
     removeOption: vi.fn(),
+    reorderOptions: vi.fn(),
     delete: vi.fn(),
     getHistory: vi.fn(),
   },
@@ -33,6 +34,7 @@ function makeVote(overrides: Partial<VoteDetail> = {}): VoteDetail {
     title: 'Кто дежурит?',
     description: null,
     mode: 'SIMPLE',
+    drawTarget: 'PARTICIPANTS',
     status: 'PENDING',
     currentRound: 1,
     participants: [
@@ -362,7 +364,7 @@ describe('VoteDetailPage', () => {
     await waitFor(() => expect(toast).toHaveBeenCalledWith('Ошибка', 'Cannot draw now', 'error'))
   })
 
-  it('renders options and shows the empty-options hint otherwise', async () => {
+  it('hides the options section and keeps participants for a participants vote', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote())
     vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
@@ -370,14 +372,39 @@ describe('VoteDetailPage', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
 
+    expect(await screen.findByText('Участники (2)')).toBeInTheDocument()
+    expect(screen.getByText('Из участников')).toBeInTheDocument()
+    expect(screen.queryByText(/Варианты \(/)).not.toBeInTheDocument()
+  })
+
+  it('labels participants of an options vote as observers', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote({ drawTarget: 'OPTIONS' }))
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    expect(await screen.findByText('Наблюдатели (2)')).toBeInTheDocument()
+    expect(screen.getByText('Из вариантов')).toBeInTheDocument()
+  })
+
+  it('renders options and shows the empty-options hint otherwise', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.get).mockResolvedValueOnce(makeVote({ drawTarget: 'OPTIONS' }))
+    vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
     expect(await screen.findByText('Варианты (0)')).toBeInTheDocument()
-    expect(screen.getByText(/Нет вариантов/)).toBeInTheDocument()
+    expect(screen.getByText(/Добавьте хотя бы один вариант/)).toBeInTheDocument()
   })
 
   it('adds an option', async () => {
     const { votesApi } = await import('@/api/votes')
     const { toast } = await import('@/components/ui/toaster')
-    vi.mocked(votesApi.get).mockResolvedValue(makeVote())
+    vi.mocked(votesApi.get).mockResolvedValue(makeVote({ drawTarget: 'OPTIONS' }))
     vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
     vi.mocked(votesApi.addOption).mockResolvedValueOnce({} as never)
 
@@ -396,7 +423,7 @@ describe('VoteDetailPage', () => {
   it('removes an option', async () => {
     const { votesApi } = await import('@/api/votes')
     const { toast } = await import('@/components/ui/toaster')
-    vi.mocked(votesApi.get).mockResolvedValue(makeVote({ options: [{ id: 'opt-1', title: 'Пицца' }] }))
+    vi.mocked(votesApi.get).mockResolvedValue(makeVote({ drawTarget: 'OPTIONS', options: [{ id: 'opt-1', title: 'Пицца' }] }))
     vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
     vi.mocked(votesApi.removeOption).mockResolvedValueOnce({} as never)
 
@@ -404,8 +431,7 @@ describe('VoteDetailPage', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
 
-    const chip = await screen.findByText('Пицца')
-    await user.click(chip.querySelector('button')!)
+    await user.click(await screen.findByRole('button', { name: 'Удалить «Пицца»' }))
 
     await waitFor(() => {
       expect(votesApi.removeOption).toHaveBeenCalledWith(VOTE_ID, 'opt-1')
@@ -413,10 +439,30 @@ describe('VoteDetailPage', () => {
     })
   })
 
+  it('moves an option one place earlier', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.get).mockResolvedValue(makeVote({
+      drawTarget: 'OPTIONS',
+      options: [{ id: 'a', title: 'Пицца' }, { id: 'b', title: 'Суши' }, { id: 'c', title: 'Бургер' }],
+    }))
+    vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
+    vi.mocked(votesApi.reorderOptions).mockResolvedValueOnce({} as never)
+
+    const user = userEvent.setup()
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    expect(await screen.findByRole('button', { name: 'Переместить «Пицца» раньше' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Переместить «Бургер» позже' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Переместить «Бургер» раньше' }))
+
+    await waitFor(() => expect(votesApi.reorderOptions).toHaveBeenCalledWith(VOTE_ID, ['a', 'c', 'b']))
+  })
+
   it('hides option controls when the vote is not editable', async () => {
     const { votesApi } = await import('@/api/votes')
     vi.mocked(votesApi.get).mockResolvedValueOnce(
-      makeVote({ status: 'CLOSED', options: [{ id: 'opt-1', title: 'Пицца' }] })
+      makeVote({ status: 'CLOSED', drawTarget: 'OPTIONS', options: [{ id: 'opt-1', title: 'Пицца' }] })
     )
     vi.mocked(votesApi.getHistory).mockResolvedValueOnce({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
 

@@ -367,6 +367,8 @@ paths:
       tags:
       - Votes
     post:
+      description: "Without drawTarget the vote draws from options when any are given,\
+        \ otherwise from participants. Options are rejected when drawTarget is PARTICIPANTS."
       operationId: createVote
       requestBody:
         content:
@@ -469,8 +471,7 @@ paths:
       - Votes
   /api/v1/votes/{id}/draw:
     post:
-      description: "Draws from the options if the vote has any, otherwise from the\
-        \ participants."
+      description: "Draws from the vote's drawTarget: its options, or its participants."
       operationId: drawVote
       parameters:
       - in: path
@@ -610,6 +611,38 @@ paths:
                 $ref: "#/components/schemas/ProblemDetail"
           description: Error described by a problem detail
       summary: Add a named option (creator only)
+      tags:
+      - Votes
+  /api/v1/votes/{id}/options/order:
+    put:
+      description: "optionIds must list every option of the vote exactly once, in\
+        \ the new order."
+      operationId: reorderOptions
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderOptionsRequest"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Missing or invalid access token
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      summary: Reorder the options (creator only)
       tags:
       - Votes
   /api/v1/votes/{id}/options/{optionId}:
@@ -780,6 +813,11 @@ components:
           maxLength: 2000
           minLength: 0
           nullable: true
+        drawTarget:
+          type: object
+          allOf:
+          - $ref: "#/components/schemas/DrawTarget"
+          nullable: true
         mode:
           $ref: "#/components/schemas/VoteMode"
         options:
@@ -852,6 +890,13 @@ components:
       - winnerDisplayName
       - winnerEmail
       - winnerOptionTitle
+    DrawTarget:
+      type: string
+      description: What a draw picks the winner from; fixed when the vote is created.
+        With OPTIONS the participants are observers and are never drawn.
+      enum:
+      - PARTICIPANTS
+      - OPTIONS
     LinkTokenResponse:
       type: object
       properties:
@@ -991,6 +1036,18 @@ components:
       - displayName
       - email
       - password
+    ReorderOptionsRequest:
+      type: object
+      properties:
+        optionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          minItems: 0
+      required:
+      - optionIds
     VoteDetailDto:
       type: object
       properties:
@@ -1003,6 +1060,8 @@ components:
         description:
           type: string
           nullable: true
+        drawTarget:
+          $ref: "#/components/schemas/DrawTarget"
         id:
           type: string
           format: uuid
@@ -1031,6 +1090,7 @@ components:
       - createdAt
       - currentRound
       - description
+      - drawTarget
       - id
       - isCreator
       - lastResult

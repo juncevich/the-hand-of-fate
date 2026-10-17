@@ -74,6 +74,12 @@ export function useVoteDetail(id: string) {
     onError: onMutationError,
   })
 
+  const reorderOptions = useMutation({
+    mutationFn: (optionIds: string[]) => votesApi.reorderOptions(id, optionIds),
+    onSuccess: invalidate,
+    onError: onMutationError,
+  })
+
   const deleteVote = useMutation({
     mutationFn: () => votesApi.delete(id),
     onSuccess: () => {
@@ -95,6 +101,7 @@ export function useVoteDetail(id: string) {
     removeParticipant,
     addOption,
     removeOption,
+    reorderOptions,
     deleteVote,
   }
 }

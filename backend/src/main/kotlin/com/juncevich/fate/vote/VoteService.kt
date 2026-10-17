@@ -69,11 +69,20 @@ class VoteService(
                 .orEmpty()
                 .map(::requireValidTitle)
                 .distinct()
+        val drawTarget =
+            request.drawTarget ?: if (optionTitles.isEmpty()) DrawTarget.PARTICIPANTS else DrawTarget.OPTIONS
+        ensureValid(drawTarget == DrawTarget.OPTIONS || optionTitles.isEmpty()) { PARTICIPANTS_TARGET_OPTIONS_MESSAGE }
         emailBudget.reserveOrThrow(creator.id, invitedEmails.size)
 
         val vote =
             voteRepositoryPort.save(
-                Vote(title = title, description = request.description, creator = creator, mode = request.mode)
+                Vote(
+                    title = title,
+                    description = request.description,
+                    creator = creator,
+                    mode = request.mode,
+                    drawTarget = drawTarget
+                )
             )
 
         val existingUsers = userQueryService.findProfilesByEmailIn(allEmails).associateBy { it.email }
@@ -173,12 +182,29 @@ class VoteService(
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
         ensureState(vote.status == VoteStatus.PENDING) { "Cannot add options to a non-pending vote" }
-        val optionCount = voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(voteId).size
-        ensureValid(optionCount < VoteLimits.MAX_OPTIONS) { optionLimitMessage() }
-        // Use Int.MAX_VALUE so new options always sort after batch-created ones (ordered by createdAt as tiebreaker).
+        ensureState(vote.drawTarget == DrawTarget.OPTIONS) { PARTICIPANTS_TARGET_OPTIONS_MESSAGE }
+        val options = voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(voteId)
+        ensureValid(options.size < VoteLimits.MAX_OPTIONS) { optionLimitMessage() }
+        // Appended last; the vote lock keeps concurrent additions from taking the same position.
+        val position = (options.maxOfOrNull { it.position } ?: -1) + 1
         voteOptionRepositoryPort.save(
-            VoteOption(voteId = voteId, title = requireValidTitle(title), position = Int.MAX_VALUE)
+            VoteOption(voteId = voteId, title = requireValidTitle(title), position = position)
         )
+    }
+
+    fun reorderOptions(
+        voteId: UUID,
+        requesterId: UUID,
+        orderedOptionIds: List<UUID>,
+    ) {
+        val vote = getVoteForUpdateOrThrow(voteId)
+        checkIsCreator(vote, requesterId)
+        ensureState(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
+        val currentIds = voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(voteId).map { it.id }
+        ensureValid(orderedOptionIds.size == currentIds.size && orderedOptionIds.toSet() == currentIds.toSet()) {
+            "The new order must list every option of the vote exactly once"
+        }
+        voteOptionRepositoryPort.updatePositions(voteId, orderedOptionIds)
     }
 
     fun removeOption(
@@ -309,5 +335,7 @@ class VoteService(
 }
 
 private fun participantLimitMessage() = "A vote can have at most ${VoteLimits.MAX_PARTICIPANTS} participants"
+
+private const val PARTICIPANTS_TARGET_OPTIONS_MESSAGE = "This vote draws from its participants and cannot have options"
 
 private fun optionLimitMessage() = "A vote can have at most ${VoteLimits.MAX_OPTIONS} options"

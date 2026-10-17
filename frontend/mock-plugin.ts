@@ -87,6 +87,8 @@ const toSummary = (v: Vote) => ({
 const toDetail = (v: Vote) => ({
   id: v.id, title: v.title, description: v.description,
   mode: v.mode, status: v.status, currentRound: v.currentRound,
+  // Mock votes have no options and always draw from their participants.
+  drawTarget: 'PARTICIPANTS', options: [],
   participants: v.participants,
   lastResult: v.history.at(-1) ?? null,
   isCreator: v.isCreator, createdAt: v.createdAt,

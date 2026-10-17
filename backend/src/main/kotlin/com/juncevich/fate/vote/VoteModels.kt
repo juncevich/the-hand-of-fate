@@ -15,12 +15,26 @@ enum class VoteMode { SIMPLE, FAIR_ROTATION }
 @Schema(enumAsRef = true)
 enum class VoteStatus { PENDING, DRAWN, CLOSED }
 
+/**
+ * What a draw picks the winner from; fixed when the vote is created. With [OPTIONS] the
+ * participants are observers: they see the vote and get its notifications but are never drawn.
+ */
+@Schema(
+    enumAsRef = true,
+    description =
+        "What a draw picks the winner from; fixed when the vote is created. " +
+            "With OPTIONS the participants are observers and are never drawn."
+)
+enum class DrawTarget { PARTICIPANTS, OPTIONS }
+
 data class CreateVoteCommand(
     val title: String,
     val description: String? = null,
     val mode: VoteMode = VoteMode.SIMPLE,
     val participantEmails: List<String> = emptyList(),
     val options: List<String>? = null,
+    /** `null` keeps older clients working: options given → [DrawTarget.OPTIONS], else participants. */
+    val drawTarget: DrawTarget? = null,
 )
 
 // Read models of the module API. Adapters map them to their own wire format (REST DTOs in
@@ -61,6 +75,7 @@ data class VoteDetailView(
     val title: String,
     val description: String?,
     val mode: VoteMode,
+    val drawTarget: DrawTarget,
     val status: VoteStatus,
     val currentRound: Int,
     val participants: List<ParticipantView>,
@@ -96,6 +111,7 @@ fun Vote.toDetailView(
     title = title,
     description = description,
     mode = mode,
+    drawTarget = drawTarget,
     status = status,
     currentRound = currentRound,
     participants = participants.map { ParticipantView(it.email, it.displayName) },

@@ -2,11 +2,20 @@ package com.juncevich.fate.vote.internal.persistence.jpa
 
 import com.juncevich.fate.vote.internal.persistence.entity.VoteOptionJpaEntity
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
 interface VoteOptionJpaRepository : JpaRepository<VoteOptionJpaEntity, UUID> {
     fun findAllByVoteIdOrderByPositionAscCreatedAtAsc(voteId: UUID): List<VoteOptionJpaEntity>
+
+    @Modifying
+    @Query("UPDATE VoteOptionJpaEntity o SET o.position = :position WHERE o.id = :id AND o.vote.id = :voteId")
+    fun updatePosition(
+        voteId: UUID,
+        id: UUID,
+        position: Int,
+    )
 
     fun deleteByVoteIdAndId(
         voteId: UUID,

@@ -87,6 +87,8 @@ message CreateVoteRequest {
   VoteMode mode              = 4;
   repeated string participant_emails = 5;
   repeated string options    = 6;
+  // Fixed once the vote exists. UNSPECIFIED: OPTIONS when options are given, else PARTICIPANTS.
+  DrawTarget draw_target     = 7;
 }
 
 message CreateVoteResponse {
@@ -125,6 +127,8 @@ message GetVoteDetailsResponse {
   repeated ParticipantInfo participants = 7;
   DrawResultInfo last_result = 8;
   repeated VoteOptionInfo options = 9;
+  // With DRAW_TARGET_OPTIONS the participants are observers and are never drawn.
+  DrawTarget draw_target     = 10;
 }
 
 message ParticipantInfo {
@@ -194,4 +198,11 @@ enum VoteMode {
   VOTE_MODE_UNSPECIFIED    = 0;
   VOTE_MODE_SIMPLE         = 1;
   VOTE_MODE_FAIR_ROTATION  = 2;
+}
+
+// What a draw picks the winner from.
+enum DrawTarget {
+  DRAW_TARGET_UNSPECIFIED  = 0;
+  DRAW_TARGET_PARTICIPANTS = 1;
+  DRAW_TARGET_OPTIONS      = 2;
 }
