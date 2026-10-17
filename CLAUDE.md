@@ -215,7 +215,7 @@ The bot answers only in private chats and identifies the user by `message.From.I
 - On app mount, `authApi.silentRefresh()` attempts to restore session via httpOnly cookie (`withCredentials: true`, empty body); failure is silently ignored (user stays logged out)
 - On 401, Axios interceptor silently calls `/api/v1/auth/refresh`, shares a refresh Promise with initial session restoration and retries each protected request once
 - **Brute-force protection**: `RateLimitFilter` (in-memory fixed-window, per client IP) throttles `/api/v1/auth/{login,register,refresh}` — returns `429` with `Retry-After` past `app.rate-limit.capacity` per `app.rate-limit.window-seconds`. The client IP is `request.remoteAddr` as resolved by Tomcat's RemoteIpValve (`server.forward-headers-strategy: native`): `X-Forwarded-For` counts only when the direct peer is a trusted internal proxy (loopback/private ranges; override `server.tomcat.remoteip.internal-proxies`), so a client reaching the backend directly can't spoof it. `LoginThrottle` additionally limits failed logins per account (normalized email, unknown addresses included): past `app.rate-limit.login-failures-per-account` per `login-failure-window-seconds` login answers `429` + `Retry-After` without checking the password; a success resets the count. Both are single-instance only; move to a shared store (Redis) if scaled horizontally.
-- **Fail-fast secrets**: `SecretsValidator` (`@Profile("!dev & !test")`) aborts startup if `JWT_ACCESS_SECRET` / `GRPC_SHARED_SECRET` are missing, too short, or left at a checked-in dev default — so production cannot boot with insecure secrets. Local runs use the `dev` profile to bypass this.
+- **Fail-fast secrets**: `SecretsValidator` (`@Profile("!dev & !test")`) aborts startup if `JWT_ACCESS_SECRET` / `GRPC_SHARED_SECRET` / `UNSUBSCRIBE_SECRET` are missing, too short, or left at a checked-in dev default — so production cannot boot with insecure secrets. Local runs use the `dev` profile to bypass this.
 
 ### Frontend State & Data Fetching
 - **Zustand** manages auth state (`authStore`) and dark/light theme (`themeStore`; persisted to localStorage)
@@ -274,6 +274,8 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 `ModularityTest` (`backend/src/test/kotlin/com/juncevich/fate/ModularityTest.kt`) verifies module boundaries are respected and generates PlantUML diagrams.
 
 ### Object Storage & Avatars
+- **Unsubscribe**: every invitation / draw-result email links to `/unsubscribe?email=…&sig=…` (HMAC-SHA256 of the address with `UNSUBSCRIBE_SECRET`, `EmailPreferences.sign`) and carries `List-Unsubscribe` + `List-Unsubscribe-Post` (RFC 8058) pointing at `POST /api/v1/notifications/unsubscribe/one-click`. The SPA page unsubscribes only on a click (link scanners prefetch URLs). Works for any address, account or not; the address goes to `email_suppressions` (V24) and `NotificationWorker` skips its notification jobs at delivery time (so queued ones too; metric `notification.suppressed{reason=unsubscribed}`, the budget uses `reason=budget`). Account emails (verification, reset) are always delivered. A signed-in user toggles it at `GET/PUT /api/v1/users/me/email-preferences` (Settings → «Письма»), which also undoes an unsubscribe
+- **Account deletion**: `POST /api/v1/auth/delete-account {password}` (wrong password → `400 WRONG_PASSWORD`, counts towards `LoginThrottle`). In one transaction: `AccountDeleted` event → the vote module (`AccountDeletionListener`) removes the address from every vote's participants and anonymizes its past wins (`winner_email` NULL, name "Deleted user"; `DrawHistory.ParticipantWinner.email` is nullable for this), queued emails to the address are dropped (`NotificationOutbox.cancelFor`), the user row goes and its own votes, tokens and budget ledger cascade. The avatar object is deleted after commit (best effort). Settings shows the number of own votes first (`GET /api/v1/votes/stats`)
 - `notification` module: all outgoing email — the outbox (`NotificationOutbox.record(payload)`, call it inside the transaction that causes the email), the worker, SMTP templates (`EmailService`; user-supplied text is HTML-escaped) and the per-user `EmailBudget`. Its public API is `NotificationOutbox`, `EmailBudget` and the versioned payloads (`NotificationPayloads.kt`); it depends only on `shared` (`ModularityTest`). `vote` records invitations/draw results from its domain events (`vote/internal/notification/NotificationRecorder`), `auth` records verification and reset emails directly
 - `storage` module: public port `ObjectStorage` (put/get/delete) with an S3 adapter (AWS SDK v2, `url-connection-client`). It depends only on `shared` (`ModularityTest`). Any S3-compatible store works; locally it is **RustFS** (MinIO no longer ships community Docker images)
 - `app.storage.enabled` (`S3_ENABLED`) defaults to `false` so a deployment without a bucket still boots: `DisabledObjectStorage` is wired instead and avatar uploads answer 409. The `dev` profile enables it with RustFS credentials and `create-bucket: true`; integration tests start a RustFS Testcontainer in `AbstractApiIntegrationTest`
@@ -380,6 +382,7 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 - V21: option positions renumbered `0..n-1` + deferrable `UNIQUE (vote_id, position)`
 - V22: `draw_history.seed` + `candidates TEXT[]` (draw audit; NULL for older draws)
 - V23: `users.email_verified_at` (existing users backfilled as verified) + `email_tokens` (verification / password reset)
+- V24: `email_suppressions` (addresses that unsubscribed)
 
 ### Key Environment Variables
 | Variable | Default | Description |
@@ -395,6 +398,7 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 | `BOT_TOKEN` | — | Required; from @BotFather |
 | `GRPC_SERVER_ADDR` | `localhost:9090` | Bot → backend gRPC address |
 | `GRPC_SHARED_SECRET` | (dev default set) | Shared secret authenticating bot → backend gRPC calls; must match on both sides, change before any real deployment |
+| `UNSUBSCRIBE_SECRET` | (dev default set) | HMAC key of unsubscribe links; checked by `SecretsValidator` outside `dev`/`test`. Rotating it breaks the links in emails already sent |
 | `GRPC_BIND_ADDRESS` | `127.0.0.1` | Interface the backend gRPC server binds to. Loopback by default (plaintext + shared-secret only); set `0.0.0.0` on a trusted internal network (Docker compose already does) |
 | `JWT_ACCESS_TTL_MINUTES` | `15` | Access token lifetime |
 | `JWT_REFRESH_TTL_DAYS` | `30` | Refresh token lifetime |
@@ -482,6 +486,7 @@ One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first depl
 | `FRONTEND_URL` | Public URL for CORS and email links |
 | `GRPC_SERVER_ADDR` | gRPC address for bot → backend (`localhost:9090`) |
 | `GRPC_SHARED_SECRET` | Shared secret authenticating bot → backend gRPC calls; same value on both deploy workflows |
+| `UNSUBSCRIBE_SECRET` | ≥256-bit random string signing the unsubscribe links of notification emails; on both deploy workflows (they share one `.env`) |
 
 ### Consistency regression checks
 

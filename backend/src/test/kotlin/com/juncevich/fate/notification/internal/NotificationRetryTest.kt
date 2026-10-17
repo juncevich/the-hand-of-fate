@@ -1,8 +1,10 @@
 package com.juncevich.fate.notification.internal
 
 import com.juncevich.fate.notification.DrawResultPayload
+import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.notification.InvitationPayload
 import com.juncevich.fate.notification.NOTIFICATION_PAYLOAD_VERSION
+import com.juncevich.fate.notification.internal.port.EmailSuppressionPort
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
@@ -32,7 +34,8 @@ import java.util.UUID
     properties = [
         "app.frontend-url=http://localhost:3000",
         "spring.mail.username=noreply@test.com",
-        "app.mail.retry.delay-ms=10"
+        "app.mail.retry.delay-ms=10",
+        "app.notifications.unsubscribe-secret=test-unsubscribe-secret"
     ]
 )
 class NotificationRetryTest
@@ -43,10 +46,13 @@ class NotificationRetryTest
     ) {
         @Configuration
         @EnableResilientMethods
-        @Import(EmailService::class, NotificationAdapter::class)
+        @Import(EmailService::class, NotificationAdapter::class, EmailPreferences::class)
         class Config {
             @Bean
             fun mailSender(): JavaMailSender = mockk(relaxed = true)
+
+            @Bean
+            fun suppressions(): EmailSuppressionPort = mockk(relaxed = true)
         }
 
         private val invitation = InvitationPayload(UUID.randomUUID(), "Vote", "Creator", "p@test.com")

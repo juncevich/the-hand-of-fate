@@ -12,7 +12,12 @@ vi.mock('@/api/telegram', () => ({
 
 vi.mock('@/api/users', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/users')>()),
-  usersApi: { uploadAvatar: vi.fn(), deleteAvatar: vi.fn() },
+  usersApi: {
+    uploadAvatar: vi.fn(),
+    deleteAvatar: vi.fn(),
+    getEmailPreferences: vi.fn().mockResolvedValue({ notificationsEnabled: true }),
+    updateEmailPreferences: vi.fn(),
+  },
 }))
 
 vi.mock('@/components/ui/toaster', () => ({ toast: vi.fn() }))
@@ -144,11 +149,11 @@ describe('SettingsPage', () => {
       renderPage()
 
       expect(screen.getByRole('img', { name: 'Аватар alice' })).toBeInTheDocument()
-      await userEvent.click(screen.getByRole('button', { name: /Удалить/i }))
+      await userEvent.click(screen.getByRole('button', { name: 'Удалить' }))
 
       expect(await screen.findByText('A')).toBeInTheDocument()
       expect(screen.queryByRole('img')).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /Удалить/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument()
     })
   })
 })

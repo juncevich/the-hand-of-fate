@@ -39,6 +39,15 @@ data class ChangePasswordRequest(
     @field:Size(min = 8, max = 100) val newPassword: String,
 )
 
+data class DeleteAccountRequest(
+    @field:NotBlank val password: String,
+)
+
+data class EmailPreferencesDto(
+    /** Whether invitations and draw results are emailed to the account's address. */
+    val notificationsEnabled: Boolean,
+)
+
 data class RefreshRequest(
     val refreshToken: String? = null,
 )

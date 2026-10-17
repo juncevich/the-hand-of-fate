@@ -11,7 +11,7 @@ export const apiClient = axios.create({
 })
 
 // Endpoints that work without a session: a 401 from them is a real answer, not an expired token.
-const SESSIONLESS = /^\/auth\/(login|register|refresh|logout|verify-email|resend-verification|forgot-password|reset-password)$/
+const SESSIONLESS = /^\/auth\/(login|register|refresh|logout|verify-email|resend-verification|forgot-password|reset-password)$|^\/notifications\/unsubscribe/
 
 let refreshPromise: Promise<AuthPayload> | null = null
 let refreshVersion: number | null = null

@@ -40,12 +40,20 @@ class SecurityConfig(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
                 auth
-                    .requestMatchers("/api/v1/auth/logout-all", "/api/v1/auth/change-password")
-                    .authenticated()
+                    .requestMatchers(
+                        "/api/v1/auth/logout-all",
+                        "/api/v1/auth/change-password",
+                        "/api/v1/auth/delete-account"
+                    ).authenticated()
                     .requestMatchers("/api/v1/auth/**")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/users/*/avatar")
                     .permitAll()
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/notifications/unsubscribe",
+                        "/api/v1/notifications/unsubscribe/one-click"
+                    ).permitAll()
                     .requestMatchers("/actuator/health/**")
                     .permitAll()
                     .requestMatchers(
@@ -114,7 +122,9 @@ class SecurityConfig(
                 "/api/v1/auth/verify-email",
                 "/api/v1/auth/resend-verification",
                 "/api/v1/auth/forgot-password",
-                "/api/v1/auth/reset-password"
+                "/api/v1/auth/reset-password",
+                "/api/v1/notifications/unsubscribe",
+                "/api/v1/notifications/unsubscribe/one-click"
             )
     }
 }

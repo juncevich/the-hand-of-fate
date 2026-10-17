@@ -13,6 +13,7 @@ import { SettingsPage } from '@/pages/SettingsPage'
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
+import { UnsubscribePage } from '@/pages/UnsubscribePage'
 import { BackendStatusIndicator } from '@/components/layout/BackendStatusIndicator'
 
 function ProtectedRoute({ children, isAuthReady }: { children: ReactNode; isAuthReady: boolean }) {
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
         <Route
           path="/"

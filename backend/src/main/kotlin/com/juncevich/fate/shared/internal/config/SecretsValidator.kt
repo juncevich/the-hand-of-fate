@@ -8,14 +8,16 @@ import org.springframework.stereotype.Component
 
 /**
  * Fail-fast guard against shipping insecure defaults. Active in every profile
- * except `dev`/`test`, so a production boot aborts if the JWT signing key or the
- * gRPC shared secret is missing, too short, or left at the checked-in dev value.
+ * except `dev`/`test`, so a production boot aborts if the JWT signing key, the
+ * gRPC shared secret or the unsubscribe-link secret is missing, too short, or left at
+ * the checked-in dev value.
  */
 @Component
 @Profile("!dev & !test")
 class SecretsValidator(
     @param:Value("\${jwt.access-secret}") private val jwtAccessSecret: String,
     @param:Value("\${grpc.shared-secret}") private val grpcSharedSecret: String,
+    @param:Value("\${app.notifications.unsubscribe-secret}") private val unsubscribeSecret: String,
 ) : InitializingBean {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -33,6 +35,12 @@ class SecretsValidator(
                 }
                 if (grpcSharedSecret.length < MIN_SHARED_SECRET_LENGTH) {
                     add("GRPC_SHARED_SECRET must be at least $MIN_SHARED_SECRET_LENGTH characters")
+                }
+                if (unsubscribeSecret in KNOWN_DEFAULTS) {
+                    add("UNSUBSCRIBE_SECRET is left at the insecure development default")
+                }
+                if (unsubscribeSecret.toByteArray().size < MIN_JWT_SECRET_BYTES) {
+                    add("UNSUBSCRIBE_SECRET must be at least $MIN_JWT_SECRET_BYTES bytes (256 bits)")
                 }
             }
 
@@ -54,6 +62,7 @@ class SecretsValidator(
             setOf(
                 "changeme-dev-secret-key-256-bits-long-xxxxxxxxxxxx",
                 "changeme-dev-grpc-shared-secret",
+                "changeme-dev-unsubscribe-secret",
                 "dev-secret-key-at-least-256-bits-long-for-testing-purposes-only",
                 "dev-grpc-shared-secret-for-testing-only"
             )

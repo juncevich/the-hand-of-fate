@@ -8,6 +8,12 @@ import org.springframework.resilience.annotation.Retryable
 import org.springframework.stereotype.Service
 import java.util.concurrent.Semaphore
 
+/** Where a notification email's recipient can opt out: the confirmation page and the RFC 8058 endpoint. */
+data class UnsubscribeLinks(
+    val page: String,
+    val oneClick: String,
+)
+
 /**
  * Transient SMTP failures ([MailException]) are retried: 3 attempts in total, backing off
  * 1s then 2s by default (`app.mail.retry.delay-ms` sets the initial delay).
@@ -43,12 +49,14 @@ class EmailService(
         voteTitle: String,
         creatorName: String,
         voteUrl: String,
+        unsubscribe: UnsubscribeLinks,
     ) {
         send(
             to = to,
             subject = "✦ You've been invited to a vote: $voteTitle",
             // User-supplied text goes into HTML escaped, so a vote title can't inject markup or links.
-            html = invitationHtml(escape(voteTitle), escape(creatorName), voteUrl)
+            html = withUnsubscribeFooter(invitationHtml(escape(voteTitle), escape(creatorName), voteUrl), unsubscribe),
+            unsubscribe = unsubscribe
         )
     }
 
@@ -65,11 +73,17 @@ class EmailService(
         winnerEmail: String,
         round: Int,
         voteUrl: String,
+        unsubscribe: UnsubscribeLinks,
     ) {
         send(
             to = to,
             subject = "✦ Vote result: $voteTitle — Winner: $winnerName",
-            html = drawResultHtml(escape(voteTitle), escape(winnerName), escape(winnerEmail), round, voteUrl)
+            html =
+                withUnsubscribeFooter(
+                    drawResultHtml(escape(voteTitle), escape(winnerName), escape(winnerEmail), round, voteUrl),
+                    unsubscribe
+                ),
+            unsubscribe = unsubscribe
         )
     }
 
@@ -127,6 +141,7 @@ class EmailService(
         to: String,
         subject: String,
         html: String,
+        unsubscribe: UnsubscribeLinks? = null,
     ) {
         val message = mailSender.createMimeMessage()
         MimeMessageHelper(message, true, "UTF-8").apply {
@@ -134,6 +149,11 @@ class EmailService(
             setTo(to)
             setSubject(subject)
             setText(html, true)
+        }
+        unsubscribe?.let {
+            // RFC 8058 one-click unsubscribe: mail clients POST to the URL without opening a page.
+            message.setHeader("List-Unsubscribe", "<${it.oneClick}>")
+            message.setHeader("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
         }
         sendPermits.acquire()
         try {
@@ -180,6 +200,20 @@ class EmailService(
         </a>
         </body></html>
         """.trimIndent()
+
+    private fun withUnsubscribeFooter(
+        html: String,
+        unsubscribe: UnsubscribeLinks,
+    ) = html.replace(
+        "</body></html>",
+        """
+        <p style="color:#a0a0b0;font-size:12px;margin-top:32px">
+          You get this email because someone added your address to a vote.
+          <a href="${unsubscribe.page}" style="color:#a0a0b0">Unsubscribe</a>
+        </p>
+        </body></html>
+        """.trimIndent()
+    )
 
     private fun actionHtml(
         heading: String,

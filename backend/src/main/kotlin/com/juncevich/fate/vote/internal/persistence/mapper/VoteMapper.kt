@@ -81,33 +81,26 @@ fun DrawHistoryJpaEntity.toDomain(): DrawHistory {
     val email = winnerEmail
     val optionTitle = winnerOptionTitle
     val audit = audit?.let { DrawAudit(it.seed, it.candidates) }
-    return when {
-        email != null -> {
-            DrawHistory.ParticipantWinner(
-                id = id,
-                voteId = vote.id,
-                email = email,
-                displayName = winnerDisplayName,
-                round = round,
-                drawnAt = drawnAt,
-                audit = audit
-            )
-        }
-
-        optionTitle != null -> {
-            DrawHistory.OptionWinner(
-                id = id,
-                voteId = vote.id,
-                optionId = winnerOption?.id,
-                optionTitle = optionTitle,
-                round = round,
-                drawnAt = drawnAt,
-                audit = audit
-            )
-        }
-
-        else -> {
-            error("DrawHistoryJpaEntity $id has neither winnerEmail nor winnerOptionTitle")
-        }
+    // A participant win whose winner deleted their account keeps neither address nor option.
+    return if (optionTitle != null) {
+        DrawHistory.OptionWinner(
+            id = id,
+            voteId = vote.id,
+            optionId = winnerOption?.id,
+            optionTitle = optionTitle,
+            round = round,
+            drawnAt = drawnAt,
+            audit = audit
+        )
+    } else {
+        DrawHistory.ParticipantWinner(
+            id = id,
+            voteId = vote.id,
+            email = email,
+            displayName = winnerDisplayName,
+            round = round,
+            drawnAt = drawnAt,
+            audit = audit
+        )
     }
 }

@@ -7,6 +7,8 @@ import { UserAvatar } from '@/components/UserAvatar'
 import { Bot, Copy, ImageUp, Link2, Link2Off, Trash2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard'
+import { DeleteAccountCard } from '@/components/settings/DeleteAccountCard'
+import { EmailNotificationsCard } from '@/components/settings/EmailNotificationsCard'
 
 export function SettingsPage() {
   const { displayName, email, avatarUrl } = useAuthStore()
@@ -72,6 +74,8 @@ export function SettingsPage() {
 
       <ChangePasswordCard />
 
+      <EmailNotificationsCard />
+
       <div className="glass p-6">
         <div className="flex items-center gap-2 mb-4">
           <Bot className="w-5 h-5 text-fate-gold" />
@@ -122,6 +126,8 @@ export function SettingsPage() {
           </div>
         )}
       </div>
+
+      <DeleteAccountCard />
     </div>
   )
 }

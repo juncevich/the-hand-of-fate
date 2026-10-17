@@ -53,7 +53,7 @@ class EmailBudgetTest {
         assertFalse(budget.tryReserve(userId, 3))
 
         verify(exactly = 0) { port.record(any(), any()) }
-        assertEquals(3.0, meterRegistry.counter("notification.suppressed").count())
+        assertEquals(3.0, meterRegistry.counter("notification.suppressed", "reason", "budget").count())
     }
 
     @Test

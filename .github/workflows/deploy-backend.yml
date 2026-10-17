@@ -78,6 +78,7 @@ jobs:
       FRONTEND_URL:      ${{ secrets.FRONTEND_URL }}
       GRPC_SERVER_ADDR:  ${{ secrets.GRPC_SERVER_ADDR }}
       GRPC_SHARED_SECRET: ${{ secrets.GRPC_SHARED_SECRET }}
+      UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
       BACKEND_HEALTHCHECK_URL: http://127.0.0.1:8080/actuator/health
 
     steps:
@@ -86,7 +87,7 @@ jobs:
           missing=()
           for s in DEPLOY_SSH_KEY BOT_TOKEN DB_URL DB_USERNAME DB_PASSWORD \
                    JWT_ACCESS_SECRET MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD \
-                   FRONTEND_URL GRPC_SERVER_ADDR GRPC_SHARED_SECRET; do
+                   FRONTEND_URL GRPC_SERVER_ADDR GRPC_SHARED_SECRET UNSUBSCRIBE_SECRET; do
             [ -z "${!s:-}" ] && missing+=("$s")
           done
           if [ "${#missing[@]}" -gt 0 ]; then
@@ -148,6 +149,7 @@ jobs:
             printf "FRONTEND_URL='%s'\n"      "$(escape "$FRONTEND_URL")"
             printf "GRPC_SERVER_ADDR='%s'\n"  "$(escape "$GRPC_SERVER_ADDR")"
             printf "GRPC_SHARED_SECRET='%s'\n" "$(escape "$GRPC_SHARED_SECRET")"
+            printf "UNSUBSCRIBE_SECRET='%s'\n" "$(escape "$UNSUBSCRIBE_SECRET")"
           } | ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
             "cat > $DEPLOY_DIR/.env && chmod 600 $DEPLOY_DIR/.env && chown fate:fate $DEPLOY_DIR/.env"
 

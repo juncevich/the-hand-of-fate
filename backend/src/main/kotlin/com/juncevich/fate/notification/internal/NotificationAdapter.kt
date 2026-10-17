@@ -1,6 +1,7 @@
 package com.juncevich.fate.notification.internal
 
 import com.juncevich.fate.notification.DrawResultPayload
+import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.notification.EmailVerificationPayload
 import com.juncevich.fate.notification.InvitationPayload
 import com.juncevich.fate.notification.PasswordResetPayload
@@ -17,6 +18,7 @@ import java.util.UUID
 @Component
 class NotificationAdapter(
     private val emailService: EmailService,
+    private val preferences: EmailPreferences,
     @param:Value("\${app.frontend-url}") private val frontendUrl: String,
 ) {
     fun send(payload: InvitationPayload) {
@@ -24,7 +26,8 @@ class NotificationAdapter(
             to = payload.recipientEmail,
             voteTitle = payload.voteTitle,
             creatorName = payload.creatorName,
-            voteUrl = voteUrl(payload.voteId)
+            voteUrl = voteUrl(payload.voteId),
+            unsubscribe = unsubscribeLinks(payload.recipientEmail)
         )
     }
 
@@ -35,7 +38,8 @@ class NotificationAdapter(
             winnerName = payload.winnerName,
             winnerEmail = payload.winnerEmail.orEmpty(),
             round = payload.round,
-            voteUrl = voteUrl(payload.voteId)
+            voteUrl = voteUrl(payload.voteId),
+            unsubscribe = unsubscribeLinks(payload.recipientEmail)
         )
     }
 
@@ -56,6 +60,15 @@ class NotificationAdapter(
     }
 
     private fun voteUrl(voteId: UUID) = "$frontendUrl/votes/$voteId"
+
+    // The API is served from the same origin as the SPA (nginx proxies /api/).
+    private fun unsubscribeLinks(email: String): UnsubscribeLinks {
+        val query = "email=${encode(email)}&sig=${preferences.sign(email)}"
+        return UnsubscribeLinks(
+            page = "$frontendUrl/unsubscribe?$query",
+            oneClick = "$frontendUrl/api/v1/notifications/unsubscribe/one-click?$query"
+        )
+    }
 
     private fun encode(token: String) = URLEncoder.encode(token, StandardCharsets.UTF_8)
 }

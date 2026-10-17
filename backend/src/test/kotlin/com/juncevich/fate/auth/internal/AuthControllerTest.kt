@@ -1,6 +1,7 @@
 package com.juncevich.fate.auth.internal
 
 import com.juncevich.fate.auth.AuthenticatedUser
+import com.juncevich.fate.auth.internal.service.AccountDeletionService
 import com.juncevich.fate.auth.internal.service.AccountService
 import com.juncevich.fate.auth.internal.service.AuthService
 import com.juncevich.fate.auth.internal.service.AuthTokens
@@ -28,6 +29,7 @@ import java.util.UUID
 class AuthControllerTest {
     private val authService = mockk<AuthService>()
     private val accountService = mockk<AccountService>()
+    private val accountDeletionService = mockk<AccountDeletionService>()
     private lateinit var mockMvc: MockMvc
 
     @BeforeEach
@@ -38,6 +40,7 @@ class AuthControllerTest {
                     AuthController(
                         authService,
                         accountService,
+                        accountDeletionService,
                         JwtProperties("test-secret-that-is-definitely-long-enough-for-hmac-sha256")
                     )
                 ).setControllerAdvice(ErrorHandler())
@@ -122,6 +125,22 @@ class AuthControllerTest {
                 contentType = MediaType.APPLICATION_JSON
                 content = """{"currentPassword":"old-password","newPassword":"short"}"""
             }.andExpect { status { isBadRequest() } }
+    }
+
+    @Test
+    fun `POST delete-account - deletes and clears the refresh cookie`() {
+        val id = UUID.randomUUID()
+        setAuth(id)
+        every { accountDeletionService.deleteAccount(id, "password123") } returns Unit
+
+        mockMvc
+            .post("/api/v1/auth/delete-account") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"password":"password123"}"""
+            }.andExpect {
+                status { isNoContent() }
+                header { string("Set-Cookie", org.hamcrest.Matchers.containsString("Max-Age=0")) }
+            }
     }
 
     @Test

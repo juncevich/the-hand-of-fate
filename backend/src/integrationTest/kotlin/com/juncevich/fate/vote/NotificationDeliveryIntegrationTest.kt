@@ -51,8 +51,8 @@ class NotificationDeliveryIntegrationTest
         @BeforeEach
         fun resetMock() {
             clearMocks(emailService)
-            every { emailService.sendVoteInvitation(any(), any(), any(), any()) } returns Unit
-            every { emailService.sendDrawResult(any(), any(), any(), any(), any(), any()) } returns Unit
+            every { emailService.sendVoteInvitation(any(), any(), any(), any(), any()) } returns Unit
+            every { emailService.sendDrawResult(any(), any(), any(), any(), any(), any(), any()) } returns Unit
         }
 
         /** Delivery is on here, so the verification link is taken from the (mocked) email itself. */
@@ -103,9 +103,9 @@ class NotificationDeliveryIntegrationTest
 
             createVote(token, listOf(a, b))
 
-            verify(timeout = 5_000, exactly = 1) { emailService.sendVoteInvitation(a, "Notify", "Creator", any()) }
-            verify(timeout = 5_000, exactly = 1) { emailService.sendVoteInvitation(b, "Notify", "Creator", any()) }
-            verify(exactly = 0) { emailService.sendVoteInvitation(creatorEmail, any(), any(), any()) }
+            verify(timeout = 5_000, exactly = 1) { emailService.sendVoteInvitation(a, "Notify", "Creator", any(), any()) }
+            verify(timeout = 5_000, exactly = 1) { emailService.sendVoteInvitation(b, "Notify", "Creator", any(), any()) }
+            verify(exactly = 0) { emailService.sendVoteInvitation(creatorEmail, any(), any(), any(), any()) }
         }
 
         @Test
@@ -121,7 +121,7 @@ class NotificationDeliveryIntegrationTest
 
             for (recipient in listOf(creatorEmail, a)) {
                 verify(timeout = 5_000, exactly = 1) {
-                    emailService.sendDrawResult(recipient, "Notify", "Only option", any(), 1, any())
+                    emailService.sendDrawResult(recipient, "Notify", "Only option", any(), 1, any(), any())
                 }
             }
         }
@@ -141,7 +141,7 @@ class NotificationDeliveryIntegrationTest
             // (wrongly) dispatched email for the rolled-back change would have arrived too.
             voteService.addParticipant(voteId, creatorId, committed)
 
-            verify(timeout = 5_000, exactly = 1) { emailService.sendVoteInvitation(committed, any(), any(), any()) }
-            verify(exactly = 0) { emailService.sendVoteInvitation(rolledBack, any(), any(), any()) }
+            verify(timeout = 5_000, exactly = 1) { emailService.sendVoteInvitation(committed, any(), any(), any(), any()) }
+            verify(exactly = 0) { emailService.sendVoteInvitation(rolledBack, any(), any(), any(), any()) }
         }
     }

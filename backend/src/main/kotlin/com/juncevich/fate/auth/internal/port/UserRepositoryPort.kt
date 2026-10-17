@@ -17,4 +17,6 @@ interface UserRepositoryPort {
     fun existsByEmail(email: String): Boolean
 
     fun save(user: User): User
+
+    fun delete(id: UUID)
 }

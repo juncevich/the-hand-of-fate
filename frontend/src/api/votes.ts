@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import type { components } from './generated/schema'
 import type {
   CreateVoteRequest,
   DrawResult,
@@ -8,11 +9,16 @@ import type {
   VoteSummary,
 } from '@/types/vote'
 
+type VoteStats = components['schemas']['VoteStatsDto']
+
 export const votesApi = {
   list: (page = 0, size = 20) =>
     apiClient
       .get<Page<VoteSummary>>('/votes', { params: { page, size } })
       .then((r) => r.data),
+
+  stats: () =>
+    apiClient.get<VoteStats>('/votes/stats').then((r) => r.data),
 
   get: (id: string) =>
     apiClient.get<VoteDetail>(`/votes/${id}`).then((r) => r.data),

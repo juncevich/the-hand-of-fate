@@ -13,14 +13,15 @@ class SecretsValidatorTest {
         val validator =
             SecretsValidator(
                 jwtAccessSecret = "changeme-dev-secret-key-256-bits-long-xxxxxxxxxxxx",
-                grpcSharedSecret = strongSecret
+                grpcSharedSecret = strongSecret,
+                unsubscribeSecret = strongSecret
             )
         assertThrows<IllegalStateException> { validator.afterPropertiesSet() }
     }
 
     @Test
     fun `rejects a too-short jwt secret`() {
-        val validator = SecretsValidator(jwtAccessSecret = "short", grpcSharedSecret = strongSecret)
+        val validator = SecretsValidator(jwtAccessSecret = "short", grpcSharedSecret = strongSecret, unsubscribeSecret = strongSecret)
         assertThrows<IllegalStateException> { validator.afterPropertiesSet() }
     }
 
@@ -29,7 +30,8 @@ class SecretsValidatorTest {
         val validator =
             SecretsValidator(
                 jwtAccessSecret = strongSecret,
-                grpcSharedSecret = "dev-grpc-shared-secret-for-testing-only"
+                grpcSharedSecret = "dev-grpc-shared-secret-for-testing-only",
+                unsubscribeSecret = strongSecret
             )
         assertThrows<IllegalStateException> { validator.afterPropertiesSet() }
     }
@@ -39,8 +41,22 @@ class SecretsValidatorTest {
         val validator =
             SecretsValidator(
                 jwtAccessSecret = strongSecret,
-                grpcSharedSecret = "another-strong-shared-secret"
+                grpcSharedSecret = "another-strong-shared-secret",
+                unsubscribeSecret = "b".repeat(40)
             )
         assertDoesNotThrow { validator.afterPropertiesSet() }
+    }
+
+    @Test
+    fun `rejects the dev or a too-short unsubscribe secret`() {
+        listOf("changeme-dev-unsubscribe-secret", "short").forEach { secret ->
+            val validator =
+                SecretsValidator(
+                    jwtAccessSecret = strongSecret,
+                    grpcSharedSecret = "another-strong-shared-secret",
+                    unsubscribeSecret = secret
+                )
+            assertThrows<IllegalStateException> { validator.afterPropertiesSet() }
+        }
     }
 }

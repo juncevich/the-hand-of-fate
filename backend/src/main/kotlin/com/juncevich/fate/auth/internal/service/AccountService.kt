@@ -33,8 +33,8 @@ data class RegistrationResult(
 )
 
 /**
- * Account lifecycle around the mailbox: registration with email verification, password reset by
- * a mailed link and password change. Mailed links carry a random token; only its SHA-256 is
+ * Account lifecycle: registration with email verification, password reset by a mailed link
+ * and password change (deletion: [AccountDeletionService]). Mailed links carry a random token; only its SHA-256 is
  * stored, and it is consumed on first use. Requests that take an email address never reveal
  * whether an account exists.
  */
@@ -49,8 +49,10 @@ class AccountService(
     private val authService: AuthService,
     private val loginThrottle: LoginThrottle,
     private val properties: AccountProperties,
-    private val random: SecureRandom = SecureRandom(),
+    private val passwordConfirmation: PasswordConfirmation,
 ) {
+    private val random = SecureRandom()
+
     fun register(
         email: String,
         password: String,
@@ -117,13 +119,7 @@ class AccountService(
         newPassword: String,
     ): AuthTokens {
         val user = users.findById(userId) ?: throw NotFoundException("User not found")
-        // Guessing the current password with a stolen access token counts like failed logins.
-        loginThrottle.ensureAllowed(user.email)
-        if (!passwordEncoder.matches(currentPassword, user.passwordHash)) {
-            loginThrottle.recordFailure(user.email)
-            // Not 401: the caller is authenticated, and the SPA treats 401 as an expired session.
-            throw BadRequestException("Current password is incorrect", code = "WRONG_PASSWORD")
-        }
+        passwordConfirmation.require(user, currentPassword)
         user.passwordHash = encode(newPassword)
         users.save(user)
         refreshTokens.deleteAllByUserId(user.id)

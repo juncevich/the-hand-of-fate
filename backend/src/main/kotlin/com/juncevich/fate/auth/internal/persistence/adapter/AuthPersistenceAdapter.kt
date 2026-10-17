@@ -34,6 +34,12 @@ class UserPersistenceAdapter(
     override fun existsByEmail(email: String): Boolean = userJpaRepository.existsByEmail(email)
 
     override fun save(user: User): User = userJpaRepository.save(user.toJpaEntity()).toDomain()
+
+    override fun delete(id: UUID) {
+        userJpaRepository.deleteById(id)
+        // The row must be gone before the transaction's other work (and its FK cascades) is checked.
+        userJpaRepository.flush()
+    }
 }
 
 @Component

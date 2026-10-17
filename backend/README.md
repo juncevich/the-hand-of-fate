@@ -83,6 +83,11 @@ src/main/resources/
 | `POST` | `/api/v1/auth/reset-password` | Set a new password with the mailed token; ends every session |
 | `POST` | `/api/v1/auth/change-password` | Change the password (authenticated); ends the other sessions |
 | `POST` | `/api/v1/auth/login` | Login, returns access + refresh tokens (403 `EMAIL_NOT_VERIFIED` until confirmed) |
+| `POST` | `/api/v1/auth/delete-account` | Delete the account (password required) and the votes it created |
+| `GET`/`PUT` | `/api/v1/users/me/email-preferences` | Notification emails on/off for the account's address |
+| `POST` | `/api/v1/notifications/unsubscribe` | Opt an address out with the signed link from an email (public) |
+| `POST` | `/api/v1/notifications/unsubscribe/one-click` | RFC 8058 one-click unsubscribe for mail clients (public) |
+| `GET`  | `/api/v1/votes/stats` | `createdCount` — votes the user created |
 | `POST` | `/api/v1/auth/refresh` | Refresh access token |
 | `POST` | `/api/v1/auth/logout` | Revoke refresh token |
 | `GET`  | `/api/v1/votes` | List own votes (paginated) |
@@ -156,6 +161,7 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 | V21 | Option positions `0..n-1`, deferrable `UNIQUE (vote_id, position)` |
 | V22 | `draw_history.seed` / `candidates` — draw audit record |
 | V23 | `users.email_verified_at` + `email_tokens` — email verification and password reset |
+| V24 | `email_suppressions` — addresses that unsubscribed from notification emails |
 
 ## Environment Variables
 

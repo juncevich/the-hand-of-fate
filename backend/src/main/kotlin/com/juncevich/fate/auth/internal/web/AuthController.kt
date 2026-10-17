@@ -1,6 +1,7 @@
 package com.juncevich.fate.auth.internal.web
 
 import com.juncevich.fate.auth.AuthenticatedUser
+import com.juncevich.fate.auth.internal.service.AccountDeletionService
 import com.juncevich.fate.auth.internal.service.AccountService
 import com.juncevich.fate.auth.internal.service.AuthService
 import com.juncevich.fate.auth.internal.service.AuthTokens
@@ -44,6 +45,7 @@ import java.time.Duration
 class AuthController(
     private val authService: AuthService,
     private val accountService: AccountService,
+    private val accountDeletionService: AccountDeletionService,
     private val jwtProperties: JwtProperties,
     @param:Value("\${app.refresh-cookie-secure:false}") private val refreshCookieSecure: Boolean = false,
 ) {
@@ -177,6 +179,26 @@ class AuthController(
                     title = "Too many failed login attempts, please try again later"
                 }
             )
+
+    @PostMapping("/delete-account")
+    @Operation(
+        operationId = "deleteAccount",
+        summary = "Delete the account and everything it created",
+        description =
+            "Requires the password (400 with code WRONG_PASSWORD otherwise). Deletes the votes the user " +
+                "created; in other votes the user stops being a participant and past wins are anonymized."
+    )
+    @ApiResponse(responseCode = "204", description = "Deleted; the refresh cookie is cleared")
+    fun deleteAccount(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+        @Valid @RequestBody request: DeleteAccountRequest,
+    ): ResponseEntity<Unit> {
+        accountDeletionService.deleteAccount(user.id, request.password)
+        return ResponseEntity
+            .noContent()
+            .header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())
+            .build()
+    }
 
     private fun session(tokens: AuthTokens): ResponseEntity<AuthResponse> =
         ResponseEntity

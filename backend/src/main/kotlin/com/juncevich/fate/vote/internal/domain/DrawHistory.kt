@@ -17,7 +17,8 @@ sealed interface DrawHistory {
     data class ParticipantWinner(
         override val id: UUID = uuidV7(),
         override val voteId: UUID,
-        val email: String,
+        /** `null` once the winner deleted their account (see `AccountDeletionListener`). */
+        val email: String?,
         val displayName: String? = null,
         override val round: Int,
         override val drawnAt: Instant = Instant.now(),

@@ -91,6 +91,10 @@ class NotificationOutboxAdapter(
         )
     }
 
+    override fun deleteForRecipient(email: String) {
+        jdbc.update("DELETE FROM notification_outbox WHERE payload::jsonb ->> 'recipientEmail' = ?", email)
+    }
+
     override fun purgeFailed(retention: Duration): Int =
         jdbc.update(
             "DELETE FROM notification_outbox WHERE failed_at < now() - make_interval(secs => ?)",

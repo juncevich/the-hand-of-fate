@@ -70,6 +70,8 @@ class VotePersistenceAdapter(
     override fun delete(vote: Vote) {
         voteJpaRepository.deleteById(vote.id)
     }
+
+    override fun countByCreatorId(creatorId: UUID): Long = voteJpaRepository.countByCreatorId(creatorId)
 }
 
 @Component

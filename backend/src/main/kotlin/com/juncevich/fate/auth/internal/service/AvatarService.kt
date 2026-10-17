@@ -57,6 +57,13 @@ class AvatarService(
             .onFailure { log.warn("Could not delete avatar object of user {}: {}", userId, it.message) }
     }
 
+    /** Best effort, for a deleted account: a leftover object is unreachable and harmless. */
+    fun deleteStoredObject(userId: UUID) {
+        if (!objectStorage.isEnabled) return
+        runCatching { objectStorage.delete(avatarKey(userId)) }
+            .onFailure { log.warn("Could not delete avatar object of deleted user {}: {}", userId, it.message) }
+    }
+
     fun load(userId: UUID): Avatar {
         val updatedAt = findUser(userId).avatarUpdatedAt
         if (updatedAt == null || !objectStorage.isEnabled) throw NotFoundException("Avatar not found")

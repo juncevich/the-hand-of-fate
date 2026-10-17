@@ -1,11 +1,13 @@
 package com.juncevich.fate.notification.internal.persistence
 
 import com.juncevich.fate.notification.DrawResultPayload
+import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.notification.InvitationPayload
 import com.juncevich.fate.notification.internal.EmailService
 import com.juncevich.fate.notification.internal.NotificationAdapter
 import com.juncevich.fate.notification.internal.NotificationProperties
 import com.juncevich.fate.notification.internal.NotificationWorker
+import com.juncevich.fate.notification.internal.port.EmailSuppressionPort
 import com.juncevich.fate.notification.internal.port.NotificationOutboxPort
 import com.juncevich.fate.notification.internal.port.NotificationType
 import com.juncevich.fate.vote.DrawResult
@@ -47,6 +49,8 @@ class NotificationOutboxIntegrationTest
         private val jdbc: JdbcTemplate,
         private val transactions: PlatformTransactionManager,
         private val json: JsonMapper,
+        private val preferences: EmailPreferences,
+        private val suppressions: EmailSuppressionPort,
     ) {
         companion object {
             @Container @JvmField
@@ -141,18 +145,18 @@ class NotificationOutboxIntegrationTest
         @Test
         fun `failed delivery is retained and retried later without affecting another recipient`() {
             val mail = mockk<EmailService>(relaxed = true)
-            every { mail.sendVoteInvitation("recipient@test.com", any(), any(), any()) } throws IllegalStateException("SMTP down")
+            every { mail.sendVoteInvitation("recipient@test.com", any(), any(), any(), any()) } throws IllegalStateException("SMTP down")
             recordInvitation()
             events.publishEvent(invitation.copy(recipientEmail = "good@test.com"))
             val worker = worker(mail)
             worker.poll()
-            verify(exactly = 1) { mail.sendVoteInvitation("good@test.com", any(), any(), any()) }
+            verify(exactly = 1) { mail.sendVoteInvitation("good@test.com", any(), any(), any(), any()) }
             assertEquals(1, rowCount())
             assertEquals("SMTP down", jdbc.queryForObject("SELECT last_error FROM notification_outbox", String::class.java))
             worker.poll()
-            verify(exactly = 1) { mail.sendVoteInvitation("recipient@test.com", any(), any(), any()) }
+            verify(exactly = 1) { mail.sendVoteInvitation("recipient@test.com", any(), any(), any(), any()) }
             makeAvailable()
-            every { mail.sendVoteInvitation("recipient@test.com", any(), any(), any()) } returns Unit
+            every { mail.sendVoteInvitation("recipient@test.com", any(), any(), any(), any()) } returns Unit
             worker.poll()
             assertEquals(0, rowCount())
         }
@@ -162,7 +166,7 @@ class NotificationOutboxIntegrationTest
             val mail = mockk<EmailService>(relaxed = true)
             events.publishEvent(VoteDrawn(UUID.randomUUID(), "Vote", DrawResult(null, null, "Winner", 3, false), listOf("a@test.com")))
             worker(mail).poll()
-            verify(exactly = 1) { mail.sendDrawResult("a@test.com", "Vote", "Winner", "", 3, any()) }
+            verify(exactly = 1) { mail.sendDrawResult("a@test.com", "Vote", "Winner", "", 3, any(), any()) }
             assertEquals(0, rowCount())
         }
 
@@ -198,7 +202,7 @@ class NotificationOutboxIntegrationTest
         @Test
         fun `worker gives up after the configured number of attempts`() {
             val mail = mockk<EmailService>(relaxed = true)
-            every { mail.sendVoteInvitation(any(), any(), any(), any()) } throws IllegalStateException("SMTP down")
+            every { mail.sendVoteInvitation(any(), any(), any(), any(), any()) } throws IllegalStateException("SMTP down")
             recordInvitation()
             val worker = worker(mail, NotificationProperties(maxAttempts = 2))
             worker.poll()
@@ -206,7 +210,7 @@ class NotificationOutboxIntegrationTest
             worker.poll()
             makeAvailable()
             worker.poll()
-            verify(exactly = 2) { mail.sendVoteInvitation(any(), any(), any(), any()) }
+            verify(exactly = 2) { mail.sendVoteInvitation(any(), any(), any(), any(), any()) }
             assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM notification_outbox WHERE failed_at IS NOT NULL", Int::class.java))
         }
 
@@ -215,7 +219,7 @@ class NotificationOutboxIntegrationTest
             val mail = mockk<EmailService>(relaxed = true)
             outbox.append(NotificationType.INVITATION, """{"legacy":"format"}""")
             worker(mail).poll()
-            verify(exactly = 0) { mail.sendVoteInvitation(any(), any(), any(), any()) }
+            verify(exactly = 0) { mail.sendVoteInvitation(any(), any(), any(), any(), any()) }
             assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM notification_outbox WHERE failed_at IS NOT NULL", Int::class.java))
         }
 
@@ -225,7 +229,7 @@ class NotificationOutboxIntegrationTest
             repeat(21) { recordInvitation() }
             worker(mail).poll()
             assertEquals(1, rowCount())
-            verify(exactly = 20) { mail.sendVoteInvitation(any(), any(), any(), any()) }
+            verify(exactly = 20) { mail.sendVoteInvitation(any(), any(), any(), any(), any()) }
             worker(mail).poll()
             assertEquals(0, rowCount())
         }
@@ -235,7 +239,14 @@ class NotificationOutboxIntegrationTest
         private fun worker(
             mail: EmailService,
             properties: NotificationProperties = NotificationProperties(),
-        ) = NotificationWorker(outbox, NotificationAdapter(mail, "http://localhost:3000"), json, properties, SimpleMeterRegistry())
+        ) = NotificationWorker(
+            outbox,
+            NotificationAdapter(mail, preferences, "http://localhost:3000"),
+            json,
+            properties,
+            SimpleMeterRegistry(),
+            suppressions
+        )
 
         private fun rowCount() = jdbc.queryForObject("SELECT count(*) FROM notification_outbox", Int::class.java)
 

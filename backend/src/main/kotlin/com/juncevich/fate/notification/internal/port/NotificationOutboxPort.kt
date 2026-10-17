@@ -37,6 +37,9 @@ interface NotificationOutboxPort {
         error: String,
     )
 
+    /** Deletes every job addressed to [email], pending or failed. */
+    fun deleteForRecipient(email: String)
+
     /** Deletes failed jobs older than [retention]; returns how many were removed. */
     fun purgeFailed(retention: Duration): Int
 }

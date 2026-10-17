@@ -11,6 +11,7 @@ import com.juncevich.fate.auth.internal.service.AccountService
 import com.juncevich.fate.auth.internal.service.AuthService
 import com.juncevich.fate.auth.internal.service.AuthTokens
 import com.juncevich.fate.auth.internal.service.LoginThrottle
+import com.juncevich.fate.auth.internal.service.PasswordConfirmation
 import com.juncevich.fate.notification.EmailVerificationPayload
 import com.juncevich.fate.notification.NotificationOutbox
 import com.juncevich.fate.notification.PasswordResetPayload
@@ -52,7 +53,8 @@ class AccountServiceTest {
             passwordEncoder,
             authService,
             loginThrottle,
-            AccountProperties()
+            AccountProperties(),
+            PasswordConfirmation(passwordEncoder, loginThrottle)
         )
 
     private val session = mockk<AuthTokens>()

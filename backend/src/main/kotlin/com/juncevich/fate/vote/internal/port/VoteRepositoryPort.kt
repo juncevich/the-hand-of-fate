@@ -19,4 +19,6 @@ interface VoteRepositoryPort {
     ): Page<Vote>
 
     fun delete(vote: Vote)
+
+    fun countByCreatorId(creatorId: UUID): Long
 }

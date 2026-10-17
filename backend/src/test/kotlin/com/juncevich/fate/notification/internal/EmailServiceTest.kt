@@ -27,7 +27,7 @@ class EmailServiceTest {
         every { mailSender.send(capture(sent)) } returns Unit
 
         EmailService(mailSender, fromOverride, smtpUsername)
-            .sendVoteInvitation("p@test.com", "Vote", "Creator", "http://localhost/votes/1")
+            .sendVoteInvitation("p@test.com", "Vote", "Creator", "http://localhost/votes/1", UnsubscribeLinks("http://localhost/unsubscribe", "http://localhost/one-click"))
 
         verify(exactly = 1) { mailSender.send(any<MimeMessage>()) }
         return sent.captured.from
@@ -69,7 +69,7 @@ class EmailServiceTest {
 
         Executors.newVirtualThreadPerTaskExecutor().use { executor ->
             repeat(6) { i ->
-                executor.execute { service.sendVoteInvitation("p$i@test.com", "Vote", "Creator", "http://localhost/votes/1") }
+                executor.execute { service.sendVoteInvitation("p$i@test.com", "Vote", "Creator", "http://localhost/votes/1", UnsubscribeLinks("http://localhost/unsubscribe", "http://localhost/one-click")) }
             }
             assertTrue(started.await(5, TimeUnit.SECONDS))
             // Give the remaining senders a chance to (wrongly) get past the cap before releasing
@@ -97,7 +97,7 @@ class EmailServiceTest {
     fun `user-supplied text is escaped in the email html`() {
         val html =
             sentHtml {
-                sendVoteInvitation("p@test.com", "<a href=\"https://evil\">Win</a>", "<b>Eve</b>", "http://localhost/votes/1")
+                sendVoteInvitation("p@test.com", "<a href=\"https://evil\">Win</a>", "<b>Eve</b>", "http://localhost/votes/1", UnsubscribeLinks("http://localhost/unsubscribe", "http://localhost/one-click"))
             }
 
         assertTrue("&lt;a href=&quot;https://evil&quot;&gt;Win&lt;/a&gt;" in html, html)
@@ -113,5 +113,32 @@ class EmailServiceTest {
         assertTrue("http://localhost/verify-email?token=t" in verification)
         assertTrue("&lt;Ann&gt;" in verification)
         assertTrue("http://localhost/reset-password?token=r" in reset)
+    }
+
+    private fun sentMessage(send: EmailService.() -> Unit): MimeMessage {
+        val mailSender = mockk<JavaMailSender>()
+        val sent = slot<MimeMessage>()
+        every { mailSender.createMimeMessage() } answers { MimeMessage(Session.getInstance(Properties())) }
+        every { mailSender.send(capture(sent)) } returns Unit
+        EmailService(mailSender, "", "").send()
+        return sent.captured
+    }
+
+    @Test
+    fun `notification emails offer one-click unsubscribe and an unsubscribe link`() {
+        val links = UnsubscribeLinks("http://app/unsubscribe?email=a&sig=s", "http://app/api/one-click?email=a&sig=s")
+        val message = sentMessage { sendVoteInvitation("a@test.com", "Vote", "Eve", "http://app/votes/1", links) }
+
+        assertEquals("<http://app/api/one-click?email=a&sig=s>", message.getHeader("List-Unsubscribe").single())
+        assertEquals("List-Unsubscribe=One-Click", message.getHeader("List-Unsubscribe-Post").single())
+        val html = sentHtml { sendVoteInvitation("a@test.com", "Vote", "Eve", "http://app/votes/1", links) }
+        assertTrue("http://app/unsubscribe?email=a&sig=s" in html, html)
+    }
+
+    @Test
+    fun `account emails carry no unsubscribe header`() {
+        val message = sentMessage { sendPasswordReset("a@test.com", "Ann", "http://app/reset-password?token=r") }
+
+        assertEquals(null, message.getHeader("List-Unsubscribe"))
     }
 }

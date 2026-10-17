@@ -151,6 +151,9 @@ app:
     # result emails are dropped (metric notification.suppressed).
     email-budget-per-user: ${EMAIL_BUDGET_PER_USER:200}
     email-budget-window: 24h
+    # Signs the unsubscribe link of every notification email (HMAC-SHA256 of the recipient).
+    # Changing it invalidates the links in emails already sent.
+    unsubscribe-secret: ${UNSUBSCRIBE_SECRET:changeme-dev-unsubscribe-secret}
   refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
   # S3-compatible object storage for avatars (see StorageProperties). Disabled unless
   # configured: avatar endpoints then answer 409 and users simply have no avatar.

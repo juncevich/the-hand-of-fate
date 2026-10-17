@@ -15,19 +15,20 @@ const val NOTIFICATION_PAYLOAD_VERSION = 1
  */
 sealed interface NotificationPayload {
     val version: Int
+    val recipientEmail: String
 }
 
 data class InvitationPayload(
     val voteId: UUID,
     val voteTitle: String,
     val creatorName: String,
-    val recipientEmail: String,
+    override val recipientEmail: String,
     override val version: Int = NOTIFICATION_PAYLOAD_VERSION,
 ) : NotificationPayload
 
 /** Link to confirm [recipientEmail]; [token] is the raw one-time token (only its hash is stored). */
 data class EmailVerificationPayload(
-    val recipientEmail: String,
+    override val recipientEmail: String,
     val displayName: String,
     val token: String,
     override val version: Int = NOTIFICATION_PAYLOAD_VERSION,
@@ -35,7 +36,7 @@ data class EmailVerificationPayload(
 
 /** Link to choose a new password; [token] is the raw one-time token (only its hash is stored). */
 data class PasswordResetPayload(
-    val recipientEmail: String,
+    override val recipientEmail: String,
     val displayName: String,
     val token: String,
     override val version: Int = NOTIFICATION_PAYLOAD_VERSION,
@@ -44,7 +45,7 @@ data class PasswordResetPayload(
 data class DrawResultPayload(
     val voteId: UUID,
     val voteTitle: String,
-    val recipientEmail: String,
+    override val recipientEmail: String,
     val winnerName: String,
     val winnerEmail: String?,
     val round: Int,

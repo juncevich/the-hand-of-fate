@@ -98,6 +98,10 @@ data class VoteDetailDto(
     val createdAt: Instant,
 )
 
+data class VoteStatsDto(
+    val createdCount: Long,
+)
+
 data class DrawResultResponse(
     val winnerEmail: String?,
     val winnerDisplayName: String?,

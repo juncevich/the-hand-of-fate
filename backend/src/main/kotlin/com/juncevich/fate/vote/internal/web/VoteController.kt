@@ -2,6 +2,7 @@ package com.juncevich.fate.vote.internal.web
 
 import com.juncevich.fate.auth.AuthenticatedUser
 import com.juncevich.fate.vote.VoteService
+import com.juncevich.fate.vote.VoteStatsService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -18,6 +19,7 @@ import java.util.UUID
 @Tag(name = "Votes", description = "Votes, their participants/options and draws")
 class VoteController(
     private val voteService: VoteService,
+    private val voteStatsService: VoteStatsService,
 ) {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -32,6 +34,12 @@ class VoteController(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @Valid @RequestBody request: CreateVoteWebRequest,
     ): VoteDetailDto = voteService.createVote(user.id, request.toCommand()).toDto()
+
+    @GetMapping("/stats")
+    @Operation(operationId = "voteStats", summary = "Counts of the user's votes")
+    fun stats(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+    ): VoteStatsDto = VoteStatsDto(voteStatsService.countCreatedBy(user.id))
 
     @GetMapping
     @Operation(operationId = "listVotes", summary = "List votes the user created or participates in")

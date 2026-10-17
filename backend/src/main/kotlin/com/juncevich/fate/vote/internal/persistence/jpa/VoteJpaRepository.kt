@@ -26,6 +26,8 @@ interface VoteJpaRepository : JpaRepository<VoteJpaEntity, UUID> {
         pageable: Pageable,
     ): Page<VoteJpaEntity>
 
+    fun countByCreatorId(creatorId: UUID): Long
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT v FROM VoteJpaEntity v WHERE v.id = :id")
     fun findByIdWithPessimisticLock(id: UUID): VoteJpaEntity?

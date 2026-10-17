@@ -49,7 +49,7 @@ class EmailBudget(
         val used = port.usedWithin(userId, properties.emailBudgetWindow)
         if (used + recipients > properties.emailBudgetPerUser) {
             log.warn("Email budget exceeded for user {}: {} used, {} requested", userId, used, recipients)
-            meterRegistry.counter("notification.suppressed").increment(recipients.toDouble())
+            meterRegistry.counter("notification.suppressed", "reason", "budget").increment(recipients.toDouble())
             return false
         }
         port.record(userId, recipients)

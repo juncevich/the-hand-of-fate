@@ -6,6 +6,7 @@ import com.juncevich.fate.notification.InvitationPayload
 import com.juncevich.fate.notification.NOTIFICATION_PAYLOAD_VERSION
 import com.juncevich.fate.notification.NotificationPayload
 import com.juncevich.fate.notification.PasswordResetPayload
+import com.juncevich.fate.notification.internal.port.EmailSuppressionPort
 import com.juncevich.fate.notification.internal.port.NotificationJob
 import com.juncevich.fate.notification.internal.port.NotificationOutboxPort
 import com.juncevich.fate.notification.internal.port.NotificationType
@@ -30,6 +31,7 @@ class NotificationWorker(
     private val json: JsonMapper,
     private val properties: NotificationProperties,
     private val meterRegistry: MeterRegistry,
+    private val suppressions: EmailSuppressionPort,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -61,6 +63,12 @@ class NotificationWorker(
                 giveUp(job, ex)
                 return
             }
+        if (payload.isOptOutable && suppressions.isSuppressed(payload.recipientEmail)) {
+            // Checked at delivery rather than when queued, so unsubscribing also stops queued emails.
+            meterRegistry.counter("notification.suppressed", "reason", "unsubscribed").increment()
+            outbox.complete(job)
+            return
+        }
         try {
             send(payload)
         } catch (ex: Exception) {
@@ -140,6 +148,14 @@ class NotificationWorker(
         meterRegistry.counter("notification.dead", "type", job.type.metricTag).increment()
         outbox.fail(job, ex.message ?: "Delivery failed")
     }
+
+    /** Notification emails can be unsubscribed from; account emails (verification, reset) cannot. */
+    private val NotificationPayload.isOptOutable: Boolean
+        get() =
+            when (this) {
+                is InvitationPayload, is DrawResultPayload -> true
+                is EmailVerificationPayload, is PasswordResetPayload -> false
+            }
 
     private val NotificationType.metricTag: String
         get() =

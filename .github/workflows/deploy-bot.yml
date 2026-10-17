@@ -78,6 +78,7 @@ jobs:
       FRONTEND_URL:      ${{ secrets.FRONTEND_URL }}
       GRPC_SERVER_ADDR:  ${{ secrets.GRPC_SERVER_ADDR }}
       GRPC_SHARED_SECRET: ${{ secrets.GRPC_SHARED_SECRET }}
+      UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
 
     steps:
       - name: Validate secrets
@@ -134,6 +135,7 @@ jobs:
             printf "FRONTEND_URL='%s'\n"      "$(escape "$FRONTEND_URL")"
             printf "GRPC_SERVER_ADDR='%s'\n"  "$(escape "$GRPC_SERVER_ADDR")"
             printf "GRPC_SHARED_SECRET='%s'\n" "$(escape "$GRPC_SHARED_SECRET")"
+            printf "UNSUBSCRIBE_SECRET='%s'\n" "$(escape "$UNSUBSCRIBE_SECRET")"
           } | ssh -i deploy_key.pem -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$HOST" \
             "cat > $DEPLOY_DIR/.env && chmod 600 $DEPLOY_DIR/.env && chown fate:fate $DEPLOY_DIR/.env"
 

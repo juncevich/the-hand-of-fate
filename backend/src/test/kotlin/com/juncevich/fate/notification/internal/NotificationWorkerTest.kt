@@ -5,6 +5,7 @@ import com.juncevich.fate.notification.EmailVerificationPayload
 import com.juncevich.fate.notification.InvitationPayload
 import com.juncevich.fate.notification.NOTIFICATION_PAYLOAD_VERSION
 import com.juncevich.fate.notification.PasswordResetPayload
+import com.juncevich.fate.notification.internal.port.EmailSuppressionPort
 import com.juncevich.fate.notification.internal.port.NotificationJob
 import com.juncevich.fate.notification.internal.port.NotificationOutboxPort
 import com.juncevich.fate.notification.internal.port.NotificationType
@@ -27,7 +28,8 @@ class NotificationWorkerTest {
     private val json = JsonMapper.builder().addModule(KotlinModule.Builder().build()).build()
     private val properties = NotificationProperties(maxAttempts = 3)
     private val meterRegistry = SimpleMeterRegistry()
-    private val worker = NotificationWorker(outbox, delivery, json, properties, meterRegistry)
+    private val suppressions = mockk<EmailSuppressionPort> { every { isSuppressed(any()) } returns false }
+    private val worker = NotificationWorker(outbox, delivery, json, properties, meterRegistry, suppressions)
 
     private val invitation = InvitationPayload(UUID.randomUUID(), "Vote", "Creator", "p@test.com")
 
@@ -143,6 +145,32 @@ class NotificationWorkerTest {
         verify(exactly = 1) { delivery.send(reset) }
         verify(exactly = 1) { outbox.complete(first) }
         verify(exactly = 1) { outbox.complete(second) }
+    }
+
+    @Test
+    fun `an unsubscribed address gets no notification email, the job is done`() {
+        val job = job()
+        queue(job)
+        every { suppressions.isSuppressed("p@test.com") } returns true
+
+        worker.poll()
+
+        verify(exactly = 0) { delivery.send(any<InvitationPayload>()) }
+        verify(exactly = 1) { outbox.complete(job) }
+        assertEquals(1.0, meterRegistry.counter("notification.suppressed", "reason", "unsubscribed").count())
+    }
+
+    @Test
+    fun `account emails still reach an unsubscribed address`() {
+        val payload = PasswordResetPayload("p@test.com", "Ann", "tok")
+        val job = job(type = NotificationType.PASSWORD_RESET, payload = json.writeValueAsString(payload))
+        queue(job)
+        every { suppressions.isSuppressed("p@test.com") } returns true
+        every { delivery.send(payload) } just runs
+
+        worker.poll()
+
+        verify(exactly = 1) { delivery.send(payload) }
     }
 
     @Test

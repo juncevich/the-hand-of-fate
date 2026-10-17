@@ -99,6 +99,11 @@ type CreateVoteWebRequest struct {
 	Title             string      `json:"title"`
 }
 
+// DeleteAccountRequest defines model for DeleteAccountRequest.
+type DeleteAccountRequest struct {
+	Password string `json:"password"`
+}
+
 // DrawHistoryDto defines model for DrawHistoryDto.
 type DrawHistoryDto struct {
 	DrawnAt           time.Time `json:"drawnAt"`
@@ -120,6 +125,11 @@ type DrawResultResponse struct {
 
 // DrawTarget What a draw picks the winner from; fixed when the vote is created. With OPTIONS the participants are observers and are never drawn.
 type DrawTarget string
+
+// EmailPreferencesDto defines model for EmailPreferencesDto.
+type EmailPreferencesDto struct {
+	NotificationsEnabled bool `json:"notificationsEnabled"`
+}
 
 // EmailRequest defines model for EmailRequest.
 type EmailRequest struct {
@@ -207,6 +217,12 @@ type ResetPasswordRequest struct {
 	Token       string `json:"token"`
 }
 
+// UnsubscribeRequest defines model for UnsubscribeRequest.
+type UnsubscribeRequest struct {
+	Email     string `json:"email"`
+	Signature string `json:"signature"`
+}
+
 // VerifyEmailRequest defines model for VerifyEmailRequest.
 type VerifyEmailRequest struct {
 	Token string `json:"token"`
@@ -239,6 +255,11 @@ type VoteOptionDto struct {
 	Title string `json:"title"`
 }
 
+// VoteStatsDto defines model for VoteStatsDto.
+type VoteStatsDto struct {
+	CreatedCount int64 `json:"createdCount"`
+}
+
 // VoteStatus defines model for VoteStatus.
 type VoteStatus string
 
@@ -252,6 +273,12 @@ type VoteSummaryDto struct {
 	ParticipantCount int64      `json:"participantCount"`
 	Status           VoteStatus `json:"status"`
 	Title            string     `json:"title"`
+}
+
+// UnsubscribeOneClickParams defines parameters for UnsubscribeOneClick.
+type UnsubscribeOneClickParams struct {
+	Email string `form:"email" json:"email"`
+	Sig   string `form:"sig" json:"sig"`
 }
 
 // GetAvatarParams defines parameters for GetAvatar.
@@ -287,6 +314,9 @@ type GetHistoryPageParams struct {
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody = ChangePasswordRequest
 
+// DeleteAccountJSONRequestBody defines body for DeleteAccount for application/json ContentType.
+type DeleteAccountJSONRequestBody = DeleteAccountRequest
+
 // ForgotPasswordJSONRequestBody defines body for ForgotPassword for application/json ContentType.
 type ForgotPasswordJSONRequestBody = EmailRequest
 
@@ -310,6 +340,12 @@ type ResetPasswordJSONRequestBody = ResetPasswordRequest
 
 // VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
 type VerifyEmailJSONRequestBody = VerifyEmailRequest
+
+// UnsubscribeJSONRequestBody defines body for Unsubscribe for application/json ContentType.
+type UnsubscribeJSONRequestBody = UnsubscribeRequest
+
+// UpdateEmailPreferencesJSONRequestBody defines body for UpdateEmailPreferences for application/json ContentType.
+type UpdateEmailPreferencesJSONRequestBody = EmailPreferencesDto
 
 // CreateVoteJSONRequestBody defines body for CreateVote for application/json ContentType.
 type CreateVoteJSONRequestBody = CreateVoteWebRequest

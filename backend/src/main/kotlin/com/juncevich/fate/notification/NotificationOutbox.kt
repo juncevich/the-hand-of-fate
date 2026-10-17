@@ -18,6 +18,11 @@ class NotificationOutbox(
         outbox.append(payload.type, json.writeValueAsString(payload))
     }
 
+    /** Drops every email still queued for [email], e.g. when its account is deleted. */
+    fun cancelFor(email: String) {
+        outbox.deleteForRecipient(email)
+    }
+
     private val NotificationPayload.type: NotificationType
         get() =
             when (this) {

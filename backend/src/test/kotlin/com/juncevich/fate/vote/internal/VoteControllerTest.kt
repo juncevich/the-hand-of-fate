@@ -29,6 +29,7 @@ import java.util.UUID
 
 class VoteControllerTest {
     private val voteService = mockk<VoteService>()
+    private val voteStatsService = mockk<VoteStatsService>()
     private lateinit var mockMvc: MockMvc
 
     private val userId = UUID.randomUUID()
@@ -38,7 +39,7 @@ class VoteControllerTest {
     fun setUp() {
         mockMvc =
             MockMvcBuilders
-                .standaloneSetup(VoteController(voteService))
+                .standaloneSetup(VoteController(voteService, voteStatsService))
                 .setControllerAdvice(ErrorHandler())
                 .setCustomArgumentResolvers(
                     AuthenticationPrincipalArgumentResolver(),
@@ -277,5 +278,15 @@ class VoteControllerTest {
             }.andExpect { status { isNoContent() } }
 
         verify { voteService.reorderOptions(voteId, userId, ids) }
+    }
+
+    @Test
+    fun `GET stats - counts the votes the caller created`() {
+        every { voteStatsService.countCreatedBy(userId) } returns 3
+
+        mockMvc.get("/api/v1/votes/stats").andExpect {
+            status { isOk() }
+            jsonPath("$.createdCount") { value(3) }
+        }
     }
 }

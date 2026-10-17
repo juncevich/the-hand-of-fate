@@ -24,6 +24,10 @@ export const authApi = {
   resetPassword: (token: string, newPassword: string) =>
     apiClient.post('/auth/reset-password', { token, newPassword }),
 
+  /** Irreversible: deletes the account and the votes it created. */
+  deleteAccount: (password: string) =>
+    apiClient.post('/auth/delete-account', { password }),
+
   changePassword: (data: ChangePasswordRequest) =>
     apiClient.post<AuthPayload>('/auth/change-password', data).then((r) => r.data),
 

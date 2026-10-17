@@ -16,6 +16,8 @@ tags:
   name: Auth
 - description: User avatar images
   name: Avatars
+- description: Opting out of notification emails
+  name: Notifications
 - description: Linking the account to the Telegram bot
   name: Telegram
 - description: "Votes, their participants/options and draws"
@@ -48,6 +50,32 @@ paths:
                 $ref: "#/components/schemas/ProblemDetail"
           description: Error described by a problem detail
       summary: Change the password
+      tags:
+      - Auth
+  /api/v1/auth/delete-account:
+    post:
+      description: Requires the password (400 with code WRONG_PASSWORD otherwise).
+        Deletes the votes the user created; in other votes the user stops being a
+        participant and past wins are anonymized.
+      operationId: deleteAccount
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAccountRequest"
+        required: true
+      responses:
+        "204":
+          description: Deleted; the refresh cookie is cleared
+        "401":
+          description: Missing or invalid access token
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      summary: Delete the account and everything it created
       tags:
       - Auth
   /api/v1/auth/forgot-password:
@@ -308,6 +336,58 @@ paths:
       summary: Confirm the email address with the mailed token and sign in
       tags:
       - Auth
+  /api/v1/notifications/unsubscribe:
+    post:
+      description: 400 with code INVALID_TOKEN when the signature does not match the
+        address.
+      operationId: unsubscribe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnsubscribeRequest"
+        required: true
+      responses:
+        "204":
+          description: Unsubscribed
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      security: []
+      summary: "Stop notification emails to an address, from the link in such an email"
+      tags:
+      - Notifications
+  /api/v1/notifications/unsubscribe/one-click:
+    post:
+      operationId: unsubscribeOneClick
+      parameters:
+      - in: query
+        name: email
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: sig
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Unsubscribed
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      security: []
+      summary: One-click unsubscribe (RFC 8058) used by mail clients via the List-Unsubscribe
+        header
+      tags:
+      - Notifications
   /api/v1/telegram/link-token:
     get:
       operationId: getTelegramLinkToken
@@ -396,6 +476,54 @@ paths:
       summary: Upload or replace the current user's avatar
       tags:
       - Avatars
+  /api/v1/users/me/email-preferences:
+    get:
+      operationId: getEmailPreferences
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailPreferencesDto"
+          description: OK
+        "401":
+          description: Missing or invalid access token
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      summary: Whether notification emails reach the account's address
+      tags:
+      - Users
+    put:
+      description: Also undoes an unsubscribe done through the link in an email.
+      operationId: updateEmailPreferences
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailPreferencesDto"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailPreferencesDto"
+          description: OK
+        "401":
+          description: Missing or invalid access token
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      summary: Turn notification emails on or off
+      tags:
+      - Users
   /api/v1/users/{userId}/avatar:
     get:
       operationId: getAvatar
@@ -522,6 +650,27 @@ paths:
                 $ref: "#/components/schemas/ProblemDetail"
           description: Error described by a problem detail
       summary: Create a vote
+      tags:
+      - Votes
+  /api/v1/votes/stats:
+    get:
+      operationId: voteStats
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteStatsDto"
+          description: OK
+        "401":
+          description: Missing or invalid access token
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      summary: Counts of the user's votes
       tags:
       - Votes
   /api/v1/votes/{id}:
@@ -982,6 +1131,14 @@ components:
           minLength: 0
       required:
       - title
+    DeleteAccountRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 1
+      required:
+      - password
     DrawHistoryDto:
       type: object
       properties:
@@ -1040,6 +1197,13 @@ components:
       enum:
       - PARTICIPANTS
       - OPTIONS
+    EmailPreferencesDto:
+      type: object
+      properties:
+        notificationsEnabled:
+          type: boolean
+      required:
+      - notificationsEnabled
     EmailRequest:
       type: object
       properties:
@@ -1224,6 +1388,18 @@ components:
       required:
       - newPassword
       - token
+    UnsubscribeRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          minLength: 1
+        signature:
+          type: string
+          minLength: 1
+      required:
+      - email
+      - signature
     VerifyEmailRequest:
       type: object
       properties:
@@ -1299,6 +1475,14 @@ components:
       required:
       - id
       - title
+    VoteStatsDto:
+      type: object
+      properties:
+        createdCount:
+          type: integer
+          format: int64
+      required:
+      - createdCount
     VoteStatus:
       type: string
       enum:
