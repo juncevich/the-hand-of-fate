@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote.internal.notification
+package com.juncevich.fate.notification
 
 import java.util.UUID
 
@@ -22,6 +22,22 @@ data class InvitationPayload(
     val voteTitle: String,
     val creatorName: String,
     val recipientEmail: String,
+    override val version: Int = NOTIFICATION_PAYLOAD_VERSION,
+) : NotificationPayload
+
+/** Link to confirm [recipientEmail]; [token] is the raw one-time token (only its hash is stored). */
+data class EmailVerificationPayload(
+    val recipientEmail: String,
+    val displayName: String,
+    val token: String,
+    override val version: Int = NOTIFICATION_PAYLOAD_VERSION,
+) : NotificationPayload
+
+/** Link to choose a new password; [token] is the raw one-time token (only its hash is stored). */
+data class PasswordResetPayload(
+    val recipientEmail: String,
+    val displayName: String,
+    val token: String,
     override val version: Int = NOTIFICATION_PAYLOAD_VERSION,
 ) : NotificationPayload
 

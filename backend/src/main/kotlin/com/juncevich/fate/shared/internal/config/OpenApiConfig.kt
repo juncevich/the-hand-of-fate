@@ -104,6 +104,11 @@ class OpenApiConfig {
             .addProperty("instance", StringSchema().format("uri"))
             .addProperty("timestamp", StringSchema().format("date-time"))
             .addProperty(
+                "code",
+                StringSchema().description(
+                    "Stable machine-readable reason, present on some failures (e.g. EMAIL_NOT_VERIFIED)"
+                )
+            ).addProperty(
                 "errors",
                 ObjectSchema()
                     .description("Field name to message, present on validation failures")

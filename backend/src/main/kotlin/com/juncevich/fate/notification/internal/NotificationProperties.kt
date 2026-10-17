@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote.internal.notification
+package com.juncevich.fate.notification.internal
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import java.time.Duration

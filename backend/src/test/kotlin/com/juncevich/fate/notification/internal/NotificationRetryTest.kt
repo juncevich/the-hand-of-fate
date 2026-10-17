@@ -1,5 +1,8 @@
-package com.juncevich.fate.vote.internal.notification
+package com.juncevich.fate.notification.internal
 
+import com.juncevich.fate.notification.DrawResultPayload
+import com.juncevich.fate.notification.InvitationPayload
+import com.juncevich.fate.notification.NOTIFICATION_PAYLOAD_VERSION
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk

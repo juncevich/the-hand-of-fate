@@ -58,7 +58,7 @@ pf=$!
 trap 'kill "$pf" 2>/dev/null || true; rm -f "$sim_log"' EXIT
 eventually 12 curl -s -o /dev/null "http://localhost:$BACKEND_PORT/api/v1/votes" \
   || fail "port-forward to the backend didn't come up"
-(cd "$ROOT/simulation" && go run ./cmd/simulate -url "http://localhost:$BACKEND_PORT") \
+(cd "$ROOT/simulation" && go run ./cmd/simulate -url "http://localhost:$BACKEND_PORT" -mailpit "$MAILPIT") \
   2>"$sim_log" || { tail -30 "$sim_log" >&2; fail "simulation"; }
 
 # ── 3. Notifications ────────────────────────────────────────────────────────

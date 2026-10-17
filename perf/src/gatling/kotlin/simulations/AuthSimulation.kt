@@ -21,8 +21,9 @@ class AuthSimulation : Simulation() {
                     StringBody(
                         """{"email":"user_#{userId}@perf.test","password":"Password1!","displayName":"User #{userId}"}""",
                     ),
-                ).check(status().`is`(200))
-                .check(jsonPath("$.accessToken").saveAs("accessToken")),
+                    // Registration starts no session (the account must confirm its email first): 202, no token.
+                ).check(status().`is`(202))
+                .check(jsonPath("$.email").exists()),
         )
 
     private val login =

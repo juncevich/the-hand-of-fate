@@ -8,14 +8,14 @@ import (
 )
 
 // SessionLifecycleScenario tests the full auth lifecycle:
-//  1. Register
+//  1. Register, check that login waits for email verification, follow the mailed link
 //  2. Login with wrong password → expect error
 //  3. Login with correct password
 //  4. Refresh token
 //  5. Get Telegram link token
 //  6. Logout
 //  7. Confirm refresh fails after logout
-func SessionLifecycleScenario(base string, log *zap.Logger) error {
+func SessionLifecycleScenario(base string, mail Mailbox, log *zap.Logger) error {
 	log.Info("=== SessionLifecycleScenario start ===")
 
 	email := randomEmail()
@@ -27,16 +27,23 @@ func SessionLifecycleScenario(base string, log *zap.Logger) error {
 		return err
 	}
 
-	// 1. Register
-	auth, err := c.Register(client.RegisterRequest{
-		Email:       email,
-		Password:    password,
-		DisplayName: name,
-	})
-	if err != nil {
+	// 1. Register; signing in waits for the mailed link
+	if _, err = c.Register(client.RegisterRequest{Email: email, Password: password, DisplayName: name}); err != nil {
 		return fmt.Errorf("register: %w", err)
 	}
-	log.Info("registered", zap.String("userId", auth.UserID))
+	if _, err = c.Login(client.LoginRequest{Email: email, Password: password}); err == nil {
+		return fmt.Errorf("expected login to wait for email verification, got a session")
+	}
+	log.Info("login before verification correctly rejected", zap.Error(err))
+	token, err := mail.LinkToken(email, "/verify-email")
+	if err != nil {
+		return fmt.Errorf("verification email: %w", err)
+	}
+	auth, err := c.VerifyEmail(token)
+	if err != nil {
+		return fmt.Errorf("verify email: %w", err)
+	}
+	log.Info("registered and verified", zap.String("userId", auth.UserID))
 	refreshToken := auth.RefreshToken
 	c.SetAccessToken(auth.AccessToken)
 
@@ -70,7 +77,7 @@ func SessionLifecycleScenario(base string, log *zap.Logger) error {
 	}
 	log.Info("telegram link token obtained", zap.String("token", lt.Token[:8]+"…"))
 
-	// 6. Logout (using original refresh token from registration session)
+	// 6. Logout (using original refresh token from the verification session)
 	if err = c.Logout(refreshToken); err != nil {
 		log.Warn("logout with stale token (may already be invalidated)", zap.Error(err))
 	}

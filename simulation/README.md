@@ -15,7 +15,8 @@ The simulator is not a load tool — it runs scenarios sequentially with a singl
 
 ```
 simulation/
-  cmd/simulate/main.go          — entry point; -url and -scenario flags
+  cmd/simulate/main.go          — entry point; -url, -scenario and -mailpit flags (new accounts are confirmed
+                                  through the verification email read from Mailpit, default http://localhost:8025)
   internal/
     client/
       models.gen.go             — API DTOs generated from api/openapi.yaml (`go generate ./...`)

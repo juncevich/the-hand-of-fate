@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -36,6 +37,9 @@ abstract class AbstractApiIntegrationTest {
     // The application's own Jackson 3 mapper, so tests parse JSON exactly as the app writes it
     @Autowired
     protected lateinit var objectMapper: JsonMapper
+
+    @Autowired
+    protected lateinit var jdbcTemplate: JdbcTemplate
 
     @BeforeEach
     fun setUpMockMvc(
@@ -82,20 +86,53 @@ abstract class AbstractApiIntegrationTest {
 
     // ── Auth helpers ─────────────────────────────────────────────────────────
 
+    /** Registers, confirms the address with the mailed token and returns the session's access token. */
     protected fun registerAndGetToken(
         email: String,
         password: String = "password123",
         displayName: String = "Test User",
     ): String {
+        mockMvc
+            .post("/api/v1/auth/register") {
+                contentType = MediaType.APPLICATION_JSON
+                content =
+                    """{"email":"$email","password":"$password","displayName":"$displayName"}"""
+            }.andExpect { status { isAccepted() } }
+        return verifyEmail(mailedToken(email, "EMAIL_VERIFICATION"))
+    }
+
+    /** Follows a verification link: returns the access token of the session it starts. */
+    protected fun verifyEmail(token: String): String {
         val result =
             mockMvc
-                .post("/api/v1/auth/register") {
+                .post("/api/v1/auth/verify-email") {
                     contentType = MediaType.APPLICATION_JSON
-                    content =
-                        """{"email":"$email","password":"$password","displayName":"$displayName"}"""
-                }.andReturn()
+                    content = """{"token":"$token"}"""
+                }.andExpect { status { isOk() } }
+                .andReturn()
         return objectMapper.readTree(result.response.contentAsString)["accessToken"].asString()
     }
+
+    /**
+     * The raw token of the latest [type] email queued for [email] — what the recipient would find
+     * in the link. Tests run with outbox delivery off, so the job is still there.
+     */
+    protected fun mailedToken(
+        email: String,
+        type: String,
+    ): String =
+        checkNotNull(
+            jdbcTemplate.queryForObject(
+                """
+                SELECT payload::jsonb ->> 'token' FROM notification_outbox
+                WHERE event_type = ? AND payload::jsonb ->> 'recipientEmail' = ?
+                ORDER BY created_at DESC, id DESC LIMIT 1
+                """,
+                String::class.java,
+                type,
+                email
+            )
+        )
 
     protected fun loginAndGetTokens(
         email: String,

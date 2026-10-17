@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -14,18 +15,13 @@ import (
 func newSessionServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	var refreshCount atomic.Int32
+	accounts := &fakeAccounts{}
 
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if accounts.handle(w, r) {
+			return
+		}
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/auth/register":
-			http.SetCookie(w, &http.Cookie{Name: "fate_refresh_token", Value: "rt-reg"})
-			writeJSON(w, client.AuthResponse{
-				AccessToken: "at-reg",
-				UserID:      "u-1",
-				Email:       "test@example.com",
-				DisplayName: "Test User",
-			})
-
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/auth/login":
 			var req client.LoginRequest
 			_ = json.NewDecoder(r.Body).Decode(&req)
@@ -70,7 +66,7 @@ func TestSessionLifecycleScenario_HappyPath(t *testing.T) {
 	srv := newSessionServer(t)
 	defer srv.Close()
 
-	if err := SessionLifecycleScenario(srv.URL, testLogger(t)); err != nil {
+	if err := SessionLifecycleScenario(srv.URL, &fakeMailbox{token: "vt-1"}, testLogger(t)); err != nil {
 		t.Errorf("SessionLifecycleScenario() error: %v", err)
 	}
 }
@@ -83,18 +79,19 @@ func TestSessionLifecycleScenario_RegisterError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	err := SessionLifecycleScenario(srv.URL, testLogger(t))
+	err := SessionLifecycleScenario(srv.URL, &fakeMailbox{token: "vt-1"}, testLogger(t))
 	if err == nil {
 		t.Fatal("expected error when Register fails")
 	}
 }
 
 func TestSessionLifecycleScenario_LoginError(t *testing.T) {
+	accounts := &fakeAccounts{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if accounts.handle(w, r) {
+			return
+		}
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/auth/register":
-			http.SetCookie(w, &http.Cookie{Name: "fate_refresh_token", Value: "rt-reg"})
-			writeJSON(w, client.AuthResponse{AccessToken: "at-reg", UserID: "u-1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/auth/login":
 			// always reject — even the correct password attempt fails
 			w.Header().Set("Content-Type", "application/json")
@@ -106,18 +103,19 @@ func TestSessionLifecycleScenario_LoginError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	err := SessionLifecycleScenario(srv.URL, testLogger(t))
+	err := SessionLifecycleScenario(srv.URL, &fakeMailbox{token: "vt-1"}, testLogger(t))
 	if err == nil {
 		t.Fatal("expected error when Login fails")
 	}
 }
 
 func TestSessionLifecycleScenario_RefreshError(t *testing.T) {
+	accounts := &fakeAccounts{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if accounts.handle(w, r) {
+			return
+		}
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/auth/register":
-			http.SetCookie(w, &http.Cookie{Name: "fate_refresh_token", Value: "rt-reg"})
-			writeJSON(w, client.AuthResponse{AccessToken: "at-reg", UserID: "u-1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/auth/login":
 			var req client.LoginRequest
 			_ = json.NewDecoder(r.Body).Decode(&req)
@@ -139,18 +137,19 @@ func TestSessionLifecycleScenario_RefreshError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	err := SessionLifecycleScenario(srv.URL, testLogger(t))
+	err := SessionLifecycleScenario(srv.URL, &fakeMailbox{token: "vt-1"}, testLogger(t))
 	if err == nil {
 		t.Fatal("expected error when Refresh fails")
 	}
 }
 
 func TestSessionLifecycleScenario_GetLinkTokenError(t *testing.T) {
+	accounts := &fakeAccounts{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if accounts.handle(w, r) {
+			return
+		}
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/auth/register":
-			http.SetCookie(w, &http.Cookie{Name: "fate_refresh_token", Value: "rt-reg"})
-			writeJSON(w, client.AuthResponse{AccessToken: "at-reg", UserID: "u-1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/auth/login":
 			var req client.LoginRequest
 			_ = json.NewDecoder(r.Body).Decode(&req)
@@ -175,18 +174,19 @@ func TestSessionLifecycleScenario_GetLinkTokenError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	err := SessionLifecycleScenario(srv.URL, testLogger(t))
+	err := SessionLifecycleScenario(srv.URL, &fakeMailbox{token: "vt-1"}, testLogger(t))
 	if err == nil {
 		t.Fatal("expected error when GetLinkToken fails")
 	}
 }
 
 func TestSessionLifecycleScenario_LogoutFailsGracefully(t *testing.T) {
+	accounts := &fakeAccounts{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if accounts.handle(w, r) {
+			return
+		}
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/auth/register":
-			http.SetCookie(w, &http.Cookie{Name: "fate_refresh_token", Value: "rt-reg"})
-			writeJSON(w, client.AuthResponse{AccessToken: "at-reg", UserID: "u-1"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/auth/login":
 			var req client.LoginRequest
 			_ = json.NewDecoder(r.Body).Decode(&req)
@@ -215,7 +215,27 @@ func TestSessionLifecycleScenario_LogoutFailsGracefully(t *testing.T) {
 	defer srv.Close()
 
 	// Logout failure is non-fatal — scenario should complete without error.
-	if err := SessionLifecycleScenario(srv.URL, testLogger(t)); err != nil {
+	if err := SessionLifecycleScenario(srv.URL, &fakeMailbox{token: "vt-1"}, testLogger(t)); err != nil {
 		t.Errorf("SessionLifecycleScenario() returned error on logout failure: %v", err)
+	}
+}
+
+func TestSessionLifecycleScenario_FailsWhenLoginDoesNotWaitForVerification(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/auth/register":
+			w.WriteHeader(http.StatusAccepted)
+			writeJSON(w, client.RegistrationResponse{Email: "x@example.com"})
+		case "/api/v1/auth/login":
+			writeJSON(w, client.AuthResponse{AccessToken: "at"})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	err := SessionLifecycleScenario(srv.URL, &fakeMailbox{token: "vt-1"}, testLogger(t))
+	if err == nil || !strings.Contains(err.Error(), "wait for email verification") {
+		t.Fatalf("error = %v, want the verification check to fail", err)
 	}
 }

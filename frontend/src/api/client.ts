@@ -10,6 +10,9 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// Endpoints that work without a session: a 401 from them is a real answer, not an expired token.
+const SESSIONLESS = /^\/auth\/(login|register|refresh|logout|verify-email|resend-verification|forgot-password|reset-password)$/
+
 let refreshPromise: Promise<AuthPayload> | null = null
 let refreshVersion: number | null = null
 
@@ -58,7 +61,7 @@ apiClient.interceptors.response.use(
   async (error: unknown) => {
     if (!axios.isAxiosError(error)) return Promise.reject(error)
     const original = error.config as AuthRequestConfig | undefined
-    if (error.response?.status !== 401 || !original || original._retry || original.url?.startsWith('/auth/')) {
+    if (error.response?.status !== 401 || !original || original._retry || SESSIONLESS.test(original.url ?? '')) {
       return Promise.reject(error)
     }
     if (original._sessionVersion !== useAuthStore.getState().sessionVersion) return Promise.reject(error)

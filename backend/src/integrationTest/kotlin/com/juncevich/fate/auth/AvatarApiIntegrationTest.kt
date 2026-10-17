@@ -73,12 +73,14 @@ class AvatarApiIntegrationTest : AbstractApiIntegrationTest() {
 
     @Test
     fun `new users have no avatar`() {
+        val email = "fresh-${UUID.randomUUID()}@test.com"
+        registerAndGetToken(email)
         val result =
             mockMvc
-                .post("/api/v1/auth/register") {
+                .post("/api/v1/auth/login") {
                     contentType = MediaType.APPLICATION_JSON
-                    content = """{"email":"fresh-${UUID.randomUUID()}@test.com","password":"password123","displayName":"Fresh"}"""
-                }.andExpect { status { isCreated() } }
+                    content = """{"email":"$email","password":"password123"}"""
+                }.andExpect { status { isOk() } }
                 .andReturn()
         val body = parse(result.response.contentAsString)
         val userId = body.text("userId")

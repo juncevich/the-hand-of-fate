@@ -6,9 +6,8 @@ import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
+import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.canonicalEmail
-import com.juncevich.fate.shared.ensureState
-import com.juncevich.fate.shared.normalizeEmail
 import com.juncevich.fate.shared.uuidV7
 import org.slf4j.LoggerFactory
 import org.springframework.security.authentication.BadCredentialsException
@@ -40,27 +39,6 @@ class AuthService(
         checkNotNull(passwordEncoder.encode(UUID.randomUUID().toString())) { "Password encoding failed" }
     }
 
-    fun register(
-        email: String,
-        password: String,
-        displayName: String,
-    ): AuthTokens {
-        val normalizedEmail = normalizeEmail(email)
-        ensureState(!userRepositoryPort.existsByEmail(normalizedEmail)) { "Email already registered" }
-        val user =
-            userRepositoryPort.save(
-                User(
-                    email = normalizedEmail,
-                    passwordHash =
-                        checkNotNull(passwordEncoder.encode(password)) {
-                            "Password encoding failed"
-                        },
-                    displayName = displayName
-                )
-            )
-        return issueTokens(user)
-    }
-
     fun login(
         email: String,
         password: String,
@@ -77,6 +55,13 @@ class AuthService(
             throw BadCredentialsException("Invalid credentials")
         }
         loginThrottle.reset(normalizedEmail)
+        // Only after the password matched, so the answer reveals nothing to someone guessing.
+        if (user.emailVerifiedAt == null) {
+            throw ForbiddenException(
+                "Confirm your email address first — we sent you a link",
+                code = "EMAIL_NOT_VERIFIED"
+            )
+        }
         return issueTokens(user)
     }
 
@@ -93,6 +78,9 @@ class AuthService(
             refreshTokenRepositoryPort.deleteFamily(it.familyId)
         }
     }
+
+    /** Signs [user] in: a new session family with fresh access and refresh tokens. */
+    fun startSession(user: User): AuthTokens = issueTokens(user)
 
     fun logoutAll(userId: UUID) {
         refreshTokenRepositoryPort.deleteAllByUserId(userId)

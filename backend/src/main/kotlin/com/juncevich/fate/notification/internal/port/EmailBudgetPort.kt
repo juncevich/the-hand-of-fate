@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote.internal.port
+package com.juncevich.fate.notification.internal.port
 
 import java.time.Duration
 import java.util.UUID

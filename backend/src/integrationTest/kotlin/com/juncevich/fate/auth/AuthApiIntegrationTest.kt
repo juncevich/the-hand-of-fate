@@ -13,7 +13,7 @@ class AuthApiIntegrationTest : AbstractApiIntegrationTest() {
     // ── Registration ──────────────────────────────────────────────────────────
 
     @Test
-    fun `POST register - valid request - returns 201 with JWT and refresh cookie`() {
+    fun `POST register - valid request - returns 202 without a session`() {
         val email = "register-${UUID.randomUUID()}@test.com"
 
         mockMvc
@@ -21,17 +21,10 @@ class AuthApiIntegrationTest : AbstractApiIntegrationTest() {
                 contentType = MediaType.APPLICATION_JSON
                 content = """{"email":"$email","password":"password123","displayName":"Alice"}"""
             }.andExpect {
-                status { isCreated() }
-                jsonPath("$.accessToken") { isString() }
-                jsonPath("$.userId") { isString() }
+                status { isAccepted() }
                 jsonPath("$.email") { value(email) }
-                jsonPath("$.displayName") { value("Alice") }
-                header {
-                    string(
-                        "Set-Cookie",
-                        org.hamcrest.Matchers.containsString("fate_refresh_token=")
-                    )
-                }
+                jsonPath("$.accessToken") { doesNotExist() }
+                header { doesNotExist("Set-Cookie") }
             }
     }
 

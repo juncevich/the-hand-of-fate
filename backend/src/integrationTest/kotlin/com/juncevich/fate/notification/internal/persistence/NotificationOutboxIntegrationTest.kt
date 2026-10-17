@@ -1,16 +1,16 @@
-package com.juncevich.fate.vote.internal.persistence
+package com.juncevich.fate.notification.internal.persistence
 
+import com.juncevich.fate.notification.DrawResultPayload
+import com.juncevich.fate.notification.InvitationPayload
+import com.juncevich.fate.notification.internal.EmailService
+import com.juncevich.fate.notification.internal.NotificationAdapter
+import com.juncevich.fate.notification.internal.NotificationProperties
+import com.juncevich.fate.notification.internal.NotificationWorker
+import com.juncevich.fate.notification.internal.port.NotificationOutboxPort
+import com.juncevich.fate.notification.internal.port.NotificationType
 import com.juncevich.fate.vote.DrawResult
 import com.juncevich.fate.vote.internal.ParticipantInvited
 import com.juncevich.fate.vote.internal.VoteDrawn
-import com.juncevich.fate.vote.internal.notification.DrawResultPayload
-import com.juncevich.fate.vote.internal.notification.EmailService
-import com.juncevich.fate.vote.internal.notification.InvitationPayload
-import com.juncevich.fate.vote.internal.notification.NotificationAdapter
-import com.juncevich.fate.vote.internal.notification.NotificationProperties
-import com.juncevich.fate.vote.internal.notification.NotificationWorker
-import com.juncevich.fate.vote.internal.port.NotificationOutboxPort
-import com.juncevich.fate.vote.internal.port.NotificationType
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
 import io.mockk.mockk

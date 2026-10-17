@@ -84,28 +84,51 @@ func TestSetAccessToken_Empty(t *testing.T) {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 func TestRegister(t *testing.T) {
-	payload := client.AuthResponse{AccessToken: "at-reg", UserID: "u-1", Email: "a@a.com", DisplayName: "Alice"}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/auth/register" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		http.SetCookie(w, &http.Cookie{Name: "fate_refresh_token", Value: "rt-reg"})
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(toJSON(payload))
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write(toJSON(client.RegistrationResponse{Email: "a@a.com"}))
 	}))
 	defer srv.Close()
 
 	c, _ := client.New(srv.URL, newLogger(t))
-	auth, err := c.Register(client.RegisterRequest{Email: "a@a.com", Password: "p", DisplayName: "Alice"})
+	registered, err := c.Register(client.RegisterRequest{Email: "a@a.com", Password: "p", DisplayName: "Alice"})
 	if err != nil {
 		t.Fatalf("Register() error: %v", err)
 	}
-	if auth.AccessToken != "at-reg" {
-		t.Errorf("AccessToken = %q", auth.AccessToken)
+	if registered.Email != "a@a.com" {
+		t.Errorf("Email = %q", registered.Email)
 	}
-	if auth.RefreshToken != "rt-reg" {
-		t.Errorf("RefreshToken = %q, want rt-reg", auth.RefreshToken)
+}
+
+func TestVerifyEmail(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req client.VerifyEmailRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if r.URL.Path != "/api/v1/auth/verify-email" || req.Token != "vt" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		http.SetCookie(w, &http.Cookie{Name: "fate_refresh_token", Value: "rt-v"})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(toJSON(client.AuthResponse{AccessToken: "at-v", UserID: "u-1"}))
+	}))
+	defer srv.Close()
+
+	c, _ := client.New(srv.URL, newLogger(t))
+	auth, err := c.VerifyEmail("vt")
+	if err != nil {
+		t.Fatalf("VerifyEmail() error: %v", err)
+	}
+	if auth.AccessToken != "at-v" || auth.RefreshToken != "rt-v" {
+		t.Errorf("session = %+v", auth)
+	}
+	if _, err = c.VerifyEmail("bad"); err == nil {
+		t.Error("expected an error for a rejected token")
 	}
 }
 

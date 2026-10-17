@@ -16,6 +16,29 @@ data class LoginRequest(
     @field:NotBlank val password: String,
 )
 
+data class RegistrationResponse(
+    /** Where the verification link was sent. */
+    val email: String,
+)
+
+data class VerifyEmailRequest(
+    @field:NotBlank val token: String,
+)
+
+data class EmailRequest(
+    @field:Email @field:NotBlank val email: String,
+)
+
+data class ResetPasswordRequest(
+    @field:NotBlank val token: String,
+    @field:Size(min = 8, max = 100) val newPassword: String,
+)
+
+data class ChangePasswordRequest(
+    @field:NotBlank val currentPassword: String,
+    @field:Size(min = 8, max = 100) val newPassword: String,
+)
+
 data class RefreshRequest(
     val refreshToken: String? = null,
 )

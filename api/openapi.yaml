@@ -21,10 +21,64 @@ tags:
 - description: "Votes, their participants/options and draws"
   name: Votes
 paths:
+  /api/v1/auth/change-password:
+    post:
+      description: Ends every other session; the caller gets a fresh one. 400 with
+        code WRONG_PASSWORD on a wrong current password.
+      operationId: changePassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: Changed; the new refresh token is set as a cookie
+        "401":
+          description: Missing or invalid access token
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      summary: Change the password
+      tags:
+      - Auth
+  /api/v1/auth/forgot-password:
+    post:
+      description: "Sent only to a registered address, at most once a minute; the\
+        \ link is valid for 30 minutes."
+      operationId: forgotPassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+        required: true
+      responses:
+        "202":
+          description: Accepted
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      security: []
+      summary: Mail a password reset link
+      tags:
+      - Auth
   /api/v1/auth/login:
     post:
-      description: Answers 429 after too many requests from this client or failed
-        attempts for this account.
+      description: "Answers 429 after too many requests from this client or failed\
+        \ attempts for this account, and 403 with code EMAIL_NOT_VERIFIED for a correct\
+        \ password on an unconfirmed address."
       operationId: login
       requestBody:
         content:
@@ -142,6 +196,8 @@ paths:
       - Auth
   /api/v1/auth/register:
     post:
+      description: "No session is started: the account can sign in once the link from\
+        \ the email is followed."
       operationId: register
       requestBody:
         content:
@@ -150,12 +206,12 @@ paths:
               $ref: "#/components/schemas/RegisterRequest"
         required: true
       responses:
-        "201":
+        "202":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthResponse"
-          description: Registered; the refresh token is set as a cookie
+                $ref: "#/components/schemas/RegistrationResponse"
+          description: Registered; a verification link was mailed
         "429":
           content:
             application/problem+json:
@@ -175,7 +231,81 @@ paths:
                 $ref: "#/components/schemas/ProblemDetail"
           description: Error described by a problem detail
       security: []
-      summary: Create an account and start a session
+      summary: Create an account and mail a verification link
+      tags:
+      - Auth
+  /api/v1/auth/resend-verification:
+    post:
+      description: "Sent only to a registered, unconfirmed address, at most once a\
+        \ minute."
+      operationId: resendVerification
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+        required: true
+      responses:
+        "202":
+          description: Accepted
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      security: []
+      summary: Mail a new verification link
+      tags:
+      - Auth
+  /api/v1/auth/reset-password:
+    post:
+      description: Ends every session. 400 with code INVALID_TOKEN or TOKEN_EXPIRED
+        for an unusable link.
+      operationId: resetPassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+        required: true
+      responses:
+        "204":
+          description: Password changed
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      security: []
+      summary: Set a new password with the mailed token
+      tags:
+      - Auth
+  /api/v1/auth/verify-email:
+    post:
+      operationId: verifyEmail
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: Verified and signed in; the refresh token is set as a cookie
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      security: []
+      summary: Confirm the email address with the mailed token and sign in
       tags:
       - Auth
   /api/v1/telegram/link-token:
@@ -805,6 +935,19 @@ components:
           type: string
       required:
       - avatarUrl
+    ChangePasswordRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+        newPassword:
+          type: string
+          maxLength: 100
+          minLength: 8
+      required:
+      - currentPassword
+      - newPassword
     CreateVoteWebRequest:
       type: object
       properties:
@@ -897,6 +1040,15 @@ components:
       enum:
       - PARTICIPANTS
       - OPTIONS
+    EmailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
     LinkTokenResponse:
       type: object
       properties:
@@ -986,6 +1138,10 @@ components:
       type: object
       description: RFC 9457 problem detail
       properties:
+        code:
+          type: string
+          description: "Stable machine-readable reason, present on some failures (e.g.\
+            \ EMAIL_NOT_VERIFIED)"
         detail:
           type: string
         errors:
@@ -1036,6 +1192,13 @@ components:
       - displayName
       - email
       - password
+    RegistrationResponse:
+      type: object
+      properties:
+        email:
+          type: string
+      required:
+      - email
     ReorderOptionsRequest:
       type: object
       properties:
@@ -1048,6 +1211,27 @@ components:
           minItems: 0
       required:
       - optionIds
+    ResetPasswordRequest:
+      type: object
+      properties:
+        newPassword:
+          type: string
+          maxLength: 100
+          minLength: 8
+        token:
+          type: string
+          minLength: 1
+      required:
+      - newPassword
+      - token
+    VerifyEmailRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+      required:
+      - token
     VoteDetailDto:
       type: object
       properties:

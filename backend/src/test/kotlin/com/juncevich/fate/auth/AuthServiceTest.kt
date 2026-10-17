@@ -9,7 +9,7 @@ import com.juncevich.fate.auth.internal.service.LoginThrottle
 import com.juncevich.fate.auth.internal.service.LoginThrottledException
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
-import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.ForbiddenException
 import io.mockk.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -41,58 +41,15 @@ class AuthServiceTest {
             LoginThrottle(RateLimitProperties(loginFailuresPerAccount = 2))
         )
 
-    private fun makeUser(email: String = "user@test.com") =
-        User(
-            email = email,
-            passwordHash = "hashedPassword",
-            displayName = "Test User"
-        )
-
-    @Test
-    fun `register - creates user and returns tokens`() {
-        val user = makeUser("new@test.com")
-
-        every { userRepositoryPort.existsByEmail("new@test.com") } returns false
-        every { passwordEncoder.encode("password123") } returns "hashedPassword"
-        every { userRepositoryPort.save(any()) } returns user
-        every { jwtTokenProvider.createAccessToken(any(), any()) } returns "access-token"
-        every { refreshTokenRepositoryPort.save(any()) } answers { firstArg() }
-
-        val result = authService.register("new@test.com", "password123", "New User")
-
-        assertEquals("access-token", result.accessToken)
-        assertNotNull(result.refreshToken)
-        assertEquals("new@test.com", result.email)
-        assertEquals(user.id, result.userId)
-        verify { userRepositoryPort.save(any()) }
-        verify { refreshTokenRepositoryPort.save(any()) }
-    }
-
-    @Test
-    fun `register - throws when email already exists`() {
-        every { userRepositoryPort.existsByEmail("taken@test.com") } returns true
-
-        assertThrows<ConflictException> {
-            authService.register("taken@test.com", "pass12345", "Name")
-        }
-
-        verify(exactly = 0) { userRepositoryPort.save(any()) }
-    }
-
-    @Test
-    fun `register - normalizes email to lowercase`() {
-        val user = makeUser("upper@test.com")
-
-        every { userRepositoryPort.existsByEmail("upper@test.com") } returns false
-        every { passwordEncoder.encode(any()) } returns "hash"
-        every { userRepositoryPort.save(any()) } returns user
-        every { jwtTokenProvider.createAccessToken(any(), any()) } returns "token"
-        every { refreshTokenRepositoryPort.save(any()) } answers { firstArg() }
-
-        authService.register("UPPER@TEST.COM", "password123", "User")
-
-        verify { userRepositoryPort.save(match { it.email == "upper@test.com" }) }
-    }
+    private fun makeUser(
+        email: String = "user@test.com",
+        verified: Boolean = true,
+    ) = User(
+        email = email,
+        passwordHash = "hashedPassword",
+        displayName = "Test User",
+        emailVerifiedAt = if (verified) Instant.now() else null
+    )
 
     @Test
     fun `login - throttles an account after repeated failures without checking the password`() {
@@ -130,6 +87,19 @@ class AuthServiceTest {
 
         // Two failures in total, but the success in between reset the budget.
         assertThrows<BadCredentialsException> { authService.login("user@test.com", "wrong") }
+    }
+
+    @Test
+    fun `login - refuses an unconfirmed address, but only once the password matched`() {
+        every { userRepositoryPort.findByEmail("user@test.com") } returns makeUser(verified = false)
+        every { passwordEncoder.matches("correctPass", any()) } returns true
+        every { passwordEncoder.matches("wrong", any()) } returns false
+
+        assertThrows<BadCredentialsException> { authService.login("user@test.com", "wrong") }
+        val ex = assertThrows<ForbiddenException> { authService.login("user@test.com", "correctPass") }
+
+        assertEquals("EMAIL_NOT_VERIFIED", ex.code)
+        verify(exactly = 0) { refreshTokenRepositoryPort.save(any()) }
     }
 
     @Test

@@ -40,7 +40,7 @@ class SecurityConfig(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
                 auth
-                    .requestMatchers("/api/v1/auth/logout-all")
+                    .requestMatchers("/api/v1/auth/logout-all", "/api/v1/auth/change-password")
                     .authenticated()
                     .requestMatchers("/api/v1/auth/**")
                     .permitAll()
@@ -106,6 +106,15 @@ class SecurityConfig(
 
     private companion object {
         val PUBLIC_AUTH_PATHS =
-            listOf("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/refresh", "/api/v1/auth/logout")
+            listOf(
+                "/api/v1/auth/login",
+                "/api/v1/auth/register",
+                "/api/v1/auth/refresh",
+                "/api/v1/auth/logout",
+                "/api/v1/auth/verify-email",
+                "/api/v1/auth/resend-verification",
+                "/api/v1/auth/forgot-password",
+                "/api/v1/auth/reset-password"
+            )
     }
 }

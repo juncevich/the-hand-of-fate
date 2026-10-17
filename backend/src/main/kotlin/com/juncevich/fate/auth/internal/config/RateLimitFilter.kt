@@ -92,7 +92,12 @@ class RateLimitFilter(
             listOf(
                 "/api/v1/auth/login",
                 "/api/v1/auth/register",
-                "/api/v1/auth/refresh"
+                "/api/v1/auth/refresh",
+                "/api/v1/auth/verify-email",
+                "/api/v1/auth/resend-verification",
+                "/api/v1/auth/forgot-password",
+                "/api/v1/auth/reset-password",
+                "/api/v1/auth/change-password"
             )
         const val MAX_TRACKED_KEYS = 10_000
     }

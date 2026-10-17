@@ -42,7 +42,8 @@ jobs:
         run: npx -y @redocly/cli@2.55.0 lint api/openapi.yaml
 
       # The SPA and the bot-independent clients deploy separately from the backend, so a
-      # removed endpoint/field or a newly required request field must be a deliberate change.
+      # removed endpoint/field or a newly required request field must be a deliberate change —
+      # listed, with a reason, in api/accepted-breaking-changes.txt.
       - name: Check for breaking API changes
         if: github.event_name == 'pull_request'
         run: |
@@ -51,4 +52,5 @@ jobs:
             exit 0
           fi
           go run github.com/oasdiff/oasdiff@v1.33.0 breaking \
-            "$RUNNER_TEMP/base-openapi.yaml" api/openapi.yaml --fail-on ERR
+            "$RUNNER_TEMP/base-openapi.yaml" api/openapi.yaml --fail-on ERR \
+            --err-ignore api/accepted-breaking-changes.txt

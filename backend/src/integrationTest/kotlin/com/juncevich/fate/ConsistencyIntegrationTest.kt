@@ -2,7 +2,9 @@ package com.juncevich.fate
 
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.auth.internal.service.AccountService
 import com.juncevich.fate.auth.internal.service.AuthService
+import com.juncevich.fate.auth.internal.service.AuthTokens
 import com.juncevich.fate.auth.internal.service.ExpiredTokenPurger
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
@@ -35,13 +37,19 @@ class ConsistencyIntegrationTest
     constructor(
         private val votes: VoteService,
         private val auth: AuthService,
+        private val accounts: AccountService,
         private val telegram: TelegramLinkService,
         private val users: UserQueryService,
         private val jdbc: JdbcTemplate,
         private val purger: ExpiredTokenPurger,
         private val transactions: PlatformTransactionManager,
     ) : AbstractApiIntegrationTest() {
-        private fun newUser() = auth.register("${UUID.randomUUID()}@test.com", "password123", "Test")
+        private fun newUser(): AuthTokens {
+            val email = "${UUID.randomUUID()}@test.com"
+            accounts.register(email, "password123", "Test")
+            jdbc.update("UPDATE users SET email_verified_at = now() WHERE email = ?", email)
+            return auth.login(email, "password123")
+        }
 
         private fun newVote(userId: UUID) = votes.createVote(userId, CreateVoteCommand("Vote", null, VoteMode.FAIR_ROTATION, emptyList(), listOf("Winner")))
 
@@ -202,8 +210,8 @@ class ConsistencyIntegrationTest
         @Test
         fun `normalized duplicate registration returns conflict`() {
             val email = "${UUID.randomUUID()}@test.com"
-            auth.register(email, "password123", "Test")
-            assertThrows<ConflictException> { auth.register(" ${email.uppercase()} ", "password123", "Test") }
+            accounts.register(email, "password123", "Test")
+            assertThrows<ConflictException> { accounts.register(" ${email.uppercase()} ", "password123", "Test") }
         }
 
         @Test

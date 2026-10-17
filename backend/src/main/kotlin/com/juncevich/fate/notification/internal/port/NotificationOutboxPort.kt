@@ -1,9 +1,9 @@
-package com.juncevich.fate.vote.internal.port
+package com.juncevich.fate.notification.internal.port
 
 import java.time.Duration
 import java.util.UUID
 
-enum class NotificationType { INVITATION, DRAW_RESULT }
+enum class NotificationType { INVITATION, DRAW_RESULT, EMAIL_VERIFICATION, PASSWORD_RESET }
 
 data class NotificationJob(
     val id: UUID,

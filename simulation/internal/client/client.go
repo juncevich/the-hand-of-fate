@@ -102,8 +102,18 @@ func extractRefreshToken(resp *http.Response) string {
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
-func (c *Client) Register(req RegisterRequest) (Session, error) {
+// Register creates an account; it starts no session until the mailed link is followed (VerifyEmail).
+func (c *Client) Register(req RegisterRequest) (RegistrationResponse, error) {
 	resp, err := c.do("POST", "/api/v1/auth/register", req)
+	if err != nil {
+		return RegistrationResponse{}, err
+	}
+	return decode[RegistrationResponse](resp)
+}
+
+// VerifyEmail follows the verification link's token and returns the session it starts.
+func (c *Client) VerifyEmail(token string) (Session, error) {
+	resp, err := c.do("POST", "/api/v1/auth/verify-email", VerifyEmailRequest{Token: token})
 	if err != nil {
 		return Session{}, err
 	}

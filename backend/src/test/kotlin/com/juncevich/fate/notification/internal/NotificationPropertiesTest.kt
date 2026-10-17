@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote.internal.notification
+package com.juncevich.fate.notification.internal
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

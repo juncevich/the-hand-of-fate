@@ -1,8 +1,14 @@
-package com.juncevich.fate.vote.internal.notification
+package com.juncevich.fate.notification.internal
 
-import com.juncevich.fate.vote.internal.port.NotificationJob
-import com.juncevich.fate.vote.internal.port.NotificationOutboxPort
-import com.juncevich.fate.vote.internal.port.NotificationType
+import com.juncevich.fate.notification.DrawResultPayload
+import com.juncevich.fate.notification.EmailVerificationPayload
+import com.juncevich.fate.notification.InvitationPayload
+import com.juncevich.fate.notification.NOTIFICATION_PAYLOAD_VERSION
+import com.juncevich.fate.notification.NotificationPayload
+import com.juncevich.fate.notification.PasswordResetPayload
+import com.juncevich.fate.notification.internal.port.NotificationJob
+import com.juncevich.fate.notification.internal.port.NotificationOutboxPort
+import com.juncevich.fate.notification.internal.port.NotificationType
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -68,8 +74,24 @@ class NotificationWorker(
         val payload: NotificationPayload =
             try {
                 when (job.type) {
-                    NotificationType.INVITATION -> json.readValue(job.payload, InvitationPayload::class.java)
-                    NotificationType.DRAW_RESULT -> json.readValue(job.payload, DrawResultPayload::class.java)
+                    NotificationType.INVITATION -> {
+                        json.readValue(job.payload, InvitationPayload::class.java)
+                    }
+
+                    NotificationType.DRAW_RESULT -> {
+                        json.readValue(job.payload, DrawResultPayload::class.java)
+                    }
+
+                    NotificationType.EMAIL_VERIFICATION -> {
+                        json.readValue(
+                            job.payload,
+                            EmailVerificationPayload::class.java
+                        )
+                    }
+
+                    NotificationType.PASSWORD_RESET -> {
+                        json.readValue(job.payload, PasswordResetPayload::class.java)
+                    }
                 }
             } catch (ex: JacksonException) {
                 throw UnreadablePayloadException("Unreadable ${job.type} payload: ${ex.originalMessage}", ex)
@@ -84,6 +106,8 @@ class NotificationWorker(
         when (payload) {
             is InvitationPayload -> delivery.send(payload)
             is DrawResultPayload -> delivery.send(payload)
+            is EmailVerificationPayload -> delivery.send(payload)
+            is PasswordResetPayload -> delivery.send(payload)
         }
     }
 
@@ -122,6 +146,8 @@ class NotificationWorker(
             when (this) {
                 NotificationType.INVITATION -> "invitation"
                 NotificationType.DRAW_RESULT -> "draw-result"
+                NotificationType.EMAIL_VERIFICATION -> "email-verification"
+                NotificationType.PASSWORD_RESET -> "password-reset"
             }
 }
 

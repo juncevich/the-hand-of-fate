@@ -12,32 +12,42 @@ package com.juncevich.fate.shared
  */
 sealed class FateException(
     message: String,
+    /**
+     * Stable machine-readable reason (e.g. `EMAIL_NOT_VERIFIED`) for clients that must react to a
+     * specific failure or show their own wording; sent as the problem's `code` property.
+     */
+    val code: String? = null,
 ) : RuntimeException(message)
 
 /** 400 / INVALID_ARGUMENT — the request was malformed or failed a business validation rule. */
 open class BadRequestException(
     message: String,
-) : FateException(message)
+    code: String? = null,
+) : FateException(message, code)
 
 /** 404 / NOT_FOUND — the requested resource does not exist. */
 open class NotFoundException(
     message: String,
-) : FateException(message)
+    code: String? = null,
+) : FateException(message, code)
 
 /** 403 / PERMISSION_DENIED — the caller may not perform this action on the resource. */
 open class ForbiddenException(
     message: String,
-) : FateException(message)
+    code: String? = null,
+) : FateException(message, code)
 
 /** 409 / FAILED_PRECONDITION — the resource is in a state that conflicts with the requested action. */
 open class ConflictException(
     message: String,
-) : FateException(message)
+    code: String? = null,
+) : FateException(message, code)
 
 /** 429 / RESOURCE_EXHAUSTED — the caller used up a quota; retrying later may succeed. */
 open class TooManyRequestsException(
     message: String,
-) : FateException(message)
+    code: String? = null,
+) : FateException(message, code)
 
 /** Domain counterpart of `require`: throws [BadRequestException] when [condition] is false. */
 inline fun ensureValid(

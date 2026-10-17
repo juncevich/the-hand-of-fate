@@ -4,6 +4,46 @@
  */
 
 export interface paths {
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the password
+         * @description Ends every other session; the caller gets a fresh one. 400 with code WRONG_PASSWORD on a wrong current password.
+         */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mail a password reset link
+         * @description Sent only to a registered address, at most once a minute; the link is valid for 30 minutes.
+         */
+        post: operations["forgotPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -15,7 +55,7 @@ export interface paths {
         put?: never;
         /**
          * Log in and start a session
-         * @description Answers 429 after too many requests from this client or failed attempts for this account.
+         * @description Answers 429 after too many requests from this client or failed attempts for this account, and 403 with code EMAIL_NOT_VERIFIED for a correct password on an unconfirmed address.
          */
         post: operations["login"];
         delete?: never;
@@ -87,8 +127,68 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create an account and start a session */
+        /**
+         * Create an account and mail a verification link
+         * @description No session is started: the account can sign in once the link from the email is followed.
+         */
         post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/resend-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mail a new verification link
+         * @description Sent only to a registered, unconfirmed address, at most once a minute.
+         */
+        post: operations["resendVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password with the mailed token
+         * @description Ends every session. 400 with code INVALID_TOKEN or TOKEN_EXPIRED for an unusable link.
+         */
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm the email address with the mailed token and sign in */
+        post: operations["verifyEmail"];
         delete?: never;
         options?: never;
         head?: never;
@@ -407,6 +507,10 @@ export interface components {
         AvatarResponse: {
             avatarUrl: string;
         };
+        ChangePasswordRequest: {
+            currentPassword: string;
+            newPassword: string;
+        };
         CreateVoteWebRequest: {
             description?: string | null;
             drawTarget?: components["schemas"]["DrawTarget"] | null;
@@ -439,6 +543,10 @@ export interface components {
          * @enum {string}
          */
         DrawTarget: "PARTICIPANTS" | "OPTIONS";
+        EmailRequest: {
+            /** Format: email */
+            email: string;
+        };
         LinkTokenResponse: {
             /** Format: date-time */
             expiresAt: string;
@@ -477,6 +585,8 @@ export interface components {
         };
         /** @description RFC 9457 problem detail */
         ProblemDetail: {
+            /** @description Stable machine-readable reason, present on some failures (e.g. EMAIL_NOT_VERIFIED) */
+            code?: string;
             detail?: string;
             /** @description Field name to message, present on validation failures */
             errors?: {
@@ -502,8 +612,18 @@ export interface components {
             email: string;
             password: string;
         };
+        RegistrationResponse: {
+            email: string;
+        };
         ReorderOptionsRequest: {
             optionIds: string[];
+        };
+        ResetPasswordRequest: {
+            newPassword: string;
+            token: string;
+        };
+        VerifyEmailRequest: {
+            token: string;
         };
         VoteDetailDto: {
             /** Format: date-time */
@@ -554,6 +674,77 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed; the new refresh token is set as a cookie */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthResponse"];
+                };
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error described by a problem detail */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    forgotPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error described by a problem detail */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -720,13 +911,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Registered; the refresh token is set as a cookie */
-            201: {
+            /** @description Registered; a verification link was mailed */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthResponse"];
+                    "application/json": components["schemas"]["RegistrationResponse"];
                 };
             };
             /** @description Too many attempts from this client */
@@ -738,6 +929,101 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error described by a problem detail */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    resendVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error described by a problem detail */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error described by a problem detail */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    verifyEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Verified and signed in; the refresh token is set as a cookie */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthResponse"];
                 };
             };
             /** @description Error described by a problem detail */

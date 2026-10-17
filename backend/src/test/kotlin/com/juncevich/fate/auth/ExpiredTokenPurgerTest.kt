@@ -1,5 +1,6 @@
 package com.juncevich.fate.auth
 
+import com.juncevich.fate.auth.internal.port.EmailTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.TelegramLinkTokenRepositoryPort
 import com.juncevich.fate.auth.internal.service.ExpiredTokenPurger
@@ -11,23 +12,27 @@ import org.junit.jupiter.api.Test
 class ExpiredTokenPurgerTest {
     private val refreshTokens = mockk<RefreshTokenRepositoryPort>()
     private val linkTokens = mockk<TelegramLinkTokenRepositoryPort>()
-    private val purger = ExpiredTokenPurger(refreshTokens, linkTokens)
+    private val emailTokens = mockk<EmailTokenRepositoryPort>()
+    private val purger = ExpiredTokenPurger(refreshTokens, linkTokens, emailTokens)
 
     @Test
     fun `purges expired refresh and link tokens`() {
         every { refreshTokens.deleteExpired(any()) } returns 3
         every { linkTokens.deleteExpired(any()) } returns 0
+        every { emailTokens.deleteExpired(any()) } returns 1
 
         purger.purge()
 
         verify { refreshTokens.deleteExpired(any()) }
         verify { linkTokens.deleteExpired(any()) }
+        verify { emailTokens.deleteExpired(any()) }
     }
 
     @Test
     fun `stays quiet when nothing expired`() {
         every { refreshTokens.deleteExpired(any()) } returns 0
         every { linkTokens.deleteExpired(any()) } returns 0
+        every { emailTokens.deleteExpired(any()) } returns 0
 
         purger.purge()
 

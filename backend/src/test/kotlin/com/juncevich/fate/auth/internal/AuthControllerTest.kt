@@ -1,9 +1,11 @@
 package com.juncevich.fate.auth.internal
 
 import com.juncevich.fate.auth.AuthenticatedUser
+import com.juncevich.fate.auth.internal.service.AccountService
 import com.juncevich.fate.auth.internal.service.AuthService
 import com.juncevich.fate.auth.internal.service.AuthTokens
 import com.juncevich.fate.auth.internal.service.LoginThrottledException
+import com.juncevich.fate.auth.internal.service.RegistrationResult
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.web.AuthController
 import com.juncevich.fate.shared.internal.config.ErrorHandler
@@ -25,6 +27,7 @@ import java.util.UUID
 
 class AuthControllerTest {
     private val authService = mockk<AuthService>()
+    private val accountService = mockk<AccountService>()
     private lateinit var mockMvc: MockMvc
 
     @BeforeEach
@@ -34,6 +37,7 @@ class AuthControllerTest {
                 .standaloneSetup(
                     AuthController(
                         authService,
+                        accountService,
                         JwtProperties("test-secret-that-is-definitely-long-enough-for-hmac-sha256")
                     )
                 ).setControllerAdvice(ErrorHandler())
@@ -63,19 +67,76 @@ class AuthControllerTest {
     }
 
     @Test
-    fun `POST register - valid body - returns 201`() {
-        every { authService.register("user@test.com", "password123", "User") } returns authTokens()
+    fun `POST register - valid body - returns 202 without a session`() {
+        every { accountService.register("user@test.com", "password123", "User") } returns RegistrationResult("user@test.com")
 
         mockMvc
             .post("/api/v1/auth/register") {
                 contentType = MediaType.APPLICATION_JSON
                 content = """{"email":"user@test.com","password":"password123","displayName":"User"}"""
             }.andExpect {
-                status { isCreated() }
-                jsonPath("$.accessToken") { value("access-token") }
+                status { isAccepted() }
                 jsonPath("$.email") { value("user@test.com") }
-                jsonPath("$.refreshToken") { doesNotExist() }
+                jsonPath("$.accessToken") { doesNotExist() }
+                header { doesNotExist("Set-Cookie") }
+            }
+    }
+
+    @Test
+    fun `POST verify-email - signs in with a refresh cookie`() {
+        every { accountService.verifyEmail("tok") } returns authTokens()
+
+        mockMvc
+            .post("/api/v1/auth/verify-email") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"token":"tok"}"""
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.accessToken") { value("access-token") }
                 header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
+            }
+    }
+
+    @Test
+    fun `POST change-password - returns the new session`() {
+        val id = UUID.randomUUID()
+        setAuth(id)
+        every { accountService.changePassword(id, "old-password", "new-password") } returns authTokens()
+
+        mockMvc
+            .post("/api/v1/auth/change-password") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"currentPassword":"old-password","newPassword":"new-password"}"""
+            }.andExpect {
+                status { isOk() }
+                header { string("Set-Cookie", org.hamcrest.Matchers.containsString("fate_refresh_token=refresh-token")) }
+            }
+    }
+
+    @Test
+    fun `POST change-password - a short new password - returns 400`() {
+        setAuth()
+
+        mockMvc
+            .post("/api/v1/auth/change-password") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"currentPassword":"old-password","newPassword":"short"}"""
+            }.andExpect { status { isBadRequest() } }
+    }
+
+    @Test
+    fun `a domain error carries its machine-readable code`() {
+        every { accountService.verifyEmail("old") } throws
+            com.juncevich.fate.shared
+                .BadRequestException("This link has expired", code = "TOKEN_EXPIRED")
+
+        mockMvc
+            .post("/api/v1/auth/verify-email") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"token":"old"}"""
+            }.andExpect {
+                status { isBadRequest() }
+                jsonPath("$.code") { value("TOKEN_EXPIRED") }
             }
     }
 

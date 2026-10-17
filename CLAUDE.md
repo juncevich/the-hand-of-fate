@@ -131,6 +131,7 @@ make openapi-spec       # backend: ./gradlew openApiUpdate → api/openapi.yaml 
 make openapi-clients    # frontend: npm run gen:api → src/api/generated/schema.ts; simulation: go generate ./...
 ```
 - Code-first: the controllers are the source of truth; `api/openapi.yaml` is their committed snapshot (OpenAPI 3.0 — oapi-codegen and oasdiff fully support only 3.0)
+- A deliberate breaking REST change is listed with its reason in `api/accepted-breaking-changes.txt` (passed to `oasdiff --err-ignore` by `api.yml`), together with updating every client in the repo; clear the file once on main
 - After changing a controller or a REST DTO: `make openapi` and commit the spec together with both generated clients. `OpenApiSpecIntegrationTest` (backend `check`), `npm run check:api` (frontend CI) and the simulation CI fail on a stale file
 - Spec shaping lives in `shared/internal/config/OpenApiConfig.kt`: bearer auth is the default security (public endpoints use an empty `@SecurityRequirements`), every operation gets `401` (if authenticated) and a `default` `ProblemDetail` response, and `KotlinRequiredPropertiesConverter` marks constructor params without a default value as `required` (nullable ones stay `nullable`, since Jackson writes nulls). Shared names (`bearerAuth`, `refreshCookie`, `ProblemDetail`) are in `shared/OpenApiDocs.kt`
 - Give every endpoint `@Operation(operationId = ...)` — generated clients use it — and a status via `@ResponseStatus` (or `@ApiResponse` when the method must return `ResponseEntity` for headers). Enums shared by several DTOs get `@Schema(enumAsRef = true)`
@@ -151,10 +152,11 @@ cd simulation
 go run ./cmd/simulate                          # all scenarios against localhost:8080
 go run ./cmd/simulate -scenario simple         # single scenario: simple | fair | options | session
 go run ./cmd/simulate -url https://host.com    # target non-local backend
+go run ./cmd/simulate -mailpit http://localhost:30025   # Mailpit of the minikube stack (default :8025)
 go build -o fate-sim ./cmd/simulate            # build binary
 ```
 - Scenarios: `session` (auth lifecycle), `simple` (options-based vote), `fair` (FAIR_ROTATION + round tracking), `options` (dynamic option add/remove)
-- Each run registers fresh random users; no fixtures or seed data required
+- Each run registers fresh random users and confirms them by reading the verification email from Mailpit's API (`internal/mailbox`); no fixtures or seed data required
 - Exits with code 1 and prints `FAIL <scenario>: <error>` on the first failure
 
 ### Performance Tests (Gatling)
@@ -205,7 +207,8 @@ The bot answers only in private chats and identifies the user by `message.From.I
 ## Architecture
 
 ### Auth Flow
-- Registration/login returns `accessToken` (HS256 JWT, 15 min — issued with `NimbusJwtEncoder`, validated by Spring Security's OAuth2 resource server, see `auth/internal/token/JwtConfig.kt`) + `refreshToken` (UUID, 30 days)
+- **Registration requires email verification**: `POST /auth/register` answers `202 {email}` without a session and mails a link (`/verify-email?token=…`, valid 24 h). Login with the right password on an unconfirmed address is `403` with problem `code: EMAIL_NOT_VERIFIED` (only after the password matched — no account enumeration). `POST /auth/verify-email {token}` confirms and signs in. `resend-verification` / `forgot-password` always answer `202`, mail at most once a minute per account (`app.auth.email-token-cooldown`) and are IP-rate-limited. `reset-password {token,newPassword}` (link valid 30 min) ends every session and also confirms the address; `change-password` (authenticated, current password required — a wrong one is `400 WRONG_PASSWORD` and counts towards `LoginThrottle`) ends every other session and returns a fresh one. One-time tokens (`email_tokens`, V23) are 32 random bytes stored as SHA-256, one per user and purpose, consumed on first use. Accounts that existed before V23 (incl. the demo user) count as verified. Logic: `auth/internal/service/AccountService`, endpoints in `AuthController` (those that set the cookie) and `AccountController`
+- Login/verification returns `accessToken` (HS256 JWT, 15 min — issued with `NimbusJwtEncoder`, validated by Spring Security's OAuth2 resource server, see `auth/internal/token/JwtConfig.kt`) + `refreshToken` (UUID, 30 days)
 - `refreshToken` is stored hashed in `refresh_tokens` table. Each refresh rotates it: the old row gets `revoked_at` and its successor keeps the session's `family_id` (a login starts a new family). A rotated token replayed within `jwt.refresh-reuse-grace-seconds` (30) is a concurrent refresh and is served; replayed later it is treated as stolen and the whole family is deleted (log warning, both holders must log in again). Logout deletes the token's family, `logout-all` every family of the user
 - `ExpiredTokenPurger` deletes expired refresh and Telegram link tokens hourly (`app.auth.token-purge-delay-ms`)
 - Frontend keeps `accessToken` in Zustand (memory only); `refreshToken` stays in an httpOnly cookie; all requests use `withCredentials: true`
@@ -252,7 +255,7 @@ Each vote has a `drawTarget` (`votes.draw_target`, V20), chosen at creation and 
 
 ### Backend Module Architecture (Hexagonal / Ports & Adapters)
 
-The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**. Modules are: `auth`, `vote`, `shared`, `grpc`, `storage`. Each module has an `internal/` subtree that is private to the module.
+The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**. Modules are: `auth`, `vote`, `shared`, `grpc`, `storage`, `notification`. Each module has an `internal/` subtree that is private to the module.
 
 ```
 <module>/
@@ -271,6 +274,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 `ModularityTest` (`backend/src/test/kotlin/com/juncevich/fate/ModularityTest.kt`) verifies module boundaries are respected and generates PlantUML diagrams.
 
 ### Object Storage & Avatars
+- `notification` module: all outgoing email — the outbox (`NotificationOutbox.record(payload)`, call it inside the transaction that causes the email), the worker, SMTP templates (`EmailService`; user-supplied text is HTML-escaped) and the per-user `EmailBudget`. Its public API is `NotificationOutbox`, `EmailBudget` and the versioned payloads (`NotificationPayloads.kt`); it depends only on `shared` (`ModularityTest`). `vote` records invitations/draw results from its domain events (`vote/internal/notification/NotificationRecorder`), `auth` records verification and reset emails directly
 - `storage` module: public port `ObjectStorage` (put/get/delete) with an S3 adapter (AWS SDK v2, `url-connection-client`). It depends only on `shared` (`ModularityTest`). Any S3-compatible store works; locally it is **RustFS** (MinIO no longer ships community Docker images)
 - `app.storage.enabled` (`S3_ENABLED`) defaults to `false` so a deployment without a bucket still boots: `DisabledObjectStorage` is wired instead and avatar uploads answer 409. The `dev` profile enables it with RustFS credentials and `create-bucket: true`; integration tests start a RustFS Testcontainer in `AbstractApiIntegrationTest`
 - Avatars (`auth/internal/service/AvatarService`): the upload is decoded with ImageIO (PNG/JPEG/GIF, ≤ 4096 px per side checked from the header before decoding), center-cropped and re-encoded as a 256×256 PNG, which also drops EXIF. One object per user (`avatars/<userId>.png`) is overwritten on change, so no orphans; `users.avatar_updated_at` (V15) is both the "has avatar" flag and the URL version
@@ -289,13 +293,13 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 ### Key Backend Services
 - **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching for both participants and options, by the vote's `drawTarget`. The winner comes from `WinnerPicker`: a fresh `SecureRandom` 32-byte seed per draw, candidates in canonical order (participant emails / option ids, sorted), index = SHA-256(seed ‖ counter) with rejection sampling (no modulo bias). Seed and candidates are stored in `draw_history.seed` / `candidates` (V22, not exposed by the API), so `candidates[WinnerPicker.index(seed, size)]` reproduces any recorded winner. `WinnerPickerTest` pins golden values — never change the algorithm. This proves reproducibility, not that the server didn't choose the seed (that would need commit-reveal)
 - **VoteService**: CRUD for votes including creating `VoteOption` entities from request; `addOption()` / `removeOption()` for post-creation management; all vote mutations acquire the same pessimistic row lock; `@Version` additionally guards stale saves
-- **Notifications**: `NotificationRecorder` persists one outbox job per recipient inside the vote transaction. Payloads are versioned DTOs (`NotificationPayloads.kt`), not the domain events. `NotificationWorker` claims jobs with `SKIP LOCKED`, delivers outside DB transactions, retries with exponential backoff and marks jobs failed after `app.notifications.max-attempts` (metric `notification.dead`), purging them after `failed-retention` (see `NotificationProperties`, backend/README.md). `NotificationAdapter` handles SMTP delivery and propagates failures to the worker.
+- **Notifications** (module `notification`): `NotificationRecorder` (vote) persists one outbox job per recipient inside the vote transaction; `AccountService` (auth) records `EMAIL_VERIFICATION` / `PASSWORD_RESET` jobs whose payload holds the raw link token until delivery. Payloads are versioned DTOs (`NotificationPayloads.kt`), not the domain events. `NotificationWorker` claims jobs with `SKIP LOCKED`, delivers outside DB transactions, retries with exponential backoff and marks jobs failed after `app.notifications.max-attempts` (metric `notification.dead`), purging them after `failed-retention` (see `NotificationProperties`, backend/README.md). `NotificationAdapter` handles SMTP delivery and propagates failures to the worker.
 - **Email budget**: `EmailBudget` caps the emails one user's actions trigger (invitations + draw-result recipients) to `app.notifications.email-budget-per-user` (`EMAIL_BUDGET_PER_USER`, 200) per rolling `email-budget-window` (24 h), recorded in the append-only `email_budget_ledger` (V17) under a per-user advisory lock — deleting a vote or participant frees nothing. Invitations beyond it are rejected (`TooManyRequestsException`, 429 / `RESOURCE_EXHAUSTED`, the whole create/add rolls back); a draw beyond it still happens, only its result emails are dropped (metric `notification.suppressed`). Entries past the window are purged hourly
 - **EmailService**: sends styled HTML emails (dark theme) for vote invitations and draw results
 - **FateGrpcService**: gRPC server implementation; uses `runCatching` + `StatusRuntimeException` for error mapping; maps `VoteOptionInfo` proto messages for options
 
 ### Error Handling
-- Client-facing errors extend the sealed `shared.FateException` via one of five open categories: `BadRequestException` (400 / `INVALID_ARGUMENT`), `NotFoundException` (404 / `NOT_FOUND`), `ForbiddenException` (403 / `PERMISSION_DENIED`), `ConflictException` (409 / `FAILED_PRECONDITION`), `TooManyRequestsException` (429 / `RESOURCE_EXHAUSTED`, a used-up quota). Their message is shown to the caller
+- Client-facing errors extend the sealed `shared.FateException` via one of five open categories: `BadRequestException` (400 / `INVALID_ARGUMENT`), `NotFoundException` (404 / `NOT_FOUND`), `ForbiddenException` (403 / `PERMISSION_DENIED`), `ConflictException` (409 / `FAILED_PRECONDITION`), `TooManyRequestsException` (429 / `RESOURCE_EXHAUSTED`, a used-up quota). Their message is shown to the caller. An optional `code` (constructor parameter) is a stable machine-readable reason sent as the problem's `code` property (e.g. `EMAIL_NOT_VERIFIED`, `WRONG_PASSWORD`, `INVALID_TOKEN`, `TOKEN_EXPIRED`) for clients that must react to a specific failure
 - Mapping lives in exactly two places: `ErrorHandler` (REST) and `grpc/GrpcErrors.kt` (`grpcRead {}` / `grpcMutation {}`); `ErrorMappingContractTest` fails if a category is added without mapping it on both sides
 - `ErrorHandler` extends `ResponseEntityExceptionHandler`, so Spring MVC errors (malformed JSON, bad path UUID, 405, unknown route) keep their 4xx status; bean-validation errors go through the `handleMethodArgumentNotValid` override (never add an `@ExceptionHandler` for an exception the base class already handles — startup fails on the ambiguous mapping)
 - gRPC error contract is documented atop `proto/fate/v1/fate.proto`. An unlinked Telegram account is `NOT_FOUND` + `google.rpc.ErrorInfo{domain: "fate.v1", reason: "TELEGRAM_NOT_LINKED"}`; the bot (`isTelegramNotLinked`) uses it to tell that apart from a missing vote
@@ -375,6 +379,7 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 - V20: `votes.draw_target` (`draw_target` enum), backfilled from whether a vote has options
 - V21: option positions renumbered `0..n-1` + deferrable `UNIQUE (vote_id, position)`
 - V22: `draw_history.seed` + `candidates TEXT[]` (draw audit; NULL for older draws)
+- V23: `users.email_verified_at` (existing users backfilled as verified) + `email_tokens` (verification / password reset)
 
 ### Key Environment Variables
 | Variable | Default | Description |

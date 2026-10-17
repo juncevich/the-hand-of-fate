@@ -16,6 +16,7 @@ fun UserJpaEntity.toDomain() =
         telegramId = telegramId,
         telegramName = telegramName,
         avatarUpdatedAt = avatarUpdatedAt,
+        emailVerifiedAt = emailVerifiedAt,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
@@ -29,6 +30,7 @@ fun User.toJpaEntity() =
         telegramId = telegramId,
         telegramName = telegramName,
         avatarUpdatedAt = avatarUpdatedAt,
+        emailVerifiedAt = emailVerifiedAt,
         createdAt = createdAt,
         updatedAt = updatedAt
     )

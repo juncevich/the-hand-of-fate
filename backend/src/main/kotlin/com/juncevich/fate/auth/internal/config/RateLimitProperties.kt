@@ -3,8 +3,8 @@ package com.juncevich.fate.auth.internal.config
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 /**
- * Brute-force protection for the unauthenticated auth endpoints: a request budget per client IP
- * on `/login`, `/register`, `/refresh`, plus a failed-login budget per account (`LoginThrottle`).
+ * Brute-force protection for the auth endpoints: a request budget per client IP on login,
+ * registration, refresh and the mailed-link/password endpoints, plus a failed-login budget per account (`LoginThrottle`).
  */
 @ConfigurationProperties(prefix = "app.rate-limit")
 data class RateLimitProperties(

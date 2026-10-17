@@ -1,10 +1,11 @@
 package com.juncevich.fate.vote
 
 import com.juncevich.fate.AbstractApiIntegrationTest
-import com.juncevich.fate.vote.internal.notification.EmailService
+import com.juncevich.fate.notification.internal.EmailService
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -54,13 +55,20 @@ class NotificationDeliveryIntegrationTest
             every { emailService.sendDrawResult(any(), any(), any(), any(), any(), any()) } returns Unit
         }
 
+        /** Delivery is on here, so the verification link is taken from the (mocked) email itself. */
         private fun register(email: String): Pair<String, UUID> {
+            mockMvc.post("/api/v1/auth/register") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"email":"$email","password":"password123","displayName":"Creator"}"""
+            }
+            val link = slot<String>()
+            verify(timeout = 5_000) { emailService.sendEmailVerification(email, "Creator", capture(link)) }
             val body =
                 parse(
                     mockMvc
-                        .post("/api/v1/auth/register") {
+                        .post("/api/v1/auth/verify-email") {
                             contentType = MediaType.APPLICATION_JSON
-                            content = """{"email":"$email","password":"password123","displayName":"Creator"}"""
+                            content = """{"token":"${link.captured.substringAfter("token=")}"}"""
                         }.andReturn()
                         .response.contentAsString
                 )

@@ -1,0 +1,6 @@
+# Breaking REST changes accepted on purpose, passed to `oasdiff breaking --err-ignore` by .github/workflows/api.yml.
+# Each line: METHOD PATH and the oasdiff message. Add an entry only together with updating every client in
+# this repository (frontend, simulation, perf), and clear the file once the change is on main.
+#
+# Registration no longer signs in: the account must confirm its email first (202, no session).
+POST /api/v1/auth/register removed the success response with the status `201`

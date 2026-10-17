@@ -1,6 +1,7 @@
 package com.juncevich.fate.vote
 
 import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.notification.EmailBudget
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
@@ -14,7 +15,6 @@ import com.juncevich.fate.vote.internal.VoteDrawn
 import com.juncevich.fate.vote.internal.domain.Vote
 import com.juncevich.fate.vote.internal.domain.VoteOption
 import com.juncevich.fate.vote.internal.domain.VoteParticipant
-import com.juncevich.fate.vote.internal.notification.EmailBudget
 import com.juncevich.fate.vote.internal.port.DrawHistoryRepositoryPort
 import com.juncevich.fate.vote.internal.port.ParticipantRepositoryPort
 import com.juncevich.fate.vote.internal.port.VoteOptionRepositoryPort

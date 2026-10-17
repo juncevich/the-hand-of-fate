@@ -38,7 +38,8 @@ class ErrorMappingContractTest {
         val handler = ErrorHandler()
         expected.forEach { (type, statuses) ->
             val (http, grpc) = statuses
-            val ex = checkNotNull(type.primaryConstructor).call("Something about ${type.simpleName}")
+            val constructor = checkNotNull(type.primaryConstructor)
+            val ex = constructor.callBy(mapOf(constructor.parameters.first() to "Something about ${type.simpleName}"))
 
             val rest = handler.handleDomain(ex)
             assertEquals(http, rest.statusCode, "REST status for ${type.simpleName}")

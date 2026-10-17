@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote.internal.notification
+package com.juncevich.fate.notification.internal
 
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.mail.MailException
@@ -47,7 +47,8 @@ class EmailService(
         send(
             to = to,
             subject = "✦ You've been invited to a vote: $voteTitle",
-            html = invitationHtml(voteTitle, creatorName, voteUrl)
+            // User-supplied text goes into HTML escaped, so a vote title can't inject markup or links.
+            html = invitationHtml(escape(voteTitle), escape(creatorName), voteUrl)
         )
     }
 
@@ -68,7 +69,57 @@ class EmailService(
         send(
             to = to,
             subject = "✦ Vote result: $voteTitle — Winner: $winnerName",
-            html = drawResultHtml(voteTitle, winnerName, winnerEmail, round, voteUrl)
+            html = drawResultHtml(escape(voteTitle), escape(winnerName), escape(winnerEmail), round, voteUrl)
+        )
+    }
+
+    @Retryable(
+        includes = [MailException::class],
+        maxRetries = 2,
+        delayString = "\${app.mail.retry.delay-ms:1000}",
+        multiplier = 2.0
+    )
+    fun sendEmailVerification(
+        to: String,
+        displayName: String,
+        link: String,
+    ) {
+        send(
+            to = to,
+            subject = "✦ Confirm your email for The Hand of Fate",
+            html =
+                actionHtml(
+                    heading = "Welcome, ${escape(displayName)}!",
+                    text = "Confirm this address to finish creating your account. The link is valid for 24 hours.",
+                    link = link,
+                    button = "Confirm email",
+                    footer = "If you didn't sign up, just ignore this email."
+                )
+        )
+    }
+
+    @Retryable(
+        includes = [MailException::class],
+        maxRetries = 2,
+        delayString = "\${app.mail.retry.delay-ms:1000}",
+        multiplier = 2.0
+    )
+    fun sendPasswordReset(
+        to: String,
+        displayName: String,
+        link: String,
+    ) {
+        send(
+            to = to,
+            subject = "✦ Reset your password for The Hand of Fate",
+            html =
+                actionHtml(
+                    heading = "Hello, ${escape(displayName)}",
+                    text = "Someone asked to reset the password of this account. The link is valid for 30 minutes.",
+                    link = link,
+                    button = "Choose a new password",
+                    footer = "If it wasn't you, ignore this email — your password stays the same."
+                )
         )
     }
 
@@ -129,6 +180,33 @@ class EmailService(
         </a>
         </body></html>
         """.trimIndent()
+
+    private fun actionHtml(
+        heading: String,
+        text: String,
+        link: String,
+        button: String,
+        footer: String,
+    ) = """
+        <!DOCTYPE html>
+        <html><body style="font-family:sans-serif;background:#0d0d1a;color:#f0f0f0;padding:24px">
+        <h2 style="color:#f59e0b">✦ The Hand of Fate</h2>
+        <h3 style="color:#fff">$heading</h3>
+        <p>$text</p>
+        <a href="$link" style="display:inline-block;background:#f59e0b;color:#000;padding:12px 24px;
+            border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px">
+          $button
+        </a>
+        <p style="color:#a0a0b0;margin-top:24px">$footer</p>
+        </body></html>
+        """.trimIndent()
+
+    private fun escape(value: String) =
+        value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
 
     private companion object {
         const val DEFAULT_FROM = "noreply@handoffate.app"

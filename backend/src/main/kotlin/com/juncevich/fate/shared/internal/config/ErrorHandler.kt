@@ -79,7 +79,10 @@ class ErrorHandler : ResponseEntityExceptionHandler() {
     }
 
     @ExceptionHandler(FateException::class)
-    fun handleDomain(ex: FateException): ResponseEntity<ProblemDetail> = problemResponse(ex.httpStatus(), ex)
+    fun handleDomain(ex: FateException): ResponseEntity<ProblemDetail> =
+        problemResponse(ex.httpStatus(), ex).also { response ->
+            ex.code?.let { response.body?.setProperty("code", it) }
+        }
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
     fun handleOptimisticLocking(ex: ObjectOptimisticLockingFailureException): ResponseEntity<ProblemDetail> {

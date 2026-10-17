@@ -9,6 +9,7 @@ import { RegisterPage } from '../RegisterPage'
 vi.mock('@/api/auth', () => ({
   authApi: {
     register: vi.fn(),
+    resendVerification: vi.fn(),
   },
 }))
 
@@ -74,13 +75,7 @@ describe('RegisterPage', () => {
 
   it('calls authApi.register with entered values on submit', async () => {
     const { authApi } = await import('@/api/auth')
-    vi.mocked(authApi.register).mockResolvedValueOnce({
-      accessToken: 'tok',
-      userId: '1',
-      email: 'ivan@example.com',
-      displayName: 'Ivan',
-      avatarUrl: null,
-    })
+    vi.mocked(authApi.register).mockResolvedValueOnce({ email: 'ivan@example.com' })
 
     render(<RegisterPage />, { wrapper: createWrapper() })
     const user = await fillForm('Ivan', 'ivan@example.com', 'password123')
@@ -141,13 +136,7 @@ describe('RegisterPage', () => {
 
   it('submits on Enter key in the password field', async () => {
     const { authApi } = await import('@/api/auth')
-    vi.mocked(authApi.register).mockResolvedValueOnce({
-      accessToken: 'tok',
-      userId: '1',
-      email: 'ivan@example.com',
-      displayName: 'Ivan',
-      avatarUrl: null,
-    })
+    vi.mocked(authApi.register).mockResolvedValueOnce({ email: 'ivan@example.com' })
 
     render(<RegisterPage />, { wrapper: createWrapper() })
     const user = userEvent.setup()
@@ -158,5 +147,21 @@ describe('RegisterPage', () => {
     await waitFor(() => {
       expect(authApi.register).toHaveBeenCalled()
     })
+  })
+
+  it('shows the check-your-inbox notice instead of signing in, and can resend the link', async () => {
+    const { authApi } = await import('@/api/auth')
+    vi.mocked(authApi.register).mockResolvedValueOnce({ email: 'ivan@example.com' })
+    vi.mocked(authApi.resendVerification).mockResolvedValueOnce({} as never)
+
+    render(<RegisterPage />, { wrapper: createWrapper() })
+    const user = await fillForm('Ivan', 'Ivan@Example.com', 'password123')
+    await user.click(screen.getByRole('button', { name: /Зарегистрироваться/i }))
+
+    expect(await screen.findByText('Проверьте почту')).toBeInTheDocument()
+    expect(screen.getByText('ivan@example.com')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Отправить письмо ещё раз' }))
+
+    await waitFor(() => expect(authApi.resendVerification).toHaveBeenCalledWith('ivan@example.com'))
   })
 })

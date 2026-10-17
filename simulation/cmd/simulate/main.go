@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juncevich/fate/simulation/internal/mailbox"
 	"github.com/juncevich/fate/simulation/internal/scenario"
 	"go.uber.org/zap"
 )
@@ -13,7 +14,9 @@ import (
 func main() {
 	base := flag.String("url", "http://localhost:8080", "Backend base URL")
 	which := flag.String("scenario", "all", "Scenario to run: all | simple | fair | options | session")
+	mailpit := flag.String("mailpit", "http://localhost:8025", "Mailpit base URL, to follow the verification links the backend mails")
 	flag.Parse()
+	mail := mailbox.NewMailpit(*mailpit)
 
 	log, _ := zap.NewDevelopment()
 	defer log.Sync()
@@ -35,11 +38,11 @@ func main() {
 	}
 
 	run("session", func() error {
-		return scenario.SessionLifecycleScenario(*base, log)
+		return scenario.SessionLifecycleScenario(*base, mail, log)
 	})
 
 	run("simple", func() error {
-		c, _, err := scenario.RegisterAndLogin(*base, log)
+		c, _, err := scenario.RegisterAndLogin(*base, mail, log)
 		if err != nil {
 			return err
 		}
@@ -47,7 +50,7 @@ func main() {
 	})
 
 	run("options", func() error {
-		c, _, err := scenario.RegisterAndLogin(*base, log)
+		c, _, err := scenario.RegisterAndLogin(*base, mail, log)
 		if err != nil {
 			return err
 		}
@@ -55,7 +58,7 @@ func main() {
 	})
 
 	run("fair", func() error {
-		c, _, err := scenario.RegisterAndLogin(*base, log)
+		c, _, err := scenario.RegisterAndLogin(*base, mail, log)
 		if err != nil {
 			return err
 		}

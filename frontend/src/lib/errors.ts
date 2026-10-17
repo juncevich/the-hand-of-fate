@@ -11,6 +11,13 @@ export function extractErrorMessage(error: unknown): string {
   return 'Неизвестная ошибка'
 }
 
+/** The problem's machine-readable `code` (e.g. `EMAIL_NOT_VERIFIED`), when the backend sent one. */
+export function errorCode(error: unknown): string | undefined {
+  if (!(error instanceof AxiosError)) return undefined
+  const data = error.response?.data as { code?: unknown } | undefined
+  return typeof data?.code === 'string' ? data.code : undefined
+}
+
 export function onMutationError(error: unknown) {
   toast('Ошибка', extractErrorMessage(error), 'error')
 }

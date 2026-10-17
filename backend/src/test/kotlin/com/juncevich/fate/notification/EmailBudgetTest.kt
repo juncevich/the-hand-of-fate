@@ -1,9 +1,9 @@
-package com.juncevich.fate.vote.internal
+package com.juncevich.fate.notification
 
+import com.juncevich.fate.notification.EmailBudget
+import com.juncevich.fate.notification.internal.NotificationProperties
+import com.juncevich.fate.notification.internal.port.EmailBudgetPort
 import com.juncevich.fate.shared.TooManyRequestsException
-import com.juncevich.fate.vote.internal.notification.EmailBudget
-import com.juncevich.fate.vote.internal.notification.NotificationProperties
-import com.juncevich.fate.vote.internal.port.EmailBudgetPort
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
 import io.mockk.just

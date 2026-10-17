@@ -7,29 +7,46 @@ import (
 	"go.uber.org/zap"
 )
 
-// RegisterAndLogin registers a new random user, logs in, then refreshes the token.
+// Mailbox finds the token of a link the backend mailed (see mailbox.Mailpit).
+type Mailbox interface {
+	LinkToken(to, path string) (string, error)
+}
+
+// RegisterVerified registers an account and confirms it through the mailed link, which signs it in.
+func RegisterVerified(c *client.Client, mail Mailbox, req client.RegisterRequest, log *zap.Logger) (client.Session, error) {
+	log.Info("registering user", zap.String("email", req.Email), zap.String("name", req.DisplayName))
+	registered, err := c.Register(req)
+	if err != nil {
+		return client.Session{}, fmt.Errorf("register: %w", err)
+	}
+	token, err := mail.LinkToken(registered.Email, "/verify-email")
+	if err != nil {
+		return client.Session{}, fmt.Errorf("verification email: %w", err)
+	}
+	auth, err := c.VerifyEmail(token)
+	if err != nil {
+		return client.Session{}, fmt.Errorf("verify email: %w", err)
+	}
+	log.Info("registered and verified", zap.String("userId", auth.UserID))
+	return auth, nil
+}
+
+// RegisterAndLogin registers a new random user, confirms the address, then refreshes the token.
 // Returns the authenticated client and AuthResponse.
-func RegisterAndLogin(base string, log *zap.Logger) (*client.Client, client.Session, error) {
+func RegisterAndLogin(base string, mail Mailbox, log *zap.Logger) (*client.Client, client.Session, error) {
 	c, err := client.New(base, log)
 	if err != nil {
 		return nil, client.Session{}, fmt.Errorf("new client: %w", err)
 	}
 
-	email := randomEmail()
-	password := "Simulation#1"
-	name := randomName()
-
-	log.Info("registering user", zap.String("email", email), zap.String("name", name))
-	auth, err := c.Register(client.RegisterRequest{
-		Email:       email,
-		Password:    password,
-		DisplayName: name,
-	})
+	auth, err := RegisterVerified(c, mail, client.RegisterRequest{
+		Email:       randomEmail(),
+		Password:    "Simulation#1",
+		DisplayName: randomName(),
+	}, log)
 	if err != nil {
-		return nil, auth, fmt.Errorf("register: %w", err)
+		return nil, auth, err
 	}
-	log.Info("registered", zap.String("userId", auth.UserID))
-
 	c.SetAccessToken(auth.AccessToken)
 
 	log.Info("refreshing token")

@@ -1,7 +1,9 @@
 package com.juncevich.fate.auth.internal.web
 
 import com.juncevich.fate.auth.AuthenticatedUser
+import com.juncevich.fate.auth.internal.service.AccountService
 import com.juncevich.fate.auth.internal.service.AuthService
+import com.juncevich.fate.auth.internal.service.AuthTokens
 import com.juncevich.fate.auth.internal.service.LoginThrottledException
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.shared.BadRequestException
@@ -41,13 +43,18 @@ import java.time.Duration
 )
 class AuthController(
     private val authService: AuthService,
+    private val accountService: AccountService,
     private val jwtProperties: JwtProperties,
     @param:Value("\${app.refresh-cookie-secure:false}") private val refreshCookieSecure: Boolean = false,
 ) {
     @PostMapping("/register")
-    @Operation(operationId = "register", summary = "Create an account and start a session")
+    @Operation(
+        operationId = "register",
+        summary = "Create an account and mail a verification link",
+        description = "No session is started: the account can sign in once the link from the email is followed."
+    )
     @SecurityRequirements
-    @ApiResponse(responseCode = "201", description = "Registered; the refresh token is set as a cookie")
+    @ApiResponse(responseCode = "202", description = "Registered; a verification link was mailed")
     @ApiResponse(
         responseCode = "429",
         description = RATE_LIMITED,
@@ -56,19 +63,41 @@ class AuthController(
     )
     fun register(
         @Valid @RequestBody request: RegisterRequest,
-    ): ResponseEntity<AuthResponse> {
-        val tokens = authService.register(request.email, request.password, request.displayName)
-        return ResponseEntity
-            .status(201)
-            .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken).toString())
-            .body(tokens.toResponse())
+    ): ResponseEntity<RegistrationResponse> {
+        val result = accountService.register(request.email, request.password, request.displayName)
+        return ResponseEntity.accepted().body(RegistrationResponse(result.email))
     }
+
+    @PostMapping("/verify-email")
+    @Operation(operationId = "verifyEmail", summary = "Confirm the email address with the mailed token and sign in")
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "Verified and signed in; the refresh token is set as a cookie")
+    fun verifyEmail(
+        @Valid @RequestBody request: VerifyEmailRequest,
+    ): ResponseEntity<AuthResponse> = session(accountService.verifyEmail(request.token))
+
+    @PostMapping("/change-password")
+    @Operation(
+        operationId = "changePassword",
+        summary = "Change the password",
+        description =
+            "Ends every other session; the caller gets a fresh one. " +
+                "400 with code WRONG_PASSWORD on a wrong current password."
+    )
+    @ApiResponse(responseCode = "200", description = "Changed; the new refresh token is set as a cookie")
+    fun changePassword(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+        @Valid @RequestBody request: ChangePasswordRequest,
+    ): ResponseEntity<AuthResponse> =
+        session(accountService.changePassword(user.id, request.currentPassword, request.newPassword))
 
     @PostMapping("/login")
     @Operation(
         operationId = "login",
         summary = "Log in and start a session",
-        description = "Answers 429 after too many requests from this client or failed attempts for this account."
+        description =
+            "Answers 429 after too many requests from this client or failed attempts for this account, " +
+                "and 403 with code EMAIL_NOT_VERIFIED for a correct password on an unconfirmed address."
     )
     @SecurityRequirements
     @ApiResponse(responseCode = "200", description = "Logged in; the refresh token is set as a cookie")
@@ -80,13 +109,7 @@ class AuthController(
     )
     fun login(
         @Valid @RequestBody request: LoginRequest,
-    ): ResponseEntity<AuthResponse> {
-        val tokens = authService.login(request.email, request.password)
-        return ResponseEntity
-            .ok()
-            .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken).toString())
-            .body(tokens.toResponse())
-    }
+    ): ResponseEntity<AuthResponse> = session(authService.login(request.email, request.password))
 
     @PostMapping("/refresh")
     @Operation(
@@ -109,11 +132,7 @@ class AuthController(
         val refreshToken =
             request.refreshTokenOrCookie(servletRequest)
                 ?: throw BadRequestException("Refresh token is required")
-        val tokens = authService.refresh(refreshToken)
-        return ResponseEntity
-            .ok()
-            .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken).toString())
-            .body(tokens.toResponse())
+        return session(authService.refresh(refreshToken))
     }
 
     @PostMapping("/logout")
@@ -158,6 +177,12 @@ class AuthController(
                     title = "Too many failed login attempts, please try again later"
                 }
             )
+
+    private fun session(tokens: AuthTokens): ResponseEntity<AuthResponse> =
+        ResponseEntity
+            .ok()
+            .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken).toString())
+            .body(tokens.toResponse())
 
     private fun refreshCookie(value: String): ResponseCookie =
         ResponseCookie

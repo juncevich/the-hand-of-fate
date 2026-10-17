@@ -1,9 +1,9 @@
-package com.juncevich.fate.vote.internal.persistence.adapter
+package com.juncevich.fate.notification.internal.persistence
 
+import com.juncevich.fate.notification.internal.port.NotificationJob
+import com.juncevich.fate.notification.internal.port.NotificationOutboxPort
+import com.juncevich.fate.notification.internal.port.NotificationType
 import com.juncevich.fate.shared.uuidV7
-import com.juncevich.fate.vote.internal.port.NotificationJob
-import com.juncevich.fate.vote.internal.port.NotificationOutboxPort
-import com.juncevich.fate.vote.internal.port.NotificationType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.time.Duration

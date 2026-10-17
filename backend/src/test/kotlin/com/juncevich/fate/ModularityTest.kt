@@ -25,7 +25,7 @@ class ModularityTest {
     @Test
     fun `module set matches the documented architecture`() {
         val actual = modules.map { it.identifier.toString() }.toSet()
-        assertEquals(setOf("auth", "vote", "shared", "grpc", "storage"), actual)
+        assertEquals(setOf("auth", "vote", "shared", "grpc", "storage", "notification"), actual)
     }
 
     @Test
@@ -47,6 +47,13 @@ class ModularityTest {
         val storage = modules.getModuleByName("storage").orElseThrow()
         val dependencies = storage.getDirectDependencies(modules)
         listOf("auth", "vote", "grpc").forEach { assertFalse(dependencies.containsModuleNamed(it)) }
+    }
+
+    @Test
+    fun `notification module depends only on shared`() {
+        val notification = modules.getModuleByName("notification").orElseThrow()
+        val dependencies = notification.getDirectDependencies(modules)
+        listOf("auth", "vote", "grpc", "storage").forEach { assertFalse(dependencies.containsModuleNamed(it)) }
     }
 
     @Test

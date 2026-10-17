@@ -83,6 +83,12 @@ type AuthResponse struct {
 	UserID      string  `json:"userId"`
 }
 
+// ChangePasswordRequest defines model for ChangePasswordRequest.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
 // CreateVoteWebRequest defines model for CreateVoteWebRequest.
 type CreateVoteWebRequest struct {
 	Description       *string     `json:"description,omitempty"`
@@ -114,6 +120,11 @@ type DrawResultResponse struct {
 
 // DrawTarget What a draw picks the winner from; fixed when the vote is created. With OPTIONS the participants are observers and are never drawn.
 type DrawTarget string
+
+// EmailRequest defines model for EmailRequest.
+type EmailRequest struct {
+	Email string `json:"email"`
+}
 
 // LinkTokenResponse defines model for LinkTokenResponse.
 type LinkTokenResponse struct {
@@ -153,6 +164,8 @@ type ParticipantDto struct {
 
 // ProblemDetail RFC 9457 problem detail
 type ProblemDetail struct {
+	// Code Stable machine-readable reason, present on some failures (e.g. EMAIL_NOT_VERIFIED)
+	Code   *string `json:"code,omitempty"`
 	Detail *string `json:"detail,omitempty"`
 
 	// Errors Field name to message, present on validation failures
@@ -178,9 +191,25 @@ type RegisterRequest struct {
 	Password    string `json:"password"`
 }
 
+// RegistrationResponse defines model for RegistrationResponse.
+type RegistrationResponse struct {
+	Email string `json:"email"`
+}
+
 // ReorderOptionsRequest defines model for ReorderOptionsRequest.
 type ReorderOptionsRequest struct {
 	OptionIds []string `json:"optionIds"`
+}
+
+// ResetPasswordRequest defines model for ResetPasswordRequest.
+type ResetPasswordRequest struct {
+	NewPassword string `json:"newPassword"`
+	Token       string `json:"token"`
+}
+
+// VerifyEmailRequest defines model for VerifyEmailRequest.
+type VerifyEmailRequest struct {
+	Token string `json:"token"`
 }
 
 // VoteDetailDto defines model for VoteDetailDto.
@@ -255,6 +284,12 @@ type GetHistoryPageParams struct {
 	Sort []string `form:"sort,omitempty" json:"sort,omitempty"`
 }
 
+// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
+type ChangePasswordJSONRequestBody = ChangePasswordRequest
+
+// ForgotPasswordJSONRequestBody defines body for ForgotPassword for application/json ContentType.
+type ForgotPasswordJSONRequestBody = EmailRequest
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -266,6 +301,15 @@ type RefreshJSONRequestBody = RefreshRequest
 
 // RegisterJSONRequestBody defines body for Register for application/json ContentType.
 type RegisterJSONRequestBody = RegisterRequest
+
+// ResendVerificationJSONRequestBody defines body for ResendVerification for application/json ContentType.
+type ResendVerificationJSONRequestBody = EmailRequest
+
+// ResetPasswordJSONRequestBody defines body for ResetPassword for application/json ContentType.
+type ResetPasswordJSONRequestBody = ResetPasswordRequest
+
+// VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
+type VerifyEmailJSONRequestBody = VerifyEmailRequest
 
 // CreateVoteJSONRequestBody defines body for CreateVote for application/json ContentType.
 type CreateVoteJSONRequestBody = CreateVoteWebRequest

@@ -50,7 +50,7 @@ src/main/kotlin/com/juncevich/fate/
 │   ├── JwtTokenProvider.kt     Token generation and validation
 │   └── JwtAuthFilter.kt        Reads Bearer token from each request
 ├── web/
-│   ├── auth/                   /api/v1/auth — register, login, refresh, logout
+│   ├── auth/                   /api/v1/auth — register + email verification, login, refresh, logout, passwords
 │   ├── vote/                   /api/v1/votes — CRUD, draw, history, options
 │   ├── telegram/               /api/v1/telegram — link token generation
 │   └── common/                 ErrorHandler — maps exceptions to RFC 7807 responses
@@ -76,8 +76,13 @@ src/main/resources/
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/auth/register` | Register a new user |
-| `POST` | `/api/v1/auth/login` | Login, returns access + refresh tokens |
+| `POST` | `/api/v1/auth/register` | Register; 202, mails a verification link (no session yet) |
+| `POST` | `/api/v1/auth/verify-email` | Confirm the address with the mailed token and sign in |
+| `POST` | `/api/v1/auth/resend-verification` | Mail a new verification link (always 202) |
+| `POST` | `/api/v1/auth/forgot-password` | Mail a password reset link (always 202) |
+| `POST` | `/api/v1/auth/reset-password` | Set a new password with the mailed token; ends every session |
+| `POST` | `/api/v1/auth/change-password` | Change the password (authenticated); ends the other sessions |
+| `POST` | `/api/v1/auth/login` | Login, returns access + refresh tokens (403 `EMAIL_NOT_VERIFIED` until confirmed) |
 | `POST` | `/api/v1/auth/refresh` | Refresh access token |
 | `POST` | `/api/v1/auth/logout` | Revoke refresh token |
 | `GET`  | `/api/v1/votes` | List own votes (paginated) |
@@ -150,6 +155,7 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 | V20 | `votes.draw_target` — PARTICIPANTS or OPTIONS, fixed at creation |
 | V21 | Option positions `0..n-1`, deferrable `UNIQUE (vote_id, position)` |
 | V22 | `draw_history.seed` / `candidates` — draw audit record |
+| V23 | `users.email_verified_at` + `email_tokens` — email verification and password reset |
 
 ## Environment Variables
 

@@ -1,4 +1,4 @@
-package com.juncevich.fate.vote.internal.notification
+package com.juncevich.fate.notification.internal
 
 import io.mockk.every
 import io.mockk.mockk
@@ -79,5 +79,39 @@ class EmailServiceTest {
 
         assertEquals(2, maxInFlight.get())
         verify(exactly = 6) { mailSender.send(any<MimeMessage>()) }
+    }
+
+    private fun sentHtml(send: EmailService.() -> Unit): String {
+        val mailSender = mockk<JavaMailSender>()
+        val sent = slot<MimeMessage>()
+        every { mailSender.createMimeMessage() } answers { MimeMessage(Session.getInstance(Properties())) }
+        every { mailSender.send(capture(sent)) } returns Unit
+        EmailService(mailSender, "", "").send()
+        val multipart = sent.captured.content as jakarta.mail.Multipart
+        return generateSequence(multipart.getBodyPart(0)) { part ->
+            (part.content as? jakarta.mail.Multipart)?.getBodyPart(0)
+        }.last().content.toString()
+    }
+
+    @Test
+    fun `user-supplied text is escaped in the email html`() {
+        val html =
+            sentHtml {
+                sendVoteInvitation("p@test.com", "<a href=\"https://evil\">Win</a>", "<b>Eve</b>", "http://localhost/votes/1")
+            }
+
+        assertTrue("&lt;a href=&quot;https://evil&quot;&gt;Win&lt;/a&gt;" in html, html)
+        assertTrue("&lt;b&gt;Eve&lt;/b&gt;" in html)
+        assertTrue("<a href=\"https://evil\"" !in html)
+    }
+
+    @Test
+    fun `account emails carry their link`() {
+        val verification = sentHtml { sendEmailVerification("a@test.com", "<Ann>", "http://localhost/verify-email?token=t") }
+        val reset = sentHtml { sendPasswordReset("a@test.com", "Ann", "http://localhost/reset-password?token=r") }
+
+        assertTrue("http://localhost/verify-email?token=t" in verification)
+        assertTrue("&lt;Ann&gt;" in verification)
+        assertTrue("http://localhost/reset-password?token=r" in reset)
     }
 }

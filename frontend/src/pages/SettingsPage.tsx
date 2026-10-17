@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/UserAvatar'
 import { Bot, Copy, ImageUp, Link2, Link2Off, Trash2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard'
 
 export function SettingsPage() {
   const { displayName, email, avatarUrl } = useAuthStore()
@@ -68,6 +69,8 @@ export function SettingsPage() {
         </div>
         <p className="text-xs text-fate-muted mt-2">PNG, JPEG или GIF до 2 МБ</p>
       </div>
+
+      <ChangePasswordCard />
 
       <div className="glass p-6">
         <div className="flex items-center gap-2 mb-4">

@@ -3,11 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
+import { AxiosError } from 'axios'
 import { LoginPage } from '../LoginPage'
 
 vi.mock('@/api/auth', () => ({
   authApi: {
     login: vi.fn(),
+    resendVerification: vi.fn(),
     silentRefresh: vi.fn().mockRejectedValue(new Error('no session')),
   },
 }))
@@ -159,5 +161,48 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(authApi.login).toHaveBeenCalled()
     })
+  })
+
+  function problem(status: number, data: Record<string, unknown>) {
+    const error = new AxiosError('Request failed', String(status))
+    error.response = { data, status, statusText: '', headers: {}, config: error.config! }
+    return error
+  }
+
+  it('offers to resend the link when the address is not confirmed yet', async () => {
+    const { authApi } = await import('@/api/auth')
+    vi.mocked(authApi.login).mockRejectedValueOnce(problem(403, { code: 'EMAIL_NOT_VERIFIED', title: 'Confirm' }))
+    vi.mocked(authApi.resendVerification).mockResolvedValueOnce({} as never)
+
+    const user = userEvent.setup()
+    render(<LoginPage />, { wrapper: createWrapper() })
+    await user.type(screen.getByLabelText('Email'), 'test@example.com')
+    await user.type(screen.getByLabelText('Пароль'), 'password123{Enter}')
+
+    expect(await screen.findByText('Сначала подтвердите адрес почты')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Отправить письмо ещё раз' }))
+    await waitFor(() => expect(authApi.resendVerification).toHaveBeenCalledWith('test@example.com'))
+
+    await user.click(screen.getByRole('button', { name: 'Вернуться ко входу' }))
+    expect(screen.getByLabelText('Пароль')).toBeInTheDocument()
+  })
+
+  it('tells about the rate limit instead of wrong credentials', async () => {
+    const { authApi } = await import('@/api/auth')
+    const { toast } = await import('@/components/ui/toaster')
+    vi.mocked(authApi.login).mockRejectedValueOnce(problem(429, { title: 'Too many' }))
+
+    const user = userEvent.setup()
+    render(<LoginPage />, { wrapper: createWrapper() })
+    await user.type(screen.getByLabelText('Email'), 'test@example.com')
+    await user.type(screen.getByLabelText('Пароль'), 'password123{Enter}')
+
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('Слишком много попыток', 'Попробуйте немного позже', 'error'))
+  })
+
+  it('links to password recovery', () => {
+    render(<LoginPage />, { wrapper: createWrapper() })
+
+    expect(screen.getByRole('link', { name: 'Забыли пароль?' })).toHaveAttribute('href', '/forgot-password')
   })
 })
