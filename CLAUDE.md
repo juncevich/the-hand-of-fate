@@ -206,7 +206,8 @@ The bot answers only in private chats and identifies the user by `message.From.I
 
 ### Auth Flow
 - Registration/login returns `accessToken` (HS256 JWT, 15 min — issued with `NimbusJwtEncoder`, validated by Spring Security's OAuth2 resource server, see `auth/internal/token/JwtConfig.kt`) + `refreshToken` (UUID, 30 days)
-- `refreshToken` is stored hashed in `refresh_tokens` table
+- `refreshToken` is stored hashed in `refresh_tokens` table. Each refresh rotates it: the old row gets `revoked_at` and its successor keeps the session's `family_id` (a login starts a new family). A rotated token replayed within `jwt.refresh-reuse-grace-seconds` (30) is a concurrent refresh and is served; replayed later it is treated as stolen and the whole family is deleted (log warning, both holders must log in again). Logout deletes the token's family, `logout-all` every family of the user
+- `ExpiredTokenPurger` deletes expired refresh and Telegram link tokens hourly (`app.auth.token-purge-delay-ms`)
 - Frontend keeps `accessToken` in Zustand (memory only); `refreshToken` stays in an httpOnly cookie; all requests use `withCredentials: true`
 - On app mount, `authApi.silentRefresh()` attempts to restore session via httpOnly cookie (`withCredentials: true`, empty body); failure is silently ignored (user stays logged out)
 - On 401, Axios interceptor silently calls `/api/v1/auth/refresh`, shares a refresh Promise with initial session restoration and retries each protected request once
@@ -216,7 +217,7 @@ The bot answers only in private chats and identifies the user by `message.From.I
 ### Frontend State & Data Fetching
 - **Zustand** manages auth state (`authStore`) and dark/light theme (`themeStore`; persisted to localStorage)
 - **React Query** (`@tanstack/react-query`) handles all server state — queries, mutations, cache invalidation
-- Custom Axios instance in `frontend/src/api/client.ts` shares one pending refresh Promise across initial restoration and concurrent 401s; auth endpoints are excluded
+- Custom Axios instance in `frontend/src/api/client.ts` shares one pending refresh Promise across initial restoration and concurrent 401s; auth endpoints are excluded. Across tabs the refresh call runs under the Web Lock `fate-auth-refresh`, so a second tab refreshes only after the first, with the already rotated cookie
 - TypeScript 7 runs side-by-side with the 6.0 API: `tsc` (type-check in `npm run build`) is TS 7 from the `@typescript/native` alias, while the `typescript` package is aliased to `@typescript/typescript6` because typescript-eslint needs the classic JS API that TS 7 no longer ships
 - ESLint enforces `@typescript-eslint/no-floating-promises` on `src/**` (type-checked, see `eslint.config.js`) — mark deliberately-unawaited calls (`invalidateQueries()`, `navigate()`, `clipboard.writeText()`, etc.) with `void` rather than leaving them bare
 
@@ -366,6 +367,8 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 - V15: `users.avatar_updated_at` (avatar version; image stored in object storage)
 - V16: unlinks Telegram links to group chats (`telegram_id <= 0`) and adds `CHECK (telegram_id > 0)`
 - V17: `email_budget_ledger` (per-user email budget, see Notifications)
+- V18: refresh-token families — `refresh_tokens.family_id` + `revoked_at` (see Auth Flow)
+- V19: drops indexes duplicated by UNIQUE constraints / composite indexes
 
 ### Key Environment Variables
 | Variable | Default | Description |
@@ -377,12 +380,14 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 | `MAIL_MAX_CONCURRENT_SENDS` | `4` | Max simultaneous SMTP sends (`app.mail.max-concurrent-sends`) |
 | `FRONTEND_URL` | `http://localhost:3000` | For CORS and email links |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTLP HTTP endpoint |
+| `TRACING_SAMPLING_PROBABILITY` | `0.1` (`1.0` in `dev`) | Fraction of requests traced |
 | `BOT_TOKEN` | — | Required; from @BotFather |
 | `GRPC_SERVER_ADDR` | `localhost:9090` | Bot → backend gRPC address |
 | `GRPC_SHARED_SECRET` | (dev default set) | Shared secret authenticating bot → backend gRPC calls; must match on both sides, change before any real deployment |
 | `GRPC_BIND_ADDRESS` | `127.0.0.1` | Interface the backend gRPC server binds to. Loopback by default (plaintext + shared-secret only); set `0.0.0.0` on a trusted internal network (Docker compose already does) |
 | `JWT_ACCESS_TTL_MINUTES` | `15` | Access token lifetime |
 | `JWT_REFRESH_TTL_DAYS` | `30` | Refresh token lifetime |
+| `JWT_REFRESH_REUSE_GRACE_SECONDS` | `30` | How long a rotated refresh token is still accepted (concurrent refreshes) before a replay revokes the session |
 | `LOG_LEVEL` | `info` | Bot log level |
 | `SPRING_PROFILES_ACTIVE` | (none) | Set to `dev` for local runs (seeds demo user, disables Secure cookies, skips the production secret guard). Unset in production so `SecretsValidator` enforces non-default secrets |
 | `REFRESH_COOKIE_SECURE` | `true` | Secure flag on the refresh cookie; forced to `false` by the `dev` profile for local HTTP |

@@ -144,6 +144,8 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 | V15 | `users.avatar_updated_at` (avatar version; the image lives in object storage) |
 | V16 | Drop Telegram links to group chats, `CHECK (telegram_id > 0)` |
 | V17 | `email_budget_ledger` — per-user notification email budget |
+| V18 | Refresh-token families: `family_id`, `revoked_at` (rotation with reuse detection) |
+| V19 | Drop indexes duplicated by UNIQUE constraints or composite indexes |
 
 ## Environment Variables
 

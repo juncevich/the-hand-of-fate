@@ -6,8 +6,11 @@ import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
+import com.juncevich.fate.shared.canonicalEmail
 import com.juncevich.fate.shared.ensureState
 import com.juncevich.fate.shared.normalizeEmail
+import com.juncevich.fate.shared.uuidV7
+import org.slf4j.LoggerFactory
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -29,6 +32,8 @@ class AuthService(
     private val jwtProperties: JwtProperties,
     private val loginThrottle: LoginThrottle,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     // Precomputed once so the login() timing-mitigation branch doesn't hash a fresh
     // random string (and thus a fresh salt) on every unknown-email attempt.
     private val dummyPasswordHash: String by lazy {
@@ -60,7 +65,8 @@ class AuthService(
         email: String,
         password: String,
     ): AuthTokens {
-        val normalizedEmail = email.lowercase().trim()
+        // Not normalizeEmail(): a malformed address must fail like any wrong credentials.
+        val normalizedEmail = canonicalEmail(email)
         loginThrottle.ensureAllowed(normalizedEmail)
         val user = userRepositoryPort.findByEmail(normalizedEmail)
         // Always run the hash comparison, even for an unknown email, so response
@@ -76,22 +82,15 @@ class AuthService(
 
     @Transactional(noRollbackFor = [BadCredentialsException::class])
     fun refresh(rawRefreshToken: String): AuthTokens {
-        val hash = hashToken(rawRefreshToken)
-        val stored =
-            refreshTokenRepositoryPort.findByTokenHash(hash)
-                ?: throw BadCredentialsException("Refresh token not found")
-        if (stored.isExpired) {
-            refreshTokenRepositoryPort.delete(stored)
-            throw BadCredentialsException("Refresh token expired")
-        }
-        refreshTokenRepositoryPort.delete(stored)
-        return issueTokens(stored.user)
+        val stored = findUsableRefreshToken(rawRefreshToken)
+        rotate(stored)
+        return issueTokens(stored.user, stored.familyId)
     }
 
     fun logout(rawRefreshToken: String) {
         val hash = hashToken(rawRefreshToken)
         refreshTokenRepositoryPort.findByTokenHash(hash)?.let {
-            refreshTokenRepositoryPort.delete(it)
+            refreshTokenRepositoryPort.deleteFamily(it.familyId)
         }
     }
 
@@ -99,16 +98,23 @@ class AuthService(
         refreshTokenRepositoryPort.deleteAllByUserId(userId)
     }
 
-    private fun issueTokens(user: User): AuthTokens {
+    /** Starts a new session, or continues the session [familyId] when rotating. */
+    private fun issueTokens(
+        user: User,
+        familyId: UUID? = null,
+    ): AuthTokens {
         val accessToken = jwtTokenProvider.createAccessToken(user.id, user.email)
         val rawRefresh = UUID.randomUUID().toString()
         val expiresAt = Instant.now().plusSeconds(jwtProperties.refreshTtlDays * SECONDS_PER_DAY)
 
+        val tokenId = uuidV7()
         refreshTokenRepositoryPort.save(
             RefreshToken(
+                id = tokenId,
                 user = user,
                 tokenHash = hashToken(rawRefresh),
-                expiresAt = expiresAt
+                expiresAt = expiresAt,
+                familyId = familyId ?: tokenId
             )
         )
         return AuthTokens(
@@ -119,6 +125,30 @@ class AuthService(
             displayName = user.displayName,
             avatarUrl = user.avatarUrl()
         )
+    }
+
+    private fun findUsableRefreshToken(rawRefreshToken: String): RefreshToken {
+        val stored =
+            refreshTokenRepositoryPort.findByTokenHash(hashToken(rawRefreshToken))
+                ?: throw BadCredentialsException("Refresh token not found")
+        if (stored.isExpired) {
+            refreshTokenRepositoryPort.delete(stored)
+            throw BadCredentialsException("Refresh token expired")
+        }
+        return stored
+    }
+
+    /** Retires [stored] in favour of its successor, or ends its session if it was retired long ago. */
+    private fun rotate(stored: RefreshToken) {
+        val now = Instant.now()
+        val revokedAt = stored.revokedAt ?: return refreshTokenRepositoryPort.revoke(stored, now)
+        if (now.isAfter(revokedAt.plusSeconds(jwtProperties.refreshReuseGraceSeconds))) {
+            // Its successor has long been issued, so this copy is in someone else's hands.
+            log.warn("Rotated refresh token replayed; revoking session {} of user {}", stored.familyId, stored.user.id)
+            refreshTokenRepositoryPort.deleteFamily(stored.familyId)
+            throw BadCredentialsException("Refresh token reuse detected")
+        }
+        // Otherwise a concurrent refresh lost the race by moments: serve it within the same session.
     }
 
     private fun hashToken(token: String): String {

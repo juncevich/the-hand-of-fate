@@ -32,7 +32,9 @@ spring:
 
   flyway:
     enabled: true
-    baseline-on-migrate: true
+    # Off: on a non-empty schema without Flyway history, baselining would silently skip every
+    # migration up to the baseline version instead of failing.
+    baseline-on-migrate: false
     locations: classpath:db/migration
     placeholders:
       # Prod-safe default: the demo user (admin@admin.com) is NOT seeded.
@@ -82,7 +84,8 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus
+        # Metrics are pushed over OTLP (management.otlp.metrics), nothing scrapes the actuator.
+        include: health
   endpoint:
     health:
       show-details: ${MANAGEMENT_HEALTH_SHOW_DETAILS:never}
@@ -90,7 +93,8 @@ management:
         enabled: true
   tracing:
     sampling:
-      probability: 1.0
+      # Fraction of requests traced; the dev profile records all of them.
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
   otlp:
     metrics:
       export:
@@ -121,6 +125,9 @@ jwt:
   access-secret: ${JWT_ACCESS_SECRET:changeme-dev-secret-key-256-bits-long-xxxxxxxxxxxx}
   access-ttl-minutes: ${JWT_ACCESS_TTL_MINUTES:15}
   refresh-ttl-days: ${JWT_REFRESH_TTL_DAYS:30}
+  # A rotated refresh token stays usable this long (concurrent refreshes, e.g. two tabs);
+  # replaying it later is treated as theft and ends the whole session.
+  refresh-reuse-grace-seconds: ${JWT_REFRESH_REUSE_GRACE_SECONDS:30}
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}

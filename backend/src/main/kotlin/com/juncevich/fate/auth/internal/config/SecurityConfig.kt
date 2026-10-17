@@ -46,7 +46,7 @@ class SecurityConfig(
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/users/*/avatar")
                     .permitAll()
-                    .requestMatchers("/actuator/health/**", "/actuator/prometheus")
+                    .requestMatchers("/actuator/health/**")
                     .permitAll()
                     .requestMatchers(
                         "/v3/api-docs",

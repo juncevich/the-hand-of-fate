@@ -98,7 +98,6 @@ dependencies {
 
     // ── Observability ─────────────────────────────────────────────────────────
     implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
-    implementation("io.micrometer:micrometer-registry-prometheus")
 
     // ── OpenAPI ───────────────────────────────────────────────────────────────
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")

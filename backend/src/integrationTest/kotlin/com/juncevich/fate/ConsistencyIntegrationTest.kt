@@ -3,6 +3,7 @@ package com.juncevich.fate
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.auth.internal.service.AuthService
+import com.juncevich.fate.auth.internal.service.ExpiredTokenPurger
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.NotFoundException
@@ -36,6 +37,7 @@ class ConsistencyIntegrationTest
         private val telegram: TelegramLinkService,
         private val users: UserQueryService,
         private val jdbc: JdbcTemplate,
+        private val purger: ExpiredTokenPurger,
         private val transactions: PlatformTransactionManager,
     ) : AbstractApiIntegrationTest() {
         private fun newUser() = auth.register("${UUID.randomUUID()}@test.com", "password123", "Test")
@@ -82,19 +84,69 @@ class ConsistencyIntegrationTest
         }
 
         @Test
-        fun `parallel refresh consumes token once and rejects the losing request as unauthorized`() {
-            val token = newUser().refreshToken
-            val (first, second) = compete({ auth.refresh(token) }, { auth.refresh(token) })
+        fun `parallel refresh serves both requests within one session`() {
+            val tokens = newUser()
+            val (first, second) = compete({ auth.refresh(tokens.refreshToken) }, { auth.refresh(tokens.refreshToken) })
             assertTrue(first.isSuccess)
-            assertTrue(second.exceptionOrNull() is BadCredentialsException)
+            assertTrue(second.isSuccess)
+            assertEquals(
+                1,
+                jdbc.queryForObject(
+                    "SELECT count(DISTINCT family_id) FROM refresh_tokens WHERE user_id = ?",
+                    Int::class.java,
+                    tokens.userId
+                )
+            )
+        }
+
+        @Test
+        fun `replaying a rotated token after the grace window revokes the session`() {
+            val tokens = newUser()
+            val rotated = auth.refresh(tokens.refreshToken)
+            jdbc.update(
+                "UPDATE refresh_tokens SET revoked_at = now() - interval '1 minute' WHERE revoked_at IS NOT NULL AND user_id = ?",
+                tokens.userId
+            )
+
+            assertThrows<BadCredentialsException> { auth.refresh(tokens.refreshToken) }
+            // The legitimate successor is gone too: the thief and the owner both have to log in again.
+            assertThrows<BadCredentialsException> { auth.refresh(rotated.refreshToken) }
+            assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM refresh_tokens WHERE user_id = ?", Int::class.java, tokens.userId))
+        }
+
+        @Test
+        fun `logout ends one session and leaves the others`() {
+            val first = newUser()
+            val email = checkNotNull(users.findById(first.userId)).email
+            val second = auth.login(email, "password123")
+            val rotated = auth.refresh(first.refreshToken)
+
+            auth.logout(rotated.refreshToken)
+
+            assertThrows<BadCredentialsException> { auth.refresh(first.refreshToken) }
+            assertTrue(runCatching { auth.refresh(second.refreshToken) }.isSuccess)
+        }
+
+        @Test
+        fun `expired tokens are purged without being presented`() {
+            val tokens = newUser()
+            telegram.generateLinkToken(tokens.userId)
+            jdbc.update("UPDATE refresh_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = ?", tokens.userId)
+            jdbc.update("UPDATE telegram_link_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = ?", tokens.userId)
+
+            purger.purge()
+
+            assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM refresh_tokens WHERE user_id = ?", Int::class.java, tokens.userId))
+            assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM telegram_link_tokens WHERE user_id = ?", Int::class.java, tokens.userId))
         }
 
         @Test
         fun `parallel telegram linking consumes token once`() {
             val userId = newUser().userId
             val token = telegram.generateLinkToken(userId).token
-            val firstId = UUID.randomUUID().mostSignificantBits
-            val secondId = UUID.randomUUID().mostSignificantBits
+            // Telegram user ids are positive; linking rejects anything else before taking the lock.
+            val firstId = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE
+            val secondId = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE
             val (first, second) =
                 compete(
                     { telegram.linkAccount(token, firstId, "First") },

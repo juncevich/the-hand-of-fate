@@ -18,6 +18,12 @@ app:
     secret-key: ${S3_SECRET_KEY:rustfsadmin}
     create-bucket: true
 
+management:
+  tracing:
+    sampling:
+      # Trace every request locally, so Tempo always has the trace behind a log line.
+      probability: 1.0
+
 springdoc:
   # Swagger UI / OpenAPI docs are a local-dev convenience only.
   api-docs:

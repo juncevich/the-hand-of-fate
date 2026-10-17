@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
+import java.time.Instant
 import java.util.UUID
 
 interface TelegramLinkTokenJpaRepository : JpaRepository<TelegramLinkTokenJpaEntity, UUID> {
@@ -15,4 +16,8 @@ interface TelegramLinkTokenJpaRepository : JpaRepository<TelegramLinkTokenJpaEnt
     @Modifying
     @Query("DELETE FROM TelegramLinkTokenJpaEntity t WHERE t.user.id = :userId")
     fun deleteAllByUserId(userId: UUID)
+
+    @Modifying
+    @Query("DELETE FROM TelegramLinkTokenJpaEntity t WHERE t.expiresAt < :now")
+    fun deleteExpired(now: Instant): Int
 }

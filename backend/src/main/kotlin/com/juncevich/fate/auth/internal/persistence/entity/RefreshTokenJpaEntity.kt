@@ -19,4 +19,8 @@ class RefreshTokenJpaEntity(
     val expiresAt: Instant,
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
+    @Column(name = "family_id", nullable = false, updatable = false)
+    val familyId: UUID = id,
+    @Column(name = "revoked_at")
+    val revokedAt: Instant? = null,
 )

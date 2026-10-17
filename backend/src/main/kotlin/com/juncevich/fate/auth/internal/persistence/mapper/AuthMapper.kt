@@ -39,7 +39,9 @@ fun RefreshTokenJpaEntity.toDomain() =
         user = user.toDomain(),
         tokenHash = tokenHash,
         expiresAt = expiresAt,
-        createdAt = createdAt
+        createdAt = createdAt,
+        familyId = familyId,
+        revokedAt = revokedAt
     )
 
 fun RefreshToken.toJpaEntity(userEntity: UserJpaEntity) =
@@ -48,7 +50,9 @@ fun RefreshToken.toJpaEntity(userEntity: UserJpaEntity) =
         user = userEntity,
         tokenHash = tokenHash,
         expiresAt = expiresAt,
-        createdAt = createdAt
+        createdAt = createdAt,
+        familyId = familyId,
+        revokedAt = revokedAt
     )
 
 fun TelegramLinkTokenJpaEntity.toDomain() =

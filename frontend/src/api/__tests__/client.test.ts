@@ -169,3 +169,39 @@ describe('apiClient 401 refresh queue', () => {
   })
 
 })
+
+describe('refreshSession cross-tab lock', () => {
+  afterEach(() => {
+    useAuthStore.getState().clearAuth()
+    Reflect.deleteProperty(navigator, 'locks')
+    vi.restoreAllMocks()
+  })
+
+  it('performs the refresh while holding the shared refresh lock', async () => {
+    let held = false
+    const requested: string[] = []
+    const locks = {
+      request: vi.fn(async (name: string, callback: () => Promise<unknown>) => {
+        requested.push(name)
+        held = true
+        try {
+          return await callback()
+        } finally {
+          held = false
+        }
+      }),
+    }
+    Object.defineProperty(navigator, 'locks', { value: locks, configurable: true })
+    let heldDuringRequest = false
+    vi.spyOn(axios, 'post').mockImplementation(() => {
+      heldDuringRequest = held
+      return Promise.resolve({ data: { accessToken: 'new', userId: 'u', email: 'u@test.com', displayName: 'U' } })
+    })
+
+    await refreshSession()
+
+    expect(requested).toEqual(['fate-auth-refresh'])
+    expect(heldDuringRequest).toBe(true)
+    expect(useAuthStore.getState().accessToken).toBe('new')
+  })
+})

@@ -1,6 +1,7 @@
 package com.juncevich.fate.auth
 
 import com.juncevich.fate.AbstractApiIntegrationTest
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.delete
@@ -197,24 +198,30 @@ class AuthApiIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     @Test
-    fun `POST refresh - token cannot be used twice (rotation)`() {
+    fun `POST refresh - rotates the token but serves an immediate repeat (concurrent tabs)`() {
         val email = "refresh-once-${UUID.randomUUID()}@test.com"
         registerAndGetToken(email)
         val (_, refreshToken) = loginAndGetTokens(email)
 
-        // First use succeeds
+        val rotated =
+            mockMvc
+                .post("/api/v1/auth/refresh") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"refreshToken":"$refreshToken"}"""
+                }.andExpect { status { isOk() } }
+                .andReturn()
+                .response
+                .getHeader("Set-Cookie")
+                .orEmpty()
+        assertFalse(rotated.contains("fate_refresh_token=$refreshToken;"), "refresh must issue a new token")
+
+        // Within jwt.refresh-reuse-grace-seconds the old token still works; replay after the
+        // window revokes the session (ConsistencyIntegrationTest).
         mockMvc
             .post("/api/v1/auth/refresh") {
                 contentType = MediaType.APPLICATION_JSON
                 content = """{"refreshToken":"$refreshToken"}"""
             }.andExpect { status { isOk() } }
-
-        // Second use with same token must fail
-        mockMvc
-            .post("/api/v1/auth/refresh") {
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"refreshToken":"$refreshToken"}"""
-            }.andExpect { status { isUnauthorized() } }
     }
 
     // ── Logout ─────────────────────────────────────────────────────────────────

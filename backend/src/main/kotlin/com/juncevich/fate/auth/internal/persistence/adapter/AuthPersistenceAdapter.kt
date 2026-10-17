@@ -12,6 +12,7 @@ import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.TelegramLinkTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import org.springframework.stereotype.Component
+import java.time.Instant
 import java.util.UUID
 
 @Component
@@ -48,13 +49,26 @@ class RefreshTokenPersistenceAdapter(
         return refreshTokenJpaRepository.save(token.toJpaEntity(userEntity)).toDomain()
     }
 
+    override fun revoke(
+        token: RefreshToken,
+        at: Instant,
+    ) {
+        refreshTokenJpaRepository.revoke(token.id, at)
+    }
+
     override fun delete(token: RefreshToken) {
         refreshTokenJpaRepository.deleteById(token.id)
+    }
+
+    override fun deleteFamily(familyId: UUID) {
+        refreshTokenJpaRepository.deleteAllByFamilyId(familyId)
     }
 
     override fun deleteAllByUserId(userId: UUID) {
         refreshTokenJpaRepository.deleteAllByUserId(userId)
     }
+
+    override fun deleteExpired(now: Instant): Int = refreshTokenJpaRepository.deleteExpired(now)
 }
 
 @Component
@@ -77,4 +91,6 @@ class TelegramLinkTokenPersistenceAdapter(
     override fun deleteAllByUserId(userId: UUID) {
         telegramLinkTokenJpaRepository.deleteAllByUserId(userId)
     }
+
+    override fun deleteExpired(now: Instant): Int = telegramLinkTokenJpaRepository.deleteExpired(now)
 }

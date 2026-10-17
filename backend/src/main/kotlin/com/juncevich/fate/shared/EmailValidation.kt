@@ -16,4 +16,7 @@ fun requireValidEmail(value: String): String {
     return value
 }
 
-fun normalizeEmail(value: String): String = requireValidEmail(value.trim().lowercase())
+/** The canonical form emails are stored and compared in; does not validate the format. */
+fun canonicalEmail(value: String): String = value.trim().lowercase()
+
+fun normalizeEmail(value: String): String = requireValidEmail(canonicalEmail(value))

@@ -13,11 +13,20 @@ export const apiClient = axios.create({
 let refreshPromise: Promise<AuthPayload> | null = null
 let refreshVersion: number | null = null
 
+const REFRESH_LOCK = 'fate-auth-refresh'
+
+// Every tab shares one refresh cookie, and each refresh rotates it. Under a lock held across
+// tabs, a second tab refreshes only after the first finished — with the rotated cookie — instead
+// of replaying the old one. Without the Web Locks API the backend's short reuse grace still helps.
+function withRefreshLock<T>(refresh: () => Promise<T>): Promise<T> {
+  return 'locks' in navigator ? navigator.locks.request(REFRESH_LOCK, refresh) : refresh()
+}
+
 export function refreshSession(): Promise<AuthPayload> {
   const version = useAuthStore.getState().sessionVersion
   if (refreshPromise && refreshVersion === version) return refreshPromise
   refreshVersion = version
-  const pending = axios.post<AuthPayload>('/api/v1/auth/refresh', {}, { withCredentials: true })
+  const pending = withRefreshLock(() => axios.post<AuthPayload>('/api/v1/auth/refresh', {}, { withCredentials: true }))
     .then(({ data }) => {
       if (useAuthStore.getState().sessionVersion !== version) {
         throw new Error('Session changed during refresh')

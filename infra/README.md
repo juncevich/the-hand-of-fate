@@ -66,40 +66,27 @@ To add a dashboard: drop a JSON file into `monitoring/grafana/provisioning/dashb
 
 ## Kubernetes (`k8s/`)
 
-Manifests are maintained but **not active in current production** — production runs as systemd services on a VPS. Kept for future migration.
-
-### Workloads
-
-| Component | Replicas | Strategy    | Memory      | CPU           |
-|-----------|----------|-------------|-------------|---------------|
-| backend   | 2        | RollingUpdate | 512Mi–1Gi | 250m–1000m    |
-| frontend  | 2        | RollingUpdate | 64Mi–128Mi | 50m–200m     |
-| bot       | **1**    | **Recreate** | 64Mi–128Mi | 50m–200m     |
-
-The bot must be a single replica — Telegram long-polling is not idempotent.
+Local Kubernetes only (minikube profile `hand-of-fate`); there is no staging/production cluster — production
+runs as systemd services on a VPS. Start/stop, Tilt and host ports are described in the root `CLAUDE.md`
+(Option 3).
 
 ### Structure
 
 ```
 k8s/
-├── namespace.yaml
-├── backend/       deployment, service, hpa, configmap
-├── frontend/      deployment, service
-├── bot/           deployment
-├── postgres/      statefulset
-├── ingress/       ingress routing
-└── overlays/
-    ├── staging/   Kustomize overlay
-    └── production/ Kustomize overlay
+├── base/                      backend, frontend, bot, gateway (nginx reusing infra/nginx/nginx.conf), namespace
+├── components/observability/  OTel Collector DaemonSet, Loki, Mimir, Tempo, Grafana (kustomize Component)
+├── overlays/
+│   ├── local/                 Postgres, RustFS, Mailpit, dev config/secrets, NodePorts
+│   ├── e2e/                   local + raised per-IP auth rate limit (CI end-to-end job)
+│   └── tilt/                  dev images for `make k8s-dev`
+├── check.sh                   static checks run by CI (`make k8s-check`)
+└── e2e.sh                     end-to-end checks against the running stack (`make k8s-e2e`)
 ```
 
-### Applying
+Every workload runs one replica. The bot must stay single and uses the `Recreate` strategy — Telegram
+long-polling is not idempotent — and the backend's in-memory rate limits and notification worker also
+assume a single instance.
 
-```bash
-kubectl apply -k infra/k8s/overlays/staging
-kubectl apply -k infra/k8s/overlays/production
-```
-
-Backend probes: `GET /actuator/health/readiness` and `/actuator/health/liveness`
-
-Prometheus scrape: annotation `prometheus.io/scrape: "true"`, path `/actuator/prometheus`, port `8080`
+Backend probes: `GET /actuator/health/readiness` and `/actuator/health/liveness`. Metrics are pushed over
+OTLP to the collector; the backend exposes no scrape endpoint.

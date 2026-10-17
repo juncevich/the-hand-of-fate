@@ -221,14 +221,67 @@ class AuthServiceTest {
             )
 
         every { refreshTokenRepositoryPort.findByTokenHash(any()) } returns storedToken
-        every { refreshTokenRepositoryPort.delete(storedToken) } just Runs
+        every { refreshTokenRepositoryPort.revoke(storedToken, any()) } just Runs
         every { jwtTokenProvider.createAccessToken(any(), any()) } returns "new-access-token"
         every { refreshTokenRepositoryPort.save(any()) } answers { firstArg() }
 
         val result = authService.refresh("raw-token")
 
         assertEquals("new-access-token", result.accessToken)
-        verify { refreshTokenRepositoryPort.delete(storedToken) }
+        verify { refreshTokenRepositoryPort.revoke(storedToken, any()) }
+        // The successor continues the same session.
+        verify { refreshTokenRepositoryPort.save(match { it.familyId == storedToken.familyId && it.revokedAt == null }) }
+    }
+
+    @Test
+    fun `login - starts a new session family`() {
+        every { userRepositoryPort.findByEmail("user@test.com") } returns makeUser()
+        every { passwordEncoder.matches(any(), any()) } returns true
+        every { jwtTokenProvider.createAccessToken(any(), any()) } returns "access-token"
+        every { refreshTokenRepositoryPort.save(any()) } answers { firstArg() }
+
+        authService.login("user@test.com", "pass")
+
+        verify { refreshTokenRepositoryPort.save(match { it.familyId == it.id }) }
+    }
+
+    @Test
+    fun `refresh - serves a token rotated moments ago without revoking it again`() {
+        val token =
+            RefreshToken(
+                user = makeUser(),
+                tokenHash = "hash",
+                expiresAt = Instant.now().plusSeconds(3600),
+                familyId = UUID.randomUUID(),
+                revokedAt = Instant.now().minusSeconds(5)
+            )
+        every { refreshTokenRepositoryPort.findByTokenHash(any()) } returns token
+        every { jwtTokenProvider.createAccessToken(any(), any()) } returns "access-token"
+        every { refreshTokenRepositoryPort.save(any()) } answers { firstArg() }
+
+        assertEquals("access-token", authService.refresh("raw").accessToken)
+
+        verify(exactly = 0) { refreshTokenRepositoryPort.revoke(any(), any()) }
+        verify { refreshTokenRepositoryPort.save(match { it.familyId == token.familyId }) }
+    }
+
+    @Test
+    fun `refresh - a replayed rotated token ends the whole session`() {
+        val token =
+            RefreshToken(
+                user = makeUser(),
+                tokenHash = "hash",
+                expiresAt = Instant.now().plusSeconds(3600),
+                familyId = UUID.randomUUID(),
+                revokedAt = Instant.now().minusSeconds(31)
+            )
+        every { refreshTokenRepositoryPort.findByTokenHash(any()) } returns token
+        every { refreshTokenRepositoryPort.deleteFamily(token.familyId) } just Runs
+
+        assertThrows<BadCredentialsException> { authService.refresh("raw") }
+
+        verify { refreshTokenRepositoryPort.deleteFamily(token.familyId) }
+        verify(exactly = 0) { refreshTokenRepositoryPort.save(any()) }
     }
 
     @Test
@@ -256,15 +309,21 @@ class AuthServiceTest {
     }
 
     @Test
-    fun `logout - deletes the token if found`() {
+    fun `logout - ends the whole session of the token`() {
         val user = makeUser()
-        val token = RefreshToken(user = user, tokenHash = "hash", expiresAt = Instant.now().plusSeconds(3600))
+        val token =
+            RefreshToken(
+                user = user,
+                tokenHash = "hash",
+                expiresAt = Instant.now().plusSeconds(3600),
+                familyId = UUID.randomUUID()
+            )
         every { refreshTokenRepositoryPort.findByTokenHash(any()) } returns token
-        every { refreshTokenRepositoryPort.delete(token) } just Runs
+        every { refreshTokenRepositoryPort.deleteFamily(token.familyId) } just Runs
 
         authService.logout("raw-token")
 
-        verify { refreshTokenRepositoryPort.delete(token) }
+        verify { refreshTokenRepositoryPort.deleteFamily(token.familyId) }
     }
 
     @Test
@@ -273,7 +332,7 @@ class AuthServiceTest {
 
         authService.logout("unknown-token")
 
-        verify(exactly = 0) { refreshTokenRepositoryPort.delete(any()) }
+        verify(exactly = 0) { refreshTokenRepositoryPort.deleteFamily(any()) }
     }
 
     @Test
