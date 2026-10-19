@@ -33,6 +33,8 @@ test('a forgotten password is reset through the mailed link', async ({ page }) =
   await page.getByRole('button', { name: 'Выйти' }).click()
 
   await page.getByRole('link', { name: 'Забыли пароль?' }).click()
+  // The login page (with its own Email field) stays rendered for a moment during the navigation.
+  await expect(page.getByText('Восстановление пароля')).toBeVisible()
   await page.getByLabel('Email').fill(email)
   await page.getByRole('button', { name: 'Отправить ссылку' }).click()
   await expect(page.getByText(/Если аккаунт с адресом/)).toBeVisible()

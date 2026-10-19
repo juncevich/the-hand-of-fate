@@ -166,9 +166,9 @@ make e2e-web                                   # npm ci + chromium + playwright 
 cd e2e && npx playwright test tests/votes.spec.ts   # one spec
 E2E_BASE_URL=http://localhost:3000 E2E_MAILPIT_URL=http://localhost:8025 make e2e-web   # against dev-start.sh
 ```
-- Against `dev-start.sh` the backend keeps the default per-IP auth limit (10/min, page loads' `/auth/refresh` included), so a full run hits 429 on registration — run one spec at a time there, or use the minikube e2e overlay
+- `dev-start.sh` starts the backend with the per-IP auth limit raised to 1000/min (`DEV_AUTH_RATE_LIMIT`, set it to 10 to try the production limit), so a full run works there too
 - Nothing is started by the tests: deploy first (`K8S_OVERLAY=e2e ./k8s-start.sh` — its overlay raises the backend's and the gateway's per-IP auth rate limits; `overlays/e2e/prepare.sh` writes the gateway config to `.e2e-build/nginx.conf`)
-- Specs in `e2e/tests/` (`auth`, `account`, `votes`); `e2e/support/` registers fresh users and follows the mailed links via Mailpit. One worker — the tests share the stack's rate limits and mailbox
+- Specs in `e2e/tests/`: `auth` (sign-up, password reset), `account` (unsubscribe, deletion, password change, email preferences, avatar), `votes` (FAIR_ROTATION rounds, options vote); `e2e/support/` registers fresh users and follows the mailed links via Mailpit. One worker — the tests share the stack's rate limits and mailbox
 - `npm run typecheck` (TS 6 alias, like the frontend's ESLint side); failure traces/screenshots land in `e2e/test-results/`
 
 ### Performance Tests (Gatling)

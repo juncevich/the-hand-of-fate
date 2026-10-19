@@ -44,3 +44,60 @@ test('a deleted account is gone with its votes', async ({ page }) => {
   await logIn(page, email)
   await expectToast(page, 'Неверный email или пароль')
 })
+
+test('a changed password replaces the old one', async ({ page }) => {
+  const email = uniqueEmail('change')
+  await registerVerified(page, email)
+  await page.goto('/settings')
+
+  await page.getByLabel('Текущий пароль').fill('Not-my-password-0')
+  await page.getByLabel('Новый пароль').fill('Changed-e2e-password-3')
+  await page.getByRole('button', { name: 'Сменить пароль' }).click()
+  await expectToast(page, 'Неверный пароль')
+
+  await page.getByLabel('Текущий пароль').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Сменить пароль' }).click()
+  await expectToast(page, 'Пароль изменён')
+
+  await page.getByRole('button', { name: 'Выйти' }).click()
+  await logIn(page, email)
+  await expectToast(page, 'Неверный email или пароль')
+  await logIn(page, email, 'Changed-e2e-password-3')
+  await expect(page).toHaveURL('/')
+})
+
+test('vote emails are switched off and on in settings', async ({ page }) => {
+  await registerVerified(page, uniqueEmail('prefs'))
+  await page.goto('/settings')
+  const toggle = page.getByRole('checkbox', { name: /^Приглашения и результаты голосований/ })
+
+  await expect(toggle).toBeChecked()
+  await toggle.uncheck()
+  await page.reload()
+  await expect(toggle).not.toBeChecked()
+  await toggle.check()
+  await page.reload()
+  await expect(toggle).toBeChecked()
+})
+
+// A 1×1 PNG: the backend crops and re-encodes every avatar to 256×256.
+const PIXEL_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+)
+
+test('an avatar is uploaded to object storage and removed', async ({ page }) => {
+  await registerVerified(page, uniqueEmail('avatar'), 'Аватарка')
+  await page.goto('/settings')
+
+  await page.getByLabel('Файл аватара').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: PIXEL_PNG })
+  await expectToast(page, 'Аватар обновлён')
+  // Settings and the top bar both show it; the image really comes back from storage, re-encoded.
+  const avatar = page.getByRole('img', { name: 'Аватар Аватарка' }).first()
+  await expect(avatar).toBeVisible()
+  await expect.poll(() => avatar.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(256)
+
+  await page.getByRole('button', { name: 'Удалить', exact: true }).click()
+  await expect(page.getByRole('img', { name: 'Аватар Аватарка' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Загрузить аватар' })).toBeVisible()
+})

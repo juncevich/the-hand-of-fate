@@ -64,9 +64,11 @@ run_service() {
 }
 
 echo "==> Starting backend..."
+# The per-IP auth rate limit (production default 10/min) is raised so the browser tests
+# (make e2e-web) can sign up many users from localhost; DEV_AUTH_RATE_LIMIT=10 restores it.
 run_service "backend" "$GREEN" "$ROOT/backend" \
   ./gradlew bootRun \
-    -PjvmArgs="-DMAIL_HOST=localhost -DMAIL_PORT=1025 -DFRONTEND_URL=http://localhost:3000"
+    -PjvmArgs="-DMAIL_HOST=localhost -DMAIL_PORT=1025 -DFRONTEND_URL=http://localhost:3000 -Dapp.rate-limit.capacity=${DEV_AUTH_RATE_LIMIT:-1000}"
 
 echo "==> Starting frontend..."
 run_service "frontend" "$BLUE" "$ROOT/frontend" \

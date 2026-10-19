@@ -204,11 +204,7 @@ describe('VoteDetailPage', () => {
 
     await screen.findByText('Alice')
     // 2 participants → 2 remove buttons
-    const removeButtons = screen.getAllByRole('button', { name: '' }).filter(
-      (btn) => btn.querySelector('svg')
-    )
-    // At least 2 small remove buttons visible (one per participant)
-    expect(removeButtons.length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByRole('button', { name: /^Убрать / })).toHaveLength(2)
   })
 
   it('calls votesApi.removeParticipant when remove button is clicked', async () => {

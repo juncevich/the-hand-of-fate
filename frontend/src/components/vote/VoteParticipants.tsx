@@ -47,6 +47,7 @@ export function VoteParticipants({
                 variant="ghost"
                 size="icon"
                 onClick={() => onRemove(p.email)}
+                aria-label={`Убрать ${p.email}`}
                 className="text-fate-muted hover:text-red-400 h-6 w-6"
               >
                 <X className="w-3 h-3" />

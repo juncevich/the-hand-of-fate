@@ -43,6 +43,7 @@ export function VoteHeader({ vote, onDraw, onReopen, onDelete, isDrawLoading, is
               variant="ghost"
               size="icon"
               onClick={onDelete}
+              aria-label="Удалить голосование"
               className="text-fate-muted hover:text-red-400"
             >
               <Trash2 className="w-4 h-4" />

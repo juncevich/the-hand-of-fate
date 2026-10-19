@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Mail } from 'lucide-react'
 import { usersApi } from '@/api/users'
@@ -13,7 +14,11 @@ export function EmailNotificationsCard() {
     onSuccess: (prefs) => queryClient.setQueryData(QUERY_KEY, prefs),
     onError: onMutationError,
   })
-  const enabled = data?.notificationsEnabled ?? true
+  // While saving, show what the user just chose rather than the stale server value. Local state, not
+  // update.variables: React Query reports the pending mutation a tick later, and a controlled checkbox
+  // would snap back in between.
+  const [choice, setChoice] = useState<boolean | null>(null)
+  const enabled = choice ?? data?.notificationsEnabled ?? true
 
   return (
     <div className="glass p-6 mb-4">
@@ -27,7 +32,10 @@ export function EmailNotificationsCard() {
           className="mt-1 accent-fate-gold"
           checked={enabled}
           disabled={!data || update.isPending}
-          onChange={(e) => update.mutate(e.target.checked)}
+          onChange={(e) => {
+            setChoice(e.target.checked)
+            update.mutate(e.target.checked, { onSettled: () => setChoice(null) })
+          }}
         />
         <span>
           <span className="block text-sm text-fate-text">Приглашения и результаты голосований</span>
