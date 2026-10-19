@@ -52,7 +52,14 @@ test('a fair rotation vote lets every participant win once per round', async ({ 
   await expect(page.getByText('История (3)')).toBeVisible()
   await expect(page.getByText('Раунд 2').first()).toBeVisible()
 
+  // Deleting asks first; cancelling keeps the vote.
   await page.getByRole('button', { name: 'Удалить голосование' }).click()
+  const confirm = page.getByRole('dialog', { name: 'Удалить голосование?' })
+  await confirm.getByRole('button', { name: 'Отмена' }).click()
+  await expect(confirm).toBeHidden()
+  await expect(page.getByText('История (3)')).toBeVisible()
+  await page.getByRole('button', { name: 'Удалить голосование' }).click()
+  await confirm.getByRole('button', { name: 'Удалить', exact: true }).click()
   await expect(page).toHaveURL('/')
   await expect(page.getByRole('link', { name: /Дежурство/ })).toHaveCount(0)
 })

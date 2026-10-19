@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { ArrowLeft, Sparkles, Trash2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
+} from '@/components/ui/dialog'
 import type { VoteDetail } from '@/types/vote'
 
 interface Props {
@@ -11,10 +15,14 @@ interface Props {
   onDelete: () => void
   isDrawLoading: boolean
   isReopenLoading: boolean
+  isDeleteLoading: boolean
 }
 
-export function VoteHeader({ vote, onDraw, onReopen, onDelete, isDrawLoading, isReopenLoading }: Props) {
+export function VoteHeader({
+  vote, onDraw, onReopen, onDelete, isDrawLoading, isReopenLoading, isDeleteLoading,
+}: Props) {
   const navigate = useNavigate()
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const canDraw =
     vote.isCreator && vote.status === 'PENDING' && (vote.options.length > 0 || vote.participants.length > 0)
   const canReopen = vote.isCreator && vote.status === 'DRAWN'
@@ -39,15 +47,36 @@ export function VoteHeader({ vote, onDraw, onReopen, onDelete, isDrawLoading, is
             )}
           </div>
           {vote.isCreator && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onDelete}
-              aria-label="Удалить голосование"
-              className="text-fate-muted hover:text-red-400"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Удалить голосование"
+                  className="text-fate-muted hover:text-red-400"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Удалить голосование?</DialogTitle>
+                  <DialogDescription>
+                    «{vote.title}» и вся история его жеребьёвок будут удалены безвозвратно.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button variant="outline" onClick={() => setConfirmDelete(false)}>Отмена</Button>
+                  <Button
+                    className="bg-red-600 hover:bg-red-500 text-white"
+                    onClick={onDelete}
+                    isLoading={isDeleteLoading}
+                  >
+                    Удалить
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           )}
         </div>
 

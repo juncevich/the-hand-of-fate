@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { AxiosError, AxiosHeaders } from 'axios'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -329,11 +329,31 @@ describe('VoteDetailPage', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
 
-    const heading = await screen.findByRole('heading', { name: 'Кто дежурит?' })
-    await user.click(heading.parentElement!.nextElementSibling as HTMLElement)
+    await user.click(await screen.findByRole('button', { name: 'Удалить голосование' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Удалить голосование?' })
+    expect(votesApi.delete).not.toHaveBeenCalled()
+    await user.click(within(dialog).getByRole('button', { name: 'Удалить' }))
 
     expect(await screen.findByText('Dashboard')).toBeInTheDocument()
     expect(votesApi.delete).toHaveBeenCalledWith(VOTE_ID)
+  })
+
+  it('keeps the vote when the deletion is cancelled', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.get).mockResolvedValue(makeVote())
+    vi.mocked(votesApi.getHistory).mockResolvedValue({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 })
+
+    const user = userEvent.setup()
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<VoteDetailPage />, { wrapper: createWrapper(queryClient) })
+
+    await user.click(await screen.findByRole('button', { name: 'Удалить голосование' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Удалить голосование?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Отмена' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: 'Кто дежурит?' })).toBeInTheDocument()
+    expect(votesApi.delete).not.toHaveBeenCalled()
   })
 
   it('shows the backend error in a toast when a mutation fails', async () => {

@@ -49,6 +49,7 @@ export function VoteDetailPage() {
         onDelete={() => deleteVote.mutate()}
         isDrawLoading={draw.isPending}
         isReopenLoading={reopen.isPending}
+        isDeleteLoading={deleteVote.isPending}
       />
 
       {vote.lastResult && <VoteLastResult result={vote.lastResult} />}
