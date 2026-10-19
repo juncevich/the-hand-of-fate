@@ -13,6 +13,9 @@ import { toast } from '@/components/ui/toaster'
 import { errorCode } from '@/lib/errors'
 import { Eye, EyeOff } from 'lucide-react'
 
+// The account seeded by mock-plugin.ts; it exists only under `npm run dev:mock`.
+const MOCK_CREDENTIALS = { email: 'demo@example.com', password: 'password' }
+
 export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -58,7 +61,21 @@ export function LoginPage() {
 
   return (
     <AuthLayout subtitle="Войдите в свой аккаунт">
-      <div className="glass p-6 space-y-4">
+      <div className="glass relative p-6 space-y-4">
+        {import.meta.env.MODE === 'mock' && (
+          <button
+            type="button"
+            onClick={() => {
+              setEmail(MOCK_CREDENTIALS.email)
+              setPassword(MOCK_CREDENTIALS.password)
+            }}
+            title="Подставить демо-учётку"
+            className="absolute top-2 right-2 rounded-md border border-fate-gold/40 px-2 py-0.5 text-right text-[11px] leading-tight text-fate-muted hover:text-fate-text hover:border-fate-gold transition-colors"
+          >
+            <span className="block text-fate-gold">Мок-режим</span>
+            {MOCK_CREDENTIALS.email} / {MOCK_CREDENTIALS.password}
+          </button>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
           <Input

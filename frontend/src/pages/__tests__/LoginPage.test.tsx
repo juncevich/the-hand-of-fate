@@ -200,6 +200,27 @@ describe('LoginPage', () => {
     await waitFor(() => expect(toast).toHaveBeenCalledWith('Слишком много попыток', 'Попробуйте немного позже', 'error'))
   })
 
+  it('shows no demo credentials outside the mock mode', () => {
+    render(<LoginPage />, { wrapper: createWrapper() })
+
+    expect(screen.queryByRole('button', { name: /Мок-режим/ })).not.toBeInTheDocument()
+  })
+
+  it('fills in the demo credentials in the mock mode', async () => {
+    vi.stubEnv('MODE', 'mock')
+    try {
+      const user = userEvent.setup()
+      render(<LoginPage />, { wrapper: createWrapper() })
+
+      await user.click(screen.getByRole('button', { name: /demo@example\.com \/ password/ }))
+
+      expect(screen.getByLabelText('Email')).toHaveValue('demo@example.com')
+      expect(screen.getByLabelText('Пароль')).toHaveValue('password')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('links to password recovery', () => {
     render(<LoginPage />, { wrapper: createWrapper() })
 
