@@ -106,7 +106,7 @@ cd backend
 cd frontend
 npm install
 npm run dev          # dev server on :3000 (proxies /api → :8080)
-npm run dev:mock     # dev server with mock API (no backend needed)
+npm run dev:mock     # dev server with mock API (no backend needed; demo@example.com / password, mailed links go to the console)
 npm test             # run vitest once
 npm run test:watch   # vitest in watch mode
 npm run lint         # ESLint check

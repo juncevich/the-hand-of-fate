@@ -91,6 +91,8 @@ npm run test:watch   # Vitest watch mode
 npm run lint         # ESLint
 ```
 
+**Mock mode** (`mock-plugin.ts`): an in-memory API inside the Vite dev server. Sign in as `demo@example.com` / `password` (also `alice@` and `bob@example.com`); verification and password-reset links are printed to the dev-server console instead of being mailed. Responses are typed with `src/api/generated/schema.ts`, and `tsc -b` checks the file, so a contract change that the mock misses fails the build. State resets on restart.
+
 ## Testing Patterns
 
 - Wrap each test with a fresh `QueryClient` (retry: false) inside `QueryClientProvider` + `MemoryRouter`
