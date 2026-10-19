@@ -168,7 +168,7 @@ E2E_BASE_URL=http://localhost:3000 E2E_MAILPIT_URL=http://localhost:8025 make e2
 ```
 - `dev-start.sh` starts the backend with the per-IP auth limit raised to 1000/min (`DEV_AUTH_RATE_LIMIT`, set it to 10 to try the production limit), so a full run works there too
 - Nothing is started by the tests: deploy first (`K8S_OVERLAY=e2e ./k8s-start.sh` — its overlay raises the backend's and the gateway's per-IP auth rate limits; `overlays/e2e/prepare.sh` writes the gateway config to `.e2e-build/nginx.conf`)
-- Specs in `e2e/tests/`: `auth` (sign-up, password reset), `account` (unsubscribe, deletion, password change, email preferences, avatar), `votes` (FAIR_ROTATION rounds, options vote); `e2e/support/` registers fresh users and follows the mailed links via Mailpit. One worker — the tests share the stack's rate limits and mailbox
+- Specs in `e2e/tests/`: `auth` (sign-up, password reset), `account` (unsubscribe, deletion, password change, email preferences, avatar), `votes` (FAIR_ROTATION rounds, options vote, history paging); `e2e/support/` registers fresh users and follows the mailed links via Mailpit; `apiAs()` (`support/api.ts`) signs in over REST in the separate `request` context for setup that would be slow through the UI (e.g. 21 draws). One worker — the tests share the stack's rate limits and mailbox
 - `npm run typecheck` (TS 6 alias, like the frontend's ESLint side); failure traces/screenshots land in `e2e/test-results/`
 
 ### Performance Tests (Gatling)

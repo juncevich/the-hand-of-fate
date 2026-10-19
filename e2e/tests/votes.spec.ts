@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { expectToast, registerVerified, uniqueEmail } from '../support/accounts'
+import { apiAs } from '../support/api'
 
 const DRAW = /Пусть Рука Судьбы решит/
 
@@ -95,4 +96,40 @@ test('an options vote is created, reordered and drawn, with translated errors on
   await page.getByRole('button', { name: DRAW }).click()
   await expect(page.getByText('Последний результат')).toBeVisible()
   await expect(page.getByText('История (1)')).toBeVisible()
+})
+
+test('the draw history is paged by 20 entries', async ({ page, request }) => {
+  const email = uniqueEmail('history')
+  await registerVerified(page, email)
+
+  await page.getByRole('button', { name: 'Создать голосование' }).click()
+  await page.getByRole('dialog').getByLabel(/Название/).fill('Летопись')
+  await page.getByRole('dialog').getByRole('button', { name: /^Создать$/ }).click()
+  await expectToast(page, 'Голосование создано!')
+  await page.getByRole('link', { name: /Летопись/ }).click()
+  await expect(page.getByText('Участники (1)')).toBeVisible()
+  const voteId = new URL(page.url()).pathname.split('/').pop()!
+
+  // 21 draws — one more than a page — through the API; clicking them through would only be slow.
+  const api = await apiAs(request, email)
+  for (let draw = 1; draw <= 21; draw++) {
+    if (draw > 1) await api.reopen(voteId)
+    await api.draw(voteId)
+  }
+
+  await page.reload()
+  const history = page.getByRole('heading', { name: 'История (21)' }).locator('xpath=..')
+  const entries = history.getByText('Раунд 1', { exact: true })
+  await expect(history.getByText('1 / 2')).toBeVisible()
+  await expect(entries).toHaveCount(20)
+  await expect(history.getByRole('button', { name: 'Назад' })).toBeDisabled()
+
+  await history.getByRole('button', { name: 'Далее' }).click()
+  await expect(history.getByText('2 / 2')).toBeVisible()
+  await expect(entries).toHaveCount(1)
+  await expect(history.getByRole('button', { name: 'Далее' })).toBeDisabled()
+
+  await history.getByRole('button', { name: 'Назад' }).click()
+  await expect(history.getByText('1 / 2')).toBeVisible()
+  await expect(entries).toHaveCount(20)
 })
