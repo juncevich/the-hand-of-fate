@@ -8,6 +8,7 @@ import com.juncevich.fate.auth.toProfile
 import com.juncevich.fate.grpc.FateProto.*
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.vote.*
@@ -163,7 +164,7 @@ class FateGrpcServiceTest {
     fun `linkTelegramAccount maps domain errors to unsuccessful response`() =
         runBlocking {
             every { telegramLinkService.linkAccount(any(), any(), any()) } throws
-                BadRequestException("Link token expired")
+                BadRequestException("Link token expired", ErrorCode.VALIDATION_FAILED)
 
             val response = service.linkTelegramAccount(linkRequest())
 
@@ -198,7 +199,7 @@ class FateGrpcServiceTest {
     @Test
     fun `unlinkTelegramAccount maps domain errors to unsuccessful response`() =
         runBlocking {
-            every { telegramLinkService.unlinkAccount(42) } throws NotFoundException("Not linked")
+            every { telegramLinkService.unlinkAccount(42) } throws NotFoundException("Not linked", ErrorCode.VOTE_NOT_FOUND)
 
             val response = service.unlinkTelegramAccount(unlinkRequest())
 
@@ -333,7 +334,7 @@ class FateGrpcServiceTest {
     fun `createVote maps domain errors to unsuccessful response`() =
         runBlocking {
             every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-            every { voteService.createVote(any(), any()) } throws BadRequestException("Too many options")
+            every { voteService.createVote(any(), any()) } throws BadRequestException("Too many options", ErrorCode.VALIDATION_FAILED)
 
             val response =
                 service.createVote(
@@ -401,19 +402,19 @@ class FateGrpcServiceTest {
 
     @Test
     fun `getVoteDetails maps missing vote to NOT_FOUND`() {
-        assertReadError(NotFoundException("Vote not found"), Status.Code.NOT_FOUND)
+        assertReadError(NotFoundException("Vote not found", ErrorCode.VOTE_NOT_FOUND), Status.Code.NOT_FOUND)
     }
 
     @Test
     fun `getVoteDetails maps access denial to PERMISSION_DENIED`() {
-        assertReadError(ForbiddenException("Access denied"), Status.Code.PERMISSION_DENIED)
+        assertReadError(ForbiddenException("Access denied", ErrorCode.VOTE_ACCESS_DENIED), Status.Code.PERMISSION_DENIED)
     }
 
     @Test
     fun `getVoteDetails maps each domain error category to its status`() {
-        assertReadError(BadRequestException("Bad input"), Status.Code.INVALID_ARGUMENT)
-        assertReadError(NotFoundException("Vote not found"), Status.Code.NOT_FOUND)
-        assertReadError(ConflictException("Vote is closed"), Status.Code.FAILED_PRECONDITION)
+        assertReadError(BadRequestException("Bad input", ErrorCode.VALIDATION_FAILED), Status.Code.INVALID_ARGUMENT)
+        assertReadError(NotFoundException("Vote not found", ErrorCode.VOTE_NOT_FOUND), Status.Code.NOT_FOUND)
+        assertReadError(ConflictException("Vote is closed", ErrorCode.VOTE_NOT_PENDING), Status.Code.FAILED_PRECONDITION)
     }
 
     @Test
@@ -455,7 +456,7 @@ class FateGrpcServiceTest {
         runBlocking {
             val voteId = UUID.randomUUID()
             every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-            every { voteService.draw(voteId, any()) } throws ForbiddenException("Only the creator can draw")
+            every { voteService.draw(voteId, any()) } throws ForbiddenException("Only the creator can draw", ErrorCode.VOTE_ACCESS_DENIED)
 
             val response = service.drawVote(drawRequest(voteId.toString()))
 
@@ -510,7 +511,7 @@ class FateGrpcServiceTest {
     fun `getLastDrawResult maps missing vote to NOT_FOUND`() {
         val voteId = UUID.randomUUID()
         every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-        every { voteService.getLastResult(voteId, any(), any()) } throws NotFoundException("Vote not found")
+        every { voteService.getLastResult(voteId, any(), any()) } throws NotFoundException("Vote not found", ErrorCode.VOTE_NOT_FOUND)
 
         val ex =
             assertThrows<StatusRuntimeException> {
@@ -525,7 +526,7 @@ class FateGrpcServiceTest {
     fun `getVoteHistory maps access denial to PERMISSION_DENIED`() {
         val voteId = UUID.randomUUID()
         every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-        every { voteService.getHistory(voteId, any(), any(), any()) } throws ForbiddenException("Access denied")
+        every { voteService.getHistory(voteId, any(), any(), any()) } throws ForbiddenException("Access denied", ErrorCode.VOTE_ACCESS_DENIED)
 
         val ex =
             assertThrows<StatusRuntimeException> {
@@ -676,7 +677,7 @@ class FateGrpcServiceTest {
             every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
             every { voteService.createVote(any(), any()) } throws
                 com.juncevich.fate.shared
-                    .BadRequestException("Invalid option title")
+                    .BadRequestException("Invalid option title", ErrorCode.VALIDATION_FAILED)
             val response =
                 service.createVote(
                     CreateVoteRequest

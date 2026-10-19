@@ -2,6 +2,7 @@ package com.juncevich.fate.auth.internal.service
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.storage.ObjectStorage
 import com.juncevich.fate.storage.StorageUnavailableException
@@ -66,13 +67,19 @@ class AvatarService(
 
     fun load(userId: UUID): Avatar {
         val updatedAt = findUser(userId).avatarUpdatedAt
-        if (updatedAt == null || !objectStorage.isEnabled) throw NotFoundException("Avatar not found")
-        val stored = objectStorage.get(avatarKey(userId)) ?: throw NotFoundException("Avatar not found")
+        if (updatedAt == null ||
+            !objectStorage.isEnabled
+        ) {
+            throw NotFoundException("Avatar not found", ErrorCode.AVATAR_NOT_FOUND)
+        }
+        val stored =
+            objectStorage.get(avatarKey(userId))
+                ?: throw NotFoundException("Avatar not found", ErrorCode.AVATAR_NOT_FOUND)
         return Avatar(stored.content, stored.contentType, updatedAt.toEpochMilli())
     }
 
     private fun findUser(userId: UUID): User =
-        userRepositoryPort.findById(userId) ?: throw NotFoundException("User not found")
+        userRepositoryPort.findById(userId) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
 
     private fun avatarKey(userId: UUID) = "avatars/$userId.png"
 

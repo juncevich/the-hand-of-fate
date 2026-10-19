@@ -36,13 +36,14 @@ const (
 // Identity: every telegram_id is the Telegram *user* id of the sender (always positive), never a
 // chat id — group chat ids are shared by all members and are rejected when linking.
 //
-// Error contract. Mutating RPCs report expected failures in `success` / `message`; every other
-// failure is a gRPC status:
+// Error contract. Mutating RPCs report expected failures in `success` / `message` / `error_code`;
+// every other failure is a gRPC status whose expected (non-INTERNAL) cases carry
+// google.rpc.ErrorInfo{domain: "fate.v1", reason: <ErrorCode name without the ERROR_CODE_ prefix>},
+// e.g. reason "TELEGRAM_NOT_LINKED" when the caller's Telegram account is not linked. `message` is
+// an English fallback: clients show their own wording per ErrorCode.
 //
 //	INVALID_ARGUMENT     malformed request (bad vote id, pagination, input validation)
-//	NOT_FOUND            the vote does not exist; when the caller's Telegram account is not linked,
-//	                     the status also carries google.rpc.ErrorInfo{domain: "fate.v1",
-//	                     reason: "TELEGRAM_NOT_LINKED"}
+//	NOT_FOUND            the vote does not exist, or the Telegram account is not linked
 //	PERMISSION_DENIED    the caller may not access the vote
 //	FAILED_PRECONDITION  the vote's state does not allow the action
 //	RESOURCE_EXHAUSTED   the user used up a quota (e.g. the notification email budget)
@@ -162,13 +163,14 @@ func (c *fateServiceClient) GetVoteHistory(ctx context.Context, in *GetVoteHisto
 // Identity: every telegram_id is the Telegram *user* id of the sender (always positive), never a
 // chat id — group chat ids are shared by all members and are rejected when linking.
 //
-// Error contract. Mutating RPCs report expected failures in `success` / `message`; every other
-// failure is a gRPC status:
+// Error contract. Mutating RPCs report expected failures in `success` / `message` / `error_code`;
+// every other failure is a gRPC status whose expected (non-INTERNAL) cases carry
+// google.rpc.ErrorInfo{domain: "fate.v1", reason: <ErrorCode name without the ERROR_CODE_ prefix>},
+// e.g. reason "TELEGRAM_NOT_LINKED" when the caller's Telegram account is not linked. `message` is
+// an English fallback: clients show their own wording per ErrorCode.
 //
 //	INVALID_ARGUMENT     malformed request (bad vote id, pagination, input validation)
-//	NOT_FOUND            the vote does not exist; when the caller's Telegram account is not linked,
-//	                     the status also carries google.rpc.ErrorInfo{domain: "fate.v1",
-//	                     reason: "TELEGRAM_NOT_LINKED"}
+//	NOT_FOUND            the vote does not exist, or the Telegram account is not linked
 //	PERMISSION_DENIED    the caller may not access the vote
 //	FAILED_PRECONDITION  the vote's state does not allow the action
 //	RESOURCE_EXHAUSTED   the user used up a quota (e.g. the notification email budget)

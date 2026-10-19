@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { useMutation } from '@tanstack/react-query'
-import axios from 'axios'
 import { authApi } from '@/api/auth'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { ResendVerification } from '@/components/auth/ResendVerification'
@@ -9,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toaster'
-import { extractErrorMessage } from '@/lib/errors'
+import { errorCode, extractErrorMessage, extractFieldErrors } from '@/lib/errors'
 
 type FieldErrors = Partial<Record<'email' | 'password' | 'displayName', string>>
 
@@ -25,9 +24,9 @@ export function RegisterPage() {
     // No session yet: the account signs in by following the mailed link.
     onSuccess: (data) => setRegisteredEmail(data.email),
     onError: (e: Error) => {
-      if (axios.isAxiosError(e) && e.response?.data?.errors) {
-        setFieldErrors(e.response.data.errors as FieldErrors)
-      }
+      setFieldErrors(
+        errorCode(e) === 'EMAIL_ALREADY_REGISTERED' ? { email: extractErrorMessage(e) } : (extractFieldErrors(e) as FieldErrors),
+      )
       toast('Ошибка регистрации', extractErrorMessage(e), 'error')
     },
   })

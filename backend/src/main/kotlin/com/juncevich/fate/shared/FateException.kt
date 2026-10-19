@@ -11,50 +11,49 @@ package com.juncevich.fate.shared
  * and is reported as an internal error without its message.
  */
 sealed class FateException(
+    /** English fallback text; clients show their own wording for [code]. */
     message: String,
-    /**
-     * Stable machine-readable reason (e.g. `EMAIL_NOT_VERIFIED`) for clients that must react to a
-     * specific failure or show their own wording; sent as the problem's `code` property.
-     */
-    val code: String? = null,
+    /** Machine-readable reason, sent as the problem's `code` / gRPC `ErrorInfo.reason`. */
+    val code: ErrorCode,
 ) : RuntimeException(message)
 
 /** 400 / INVALID_ARGUMENT — the request was malformed or failed a business validation rule. */
 open class BadRequestException(
     message: String,
-    code: String? = null,
+    code: ErrorCode,
 ) : FateException(message, code)
 
 /** 404 / NOT_FOUND — the requested resource does not exist. */
 open class NotFoundException(
     message: String,
-    code: String? = null,
+    code: ErrorCode,
 ) : FateException(message, code)
 
 /** 403 / PERMISSION_DENIED — the caller may not perform this action on the resource. */
 open class ForbiddenException(
     message: String,
-    code: String? = null,
+    code: ErrorCode,
 ) : FateException(message, code)
 
 /** 409 / FAILED_PRECONDITION — the resource is in a state that conflicts with the requested action. */
 open class ConflictException(
     message: String,
-    code: String? = null,
+    code: ErrorCode,
 ) : FateException(message, code)
 
 /** 429 / RESOURCE_EXHAUSTED — the caller used up a quota; retrying later may succeed. */
 open class TooManyRequestsException(
     message: String,
-    code: String? = null,
+    code: ErrorCode,
 ) : FateException(message, code)
 
 /** Domain counterpart of `require`: throws [BadRequestException] when [condition] is false. */
 inline fun ensureValid(
     condition: Boolean,
+    code: ErrorCode,
     message: () -> String,
 ) {
-    if (!condition) throw BadRequestException(message())
+    if (!condition) throw BadRequestException(message(), code)
 }
 
 /**
@@ -63,7 +62,8 @@ inline fun ensureValid(
  */
 inline fun ensureState(
     condition: Boolean,
+    code: ErrorCode,
     message: () -> String,
 ) {
-    if (!condition) throw ConflictException(message())
+    if (!condition) throw ConflictException(message(), code)
 }

@@ -9,6 +9,7 @@ import com.juncevich.fate.auth.internal.service.LoginThrottle
 import com.juncevich.fate.auth.internal.service.LoginThrottledException
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
 import io.mockk.*
 import org.junit.jupiter.api.Assertions.*
@@ -98,7 +99,7 @@ class AuthServiceTest {
         assertThrows<BadCredentialsException> { authService.login("user@test.com", "wrong") }
         val ex = assertThrows<ForbiddenException> { authService.login("user@test.com", "correctPass") }
 
-        assertEquals("EMAIL_NOT_VERIFIED", ex.code)
+        assertEquals(ErrorCode.EMAIL_NOT_VERIFIED, ex.code)
         verify(exactly = 0) { refreshTokenRepositoryPort.save(any()) }
     }
 

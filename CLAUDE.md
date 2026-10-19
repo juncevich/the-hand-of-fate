@@ -14,6 +14,7 @@ frontend/    React 19 + TypeScript 7 + Vite 8 + Tailwind CSS 4 + shadcn/ui
 bot/         Go 1.27.1 Telegram bot, gRPC client to backend
 perf/        Gatling 3.13.5 + Kotlin load/smoke tests
 simulation/  Go 1.27.1 user-behaviour simulator (functional end-to-end flows)
+e2e/         Playwright browser tests against a running stack (minikube gateway by default)
 proto/       Shared protobuf definitions (proto/fate/v1/fate.proto)
 api/         REST contract api/openapi.yaml (generated from the backend controllers, committed)
 infra/
@@ -21,7 +22,7 @@ infra/
   monitoring/ OTel Collector, Loki, Mimir, Grafana provisioning
   k8s/       Kubernetes manifests: base/ (apps) + overlays/local (minikube; no prod environment planned)
 .github/
-  workflows/ backend.yml + frontend.yml + bot.yml + perf.yml + simulation.yml + api.yml + k8s.yml + deploy-*.yml + server-setup.yml
+  workflows/ backend.yml + frontend.yml + bot.yml + perf.yml + simulation.yml + api.yml + k8s.yml + e2e.yml + deploy-*.yml + server-setup.yml
 ```
 
 ## Common Commands
@@ -158,6 +159,17 @@ go build -o fate-sim ./cmd/simulate            # build binary
 - Scenarios: `session` (auth lifecycle), `simple` (options-based vote), `fair` (FAIR_ROTATION + round tracking), `options` (dynamic option add/remove)
 - Each run registers fresh random users and confirms them by reading the verification email from Mailpit's API (`internal/mailbox`); no fixtures or seed data required
 - Exits with code 1 and prints `FAIL <scenario>: <error>` on the first failure
+
+### Browser tests (Playwright)
+```bash
+make e2e-web                                   # npm ci + chromium + playwright test, against the minikube gateway
+cd e2e && npx playwright test tests/votes.spec.ts   # one spec
+E2E_BASE_URL=http://localhost:3000 E2E_MAILPIT_URL=http://localhost:8025 make e2e-web   # against dev-start.sh
+```
+- Against `dev-start.sh` the backend keeps the default per-IP auth limit (10/min, page loads' `/auth/refresh` included), so a full run hits 429 on registration — run one spec at a time there, or use the minikube e2e overlay
+- Nothing is started by the tests: deploy first (`K8S_OVERLAY=e2e ./k8s-start.sh` — its overlay raises the backend's and the gateway's per-IP auth rate limits; `overlays/e2e/prepare.sh` writes the gateway config to `.e2e-build/nginx.conf`)
+- Specs in `e2e/tests/` (`auth`, `account`, `votes`); `e2e/support/` registers fresh users and follows the mailed links via Mailpit. One worker — the tests share the stack's rate limits and mailbox
+- `npm run typecheck` (TS 6 alias, like the frontend's ESLint side); failure traces/screenshots land in `e2e/test-results/`
 
 ### Performance Tests (Gatling)
 ```bash
@@ -301,10 +313,10 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 - **FateGrpcService**: gRPC server implementation; uses `runCatching` + `StatusRuntimeException` for error mapping; maps `VoteOptionInfo` proto messages for options
 
 ### Error Handling
-- Client-facing errors extend the sealed `shared.FateException` via one of five open categories: `BadRequestException` (400 / `INVALID_ARGUMENT`), `NotFoundException` (404 / `NOT_FOUND`), `ForbiddenException` (403 / `PERMISSION_DENIED`), `ConflictException` (409 / `FAILED_PRECONDITION`), `TooManyRequestsException` (429 / `RESOURCE_EXHAUSTED`, a used-up quota). Their message is shown to the caller. An optional `code` (constructor parameter) is a stable machine-readable reason sent as the problem's `code` property (e.g. `EMAIL_NOT_VERIFIED`, `WRONG_PASSWORD`, `INVALID_TOKEN`, `TOKEN_EXPIRED`) for clients that must react to a specific failure
+- Client-facing errors extend the sealed `shared.FateException` via one of five open categories: `BadRequestException` (400 / `INVALID_ARGUMENT`), `NotFoundException` (404 / `NOT_FOUND`), `ForbiddenException` (403 / `PERMISSION_DENIED`), `ConflictException` (409 / `FAILED_PRECONDITION`), `TooManyRequestsException` (429 / `RESOURCE_EXHAUSTED`, a used-up quota). Every one takes a mandatory `shared.ErrorCode` — the stable machine-readable reason, sent as the REST problem's `code` (`problem()` in `shared/Problems.kt` builds every error body) and as gRPC `ErrorInfo.reason` / the `error_code` of mutating responses. The message is only an English fallback: the frontend (`src/lib/errorMessages.ts`, a `Record` over the generated `ErrorCode` union — a new code fails the build) and the bot (`errorTexts` in `bot/internal/handler/errors.go`, `TestEveryErrorCodeHasAText`) show their own Russian text per code. Never rename or reuse a code; add it to `ErrorCode.kt` and the proto `ErrorCode` enum (`ERROR_CODE_` + name, next number) together — `ErrorMappingContractTest` checks they mirror each other. `ErrorCodesIntegrationTest` covers the codes end to end
 - Mapping lives in exactly two places: `ErrorHandler` (REST) and `grpc/GrpcErrors.kt` (`grpcRead {}` / `grpcMutation {}`); `ErrorMappingContractTest` fails if a category is added without mapping it on both sides
 - `ErrorHandler` extends `ResponseEntityExceptionHandler`, so Spring MVC errors (malformed JSON, bad path UUID, 405, unknown route) keep their 4xx status; bean-validation errors go through the `handleMethodArgumentNotValid` override (never add an `@ExceptionHandler` for an exception the base class already handles — startup fails on the ambiguous mapping)
-- gRPC error contract is documented atop `proto/fate/v1/fate.proto`. An unlinked Telegram account is `NOT_FOUND` + `google.rpc.ErrorInfo{domain: "fate.v1", reason: "TELEGRAM_NOT_LINKED"}`; the bot (`isTelegramNotLinked`) uses it to tell that apart from a missing vote
+- gRPC error contract is documented atop `proto/fate/v1/fate.proto`. Every expected status error carries `google.rpc.ErrorInfo{domain: "fate.v1", reason: <ErrorCode name>}` (e.g. `TELEGRAM_NOT_LINKED` with `NOT_FOUND`, which the bot tells apart from a missing vote)
 - For business rules use `ensureValid(...)` / `ensureState(...)` and `throw NotFoundException(...)` — not `require`/`check`/`NoSuchElementException`. Stdlib exceptions are reserved for internal invariants and surface as 500 / `INTERNAL` without their message
 
 ### gRPC (Backend ↔ Bot)
@@ -436,6 +448,7 @@ Each project has its own workflow file, triggered on PR and push to `main` via p
 - `perf.yml`: `perf-check` — spotless + detekt + `compileGatlingKotlin`. Lint/compile only; `gatlingRun` is a load test against a live backend and is run manually, not gated in CI.
 - `simulation.yml`: `simulation-test` — generated-models check + gofmt + go vet + staticcheck + go test + build. The scenarios themselves (`go run ./cmd/simulate`) need a running backend and are not run in CI.
 - `api.yml`: `api-check` on changes to `api/**` — Redocly lint of `api/openapi.yaml` and, on PRs, `oasdiff breaking` against the base branch (the REST analogue of `buf breaking`).
+- `e2e.yml`: the whole stack on a throwaway minikube cluster (`K8S_OVERLAY=e2e ./k8s-start.sh`), then `infra/k8s/e2e.sh` (gateway smoke, every simulation scenario, mail delivery, metrics/logs in Mimir/Loki — also `make k8s-e2e`) and the Playwright tests in `e2e/`; uploads `playwright-report` on failure. The bot is not deployed.
 - `k8s.yml`: `k8s-check` on changes to `infra/k8s/**`, `infra/nginx/**`, `infra/monitoring/**`, `docker-compose*.yml`, `k8s-*.sh` — runs `infra/k8s/check.sh` (also `make k8s-check`, needs Go + Docker, no cluster): renders every overlay (kustomize v5.8.2), `kubeconform -strict`, validates the OTel Collector (compose config and the k8s merge), Loki, Tempo and gateway nginx configs with the image versions the manifests pin, checks the Grafana dashboard JSON, requires every third-party image shared by `docker-compose*.yml` and the manifests to use the same tag (bump both together), and runs shellcheck on the k8s scripts.
 - `frontend.yml` also runs `npm run check:api`; backend, frontend and simulation workflows all trigger on `api/openapi.yaml`.
 

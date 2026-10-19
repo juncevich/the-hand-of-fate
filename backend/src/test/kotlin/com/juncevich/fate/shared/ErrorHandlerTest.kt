@@ -22,7 +22,7 @@ class ErrorHandlerTest {
 
     @Test
     fun `handleDomain - returns 400 with message as title for BadRequestException`() {
-        val response = handler.handleDomain(BadRequestException("Invalid email address: nope"))
+        val response = handler.handleDomain(BadRequestException("Invalid email address: nope", ErrorCode.VALIDATION_FAILED))
 
         assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
         assertEquals("Invalid email address: nope", response.body?.title)
@@ -30,7 +30,7 @@ class ErrorHandlerTest {
 
     @Test
     fun `handleDomain - returns 404 for NotFoundException`() {
-        val response = handler.handleDomain(NotFoundException("Vote not found"))
+        val response = handler.handleDomain(NotFoundException("Vote not found", ErrorCode.VOTE_NOT_FOUND))
 
         assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
         assertEquals("Vote not found", response.body?.title)
@@ -38,7 +38,7 @@ class ErrorHandlerTest {
 
     @Test
     fun `handleDomain - returns 409 for ConflictException`() {
-        val response = handler.handleDomain(ConflictException("Vote is already closed"))
+        val response = handler.handleDomain(ConflictException("Vote is already closed", ErrorCode.VOTE_NOT_PENDING))
 
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
         assertEquals("Vote is already closed", response.body?.title)
@@ -46,7 +46,7 @@ class ErrorHandlerTest {
 
     @Test
     fun `handleDomain - returns 403 for ForbiddenException`() {
-        val response = handler.handleDomain(ForbiddenException("Only the creator can perform this action"))
+        val response = handler.handleDomain(ForbiddenException("Only the creator can perform this action", ErrorCode.VOTE_ACCESS_DENIED))
 
         assertEquals(HttpStatus.FORBIDDEN, response.statusCode)
         assertEquals("Only the creator can perform this action", response.body?.title)

@@ -8,7 +8,9 @@ import com.juncevich.fate.auth.internal.service.AuthTokens
 import com.juncevich.fate.auth.internal.service.LoginThrottledException
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.OpenApiDocs
+import com.juncevich.fate.shared.problem
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType
@@ -133,7 +135,7 @@ class AuthController(
     ): ResponseEntity<AuthResponse> {
         val refreshToken =
             request.refreshTokenOrCookie(servletRequest)
-                ?: throw BadRequestException("Refresh token is required")
+                ?: throw BadRequestException("Refresh token is required", ErrorCode.REFRESH_TOKEN_REQUIRED)
         return session(authService.refresh(refreshToken))
     }
 
@@ -175,9 +177,11 @@ class AuthController(
             .status(HttpStatus.TOO_MANY_REQUESTS)
             .header(HttpHeaders.RETRY_AFTER, ex.retryAfterSeconds.toString())
             .body(
-                ProblemDetail.forStatus(HttpStatus.TOO_MANY_REQUESTS).apply {
-                    title = "Too many failed login attempts, please try again later"
-                }
+                problem(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Too many failed login attempts, please try again later",
+                    ErrorCode.LOGIN_THROTTLED
+                )
             )
 
     @PostMapping("/delete-account")

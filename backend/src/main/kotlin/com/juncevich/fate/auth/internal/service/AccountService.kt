@@ -11,6 +11,7 @@ import com.juncevich.fate.notification.EmailVerificationPayload
 import com.juncevich.fate.notification.NotificationOutbox
 import com.juncevich.fate.notification.PasswordResetPayload
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.shared.canonicalEmail
 import com.juncevich.fate.shared.ensureState
@@ -59,7 +60,10 @@ class AccountService(
         displayName: String,
     ): RegistrationResult {
         val normalizedEmail = normalizeEmail(email)
-        ensureState(!users.existsByEmail(normalizedEmail)) { "Email already registered" }
+        ensureState(
+            !users.existsByEmail(normalizedEmail),
+            ErrorCode.EMAIL_ALREADY_REGISTERED
+        ) { "Email already registered" }
         val user =
             users.save(
                 User(
@@ -118,7 +122,7 @@ class AccountService(
         currentPassword: String,
         newPassword: String,
     ): AuthTokens {
-        val user = users.findById(userId) ?: throw NotFoundException("User not found")
+        val user = users.findById(userId) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
         passwordConfirmation.require(user, currentPassword)
         user.passwordHash = encode(newPassword)
         users.save(user)
@@ -154,9 +158,9 @@ class AccountService(
     ): User {
         val token =
             emailTokens.findByTokenHash(hash(rawToken), purpose)
-                ?: throw BadRequestException("This link is invalid or has already been used", code = "INVALID_TOKEN")
+                ?: throw BadRequestException("This link is invalid or has already been used", ErrorCode.INVALID_TOKEN)
         emailTokens.delete(token)
-        if (token.isExpired) throw BadRequestException("This link has expired", code = "TOKEN_EXPIRED")
+        if (token.isExpired) throw BadRequestException("This link has expired", ErrorCode.TOKEN_EXPIRED)
         return token.user
     }
 

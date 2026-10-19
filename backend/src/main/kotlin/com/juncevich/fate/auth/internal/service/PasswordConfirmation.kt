@@ -2,6 +2,7 @@ package com.juncevich.fate.auth.internal.service
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ErrorCode
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 
@@ -20,7 +21,7 @@ class PasswordConfirmation(
         if (!passwordEncoder.matches(password, user.passwordHash)) {
             loginThrottle.recordFailure(user.email)
             // Not 401: the caller is authenticated, and the SPA treats 401 as an expired session.
-            throw BadRequestException("Current password is incorrect", code = "WRONG_PASSWORD")
+            throw BadRequestException("Current password is incorrect", ErrorCode.WRONG_PASSWORD)
         }
     }
 }

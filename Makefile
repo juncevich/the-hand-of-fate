@@ -1,5 +1,5 @@
 .PHONY: proto proto-bot proto-backend install-proto-tools openapi openapi-spec openapi-clients dev dev-local infra infra-down \
-        k8s-up k8s-down k8s-delete k8s-status k8s-dev k8s-dev-down k8s-check k8s-e2e
+        k8s-up k8s-down k8s-delete k8s-status k8s-dev k8s-dev-down k8s-check k8s-e2e e2e-web
 
 proto: proto-bot proto-backend
 
@@ -67,3 +67,8 @@ k8s-check:
 # deploy with the e2e overlay first: K8S_OVERLAY=e2e ./k8s-start.sh
 k8s-e2e:
 	./infra/k8s/e2e.sh
+
+# Browser tests (e2e/, Playwright) against a running stack; defaults to the minikube gateway.
+# Locally against dev-start.sh (default auth rate limit: one spec at a time): E2E_BASE_URL=http://localhost:3000 E2E_MAILPIT_URL=http://localhost:8025
+e2e-web:
+	cd e2e && npm ci && npx playwright install chromium && npx playwright test

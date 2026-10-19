@@ -5,6 +5,7 @@ import com.juncevich.fate.auth.internal.service.Avatar
 import com.juncevich.fate.auth.internal.service.AvatarService
 import com.juncevich.fate.auth.internal.service.InvalidAvatarException
 import com.juncevich.fate.auth.internal.web.AvatarController
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.shared.internal.config.ErrorHandler
 import com.juncevich.fate.storage.StorageUnavailableException
@@ -144,7 +145,7 @@ class AvatarControllerTest {
 
     @Test
     fun `GET avatar - missing avatar is a 404`() {
-        every { avatarService.load(userId) } throws NotFoundException("Avatar not found")
+        every { avatarService.load(userId) } throws NotFoundException("Avatar not found", ErrorCode.VOTE_NOT_FOUND)
 
         mockMvc.get("/api/v1/users/$userId/avatar").andExpect {
             status { isNotFound() }

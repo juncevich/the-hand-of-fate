@@ -6,6 +6,7 @@ import com.juncevich.fate.auth.toProfile
 import com.juncevich.fate.notification.EmailBudget
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.shared.TooManyRequestsException
@@ -113,7 +114,7 @@ class VoteServiceTest {
     fun `createVote - over the email budget - saves nothing and sends no invitations`() {
         val creator = makeUser()
         every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
-        every { emailBudget.reserveOrThrow(creator.id, 2) } throws TooManyRequestsException("Email limit reached")
+        every { emailBudget.reserveOrThrow(creator.id, 2) } throws TooManyRequestsException("Email limit reached", ErrorCode.EMAIL_LIMIT_REACHED)
 
         assertThrows<TooManyRequestsException> {
             voteService.createVote(
@@ -314,7 +315,7 @@ class VoteServiceTest {
         every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, "new@test.com") } returns false
         every { participantRepositoryPort.countByVoteIds(listOf(vote.id)) } returns
             listOf(ParticipantCount(vote.id, 1))
-        every { emailBudget.reserveOrThrow(creator.id, 1) } throws TooManyRequestsException("Email limit reached")
+        every { emailBudget.reserveOrThrow(creator.id, 1) } throws TooManyRequestsException("Email limit reached", ErrorCode.EMAIL_LIMIT_REACHED)
 
         assertThrows<TooManyRequestsException> { voteService.addParticipant(vote.id, creator.id, "new@test.com") }
 

@@ -50,7 +50,7 @@ export function Topbar() {
           <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} aria-label="Settings">
             <Settings className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
+          <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Выйти">
             <LogOut className="w-4 h-4" />
           </Button>
         </div>

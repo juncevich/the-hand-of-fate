@@ -69,7 +69,7 @@ class RateLimitFilter(
         response.setHeader("Retry-After", properties.windowSeconds.toString())
         response.contentType = MediaType.APPLICATION_PROBLEM_JSON_VALUE
         response.writer.write(
-            """{"title":"Too many requests, please try again later","status":429}"""
+            """{"title":"Too many requests, please try again later","status":429,"code":"RATE_LIMITED"}"""
         )
     }
 

@@ -25,6 +25,150 @@ func (e DrawTarget) Valid() bool {
 	}
 }
 
+// Defines values for ErrorCode.
+const (
+	ErrorCodeALREADYEXISTS            ErrorCode = "ALREADY_EXISTS"
+	ErrorCodeAVATARINVALID            ErrorCode = "AVATAR_INVALID"
+	ErrorCodeAVATARNOTFOUND           ErrorCode = "AVATAR_NOT_FOUND"
+	ErrorCodeCONCURRENTMODIFICATION   ErrorCode = "CONCURRENT_MODIFICATION"
+	ErrorCodeDESCRIPTIONTOOLONG       ErrorCode = "DESCRIPTION_TOO_LONG"
+	ErrorCodeEMAILALREADYREGISTERED   ErrorCode = "EMAIL_ALREADY_REGISTERED"
+	ErrorCodeEMAILLIMITREACHED        ErrorCode = "EMAIL_LIMIT_REACHED"
+	ErrorCodeEMAILNOTVERIFIED         ErrorCode = "EMAIL_NOT_VERIFIED"
+	ErrorCodeINTERNALERROR            ErrorCode = "INTERNAL_ERROR"
+	ErrorCodeINVALIDCREDENTIALS       ErrorCode = "INVALID_CREDENTIALS"
+	ErrorCodeINVALIDEMAIL             ErrorCode = "INVALID_EMAIL"
+	ErrorCodeINVALIDTOKEN             ErrorCode = "INVALID_TOKEN"
+	ErrorCodeLOGINTHROTTLED           ErrorCode = "LOGIN_THROTTLED"
+	ErrorCodeNOOPTIONS                ErrorCode = "NO_OPTIONS"
+	ErrorCodeNOPARTICIPANTS           ErrorCode = "NO_PARTICIPANTS"
+	ErrorCodeNOTVOTECREATOR           ErrorCode = "NOT_VOTE_CREATOR"
+	ErrorCodeOPTIONORDERINVALID       ErrorCode = "OPTION_ORDER_INVALID"
+	ErrorCodeOPTIONSNOTALLOWED        ErrorCode = "OPTIONS_NOT_ALLOWED"
+	ErrorCodePAGEINVALID              ErrorCode = "PAGE_INVALID"
+	ErrorCodePARTICIPANTEXISTS        ErrorCode = "PARTICIPANT_EXISTS"
+	ErrorCodePAYLOADTOOLARGE          ErrorCode = "PAYLOAD_TOO_LARGE"
+	ErrorCodeRATELIMITED              ErrorCode = "RATE_LIMITED"
+	ErrorCodeREFRESHTOKENREQUIRED     ErrorCode = "REFRESH_TOKEN_REQUIRED"
+	ErrorCodeREQUESTINVALID           ErrorCode = "REQUEST_INVALID"
+	ErrorCodeSTORAGEUNAVAILABLE       ErrorCode = "STORAGE_UNAVAILABLE"
+	ErrorCodeTELEGRAMALREADYLINKED    ErrorCode = "TELEGRAM_ALREADY_LINKED"
+	ErrorCodeTELEGRAMLINKTOKENEXPIRED ErrorCode = "TELEGRAM_LINK_TOKEN_EXPIRED"
+	ErrorCodeTELEGRAMLINKTOKENINVALID ErrorCode = "TELEGRAM_LINK_TOKEN_INVALID"
+	ErrorCodeTELEGRAMNOTLINKED        ErrorCode = "TELEGRAM_NOT_LINKED"
+	ErrorCodeTELEGRAMPRIVATECHATONLY  ErrorCode = "TELEGRAM_PRIVATE_CHAT_ONLY"
+	ErrorCodeTITLEINVALID             ErrorCode = "TITLE_INVALID"
+	ErrorCodeTOKENEXPIRED             ErrorCode = "TOKEN_EXPIRED"
+	ErrorCodeTOOMANYOPTIONS           ErrorCode = "TOO_MANY_OPTIONS"
+	ErrorCodeTOOMANYPARTICIPANTS      ErrorCode = "TOO_MANY_PARTICIPANTS"
+	ErrorCodeUNAUTHORIZED             ErrorCode = "UNAUTHORIZED"
+	ErrorCodeUSERNOTFOUND             ErrorCode = "USER_NOT_FOUND"
+	ErrorCodeVALIDATIONFAILED         ErrorCode = "VALIDATION_FAILED"
+	ErrorCodeVOTEACCESSDENIED         ErrorCode = "VOTE_ACCESS_DENIED"
+	ErrorCodeVOTEALREADYCLOSED        ErrorCode = "VOTE_ALREADY_CLOSED"
+	ErrorCodeVOTEIDINVALID            ErrorCode = "VOTE_ID_INVALID"
+	ErrorCodeVOTENOTDRAWN             ErrorCode = "VOTE_NOT_DRAWN"
+	ErrorCodeVOTENOTFOUND             ErrorCode = "VOTE_NOT_FOUND"
+	ErrorCodeVOTENOTPENDING           ErrorCode = "VOTE_NOT_PENDING"
+	ErrorCodeWRONGPASSWORD            ErrorCode = "WRONG_PASSWORD"
+)
+
+// Valid indicates whether the value is a known member of the ErrorCode enum.
+func (e ErrorCode) Valid() bool {
+	switch e {
+	case ErrorCodeALREADYEXISTS:
+		return true
+	case ErrorCodeAVATARINVALID:
+		return true
+	case ErrorCodeAVATARNOTFOUND:
+		return true
+	case ErrorCodeCONCURRENTMODIFICATION:
+		return true
+	case ErrorCodeDESCRIPTIONTOOLONG:
+		return true
+	case ErrorCodeEMAILALREADYREGISTERED:
+		return true
+	case ErrorCodeEMAILLIMITREACHED:
+		return true
+	case ErrorCodeEMAILNOTVERIFIED:
+		return true
+	case ErrorCodeINTERNALERROR:
+		return true
+	case ErrorCodeINVALIDCREDENTIALS:
+		return true
+	case ErrorCodeINVALIDEMAIL:
+		return true
+	case ErrorCodeINVALIDTOKEN:
+		return true
+	case ErrorCodeLOGINTHROTTLED:
+		return true
+	case ErrorCodeNOOPTIONS:
+		return true
+	case ErrorCodeNOPARTICIPANTS:
+		return true
+	case ErrorCodeNOTVOTECREATOR:
+		return true
+	case ErrorCodeOPTIONORDERINVALID:
+		return true
+	case ErrorCodeOPTIONSNOTALLOWED:
+		return true
+	case ErrorCodePAGEINVALID:
+		return true
+	case ErrorCodePARTICIPANTEXISTS:
+		return true
+	case ErrorCodePAYLOADTOOLARGE:
+		return true
+	case ErrorCodeRATELIMITED:
+		return true
+	case ErrorCodeREFRESHTOKENREQUIRED:
+		return true
+	case ErrorCodeREQUESTINVALID:
+		return true
+	case ErrorCodeSTORAGEUNAVAILABLE:
+		return true
+	case ErrorCodeTELEGRAMALREADYLINKED:
+		return true
+	case ErrorCodeTELEGRAMLINKTOKENEXPIRED:
+		return true
+	case ErrorCodeTELEGRAMLINKTOKENINVALID:
+		return true
+	case ErrorCodeTELEGRAMNOTLINKED:
+		return true
+	case ErrorCodeTELEGRAMPRIVATECHATONLY:
+		return true
+	case ErrorCodeTITLEINVALID:
+		return true
+	case ErrorCodeTOKENEXPIRED:
+		return true
+	case ErrorCodeTOOMANYOPTIONS:
+		return true
+	case ErrorCodeTOOMANYPARTICIPANTS:
+		return true
+	case ErrorCodeUNAUTHORIZED:
+		return true
+	case ErrorCodeUSERNOTFOUND:
+		return true
+	case ErrorCodeVALIDATIONFAILED:
+		return true
+	case ErrorCodeVOTEACCESSDENIED:
+		return true
+	case ErrorCodeVOTEALREADYCLOSED:
+		return true
+	case ErrorCodeVOTEIDINVALID:
+		return true
+	case ErrorCodeVOTENOTDRAWN:
+		return true
+	case ErrorCodeVOTENOTFOUND:
+		return true
+	case ErrorCodeVOTENOTPENDING:
+		return true
+	case ErrorCodeWRONGPASSWORD:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for VoteMode.
 const (
 	VoteModeFAIRROTATION VoteMode = "FAIR_ROTATION"
@@ -136,6 +280,9 @@ type EmailRequest struct {
 	Email string `json:"email"`
 }
 
+// ErrorCode Machine-readable reason of the error. Clients show their own wording per value; `title` is an English fallback.
+type ErrorCode string
+
 // LinkTokenResponse defines model for LinkTokenResponse.
 type LinkTokenResponse struct {
 	ExpiresAt time.Time `json:"expiresAt"`
@@ -174,15 +321,18 @@ type ParticipantDto struct {
 
 // ProblemDetail RFC 9457 problem detail
 type ProblemDetail struct {
-	// Code Stable machine-readable reason, present on some failures (e.g. EMAIL_NOT_VERIFIED)
-	Code   *string `json:"code,omitempty"`
-	Detail *string `json:"detail,omitempty"`
+	// Code Machine-readable reason of the error. Clients show their own wording per value; `title` is an English fallback.
+	Code   ErrorCode `json:"code"`
+	Detail *string   `json:"detail,omitempty"`
 
 	// Errors Field name to message, present on validation failures
-	Errors    map[string]string `json:"errors,omitempty"`
-	Instance  *string           `json:"instance,omitempty"`
-	Status    int               `json:"status"`
-	Timestamp *time.Time        `json:"timestamp,omitempty"`
+	Errors map[string]string `json:"errors,omitempty"`
+
+	// FieldErrors Field name to the violated constraint (Email, NotBlank, Size, ...), on validation failures
+	FieldErrors map[string]string `json:"fieldErrors,omitempty"`
+	Instance    *string           `json:"instance,omitempty"`
+	Status      int               `json:"status"`
+	Timestamp   *time.Time        `json:"timestamp,omitempty"`
 
 	// Title Human-readable message to show to the user
 	Title string  `json:"title"`

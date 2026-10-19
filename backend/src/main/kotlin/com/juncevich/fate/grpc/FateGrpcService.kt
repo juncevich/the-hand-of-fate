@@ -12,6 +12,7 @@ import org.springframework.grpc.server.service.GrpcService
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.Executors
+import com.juncevich.fate.shared.ErrorCode as DomainErrorCode
 import com.juncevich.fate.vote.DrawTarget as DomainDrawTarget
 import com.juncevich.fate.vote.VoteMode as DomainVoteMode
 import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
@@ -37,11 +38,12 @@ class FateGrpcService(
 ) : FateServiceGrpcKt.FateServiceCoroutineImplBase(dispatcher) {
     override suspend fun linkTelegramAccount(request: LinkTelegramAccountRequest): LinkTelegramAccountResponse =
         grpcMutation(
-            failure = {
+            failure = { message, code ->
                 LinkTelegramAccountResponse
                     .newBuilder()
                     .setSuccess(false)
-                    .setMessage(it)
+                    .setMessage(message)
+                    .setErrorCode(code)
                     .build()
             }
         ) {
@@ -61,11 +63,12 @@ class FateGrpcService(
 
     override suspend fun unlinkTelegramAccount(request: UnlinkTelegramAccountRequest): UnlinkTelegramAccountResponse =
         grpcMutation(
-            failure = {
+            failure = { message, code ->
                 UnlinkTelegramAccountResponse
                     .newBuilder()
                     .setSuccess(false)
-                    .setMessage(it)
+                    .setMessage(message)
+                    .setErrorCode(code)
                     .build()
             }
         ) {
@@ -113,18 +116,19 @@ class FateGrpcService(
         val user = linkedUser(request.telegramId)
         val title = request.title.trim()
         if (title.isBlank()) {
-            throw StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription("Vote title is required"))
+            throw GrpcErrors.invalidArgument(DomainErrorCode.TITLE_INVALID, "Vote title is required")
         }
         val mode = request.mode.toDomain()
         val participantEmails = request.participantEmailsList
         val options = request.optionsList
 
         return grpcMutation(
-            failure = {
+            failure = { message, code ->
                 CreateVoteResponse
                     .newBuilder()
                     .setSuccess(false)
-                    .setMessage(it)
+                    .setMessage(message)
+                    .setErrorCode(code)
                     .build()
             }
         ) {
@@ -165,11 +169,12 @@ class FateGrpcService(
         val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
         return grpcMutation(
-            failure = {
+            failure = { message, code ->
                 DrawVoteResponse
                     .newBuilder()
                     .setSuccess(false)
-                    .setMessage(it)
+                    .setMessage(message)
+                    .setErrorCode(code)
                     .build()
             }
         ) {
@@ -225,7 +230,7 @@ class FateGrpcService(
     private fun historyPage(request: GetVoteHistoryRequest): PageRequest {
         val size = if (request.pageSize == 0) 20 else request.pageSize
         if (request.page < 0 || size !in 1..100) {
-            throw StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription("Invalid history pagination"))
+            throw GrpcErrors.invalidArgument(DomainErrorCode.PAGE_INVALID, "Invalid history pagination")
         }
         return PageRequest.of(request.page, size)
     }
@@ -282,7 +287,7 @@ class FateGrpcService(
 
     private fun parseVoteId(value: String): UUID =
         runCatching { UUID.fromString(value) }
-            .getOrElse { throw StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription("Invalid vote id")) }
+            .getOrElse { throw GrpcErrors.invalidArgument(DomainErrorCode.VOTE_ID_INVALID, "Invalid vote id") }
 
     // ── Proto enum conversions ──────────────────────────────────────────────
 

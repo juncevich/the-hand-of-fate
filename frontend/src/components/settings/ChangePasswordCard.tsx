@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toaster'
-import { errorCode, onMutationError } from '@/lib/errors'
+import { onMutationError } from '@/lib/errors'
 
 const MIN_PASSWORD = 8
 
@@ -25,10 +25,7 @@ export function ChangePasswordCard() {
       setNext('')
       toast('Пароль изменён', 'На других устройствах нужно будет войти заново')
     },
-    onError: (e) => {
-      if (errorCode(e) === 'WRONG_PASSWORD') toast('Неверный текущий пароль', undefined, 'error')
-      else onMutationError(e)
-    },
+    onError: onMutationError,
   })
 
   return (

@@ -6,6 +6,7 @@ import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.token.JwtTokenProvider
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.canonicalEmail
 import com.juncevich.fate.shared.uuidV7
@@ -59,7 +60,7 @@ class AuthService(
         if (user.emailVerifiedAt == null) {
             throw ForbiddenException(
                 "Confirm your email address first — we sent you a link",
-                code = "EMAIL_NOT_VERIFIED"
+                ErrorCode.EMAIL_NOT_VERIFIED
             )
         }
         return issueTokens(user)

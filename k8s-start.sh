@@ -116,6 +116,8 @@ fi
 existing=" $(kc get deployments -o name 2>/dev/null | tr '\n' ' ') "
 
 echo "==> Applying infra/k8s/overlays/$OVERLAY_NAME..."
+# An overlay may generate files its kustomization reads (e.g. e2e's gateway config).
+if [[ -x "$OVERLAY/prepare.sh" ]]; then "$OVERLAY/prepare.sh"; fi
 kubectl kustomize --load-restrictor LoadRestrictionsNone "$OVERLAY" \
   | kubectl --context "$PROFILE" apply -f -
 

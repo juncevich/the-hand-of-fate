@@ -15,9 +15,6 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	fatev1 "github.com/juncevich/the-hand-of-fate/bot/gen/fate/v1"
 	"go.uber.org/zap"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // Messages are sent with ParseMode HTML: every value that comes from users (titles, names,
@@ -247,7 +244,7 @@ func (h *Handler) handleLink(ctx context.Context, msg *tgbotapi.Message, token s
 	if resp.Success {
 		h.send(msg.Chat.ID, fmt.Sprintf("✅ Аккаунт привязан!\n\nДобро пожаловать, <b>%s</b>!", esc(resp.DisplayName)), true)
 	} else {
-		h.send(msg.Chat.ID, fmt.Sprintf("❌ %s", resp.Message), false)
+		h.send(msg.Chat.ID, failureText(resp.ErrorCode, resp.Message), false)
 	}
 }
 
@@ -348,7 +345,7 @@ func (h *Handler) handleNewVote(ctx context.Context, msg *tgbotapi.Message, args
 		return
 	}
 	if !resp.Success {
-		h.send(msg.Chat.ID, fmt.Sprintf("❌ %s", resp.Message), false)
+		h.send(msg.Chat.ID, failureText(resp.ErrorCode, resp.Message), false)
 		return
 	}
 
@@ -443,7 +440,7 @@ func (h *Handler) handleDraw(ctx context.Context, msg *tgbotapi.Message, voteID 
 	}
 
 	if !resp.Success {
-		h.send(msg.Chat.ID, fmt.Sprintf("❌ %s", resp.Message), false)
+		h.send(msg.Chat.ID, failureText(resp.ErrorCode, resp.Message), false)
 		return
 	}
 
@@ -561,7 +558,7 @@ func (h *Handler) handleUnlink(ctx context.Context, msg *tgbotapi.Message) {
 	if resp.Success {
 		h.send(msg.Chat.ID, "✅ Telegram аккаунт отвязан.", false)
 	} else {
-		h.send(msg.Chat.ID, fmt.Sprintf("❌ %s", resp.Message), false)
+		h.send(msg.Chat.ID, failureText(resp.ErrorCode, resp.Message), false)
 	}
 }
 
@@ -654,49 +651,6 @@ func cutUTF16(s string, limit int) (string, string) {
 		n += w
 	}
 	return s, ""
-}
-
-func (h *Handler) grpcErrMsg(err error) string {
-	st, ok := status.FromError(err)
-	if !ok {
-		h.log.Error("non-gRPC error", zap.Error(err))
-		return "❌ Ошибка сервера. Попробуйте позже."
-	}
-	switch st.Code() {
-	case codes.NotFound:
-		if isTelegramNotLinked(st) {
-			return "❌ Telegram аккаунт не привязан.\n\nПолучите токен в настройках приложения и выполните /link <токен> в личных сообщениях"
-		}
-		return "❌ Голосование не найдено."
-	case codes.InvalidArgument:
-		return "❌ Некорректные данные команды."
-	case codes.PermissionDenied:
-		return "❌ У вас нет прав для этого действия."
-	case codes.FailedPrecondition:
-		return "❌ Действие недоступно в текущем состоянии голосования."
-	case codes.ResourceExhausted:
-		return "❌ Достигнут лимит. Попробуйте позже."
-	default:
-		h.log.Error("gRPC error", zap.Error(err))
-		return "❌ Ошибка сервера. Попробуйте позже."
-	}
-}
-
-// Backend error contract (see proto/fate/v1/fate.proto): an unlinked Telegram account is
-// NOT_FOUND plus an ErrorInfo detail, which distinguishes it from a missing vote.
-const (
-	errorDomain             = "fate.v1"
-	reasonTelegramNotLinked = "TELEGRAM_NOT_LINKED"
-)
-
-func isTelegramNotLinked(st *status.Status) bool {
-	for _, d := range st.Details() {
-		if info, ok := d.(*errdetails.ErrorInfo); ok &&
-			info.GetDomain() == errorDomain && info.GetReason() == reasonTelegramNotLinked {
-			return true
-		}
-	}
-	return false
 }
 
 // Emails can't contain spaces, so commas and whitespace both separate them;

@@ -3,13 +3,14 @@ import { MailCheck } from 'lucide-react'
 import { authApi } from '@/api/auth'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toaster'
+import { extractErrorMessage } from '@/lib/errors'
 
 /** "Check your inbox" notice with a button that mails the verification link again. */
 export function ResendVerification({ email, title }: { email: string; title: string }) {
   const resend = useMutation({
     mutationFn: () => authApi.resendVerification(email),
     onSuccess: () => toast('Письмо отправлено', 'Если его нет, проверьте папку «Спам»'),
-    onError: () => toast('Не удалось отправить письмо', 'Попробуйте через минуту', 'error'),
+    onError: (e) => toast('Не удалось отправить письмо', extractErrorMessage(e), 'error'),
   })
 
   return (

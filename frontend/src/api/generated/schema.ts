@@ -648,6 +648,11 @@ export interface components {
             /** Format: email */
             email: string;
         };
+        /**
+         * @description Machine-readable reason of the error. Clients show their own wording per value; `title` is an English fallback.
+         * @enum {string}
+         */
+        ErrorCode: "VALIDATION_FAILED" | "REQUEST_INVALID" | "PAYLOAD_TOO_LARGE" | "UNAUTHORIZED" | "RATE_LIMITED" | "CONCURRENT_MODIFICATION" | "ALREADY_EXISTS" | "INTERNAL_ERROR" | "INVALID_EMAIL" | "INVALID_CREDENTIALS" | "EMAIL_ALREADY_REGISTERED" | "EMAIL_NOT_VERIFIED" | "WRONG_PASSWORD" | "LOGIN_THROTTLED" | "INVALID_TOKEN" | "TOKEN_EXPIRED" | "REFRESH_TOKEN_REQUIRED" | "USER_NOT_FOUND" | "EMAIL_LIMIT_REACHED" | "AVATAR_INVALID" | "AVATAR_NOT_FOUND" | "STORAGE_UNAVAILABLE" | "TELEGRAM_NOT_LINKED" | "TELEGRAM_ALREADY_LINKED" | "TELEGRAM_PRIVATE_CHAT_ONLY" | "TELEGRAM_LINK_TOKEN_INVALID" | "TELEGRAM_LINK_TOKEN_EXPIRED" | "VOTE_NOT_FOUND" | "VOTE_ACCESS_DENIED" | "NOT_VOTE_CREATOR" | "VOTE_NOT_PENDING" | "VOTE_NOT_DRAWN" | "VOTE_ALREADY_CLOSED" | "TITLE_INVALID" | "DESCRIPTION_TOO_LONG" | "TOO_MANY_PARTICIPANTS" | "TOO_MANY_OPTIONS" | "PARTICIPANT_EXISTS" | "OPTIONS_NOT_ALLOWED" | "OPTION_ORDER_INVALID" | "NO_OPTIONS" | "NO_PARTICIPANTS" | "PAGE_INVALID" | "VOTE_ID_INVALID";
         LinkTokenResponse: {
             /** Format: date-time */
             expiresAt: string;
@@ -686,11 +691,14 @@ export interface components {
         };
         /** @description RFC 9457 problem detail */
         ProblemDetail: {
-            /** @description Stable machine-readable reason, present on some failures (e.g. EMAIL_NOT_VERIFIED) */
-            code?: string;
+            code: components["schemas"]["ErrorCode"];
             detail?: string;
             /** @description Field name to message, present on validation failures */
             errors?: {
+                [key: string]: string;
+            };
+            /** @description Field name to the violated constraint (Email, NotBlank, Size, ...), on validation failures */
+            fieldErrors?: {
                 [key: string]: string;
             };
             /** Format: uri */

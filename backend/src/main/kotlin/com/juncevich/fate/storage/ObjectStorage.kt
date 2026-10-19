@@ -1,6 +1,7 @@
 package com.juncevich.fate.storage
 
 import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.ErrorCode
 
 /**
  * Binary object store (S3 API). Callers own the key layout; values are stored and returned as-is.
@@ -28,4 +29,4 @@ class StoredObject(
     val contentType: String,
 )
 
-class StorageUnavailableException : ConflictException("File storage is not configured")
+class StorageUnavailableException : ConflictException("File storage is not configured", ErrorCode.STORAGE_UNAVAILABLE)

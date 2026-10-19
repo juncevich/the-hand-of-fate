@@ -2,6 +2,7 @@ package com.juncevich.fate.notification
 
 import com.juncevich.fate.notification.internal.NotificationProperties
 import com.juncevich.fate.notification.internal.port.EmailBudgetPort
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.TooManyRequestsException
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
@@ -31,7 +32,8 @@ class EmailBudget(
         if (!tryReserve(userId, recipients)) {
             throw TooManyRequestsException(
                 "Email limit reached: at most ${properties.emailBudgetPerUser} notification emails " +
-                    "per ${properties.emailBudgetWindow.toHours()} h. Try again later or invite fewer participants."
+                    "per ${properties.emailBudgetWindow.toHours()} h. Try again later or invite fewer participants.",
+                ErrorCode.EMAIL_LIMIT_REACHED
             )
         }
     }

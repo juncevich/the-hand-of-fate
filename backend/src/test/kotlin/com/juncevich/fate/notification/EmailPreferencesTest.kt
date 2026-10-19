@@ -2,6 +2,7 @@ package com.juncevich.fate.notification
 
 import com.juncevich.fate.notification.internal.port.EmailSuppressionPort
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ErrorCode
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -27,7 +28,7 @@ class EmailPreferencesTest {
     fun `a forged or foreign signature is refused`() {
         listOf("deadbeef", preferences.sign("someone-else@test.com")).forEach { signature ->
             val ex = assertThrows<BadRequestException> { preferences.unsubscribe("ann@test.com", signature) }
-            assertEquals("INVALID_TOKEN", ex.code)
+            assertEquals(ErrorCode.INVALID_TOKEN, ex.code)
         }
         verify(exactly = 0) { suppressions.suppress(any()) }
     }

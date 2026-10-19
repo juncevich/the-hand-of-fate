@@ -897,12 +897,12 @@ func TestHandleHistoryRejectsInvalidPages(t *testing.T) {
 
 // notLinkedErr mirrors the backend's GrpcErrors.telegramNotLinked().
 func notLinkedErr() error {
-	return withErrorInfo(errorDomain, reasonTelegramNotLinked)
+	return withErrorInfo(errorDomain, "TELEGRAM_NOT_LINKED")
 }
 
 // foreignNotFoundErr carries the same reason under another domain and must not be mistaken for it.
 func foreignNotFoundErr() error {
-	return withErrorInfo("other.v1", reasonTelegramNotLinked)
+	return withErrorInfo("other.v1", "TELEGRAM_NOT_LINKED")
 }
 
 func withErrorInfo(domain, reason string) error {

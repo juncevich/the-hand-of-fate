@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toaster'
-import { errorCode, extractErrorMessage } from '@/lib/errors'
+import { extractErrorMessage } from '@/lib/errors'
 
 const MIN_PASSWORD = 8
 
@@ -25,12 +25,7 @@ export function ResetPasswordPage() {
       toast('Пароль изменён', 'Войдите с новым паролем')
       void navigate('/login', { replace: true })
     },
-    onError: (e) => {
-      const code = errorCode(e)
-      if (code === 'TOKEN_EXPIRED') toast('Ссылка устарела', 'Запросите новую', 'error')
-      else if (code === 'INVALID_TOKEN') toast('Ссылка недействительна', 'Запросите новую', 'error')
-      else toast('Не удалось сменить пароль', extractErrorMessage(e), 'error')
-    },
+    onError: (e) => toast('Не удалось сменить пароль', extractErrorMessage(e), 'error'),
   })
 
   const tooShort = password.length > 0 && password.length < MIN_PASSWORD

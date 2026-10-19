@@ -2,6 +2,7 @@ package com.juncevich.fate.notification
 
 import com.juncevich.fate.notification.internal.port.EmailSuppressionPort
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.normalizeEmail
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -36,7 +37,7 @@ class EmailPreferences(
         val normalized = normalizeEmail(email)
         val expected = sign(normalized).toByteArray()
         if (!MessageDigest.isEqual(expected, signature.lowercase().toByteArray())) {
-            throw BadRequestException("This unsubscribe link is invalid", code = "INVALID_TOKEN")
+            throw BadRequestException("This unsubscribe link is invalid", ErrorCode.INVALID_TOKEN)
         }
         suppressions.suppress(normalized)
     }

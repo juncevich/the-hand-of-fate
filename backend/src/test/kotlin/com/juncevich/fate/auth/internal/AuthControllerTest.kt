@@ -9,6 +9,7 @@ import com.juncevich.fate.auth.internal.service.LoginThrottledException
 import com.juncevich.fate.auth.internal.service.RegistrationResult
 import com.juncevich.fate.auth.internal.token.JwtProperties
 import com.juncevich.fate.auth.internal.web.AuthController
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.internal.config.ErrorHandler
 import io.mockk.every
 import io.mockk.mockk
@@ -147,7 +148,7 @@ class AuthControllerTest {
     fun `a domain error carries its machine-readable code`() {
         every { accountService.verifyEmail("old") } throws
             com.juncevich.fate.shared
-                .BadRequestException("This link has expired", code = "TOKEN_EXPIRED")
+                .BadRequestException("This link has expired", ErrorCode.TOKEN_EXPIRED)
 
         mockMvc
             .post("/api/v1/auth/verify-email") {

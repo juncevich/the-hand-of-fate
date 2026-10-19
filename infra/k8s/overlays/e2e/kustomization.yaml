@@ -1,7 +1,8 @@
 # The local overlay as CI's end-to-end job deploys it (.github/workflows/e2e.yml,
-# `K8S_OVERLAY=e2e ./k8s-start.sh`). Only difference: the backend's per-IP auth rate limit
-# is raised, because the simulation registers and logs in a fresh user per scenario from
-# one address. The filter itself stays on.
+# `K8S_OVERLAY=e2e ./k8s-start.sh`). Only difference: the per-IP auth rate limits — the backend's
+# and the gateway's — are raised, because the simulation and the browser tests register and log in
+# many users from one address. Both limits stay on. The gateway config is written by prepare.sh
+# (run by k8s-start.sh and check.sh) to .e2e-build/nginx.conf.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -9,6 +10,10 @@ resources:
   - ../local
 
 configMapGenerator:
+  - name: gateway-nginx
+    behavior: replace
+    files:
+      - nginx.conf=../../../../.e2e-build/nginx.conf
   - name: backend-config
     behavior: merge
     literals:

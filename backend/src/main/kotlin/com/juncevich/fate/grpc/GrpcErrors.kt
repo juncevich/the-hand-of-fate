@@ -11,6 +11,7 @@ import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 import com.google.protobuf.Any as ProtoAny
+import com.juncevich.fate.shared.ErrorCode as DomainErrorCode
 
 /**
  * gRPC counterpart of the REST `ErrorHandler`: the single place that decides which failures are
@@ -18,7 +19,6 @@ import com.google.protobuf.Any as ProtoAny
  */
 internal object GrpcErrors {
     const val ERROR_DOMAIN = "fate.v1"
-    const val REASON_TELEGRAM_NOT_LINKED = "TELEGRAM_NOT_LINKED"
 
     /** Status for a client error, or `null` when [ex] is unexpected and must be reported as `INTERNAL`. */
     fun clientStatus(ex: Throwable): Status? = (ex as? FateException)?.grpcStatus()
@@ -27,29 +27,40 @@ internal object GrpcErrors {
     fun toStatusException(ex: Throwable): StatusRuntimeException =
         when (ex) {
             is StatusRuntimeException -> ex
-            else -> clientStatus(ex)?.withDescription(ex.message)?.asRuntimeException() ?: internal()
+            is FateException -> status(ex.grpcStatus().code, ex.code, ex.message.orEmpty())
+            else -> internal()
         }
 
-    /**
-     * The caller's Telegram account is not linked to an app user. Keeps `NOT_FOUND` for older bots
-     * and adds an `ErrorInfo` so clients can tell it apart from a missing vote (see fate.proto).
-     */
-    fun telegramNotLinked(): StatusRuntimeException =
+    /** An expected failure: [code] with an `ErrorInfo` whose reason is [reason] (see fate.proto). */
+    fun status(
+        code: Status.Code,
+        reason: DomainErrorCode,
+        message: String,
+    ): StatusRuntimeException =
         StatusProto.toStatusRuntimeException(
             com.google.rpc.Status
                 .newBuilder()
-                .setCode(Status.Code.NOT_FOUND.value())
-                .setMessage("Telegram account not linked")
+                .setCode(code.value())
+                .setMessage(message)
                 .addDetails(
                     ProtoAny.pack(
                         ErrorInfo
                             .newBuilder()
-                            .setReason(REASON_TELEGRAM_NOT_LINKED)
+                            .setReason(reason.name)
                             .setDomain(ERROR_DOMAIN)
                             .build()
                     )
                 ).build()
         )
+
+    fun invalidArgument(
+        reason: DomainErrorCode,
+        message: String,
+    ) = status(Status.Code.INVALID_ARGUMENT, reason, message)
+
+    /** The caller's Telegram account is not linked to an app user (`NOT_FOUND`, like a missing vote). */
+    fun telegramNotLinked(): StatusRuntimeException =
+        status(Status.Code.NOT_FOUND, DomainErrorCode.TELEGRAM_NOT_LINKED, "Telegram account not linked")
 
     fun internal(): StatusRuntimeException = Status.INTERNAL.withDescription("Unexpected error").asRuntimeException()
 
@@ -69,16 +80,19 @@ internal inline fun <T> grpcRead(block: () -> T): T =
 
 /**
  * Runs a mutating RPC body whose response carries `success`/`message`: client errors become
- * an unsuccessful response built by [failure], anything unexpected becomes `INTERNAL`.
+ * an unsuccessful response built by [failure] (English message + code), anything unexpected becomes `INTERNAL`.
  */
 internal inline fun <T> grpcMutation(
-    failure: (message: String) -> T,
+    failure: (message: String, code: ErrorCode) -> T,
     block: () -> T,
 ): T =
     runCatching(block).getOrElse { ex ->
         when (ex) {
             is StatusRuntimeException -> throw ex
-            is FateException -> failure(ex.message.orEmpty())
+            is FateException -> failure(ex.message.orEmpty(), ex.code.toProto())
             else -> throw GrpcErrors.internal()
         }
     }
+
+/** The proto mirror of a domain code (`ERROR_CODE_` + name; `ErrorMappingContractTest` keeps them in sync). */
+internal fun DomainErrorCode.toProto(): ErrorCode = ErrorCode.valueOf("ERROR_CODE_$name")

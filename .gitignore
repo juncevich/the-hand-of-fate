@@ -68,3 +68,7 @@ infra/k8s/overlays/local/.secrets.env
 # ── Tilt (make k8s-dev) ───────────────────────────────────────────────────────
 # Host-built jar/binary and the CSP-less gateway config
 .tilt-build/
+.e2e-build/
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/

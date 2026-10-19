@@ -90,14 +90,14 @@ describe('RegisterPage', () => {
     })
   })
 
-  it('shows field-level errors returned by the server', async () => {
+  it('shows a taken address next to the email field', async () => {
     const { authApi } = await import('@/api/auth')
 
     const axiosError = new AxiosError('Validation failed', '400')
     axiosError.response = {
-      data: { errors: { email: 'Email already registered' }, title: 'Validation failed' },
-      status: 400,
-      statusText: 'Bad Request',
+      data: { code: 'EMAIL_ALREADY_REGISTERED', title: 'Email already registered' },
+      status: 409,
+      statusText: 'Conflict',
       headers: {},
       config: axiosError.config!,
     }
@@ -107,7 +107,7 @@ describe('RegisterPage', () => {
     const user = await fillForm('Ivan', 'taken@example.com', 'password123')
     await user.click(screen.getByRole('button', { name: /Зарегистрироваться/i }))
 
-    expect(await screen.findByText('Email already registered')).toBeInTheDocument()
+    expect(await screen.findByText('Этот email уже зарегистрирован')).toBeInTheDocument()
   })
 
   it('clears field error when user edits the field', async () => {
@@ -115,9 +115,9 @@ describe('RegisterPage', () => {
 
     const axiosError = new AxiosError('Validation failed', '400')
     axiosError.response = {
-      data: { errors: { email: 'Email already registered' }, title: 'Validation failed' },
-      status: 400,
-      statusText: 'Bad Request',
+      data: { code: 'EMAIL_ALREADY_REGISTERED', title: 'Email already registered' },
+      status: 409,
+      statusText: 'Conflict',
       headers: {},
       config: axiosError.config!,
     }
@@ -127,11 +127,11 @@ describe('RegisterPage', () => {
     const user = await fillForm('Ivan', 'taken@example.com', 'password123')
     await user.click(screen.getByRole('button', { name: /Зарегистрироваться/i }))
 
-    await screen.findByText('Email already registered')
+    await screen.findByText('Этот email уже зарегистрирован')
 
     await user.type(screen.getByLabelText('Email'), 'x')
 
-    expect(screen.queryByText('Email already registered')).not.toBeInTheDocument()
+    expect(screen.queryByText('Этот email уже зарегистрирован')).not.toBeInTheDocument()
   })
 
   it('submits on Enter key in the password field', async () => {
@@ -163,5 +163,24 @@ describe('RegisterPage', () => {
     await user.click(screen.getByRole('button', { name: 'Отправить письмо ещё раз' }))
 
     await waitFor(() => expect(authApi.resendVerification).toHaveBeenCalledWith('ivan@example.com'))
+  })
+
+  it('shows the translated field errors of a validation failure', async () => {
+    const { authApi } = await import('@/api/auth')
+    const axiosError = new AxiosError('Validation failed', '400')
+    axiosError.response = {
+      data: { code: 'VALIDATION_FAILED', title: 'Validation failed', fieldErrors: { password: 'Size' } },
+      status: 400,
+      statusText: 'Bad Request',
+      headers: {},
+      config: axiosError.config!,
+    }
+    vi.mocked(authApi.register).mockRejectedValueOnce(axiosError)
+
+    render(<RegisterPage />, { wrapper: createWrapper() })
+    const user = await fillForm('Ivan', 'ivan@example.com', 'password123')
+    await user.click(screen.getByRole('button', { name: /Зарегистрироваться/i }))
+
+    expect(await screen.findByText('От 8 до 100 символов')).toBeInTheDocument()
   })
 })

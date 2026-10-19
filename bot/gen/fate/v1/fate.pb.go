@@ -172,6 +172,183 @@ func (DrawTarget) EnumDescriptor() ([]byte, []int) {
 	return file_fate_v1_fate_proto_rawDescGZIP(), []int{2}
 }
 
+// Machine-readable reason of an error: ErrorInfo.reason (without the prefix) and the error_code of
+// mutating responses. Mirrors the backend's com.juncevich.fate.shared.ErrorCode; never renumber.
+type ErrorCode int32
+
+const (
+	ErrorCode_ERROR_CODE_UNSPECIFIED                 ErrorCode = 0
+	ErrorCode_ERROR_CODE_VALIDATION_FAILED           ErrorCode = 1
+	ErrorCode_ERROR_CODE_REQUEST_INVALID             ErrorCode = 2
+	ErrorCode_ERROR_CODE_PAYLOAD_TOO_LARGE           ErrorCode = 3
+	ErrorCode_ERROR_CODE_UNAUTHORIZED                ErrorCode = 4
+	ErrorCode_ERROR_CODE_RATE_LIMITED                ErrorCode = 5
+	ErrorCode_ERROR_CODE_CONCURRENT_MODIFICATION     ErrorCode = 6
+	ErrorCode_ERROR_CODE_ALREADY_EXISTS              ErrorCode = 7
+	ErrorCode_ERROR_CODE_INTERNAL_ERROR              ErrorCode = 8
+	ErrorCode_ERROR_CODE_INVALID_EMAIL               ErrorCode = 9
+	ErrorCode_ERROR_CODE_INVALID_CREDENTIALS         ErrorCode = 10
+	ErrorCode_ERROR_CODE_EMAIL_ALREADY_REGISTERED    ErrorCode = 11
+	ErrorCode_ERROR_CODE_EMAIL_NOT_VERIFIED          ErrorCode = 12
+	ErrorCode_ERROR_CODE_WRONG_PASSWORD              ErrorCode = 13
+	ErrorCode_ERROR_CODE_LOGIN_THROTTLED             ErrorCode = 14
+	ErrorCode_ERROR_CODE_INVALID_TOKEN               ErrorCode = 15
+	ErrorCode_ERROR_CODE_TOKEN_EXPIRED               ErrorCode = 16
+	ErrorCode_ERROR_CODE_REFRESH_TOKEN_REQUIRED      ErrorCode = 17
+	ErrorCode_ERROR_CODE_USER_NOT_FOUND              ErrorCode = 18
+	ErrorCode_ERROR_CODE_EMAIL_LIMIT_REACHED         ErrorCode = 19
+	ErrorCode_ERROR_CODE_AVATAR_INVALID              ErrorCode = 20
+	ErrorCode_ERROR_CODE_AVATAR_NOT_FOUND            ErrorCode = 21
+	ErrorCode_ERROR_CODE_STORAGE_UNAVAILABLE         ErrorCode = 22
+	ErrorCode_ERROR_CODE_TELEGRAM_NOT_LINKED         ErrorCode = 23
+	ErrorCode_ERROR_CODE_TELEGRAM_ALREADY_LINKED     ErrorCode = 24
+	ErrorCode_ERROR_CODE_TELEGRAM_PRIVATE_CHAT_ONLY  ErrorCode = 25
+	ErrorCode_ERROR_CODE_TELEGRAM_LINK_TOKEN_INVALID ErrorCode = 26
+	ErrorCode_ERROR_CODE_TELEGRAM_LINK_TOKEN_EXPIRED ErrorCode = 27
+	ErrorCode_ERROR_CODE_VOTE_NOT_FOUND              ErrorCode = 28
+	ErrorCode_ERROR_CODE_VOTE_ACCESS_DENIED          ErrorCode = 29
+	ErrorCode_ERROR_CODE_NOT_VOTE_CREATOR            ErrorCode = 30
+	ErrorCode_ERROR_CODE_VOTE_NOT_PENDING            ErrorCode = 31
+	ErrorCode_ERROR_CODE_VOTE_NOT_DRAWN              ErrorCode = 32
+	ErrorCode_ERROR_CODE_VOTE_ALREADY_CLOSED         ErrorCode = 33
+	ErrorCode_ERROR_CODE_TITLE_INVALID               ErrorCode = 34
+	ErrorCode_ERROR_CODE_DESCRIPTION_TOO_LONG        ErrorCode = 35
+	ErrorCode_ERROR_CODE_TOO_MANY_PARTICIPANTS       ErrorCode = 36
+	ErrorCode_ERROR_CODE_TOO_MANY_OPTIONS            ErrorCode = 37
+	ErrorCode_ERROR_CODE_PARTICIPANT_EXISTS          ErrorCode = 38
+	ErrorCode_ERROR_CODE_OPTIONS_NOT_ALLOWED         ErrorCode = 39
+	ErrorCode_ERROR_CODE_OPTION_ORDER_INVALID        ErrorCode = 40
+	ErrorCode_ERROR_CODE_NO_OPTIONS                  ErrorCode = 41
+	ErrorCode_ERROR_CODE_NO_PARTICIPANTS             ErrorCode = 42
+	ErrorCode_ERROR_CODE_PAGE_INVALID                ErrorCode = 43
+	ErrorCode_ERROR_CODE_VOTE_ID_INVALID             ErrorCode = 44
+)
+
+// Enum value maps for ErrorCode.
+var (
+	ErrorCode_name = map[int32]string{
+		0:  "ERROR_CODE_UNSPECIFIED",
+		1:  "ERROR_CODE_VALIDATION_FAILED",
+		2:  "ERROR_CODE_REQUEST_INVALID",
+		3:  "ERROR_CODE_PAYLOAD_TOO_LARGE",
+		4:  "ERROR_CODE_UNAUTHORIZED",
+		5:  "ERROR_CODE_RATE_LIMITED",
+		6:  "ERROR_CODE_CONCURRENT_MODIFICATION",
+		7:  "ERROR_CODE_ALREADY_EXISTS",
+		8:  "ERROR_CODE_INTERNAL_ERROR",
+		9:  "ERROR_CODE_INVALID_EMAIL",
+		10: "ERROR_CODE_INVALID_CREDENTIALS",
+		11: "ERROR_CODE_EMAIL_ALREADY_REGISTERED",
+		12: "ERROR_CODE_EMAIL_NOT_VERIFIED",
+		13: "ERROR_CODE_WRONG_PASSWORD",
+		14: "ERROR_CODE_LOGIN_THROTTLED",
+		15: "ERROR_CODE_INVALID_TOKEN",
+		16: "ERROR_CODE_TOKEN_EXPIRED",
+		17: "ERROR_CODE_REFRESH_TOKEN_REQUIRED",
+		18: "ERROR_CODE_USER_NOT_FOUND",
+		19: "ERROR_CODE_EMAIL_LIMIT_REACHED",
+		20: "ERROR_CODE_AVATAR_INVALID",
+		21: "ERROR_CODE_AVATAR_NOT_FOUND",
+		22: "ERROR_CODE_STORAGE_UNAVAILABLE",
+		23: "ERROR_CODE_TELEGRAM_NOT_LINKED",
+		24: "ERROR_CODE_TELEGRAM_ALREADY_LINKED",
+		25: "ERROR_CODE_TELEGRAM_PRIVATE_CHAT_ONLY",
+		26: "ERROR_CODE_TELEGRAM_LINK_TOKEN_INVALID",
+		27: "ERROR_CODE_TELEGRAM_LINK_TOKEN_EXPIRED",
+		28: "ERROR_CODE_VOTE_NOT_FOUND",
+		29: "ERROR_CODE_VOTE_ACCESS_DENIED",
+		30: "ERROR_CODE_NOT_VOTE_CREATOR",
+		31: "ERROR_CODE_VOTE_NOT_PENDING",
+		32: "ERROR_CODE_VOTE_NOT_DRAWN",
+		33: "ERROR_CODE_VOTE_ALREADY_CLOSED",
+		34: "ERROR_CODE_TITLE_INVALID",
+		35: "ERROR_CODE_DESCRIPTION_TOO_LONG",
+		36: "ERROR_CODE_TOO_MANY_PARTICIPANTS",
+		37: "ERROR_CODE_TOO_MANY_OPTIONS",
+		38: "ERROR_CODE_PARTICIPANT_EXISTS",
+		39: "ERROR_CODE_OPTIONS_NOT_ALLOWED",
+		40: "ERROR_CODE_OPTION_ORDER_INVALID",
+		41: "ERROR_CODE_NO_OPTIONS",
+		42: "ERROR_CODE_NO_PARTICIPANTS",
+		43: "ERROR_CODE_PAGE_INVALID",
+		44: "ERROR_CODE_VOTE_ID_INVALID",
+	}
+	ErrorCode_value = map[string]int32{
+		"ERROR_CODE_UNSPECIFIED":                 0,
+		"ERROR_CODE_VALIDATION_FAILED":           1,
+		"ERROR_CODE_REQUEST_INVALID":             2,
+		"ERROR_CODE_PAYLOAD_TOO_LARGE":           3,
+		"ERROR_CODE_UNAUTHORIZED":                4,
+		"ERROR_CODE_RATE_LIMITED":                5,
+		"ERROR_CODE_CONCURRENT_MODIFICATION":     6,
+		"ERROR_CODE_ALREADY_EXISTS":              7,
+		"ERROR_CODE_INTERNAL_ERROR":              8,
+		"ERROR_CODE_INVALID_EMAIL":               9,
+		"ERROR_CODE_INVALID_CREDENTIALS":         10,
+		"ERROR_CODE_EMAIL_ALREADY_REGISTERED":    11,
+		"ERROR_CODE_EMAIL_NOT_VERIFIED":          12,
+		"ERROR_CODE_WRONG_PASSWORD":              13,
+		"ERROR_CODE_LOGIN_THROTTLED":             14,
+		"ERROR_CODE_INVALID_TOKEN":               15,
+		"ERROR_CODE_TOKEN_EXPIRED":               16,
+		"ERROR_CODE_REFRESH_TOKEN_REQUIRED":      17,
+		"ERROR_CODE_USER_NOT_FOUND":              18,
+		"ERROR_CODE_EMAIL_LIMIT_REACHED":         19,
+		"ERROR_CODE_AVATAR_INVALID":              20,
+		"ERROR_CODE_AVATAR_NOT_FOUND":            21,
+		"ERROR_CODE_STORAGE_UNAVAILABLE":         22,
+		"ERROR_CODE_TELEGRAM_NOT_LINKED":         23,
+		"ERROR_CODE_TELEGRAM_ALREADY_LINKED":     24,
+		"ERROR_CODE_TELEGRAM_PRIVATE_CHAT_ONLY":  25,
+		"ERROR_CODE_TELEGRAM_LINK_TOKEN_INVALID": 26,
+		"ERROR_CODE_TELEGRAM_LINK_TOKEN_EXPIRED": 27,
+		"ERROR_CODE_VOTE_NOT_FOUND":              28,
+		"ERROR_CODE_VOTE_ACCESS_DENIED":          29,
+		"ERROR_CODE_NOT_VOTE_CREATOR":            30,
+		"ERROR_CODE_VOTE_NOT_PENDING":            31,
+		"ERROR_CODE_VOTE_NOT_DRAWN":              32,
+		"ERROR_CODE_VOTE_ALREADY_CLOSED":         33,
+		"ERROR_CODE_TITLE_INVALID":               34,
+		"ERROR_CODE_DESCRIPTION_TOO_LONG":        35,
+		"ERROR_CODE_TOO_MANY_PARTICIPANTS":       36,
+		"ERROR_CODE_TOO_MANY_OPTIONS":            37,
+		"ERROR_CODE_PARTICIPANT_EXISTS":          38,
+		"ERROR_CODE_OPTIONS_NOT_ALLOWED":         39,
+		"ERROR_CODE_OPTION_ORDER_INVALID":        40,
+		"ERROR_CODE_NO_OPTIONS":                  41,
+		"ERROR_CODE_NO_PARTICIPANTS":             42,
+		"ERROR_CODE_PAGE_INVALID":                43,
+		"ERROR_CODE_VOTE_ID_INVALID":             44,
+	}
+)
+
+func (x ErrorCode) Enum() *ErrorCode {
+	p := new(ErrorCode)
+	*p = x
+	return p
+}
+
+func (x ErrorCode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ErrorCode) Descriptor() protoreflect.EnumDescriptor {
+	return file_fate_v1_fate_proto_enumTypes[3].Descriptor()
+}
+
+func (ErrorCode) Type() protoreflect.EnumType {
+	return &file_fate_v1_fate_proto_enumTypes[3]
+}
+
+func (x ErrorCode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ErrorCode.Descriptor instead.
+func (ErrorCode) EnumDescriptor() ([]byte, []int) {
+	return file_fate_v1_fate_proto_rawDescGZIP(), []int{3}
+}
+
 type LinkTelegramAccountRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LinkToken     string                 `protobuf:"bytes,1,opt,name=link_token,json=linkToken,proto3" json:"link_token,omitempty"`
@@ -233,10 +410,12 @@ func (x *LinkTelegramAccountRequest) GetTelegramName() string {
 }
 
 type LinkTelegramAccountResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Success     bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	DisplayName string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Message     string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	// Set when success is false.
+	ErrorCode     ErrorCode `protobuf:"varint,4,opt,name=error_code,json=errorCode,proto3,enum=fate.v1.ErrorCode" json:"error_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -292,6 +471,13 @@ func (x *LinkTelegramAccountResponse) GetMessage() string {
 	return ""
 }
 
+func (x *LinkTelegramAccountResponse) GetErrorCode() ErrorCode {
+	if x != nil {
+		return x.ErrorCode
+	}
+	return ErrorCode_ERROR_CODE_UNSPECIFIED
+}
+
 type UnlinkTelegramAccountRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TelegramId    int64                  `protobuf:"varint,1,opt,name=telegram_id,json=telegramId,proto3" json:"telegram_id,omitempty"`
@@ -337,9 +523,11 @@ func (x *UnlinkTelegramAccountRequest) GetTelegramId() int64 {
 }
 
 type UnlinkTelegramAccountResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Success bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	// Set when success is false.
+	ErrorCode     ErrorCode `protobuf:"varint,3,opt,name=error_code,json=errorCode,proto3,enum=fate.v1.ErrorCode" json:"error_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -386,6 +574,13 @@ func (x *UnlinkTelegramAccountResponse) GetMessage() string {
 		return x.Message
 	}
 	return ""
+}
+
+func (x *UnlinkTelegramAccountResponse) GetErrorCode() ErrorCode {
+	if x != nil {
+		return x.ErrorCode
+	}
+	return ErrorCode_ERROR_CODE_UNSPECIFIED
 }
 
 type GetMyVotesRequest struct {
@@ -570,10 +765,12 @@ func (x *CreateVoteRequest) GetDrawTarget() DrawTarget {
 }
 
 type CreateVoteResponse struct {
-	state         protoimpl.MessageState  `protogen:"open.v1"`
-	Success       bool                    `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Message       string                  `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	Vote          *GetVoteDetailsResponse `protobuf:"bytes,3,opt,name=vote,proto3" json:"vote,omitempty"`
+	state   protoimpl.MessageState  `protogen:"open.v1"`
+	Success bool                    `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message string                  `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Vote    *GetVoteDetailsResponse `protobuf:"bytes,3,opt,name=vote,proto3" json:"vote,omitempty"`
+	// Set when success is false.
+	ErrorCode     ErrorCode `protobuf:"varint,4,opt,name=error_code,json=errorCode,proto3,enum=fate.v1.ErrorCode" json:"error_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -627,6 +824,13 @@ func (x *CreateVoteResponse) GetVote() *GetVoteDetailsResponse {
 		return x.Vote
 	}
 	return nil
+}
+
+func (x *CreateVoteResponse) GetErrorCode() ErrorCode {
+	if x != nil {
+		return x.ErrorCode
+	}
+	return ErrorCode_ERROR_CODE_UNSPECIFIED
 }
 
 type VoteSummary struct {
@@ -1139,8 +1343,10 @@ type DrawVoteResponse struct {
 	NewRoundStarted   bool                   `protobuf:"varint,5,opt,name=new_round_started,json=newRoundStarted,proto3" json:"new_round_started,omitempty"`
 	Message           string                 `protobuf:"bytes,6,opt,name=message,proto3" json:"message,omitempty"`
 	WinnerOptionTitle string                 `protobuf:"bytes,7,opt,name=winner_option_title,json=winnerOptionTitle,proto3" json:"winner_option_title,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Set when success is false.
+	ErrorCode     ErrorCode `protobuf:"varint,8,opt,name=error_code,json=errorCode,proto3,enum=fate.v1.ErrorCode" json:"error_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DrawVoteResponse) Reset() {
@@ -1220,6 +1426,13 @@ func (x *DrawVoteResponse) GetWinnerOptionTitle() string {
 		return x.WinnerOptionTitle
 	}
 	return ""
+}
+
+func (x *DrawVoteResponse) GetErrorCode() ErrorCode {
+	if x != nil {
+		return x.ErrorCode
+	}
+	return ErrorCode_ERROR_CODE_UNSPECIFIED
 }
 
 type GetLastDrawResultRequest struct {
@@ -1464,17 +1677,21 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"link_token\x18\x01 \x01(\tR\tlinkToken\x12\x1f\n" +
 	"\vtelegram_id\x18\x02 \x01(\x03R\n" +
 	"telegramId\x12#\n" +
-	"\rtelegram_name\x18\x03 \x01(\tR\ftelegramName\"t\n" +
+	"\rtelegram_name\x18\x03 \x01(\tR\ftelegramName\"\xa7\x01\n" +
 	"\x1bLinkTelegramAccountResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x18\n" +
-	"\amessage\x18\x03 \x01(\tR\amessage\"?\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\x121\n" +
+	"\n" +
+	"error_code\x18\x04 \x01(\x0e2\x12.fate.v1.ErrorCodeR\terrorCode\"?\n" +
 	"\x1cUnlinkTelegramAccountRequest\x12\x1f\n" +
 	"\vtelegram_id\x18\x01 \x01(\x03R\n" +
-	"telegramId\"S\n" +
+	"telegramId\"\x86\x01\n" +
 	"\x1dUnlinkTelegramAccountResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"4\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x121\n" +
+	"\n" +
+	"error_code\x18\x03 \x01(\x0e2\x12.fate.v1.ErrorCodeR\terrorCode\"4\n" +
 	"\x11GetMyVotesRequest\x12\x1f\n" +
 	"\vtelegram_id\x18\x01 \x01(\x03R\n" +
 	"telegramId\"@\n" +
@@ -1489,11 +1706,13 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\x12participant_emails\x18\x05 \x03(\tR\x11participantEmails\x12\x18\n" +
 	"\aoptions\x18\x06 \x03(\tR\aoptions\x124\n" +
 	"\vdraw_target\x18\a \x01(\x0e2\x13.fate.v1.DrawTargetR\n" +
-	"drawTarget\"}\n" +
+	"drawTarget\"\xb0\x01\n" +
 	"\x12CreateVoteResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x123\n" +
-	"\x04vote\x18\x03 \x01(\v2\x1f.fate.v1.GetVoteDetailsResponseR\x04vote\"\x81\x02\n" +
+	"\x04vote\x18\x03 \x01(\v2\x1f.fate.v1.GetVoteDetailsResponseR\x04vote\x121\n" +
+	"\n" +
+	"error_code\x18\x04 \x01(\x0e2\x12.fate.v1.ErrorCodeR\terrorCode\"\x81\x02\n" +
 	"\vVoteSummary\x12\x17\n" +
 	"\avote_id\x18\x01 \x01(\tR\x06voteId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12+\n" +
@@ -1537,7 +1756,7 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\x0fDrawVoteRequest\x12\x17\n" +
 	"\avote_id\x18\x01 \x01(\tR\x06voteId\x12\x1f\n" +
 	"\vtelegram_id\x18\x02 \x01(\x03R\n" +
-	"telegramId\"\x8b\x02\n" +
+	"telegramId\"\xbe\x02\n" +
 	"\x10DrawVoteResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12!\n" +
 	"\fwinner_email\x18\x02 \x01(\tR\vwinnerEmail\x12.\n" +
@@ -1545,7 +1764,9 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\x05round\x18\x04 \x01(\x05R\x05round\x12*\n" +
 	"\x11new_round_started\x18\x05 \x01(\bR\x0fnewRoundStarted\x12\x18\n" +
 	"\amessage\x18\x06 \x01(\tR\amessage\x12.\n" +
-	"\x13winner_option_title\x18\a \x01(\tR\x11winnerOptionTitle\"T\n" +
+	"\x13winner_option_title\x18\a \x01(\tR\x11winnerOptionTitle\x121\n" +
+	"\n" +
+	"error_code\x18\b \x01(\x0e2\x12.fate.v1.ErrorCodeR\terrorCode\"T\n" +
 	"\x18GetLastDrawResultRequest\x12\x17\n" +
 	"\avote_id\x18\x01 \x01(\tR\x06voteId\x12\x1f\n" +
 	"\vtelegram_id\x18\x02 \x01(\x03R\n" +
@@ -1579,7 +1800,54 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"DrawTarget\x12\x1b\n" +
 	"\x17DRAW_TARGET_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18DRAW_TARGET_PARTICIPANTS\x10\x01\x12\x17\n" +
-	"\x13DRAW_TARGET_OPTIONS\x10\x022\xa8\x05\n" +
+	"\x13DRAW_TARGET_OPTIONS\x10\x02*\x86\f\n" +
+	"\tErrorCode\x12\x1a\n" +
+	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12 \n" +
+	"\x1cERROR_CODE_VALIDATION_FAILED\x10\x01\x12\x1e\n" +
+	"\x1aERROR_CODE_REQUEST_INVALID\x10\x02\x12 \n" +
+	"\x1cERROR_CODE_PAYLOAD_TOO_LARGE\x10\x03\x12\x1b\n" +
+	"\x17ERROR_CODE_UNAUTHORIZED\x10\x04\x12\x1b\n" +
+	"\x17ERROR_CODE_RATE_LIMITED\x10\x05\x12&\n" +
+	"\"ERROR_CODE_CONCURRENT_MODIFICATION\x10\x06\x12\x1d\n" +
+	"\x19ERROR_CODE_ALREADY_EXISTS\x10\a\x12\x1d\n" +
+	"\x19ERROR_CODE_INTERNAL_ERROR\x10\b\x12\x1c\n" +
+	"\x18ERROR_CODE_INVALID_EMAIL\x10\t\x12\"\n" +
+	"\x1eERROR_CODE_INVALID_CREDENTIALS\x10\n" +
+	"\x12'\n" +
+	"#ERROR_CODE_EMAIL_ALREADY_REGISTERED\x10\v\x12!\n" +
+	"\x1dERROR_CODE_EMAIL_NOT_VERIFIED\x10\f\x12\x1d\n" +
+	"\x19ERROR_CODE_WRONG_PASSWORD\x10\r\x12\x1e\n" +
+	"\x1aERROR_CODE_LOGIN_THROTTLED\x10\x0e\x12\x1c\n" +
+	"\x18ERROR_CODE_INVALID_TOKEN\x10\x0f\x12\x1c\n" +
+	"\x18ERROR_CODE_TOKEN_EXPIRED\x10\x10\x12%\n" +
+	"!ERROR_CODE_REFRESH_TOKEN_REQUIRED\x10\x11\x12\x1d\n" +
+	"\x19ERROR_CODE_USER_NOT_FOUND\x10\x12\x12\"\n" +
+	"\x1eERROR_CODE_EMAIL_LIMIT_REACHED\x10\x13\x12\x1d\n" +
+	"\x19ERROR_CODE_AVATAR_INVALID\x10\x14\x12\x1f\n" +
+	"\x1bERROR_CODE_AVATAR_NOT_FOUND\x10\x15\x12\"\n" +
+	"\x1eERROR_CODE_STORAGE_UNAVAILABLE\x10\x16\x12\"\n" +
+	"\x1eERROR_CODE_TELEGRAM_NOT_LINKED\x10\x17\x12&\n" +
+	"\"ERROR_CODE_TELEGRAM_ALREADY_LINKED\x10\x18\x12)\n" +
+	"%ERROR_CODE_TELEGRAM_PRIVATE_CHAT_ONLY\x10\x19\x12*\n" +
+	"&ERROR_CODE_TELEGRAM_LINK_TOKEN_INVALID\x10\x1a\x12*\n" +
+	"&ERROR_CODE_TELEGRAM_LINK_TOKEN_EXPIRED\x10\x1b\x12\x1d\n" +
+	"\x19ERROR_CODE_VOTE_NOT_FOUND\x10\x1c\x12!\n" +
+	"\x1dERROR_CODE_VOTE_ACCESS_DENIED\x10\x1d\x12\x1f\n" +
+	"\x1bERROR_CODE_NOT_VOTE_CREATOR\x10\x1e\x12\x1f\n" +
+	"\x1bERROR_CODE_VOTE_NOT_PENDING\x10\x1f\x12\x1d\n" +
+	"\x19ERROR_CODE_VOTE_NOT_DRAWN\x10 \x12\"\n" +
+	"\x1eERROR_CODE_VOTE_ALREADY_CLOSED\x10!\x12\x1c\n" +
+	"\x18ERROR_CODE_TITLE_INVALID\x10\"\x12#\n" +
+	"\x1fERROR_CODE_DESCRIPTION_TOO_LONG\x10#\x12$\n" +
+	" ERROR_CODE_TOO_MANY_PARTICIPANTS\x10$\x12\x1f\n" +
+	"\x1bERROR_CODE_TOO_MANY_OPTIONS\x10%\x12!\n" +
+	"\x1dERROR_CODE_PARTICIPANT_EXISTS\x10&\x12\"\n" +
+	"\x1eERROR_CODE_OPTIONS_NOT_ALLOWED\x10'\x12#\n" +
+	"\x1fERROR_CODE_OPTION_ORDER_INVALID\x10(\x12\x19\n" +
+	"\x15ERROR_CODE_NO_OPTIONS\x10)\x12\x1e\n" +
+	"\x1aERROR_CODE_NO_PARTICIPANTS\x10*\x12\x1b\n" +
+	"\x17ERROR_CODE_PAGE_INVALID\x10+\x12\x1e\n" +
+	"\x1aERROR_CODE_VOTE_ID_INVALID\x10,2\xa8\x05\n" +
 	"\vFateService\x12`\n" +
 	"\x13LinkTelegramAccount\x12#.fate.v1.LinkTelegramAccountRequest\x1a$.fate.v1.LinkTelegramAccountResponse\x12f\n" +
 	"\x15UnlinkTelegramAccount\x12%.fate.v1.UnlinkTelegramAccountRequest\x1a&.fate.v1.UnlinkTelegramAccountResponse\x12E\n" +
@@ -1605,69 +1873,74 @@ func file_fate_v1_fate_proto_rawDescGZIP() []byte {
 	return file_fate_v1_fate_proto_rawDescData
 }
 
-var file_fate_v1_fate_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_fate_v1_fate_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_fate_v1_fate_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_fate_v1_fate_proto_goTypes = []any{
 	(VoteStatus)(0),                       // 0: fate.v1.VoteStatus
 	(VoteMode)(0),                         // 1: fate.v1.VoteMode
 	(DrawTarget)(0),                       // 2: fate.v1.DrawTarget
-	(*LinkTelegramAccountRequest)(nil),    // 3: fate.v1.LinkTelegramAccountRequest
-	(*LinkTelegramAccountResponse)(nil),   // 4: fate.v1.LinkTelegramAccountResponse
-	(*UnlinkTelegramAccountRequest)(nil),  // 5: fate.v1.UnlinkTelegramAccountRequest
-	(*UnlinkTelegramAccountResponse)(nil), // 6: fate.v1.UnlinkTelegramAccountResponse
-	(*GetMyVotesRequest)(nil),             // 7: fate.v1.GetMyVotesRequest
-	(*GetMyVotesResponse)(nil),            // 8: fate.v1.GetMyVotesResponse
-	(*CreateVoteRequest)(nil),             // 9: fate.v1.CreateVoteRequest
-	(*CreateVoteResponse)(nil),            // 10: fate.v1.CreateVoteResponse
-	(*VoteSummary)(nil),                   // 11: fate.v1.VoteSummary
-	(*GetVoteDetailsRequest)(nil),         // 12: fate.v1.GetVoteDetailsRequest
-	(*VoteOptionInfo)(nil),                // 13: fate.v1.VoteOptionInfo
-	(*GetVoteDetailsResponse)(nil),        // 14: fate.v1.GetVoteDetailsResponse
-	(*ParticipantInfo)(nil),               // 15: fate.v1.ParticipantInfo
-	(*DrawResultInfo)(nil),                // 16: fate.v1.DrawResultInfo
-	(*DrawVoteRequest)(nil),               // 17: fate.v1.DrawVoteRequest
-	(*DrawVoteResponse)(nil),              // 18: fate.v1.DrawVoteResponse
-	(*GetLastDrawResultRequest)(nil),      // 19: fate.v1.GetLastDrawResultRequest
-	(*GetLastDrawResultResponse)(nil),     // 20: fate.v1.GetLastDrawResultResponse
-	(*GetVoteHistoryRequest)(nil),         // 21: fate.v1.GetVoteHistoryRequest
-	(*GetVoteHistoryResponse)(nil),        // 22: fate.v1.GetVoteHistoryResponse
+	(ErrorCode)(0),                        // 3: fate.v1.ErrorCode
+	(*LinkTelegramAccountRequest)(nil),    // 4: fate.v1.LinkTelegramAccountRequest
+	(*LinkTelegramAccountResponse)(nil),   // 5: fate.v1.LinkTelegramAccountResponse
+	(*UnlinkTelegramAccountRequest)(nil),  // 6: fate.v1.UnlinkTelegramAccountRequest
+	(*UnlinkTelegramAccountResponse)(nil), // 7: fate.v1.UnlinkTelegramAccountResponse
+	(*GetMyVotesRequest)(nil),             // 8: fate.v1.GetMyVotesRequest
+	(*GetMyVotesResponse)(nil),            // 9: fate.v1.GetMyVotesResponse
+	(*CreateVoteRequest)(nil),             // 10: fate.v1.CreateVoteRequest
+	(*CreateVoteResponse)(nil),            // 11: fate.v1.CreateVoteResponse
+	(*VoteSummary)(nil),                   // 12: fate.v1.VoteSummary
+	(*GetVoteDetailsRequest)(nil),         // 13: fate.v1.GetVoteDetailsRequest
+	(*VoteOptionInfo)(nil),                // 14: fate.v1.VoteOptionInfo
+	(*GetVoteDetailsResponse)(nil),        // 15: fate.v1.GetVoteDetailsResponse
+	(*ParticipantInfo)(nil),               // 16: fate.v1.ParticipantInfo
+	(*DrawResultInfo)(nil),                // 17: fate.v1.DrawResultInfo
+	(*DrawVoteRequest)(nil),               // 18: fate.v1.DrawVoteRequest
+	(*DrawVoteResponse)(nil),              // 19: fate.v1.DrawVoteResponse
+	(*GetLastDrawResultRequest)(nil),      // 20: fate.v1.GetLastDrawResultRequest
+	(*GetLastDrawResultResponse)(nil),     // 21: fate.v1.GetLastDrawResultResponse
+	(*GetVoteHistoryRequest)(nil),         // 22: fate.v1.GetVoteHistoryRequest
+	(*GetVoteHistoryResponse)(nil),        // 23: fate.v1.GetVoteHistoryResponse
 }
 var file_fate_v1_fate_proto_depIdxs = []int32{
-	11, // 0: fate.v1.GetMyVotesResponse.votes:type_name -> fate.v1.VoteSummary
-	1,  // 1: fate.v1.CreateVoteRequest.mode:type_name -> fate.v1.VoteMode
-	2,  // 2: fate.v1.CreateVoteRequest.draw_target:type_name -> fate.v1.DrawTarget
-	14, // 3: fate.v1.CreateVoteResponse.vote:type_name -> fate.v1.GetVoteDetailsResponse
-	0,  // 4: fate.v1.VoteSummary.status:type_name -> fate.v1.VoteStatus
-	1,  // 5: fate.v1.VoteSummary.mode:type_name -> fate.v1.VoteMode
-	1,  // 6: fate.v1.GetVoteDetailsResponse.mode:type_name -> fate.v1.VoteMode
-	0,  // 7: fate.v1.GetVoteDetailsResponse.status:type_name -> fate.v1.VoteStatus
-	15, // 8: fate.v1.GetVoteDetailsResponse.participants:type_name -> fate.v1.ParticipantInfo
-	16, // 9: fate.v1.GetVoteDetailsResponse.last_result:type_name -> fate.v1.DrawResultInfo
-	13, // 10: fate.v1.GetVoteDetailsResponse.options:type_name -> fate.v1.VoteOptionInfo
-	2,  // 11: fate.v1.GetVoteDetailsResponse.draw_target:type_name -> fate.v1.DrawTarget
-	16, // 12: fate.v1.GetLastDrawResultResponse.result:type_name -> fate.v1.DrawResultInfo
-	16, // 13: fate.v1.GetVoteHistoryResponse.results:type_name -> fate.v1.DrawResultInfo
-	3,  // 14: fate.v1.FateService.LinkTelegramAccount:input_type -> fate.v1.LinkTelegramAccountRequest
-	5,  // 15: fate.v1.FateService.UnlinkTelegramAccount:input_type -> fate.v1.UnlinkTelegramAccountRequest
-	7,  // 16: fate.v1.FateService.GetMyVotes:input_type -> fate.v1.GetMyVotesRequest
-	9,  // 17: fate.v1.FateService.CreateVote:input_type -> fate.v1.CreateVoteRequest
-	12, // 18: fate.v1.FateService.GetVoteDetails:input_type -> fate.v1.GetVoteDetailsRequest
-	17, // 19: fate.v1.FateService.DrawVote:input_type -> fate.v1.DrawVoteRequest
-	19, // 20: fate.v1.FateService.GetLastDrawResult:input_type -> fate.v1.GetLastDrawResultRequest
-	21, // 21: fate.v1.FateService.GetVoteHistory:input_type -> fate.v1.GetVoteHistoryRequest
-	4,  // 22: fate.v1.FateService.LinkTelegramAccount:output_type -> fate.v1.LinkTelegramAccountResponse
-	6,  // 23: fate.v1.FateService.UnlinkTelegramAccount:output_type -> fate.v1.UnlinkTelegramAccountResponse
-	8,  // 24: fate.v1.FateService.GetMyVotes:output_type -> fate.v1.GetMyVotesResponse
-	10, // 25: fate.v1.FateService.CreateVote:output_type -> fate.v1.CreateVoteResponse
-	14, // 26: fate.v1.FateService.GetVoteDetails:output_type -> fate.v1.GetVoteDetailsResponse
-	18, // 27: fate.v1.FateService.DrawVote:output_type -> fate.v1.DrawVoteResponse
-	20, // 28: fate.v1.FateService.GetLastDrawResult:output_type -> fate.v1.GetLastDrawResultResponse
-	22, // 29: fate.v1.FateService.GetVoteHistory:output_type -> fate.v1.GetVoteHistoryResponse
-	22, // [22:30] is the sub-list for method output_type
-	14, // [14:22] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	3,  // 0: fate.v1.LinkTelegramAccountResponse.error_code:type_name -> fate.v1.ErrorCode
+	3,  // 1: fate.v1.UnlinkTelegramAccountResponse.error_code:type_name -> fate.v1.ErrorCode
+	12, // 2: fate.v1.GetMyVotesResponse.votes:type_name -> fate.v1.VoteSummary
+	1,  // 3: fate.v1.CreateVoteRequest.mode:type_name -> fate.v1.VoteMode
+	2,  // 4: fate.v1.CreateVoteRequest.draw_target:type_name -> fate.v1.DrawTarget
+	15, // 5: fate.v1.CreateVoteResponse.vote:type_name -> fate.v1.GetVoteDetailsResponse
+	3,  // 6: fate.v1.CreateVoteResponse.error_code:type_name -> fate.v1.ErrorCode
+	0,  // 7: fate.v1.VoteSummary.status:type_name -> fate.v1.VoteStatus
+	1,  // 8: fate.v1.VoteSummary.mode:type_name -> fate.v1.VoteMode
+	1,  // 9: fate.v1.GetVoteDetailsResponse.mode:type_name -> fate.v1.VoteMode
+	0,  // 10: fate.v1.GetVoteDetailsResponse.status:type_name -> fate.v1.VoteStatus
+	16, // 11: fate.v1.GetVoteDetailsResponse.participants:type_name -> fate.v1.ParticipantInfo
+	17, // 12: fate.v1.GetVoteDetailsResponse.last_result:type_name -> fate.v1.DrawResultInfo
+	14, // 13: fate.v1.GetVoteDetailsResponse.options:type_name -> fate.v1.VoteOptionInfo
+	2,  // 14: fate.v1.GetVoteDetailsResponse.draw_target:type_name -> fate.v1.DrawTarget
+	3,  // 15: fate.v1.DrawVoteResponse.error_code:type_name -> fate.v1.ErrorCode
+	17, // 16: fate.v1.GetLastDrawResultResponse.result:type_name -> fate.v1.DrawResultInfo
+	17, // 17: fate.v1.GetVoteHistoryResponse.results:type_name -> fate.v1.DrawResultInfo
+	4,  // 18: fate.v1.FateService.LinkTelegramAccount:input_type -> fate.v1.LinkTelegramAccountRequest
+	6,  // 19: fate.v1.FateService.UnlinkTelegramAccount:input_type -> fate.v1.UnlinkTelegramAccountRequest
+	8,  // 20: fate.v1.FateService.GetMyVotes:input_type -> fate.v1.GetMyVotesRequest
+	10, // 21: fate.v1.FateService.CreateVote:input_type -> fate.v1.CreateVoteRequest
+	13, // 22: fate.v1.FateService.GetVoteDetails:input_type -> fate.v1.GetVoteDetailsRequest
+	18, // 23: fate.v1.FateService.DrawVote:input_type -> fate.v1.DrawVoteRequest
+	20, // 24: fate.v1.FateService.GetLastDrawResult:input_type -> fate.v1.GetLastDrawResultRequest
+	22, // 25: fate.v1.FateService.GetVoteHistory:input_type -> fate.v1.GetVoteHistoryRequest
+	5,  // 26: fate.v1.FateService.LinkTelegramAccount:output_type -> fate.v1.LinkTelegramAccountResponse
+	7,  // 27: fate.v1.FateService.UnlinkTelegramAccount:output_type -> fate.v1.UnlinkTelegramAccountResponse
+	9,  // 28: fate.v1.FateService.GetMyVotes:output_type -> fate.v1.GetMyVotesResponse
+	11, // 29: fate.v1.FateService.CreateVote:output_type -> fate.v1.CreateVoteResponse
+	15, // 30: fate.v1.FateService.GetVoteDetails:output_type -> fate.v1.GetVoteDetailsResponse
+	19, // 31: fate.v1.FateService.DrawVote:output_type -> fate.v1.DrawVoteResponse
+	21, // 32: fate.v1.FateService.GetLastDrawResult:output_type -> fate.v1.GetLastDrawResultResponse
+	23, // 33: fate.v1.FateService.GetVoteHistory:output_type -> fate.v1.GetVoteHistoryResponse
+	26, // [26:34] is the sub-list for method output_type
+	18, // [18:26] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_fate_v1_fate_proto_init() }
@@ -1680,7 +1953,7 @@ func file_fate_v1_fate_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fate_v1_fate_proto_rawDesc), len(file_fate_v1_fate_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,

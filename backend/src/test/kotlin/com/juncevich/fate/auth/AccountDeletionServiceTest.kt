@@ -8,6 +8,7 @@ import com.juncevich.fate.auth.internal.service.LoginThrottle
 import com.juncevich.fate.auth.internal.service.PasswordConfirmation
 import com.juncevich.fate.notification.NotificationOutbox
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ErrorCode
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -73,7 +74,7 @@ class AccountDeletionServiceTest {
 
         val ex = assertThrows<BadRequestException> { service.deleteAccount(account.id, "guess") }
 
-        assertEquals("WRONG_PASSWORD", ex.code)
+        assertEquals(ErrorCode.WRONG_PASSWORD, ex.code)
         verify(exactly = 0) { users.delete(any()) }
         verify(exactly = 0) { events.publishEvent(any<Any>()) }
     }

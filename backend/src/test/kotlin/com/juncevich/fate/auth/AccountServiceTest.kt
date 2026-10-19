@@ -17,6 +17,7 @@ import com.juncevich.fate.notification.NotificationOutbox
 import com.juncevich.fate.notification.PasswordResetPayload
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.ErrorCode
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -168,10 +169,10 @@ class AccountServiceTest {
     @Test
     fun `an unknown or expired token is refused with its code, the expired one spent`() {
         every { emailTokens.findByTokenHash(any(), any()) } returns null
-        assertEquals("INVALID_TOKEN", assertThrows<BadRequestException> { service.verifyEmail("nope") }.code)
+        assertEquals(ErrorCode.INVALID_TOKEN, assertThrows<BadRequestException> { service.verifyEmail("nope") }.code)
 
         val token = tokenFor(user(false), EmailTokenPurpose.VERIFY_EMAIL, expiresAt = Instant.now().minusSeconds(1))
-        assertEquals("TOKEN_EXPIRED", assertThrows<BadRequestException> { service.verifyEmail("raw-token") }.code)
+        assertEquals(ErrorCode.TOKEN_EXPIRED, assertThrows<BadRequestException> { service.verifyEmail("raw-token") }.code)
         verify { emailTokens.delete(token) }
         verify(exactly = 0) { authService.startSession(any()) }
     }
@@ -226,7 +227,7 @@ class AccountServiceTest {
 
         repeat(2) {
             val ex = assertThrows<BadRequestException> { service.changePassword(account.id, "guess", "new-password") }
-            assertEquals("WRONG_PASSWORD", ex.code)
+            assertEquals(ErrorCode.WRONG_PASSWORD, ex.code)
         }
         assertNotNull(
             assertThrows<com.juncevich.fate.auth.internal.service.LoginThrottledException> {

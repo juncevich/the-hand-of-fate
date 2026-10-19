@@ -1,6 +1,7 @@
 package com.juncevich.fate.auth.internal.service
 
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ErrorCode
 import org.springframework.stereotype.Component
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
@@ -14,7 +15,7 @@ import javax.imageio.stream.MemoryCacheImageInputStream
 /** The upload is not a usable image. */
 class InvalidAvatarException(
     message: String,
-) : BadRequestException(message)
+) : BadRequestException(message, ErrorCode.AVATAR_INVALID)
 
 /**
  * Turns an uploaded image into the stored avatar: a center-cropped [SIZE]×[SIZE] PNG.

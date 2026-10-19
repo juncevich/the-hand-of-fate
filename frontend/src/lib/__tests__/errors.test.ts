@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { AxiosError, AxiosHeaders } from 'axios'
-import { extractErrorMessage, onMutationError } from '../errors'
+import { errorCode, extractErrorMessage, extractFieldErrors, onMutationError } from '../errors'
 import { winnerLabel } from '../utils'
 
 vi.mock('@/components/ui/toaster', () => ({ toast: vi.fn() }))
@@ -16,6 +16,18 @@ function axiosError(data: unknown, message = 'Request failed') {
 }
 
 describe('extractErrorMessage', () => {
+  it('translates a known code instead of showing the English title', () => {
+    const error = axiosError({ title: 'Vote not found', code: 'VOTE_NOT_FOUND' })
+    expect(extractErrorMessage(error)).toBe('Голосование не найдено')
+    expect(errorCode(error)).toBe('VOTE_NOT_FOUND')
+  })
+
+  it('falls back to the title for a code it does not know', () => {
+    const error = axiosError({ title: 'Something new', code: 'FROM_A_NEWER_BACKEND' })
+    expect(extractErrorMessage(error)).toBe('Something new')
+    expect(errorCode(error)).toBeUndefined()
+  })
+
   it('prefers the ProblemDetail title', () => {
     expect(extractErrorMessage(axiosError({ title: 'Vote not found', detail: 'ignored' }))).toBe('Vote not found')
   })
@@ -35,6 +47,21 @@ describe('extractErrorMessage', () => {
   it('returns a generic message for non-errors', () => {
     expect(extractErrorMessage('oops')).toBe('Неизвестная ошибка')
     expect(extractErrorMessage(null)).toBe('Неизвестная ошибка')
+  })
+})
+
+describe('extractFieldErrors', () => {
+  it('translates the violated constraint of each field', () => {
+    const error = axiosError({ code: 'VALIDATION_FAILED', fieldErrors: { email: 'Email', password: 'Size', displayName: 'NotBlank' } })
+    expect(extractFieldErrors(error)).toEqual({
+      email: 'Некорректный email',
+      password: 'От 8 до 100 символов',
+      displayName: 'Обязательное поле',
+    })
+  })
+
+  it('is empty without field errors', () => {
+    expect(extractFieldErrors(new Error('x'))).toEqual({})
   })
 })
 

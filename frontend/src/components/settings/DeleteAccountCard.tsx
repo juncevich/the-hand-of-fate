@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/toaster'
-import { errorCode, onMutationError } from '@/lib/errors'
+import { onMutationError } from '@/lib/errors'
 
 export function DeleteAccountCard() {
   const [open, setOpen] = useState(false)
@@ -26,10 +26,7 @@ export function DeleteAccountCard() {
       toast('Аккаунт удалён')
       void navigate('/login', { replace: true })
     },
-    onError: (e) => {
-      if (errorCode(e) === 'WRONG_PASSWORD') toast('Неверный пароль', undefined, 'error')
-      else onMutationError(e)
-    },
+    onError: onMutationError,
   })
 
   const created = stats.data?.createdCount

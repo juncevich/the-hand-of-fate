@@ -1,5 +1,6 @@
 package com.juncevich.fate.vote.internal
 
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ensureState
 import com.juncevich.fate.vote.DrawResult
 import com.juncevich.fate.vote.DrawTarget
@@ -38,7 +39,7 @@ class DrawService(
 ) {
     @Transactional
     fun draw(vote: Vote): DrawResult {
-        ensureState(vote.status == VoteStatus.PENDING) {
+        ensureState(vote.status == VoteStatus.PENDING, ErrorCode.VOTE_NOT_PENDING) {
             "Vote must be in PENDING status to draw. Current status: ${vote.status}"
         }
 
@@ -52,10 +53,16 @@ class DrawService(
                 DrawTarget.OPTIONS -> emptyList()
                 DrawTarget.PARTICIPANTS -> participantRepositoryPort.findAllByVoteId(vote.id)
             }
-        ensureState(options.isNotEmpty() || participants.isNotEmpty()) {
-            when (vote.drawTarget) {
-                DrawTarget.OPTIONS -> "Cannot draw: add at least one option first"
-                DrawTarget.PARTICIPANTS -> "Cannot draw: vote has no participants"
+        when (vote.drawTarget) {
+            DrawTarget.OPTIONS -> {
+                ensureState(options.isNotEmpty(), ErrorCode.NO_OPTIONS) { "Cannot draw: add at least one option first" }
+            }
+
+            DrawTarget.PARTICIPANTS -> {
+                ensureState(
+                    participants.isNotEmpty(),
+                    ErrorCode.NO_PARTICIPANTS
+                ) { "Cannot draw: vote has no participants" }
             }
         }
 
@@ -123,7 +130,7 @@ class DrawService(
 
     @Transactional
     fun reopen(vote: Vote) {
-        ensureState(vote.status == VoteStatus.DRAWN) { "Only DRAWN votes can be reopened" }
+        ensureState(vote.status == VoteStatus.DRAWN, ErrorCode.VOTE_NOT_DRAWN) { "Only DRAWN votes can be reopened" }
         vote.status = VoteStatus.PENDING
         voteRepositoryPort.save(vote)
     }

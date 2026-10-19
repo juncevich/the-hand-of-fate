@@ -4,11 +4,7 @@ import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { toast } from '@/components/ui/toaster'
-import { errorCode } from '@/lib/errors'
-
-const MESSAGES: Record<string, string> = {
-  TOKEN_EXPIRED: 'Срок действия ссылки истёк. Войдите, чтобы получить новую.',
-}
+import { errorCode, extractErrorMessage } from '@/lib/errors'
 
 /** Target of the link in the verification email: confirms the address and signs in. */
 export function VerifyEmailPage() {
@@ -31,7 +27,8 @@ export function VerifyEmailPage() {
         void navigate('/', { replace: true })
       })
       .catch((e: unknown) => {
-        setError(MESSAGES[errorCode(e) ?? ''] ?? 'Ссылка недействительна или уже использована.')
+        const message = extractErrorMessage(e)
+        setError(errorCode(e) === 'TOKEN_EXPIRED' ? `${message}. Войдите, чтобы получить новую.` : message)
       })
   }, [token, setAuth, navigate])
 

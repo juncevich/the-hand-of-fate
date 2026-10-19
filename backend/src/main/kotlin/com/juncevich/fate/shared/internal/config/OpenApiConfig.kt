@@ -1,5 +1,6 @@
 package com.juncevich.fate.shared.internal.config
 
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.OpenApiDocs
 import io.swagger.v3.core.converter.AnnotatedType
 import io.swagger.v3.core.converter.ModelConverter
@@ -56,6 +57,7 @@ class OpenApiConfig {
                             .bearerFormat("JWT")
                             .description("Access token returned by login/register/refresh")
                     ).addSchemas(OpenApiDocs.PROBLEM_SCHEMA, problemSchema())
+                    .addSchemas(ERROR_CODE_SCHEMA, errorCodeSchema())
             ).addSecurityItem(SecurityRequirement().addList(OpenApiDocs.BEARER))
 
     /**
@@ -103,20 +105,30 @@ class OpenApiConfig {
             .addProperty("detail", StringSchema())
             .addProperty("instance", StringSchema().format("uri"))
             .addProperty("timestamp", StringSchema().format("date-time"))
+            .addProperty("code", Schema<Any>().`$ref`("#/components/schemas/$ERROR_CODE_SCHEMA"))
             .addProperty(
-                "code",
-                StringSchema().description(
-                    "Stable machine-readable reason, present on some failures (e.g. EMAIL_NOT_VERIFIED)"
-                )
+                "fieldErrors",
+                ObjectSchema()
+                    .description(
+                        "Field name to the violated constraint (Email, NotBlank, Size, ...), on validation failures"
+                    ).additionalProperties(StringSchema())
             ).addProperty(
                 "errors",
                 ObjectSchema()
                     .description("Field name to message, present on validation failures")
                     .additionalProperties(StringSchema())
-            ).required(listOf("title", "status"))
+            ).required(listOf("title", "status", "code"))
+
+    private fun errorCodeSchema(): Schema<*> =
+        StringSchema()
+            .description(
+                "Machine-readable reason of the error. Clients show their own wording per value; " +
+                    "`title` is an English fallback."
+            )._enum(ErrorCode.entries.map { it.name })
 
     private companion object {
         val BODILESS_STATUSES = setOf("204", "304")
+        const val ERROR_CODE_SCHEMA = "ErrorCode"
     }
 
     private fun problemResponse(description: String): ApiResponse =

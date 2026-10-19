@@ -69,7 +69,7 @@ describe('account settings', () => {
 
     await user.type(screen.getByLabelText('Пароль для подтверждения'), 'guess')
     await user.click(confirm)
-    await waitFor(() => expect(toast).toHaveBeenCalledWith('Неверный пароль', undefined, 'error'))
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('Ошибка', 'Неверный пароль', 'error'))
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
 
     await user.click(confirm)

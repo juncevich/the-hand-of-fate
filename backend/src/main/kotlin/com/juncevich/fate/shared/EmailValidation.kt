@@ -11,7 +11,7 @@ fun isValidEmail(value: String): Boolean = value.length <= 255 && EMAIL_REGEX.ma
 
 fun requireValidEmail(value: String): String {
     if (!isValidEmail(value)) {
-        throw BadRequestException("Invalid email address: $value")
+        throw BadRequestException("Invalid email address: $value", ErrorCode.INVALID_EMAIL)
     }
     return value
 }

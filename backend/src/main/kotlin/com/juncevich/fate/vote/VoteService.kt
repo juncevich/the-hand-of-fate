@@ -3,6 +3,7 @@ package com.juncevich.fate.vote
 import com.juncevich.fate.auth.UserQueryService
 import com.juncevich.fate.notification.EmailBudget
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.shared.ensureState
@@ -48,22 +49,33 @@ class VoteService(
         creatorId: UUID,
         request: CreateVoteCommand,
     ): VoteDetailView {
-        val creator = userQueryService.findProfileById(creatorId) ?: throw NotFoundException("User not found")
+        val creator =
+            userQueryService.findProfileById(creatorId)
+                ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
 
         val title = requireValidTitle(request.title)
-        ensureValid((request.description?.length ?: 0) <= VoteLimits.MAX_DESCRIPTION_LENGTH) {
+        ensureValid(
+            (request.description?.length ?: 0) <= VoteLimits.MAX_DESCRIPTION_LENGTH,
+            ErrorCode.DESCRIPTION_TOO_LONG
+        ) {
             "Description must not exceed ${VoteLimits.MAX_DESCRIPTION_LENGTH} characters"
         }
         // Checked before normalizing so an oversized list is rejected without processing it.
-        ensureValid(request.participantEmails.size <= VoteLimits.MAX_PARTICIPANTS) { participantLimitMessage() }
-        ensureValid(request.options.orEmpty().size <= VoteLimits.MAX_OPTIONS) { optionLimitMessage() }
+        ensureValid(request.participantEmails.size <= VoteLimits.MAX_PARTICIPANTS, ErrorCode.TOO_MANY_PARTICIPANTS) {
+            participantLimitMessage()
+        }
+        ensureValid(request.options.orEmpty().size <= VoteLimits.MAX_OPTIONS, ErrorCode.TOO_MANY_OPTIONS) {
+            optionLimitMessage()
+        }
         val invitedEmails =
             request.participantEmails
                 .map(::normalizeEmail)
                 .distinct()
                 .filter { it != creator.email }
         val allEmails = setOf(creator.email) + invitedEmails
-        ensureValid(allEmails.size <= VoteLimits.MAX_PARTICIPANTS) { participantLimitMessage() }
+        ensureValid(allEmails.size <= VoteLimits.MAX_PARTICIPANTS, ErrorCode.TOO_MANY_PARTICIPANTS) {
+            participantLimitMessage()
+        }
         val optionTitles =
             request.options
                 .orEmpty()
@@ -71,7 +83,9 @@ class VoteService(
                 .distinct()
         val drawTarget =
             request.drawTarget ?: if (optionTitles.isEmpty()) DrawTarget.PARTICIPANTS else DrawTarget.OPTIONS
-        ensureValid(drawTarget == DrawTarget.OPTIONS || optionTitles.isEmpty()) { PARTICIPANTS_TARGET_OPTIONS_MESSAGE }
+        ensureValid(drawTarget == DrawTarget.OPTIONS || optionTitles.isEmpty(), ErrorCode.OPTIONS_NOT_ALLOWED) {
+            PARTICIPANTS_TARGET_OPTIONS_MESSAGE
+        }
         emailBudget.reserveOrThrow(creator.id, invitedEmails.size)
 
         val vote =
@@ -147,12 +161,17 @@ class VoteService(
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
         val normalizedEmail = normalizeEmail(email)
-        ensureState(vote.status == VoteStatus.PENDING) { "Cannot add participants to a non-pending vote" }
+        ensureState(vote.status == VoteStatus.PENDING, ErrorCode.VOTE_NOT_PENDING) {
+            "Cannot add participants to a non-pending vote"
+        }
         ensureState(
-            !participantRepositoryPort.existsByVoteIdAndEmail(voteId, normalizedEmail)
+            !participantRepositoryPort.existsByVoteIdAndEmail(voteId, normalizedEmail),
+            ErrorCode.PARTICIPANT_EXISTS
         ) { "Participant already exists" }
         val participantCount = participantRepositoryPort.countByVoteIds(listOf(voteId)).sumOf { it.participantCount }
-        ensureValid(participantCount < VoteLimits.MAX_PARTICIPANTS) { participantLimitMessage() }
+        ensureValid(participantCount < VoteLimits.MAX_PARTICIPANTS, ErrorCode.TOO_MANY_PARTICIPANTS) {
+            participantLimitMessage()
+        }
 
         emailBudget.reserveOrThrow(requesterId, 1)
         val user = userQueryService.findProfileByEmail(normalizedEmail)
@@ -170,7 +189,10 @@ class VoteService(
     ) {
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
-        ensureState(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
+        ensureState(
+            vote.status == VoteStatus.PENDING,
+            ErrorCode.VOTE_NOT_PENDING
+        ) { "Cannot modify a non-pending vote" }
         participantRepositoryPort.deleteByVoteIdAndEmail(voteId, normalizeEmail(email))
     }
 
@@ -181,10 +203,14 @@ class VoteService(
     ) {
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
-        ensureState(vote.status == VoteStatus.PENDING) { "Cannot add options to a non-pending vote" }
-        ensureState(vote.drawTarget == DrawTarget.OPTIONS) { PARTICIPANTS_TARGET_OPTIONS_MESSAGE }
+        ensureState(vote.status == VoteStatus.PENDING, ErrorCode.VOTE_NOT_PENDING) {
+            "Cannot add options to a non-pending vote"
+        }
+        ensureState(vote.drawTarget == DrawTarget.OPTIONS, ErrorCode.OPTIONS_NOT_ALLOWED) {
+            PARTICIPANTS_TARGET_OPTIONS_MESSAGE
+        }
         val options = voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(voteId)
-        ensureValid(options.size < VoteLimits.MAX_OPTIONS) { optionLimitMessage() }
+        ensureValid(options.size < VoteLimits.MAX_OPTIONS, ErrorCode.TOO_MANY_OPTIONS) { optionLimitMessage() }
         // Appended last; the vote lock keeps concurrent additions from taking the same position.
         val position = (options.maxOfOrNull { it.position } ?: -1) + 1
         voteOptionRepositoryPort.save(
@@ -199,9 +225,15 @@ class VoteService(
     ) {
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
-        ensureState(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
+        ensureState(
+            vote.status == VoteStatus.PENDING,
+            ErrorCode.VOTE_NOT_PENDING
+        ) { "Cannot modify a non-pending vote" }
         val currentIds = voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(voteId).map { it.id }
-        ensureValid(orderedOptionIds.size == currentIds.size && orderedOptionIds.toSet() == currentIds.toSet()) {
+        ensureValid(
+            orderedOptionIds.size == currentIds.size && orderedOptionIds.toSet() == currentIds.toSet(),
+            ErrorCode.OPTION_ORDER_INVALID
+        ) {
             "The new order must list every option of the vote exactly once"
         }
         voteOptionRepositoryPort.updatePositions(voteId, orderedOptionIds)
@@ -214,7 +246,10 @@ class VoteService(
     ) {
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
-        ensureState(vote.status == VoteStatus.PENDING) { "Cannot modify a non-pending vote" }
+        ensureState(
+            vote.status == VoteStatus.PENDING,
+            ErrorCode.VOTE_NOT_PENDING
+        ) { "Cannot modify a non-pending vote" }
         voteOptionRepositoryPort.deleteByVoteIdAndId(voteId, optionId)
     }
 
@@ -222,7 +257,9 @@ class VoteService(
         voteId: UUID,
         requesterId: UUID,
     ): DrawResult {
-        val vote = voteRepositoryPort.findByIdForUpdate(voteId) ?: throw NotFoundException("Vote not found")
+        val vote =
+            voteRepositoryPort.findByIdForUpdate(voteId)
+                ?: throw NotFoundException("Vote not found", ErrorCode.VOTE_NOT_FOUND)
         checkIsCreator(vote, requesterId)
 
         val result = drawService.draw(vote)
@@ -253,7 +290,7 @@ class VoteService(
     ) {
         val vote = getVoteForUpdateOrThrow(voteId)
         checkIsCreator(vote, requesterId)
-        ensureState(vote.status != VoteStatus.CLOSED) { "Vote is already closed" }
+        ensureState(vote.status != VoteStatus.CLOSED, ErrorCode.VOTE_ALREADY_CLOSED) { "Vote is already closed" }
         vote.status = VoteStatus.CLOSED
         voteRepositoryPort.save(vote)
     }
@@ -283,7 +320,9 @@ class VoteService(
     ): Page<DrawHistoryView> {
         val vote = getVoteOrThrow(voteId)
         checkCanView(vote, requesterId, requesterEmail)
-        ensureValid(pageable.isPaged && pageable.pageSize <= 100) { "History page size must be between 1 and 100" }
+        ensureValid(pageable.isPaged && pageable.pageSize <= 100, ErrorCode.PAGE_INVALID) {
+            "History page size must be between 1 and 100"
+        }
         val boundedPage = PageRequest.of(pageable.pageNumber, pageable.pageSize)
         return drawHistoryRepositoryPort
             .findAllByVoteIdOrderByDrawnAtDescIdDesc(
@@ -304,17 +343,18 @@ class VoteService(
     }
 
     private fun getVoteForUpdateOrThrow(voteId: UUID): Vote =
-        voteRepositoryPort.findByIdForUpdate(voteId) ?: throw NotFoundException("Vote not found")
+        voteRepositoryPort.findByIdForUpdate(voteId)
+            ?: throw NotFoundException("Vote not found", ErrorCode.VOTE_NOT_FOUND)
 
     private fun getVoteOrThrow(voteId: UUID): Vote =
-        voteRepositoryPort.findById(voteId) ?: throw NotFoundException("Vote not found")
+        voteRepositoryPort.findById(voteId) ?: throw NotFoundException("Vote not found", ErrorCode.VOTE_NOT_FOUND)
 
     private fun checkIsCreator(
         vote: Vote,
         requesterId: UUID,
     ) {
         if (vote.creator.id != requesterId) {
-            throw ForbiddenException("Only the creator can perform this action")
+            throw ForbiddenException("Only the creator can perform this action", ErrorCode.NOT_VOTE_CREATOR)
         }
     }
 
@@ -327,7 +367,7 @@ class VoteService(
             vote.creator.id == requesterId ||
                 participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requesterEmail)
         if (!hasAccess) {
-            throw ForbiddenException("Vote is not available for this user")
+            throw ForbiddenException("Vote is not available for this user", ErrorCode.VOTE_ACCESS_DENIED)
         }
     }
 

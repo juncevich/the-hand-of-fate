@@ -126,7 +126,7 @@ describe('account pages', () => {
     await user.type(screen.getByLabelText('Текущий пароль'), 'old-password')
     await user.type(screen.getByLabelText('Новый пароль'), 'new-password')
     await user.click(screen.getByRole('button', { name: 'Сменить пароль' }))
-    await waitFor(() => expect(toast).toHaveBeenCalledWith('Неверный текущий пароль', undefined, 'error'))
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('Ошибка', 'Неверный пароль', 'error'))
 
     await user.click(screen.getByRole('button', { name: 'Сменить пароль' }))
     await waitFor(() => expect(useAuthStore.getState().accessToken).toBe('fresh'))

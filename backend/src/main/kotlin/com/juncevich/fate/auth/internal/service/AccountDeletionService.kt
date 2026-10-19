@@ -3,6 +3,7 @@ package com.juncevich.fate.auth.internal.service
 import com.juncevich.fate.auth.AccountDeleted
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.notification.NotificationOutbox
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
@@ -29,7 +30,7 @@ class AccountDeletionService(
         userId: UUID,
         password: String,
     ) {
-        val user = users.findById(userId) ?: throw NotFoundException("User not found")
+        val user = users.findById(userId) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
         passwordConfirmation.require(user, password)
         events.publishEvent(AccountDeleted(user.id, user.email))
         outbox.cancelFor(user.email)

@@ -3,6 +3,7 @@ package com.juncevich.fate.notification.internal
 import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.notification.internal.web.NotificationController
 import com.juncevich.fate.shared.BadRequestException
+import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.internal.config.ErrorHandler
 import io.mockk.every
 import io.mockk.just
@@ -48,7 +49,7 @@ class NotificationControllerTest {
 
     @Test
     fun `a bad signature is a 400 with its code`() {
-        every { preferences.unsubscribe(any(), any()) } throws BadRequestException("invalid", code = "INVALID_TOKEN")
+        every { preferences.unsubscribe(any(), any()) } throws BadRequestException("invalid", ErrorCode.INVALID_TOKEN)
 
         mockMvc
             .post("/api/v1/notifications/unsubscribe") {
