@@ -1,23 +1,23 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
-import { authApi } from '@/api/auth'
+import { session } from '@/auth/session'
 import { Toaster } from '@/components/ui/toaster'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
-import { RegisterPage } from '@/pages/RegisterPage'
+import { OidcCallbackPage } from '@/pages/OidcCallbackPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { VoteDetailPage } from '@/pages/VoteDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
-import { VerifyEmailPage } from '@/pages/VerifyEmailPage'
-import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
-import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { UnsubscribePage } from '@/pages/UnsubscribePage'
 import { BackendStatusIndicator } from '@/components/layout/BackendStatusIndicator'
 
+const CALLBACK_PATH = '/oidc/callback'
+
 function ProtectedRoute({ children, isAuthReady }: { children: ReactNode; isAuthReady: boolean }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const location = useLocation()
   if (!isAuthReady) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -25,31 +25,28 @@ function ProtectedRoute({ children, isAuthReady }: { children: ReactNode; isAuth
       </div>
     )
   }
-  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
+  }
   return <>{children}</>
 }
 
 export default function App() {
-  const setAuth = useAuthStore((s) => s.setAuth)
   const theme = useThemeStore((s) => s.theme)
-  const [isAuthReady, setIsAuthReady] = useState(false)
+  // The sign-in callback completes a sign-in of its own; there is nothing to restore there.
+  const [isAuthReady, setIsAuthReady] = useState(() => window.location.pathname === CALLBACK_PATH)
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light')
   }, [theme])
 
-  // Attempt silent refresh on mount using the httpOnly cookie
+  // Picks up an existing Keycloak sign-in without a redirect (its session cookie); none is fine.
   useEffect(() => {
+    if (window.location.pathname === CALLBACK_PATH) return
     let active = true
-    authApi
-      .silentRefresh()
-      .then((data) => { if (active) setAuth(data) })
-      .catch(() => {
-        /* not logged in — that's fine */
-      })
-      .finally(() => { if (active) setIsAuthReady(true) })
+    void session.restore().finally(() => { if (active) setIsAuthReady(true) })
     return () => { active = false }
-  }, [setAuth])
+  }, [])
 
   return (
     <BrowserRouter>
@@ -63,10 +60,7 @@ export default function App() {
       )}
       <Routes>
         <Route path="/login"    element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path={CALLBACK_PATH} element={<OidcCallbackPage />} />
         <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
         <Route

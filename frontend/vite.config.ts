@@ -13,6 +13,15 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       ...(isMock ? [mockApiPlugin()] : []),
     ],
+    build: {
+      rolldownOptions: {
+        // The silent-renew page loaded in a hidden iframe (src/auth/keycloak.ts)
+        input: {
+          main: path.resolve(import.meta.dirname, 'index.html'),
+          silent: path.resolve(import.meta.dirname, 'oidc/silent.html'),
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, './src'),

@@ -138,7 +138,7 @@ if [[ -z "$BOT_TOKEN" ]]; then
 fi
 
 echo "==> Waiting for rollout..."
-kc rollout status statefulset/postgres --timeout=180s
+kc rollout status statefulset/postgres --timeout=300s
 for d in rustfs mailpit keycloak backend frontend gateway; do
   kc rollout status "deployment/$d" --timeout=300s
 done

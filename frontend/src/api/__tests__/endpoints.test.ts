@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { apiClient, refreshSession } from '../client'
+import { apiClient } from '../client'
 import { authApi } from '../auth'
 import { telegramApi } from '../telegram'
 import { votesApi } from '../votes'
@@ -7,7 +7,6 @@ import { usersApi } from '../users'
 
 vi.mock('../client', () => ({
   apiClient: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
-  refreshSession: vi.fn(),
 }))
 
 const ok = <T,>(data: T) => Promise.resolve({ data })
@@ -22,31 +21,15 @@ describe('API modules', () => {
   })
 
   describe('authApi', () => {
-    it('register posts credentials and unwraps the payload', async () => {
-      const body = { email: 'a@b.c', password: 'secret', displayName: 'A' }
-      await expect(authApi.register(body)).resolves.toBe('post-data')
-      expect(apiClient.post).toHaveBeenCalledWith('/auth/register', body)
+    it('deleteAccount posts without a password: the backend checks the sign-in time', async () => {
+      await authApi.deleteAccount()
+      expect(apiClient.post).toHaveBeenCalledWith('/auth/delete-account', {})
     })
 
-    it('login posts credentials and unwraps the payload', async () => {
-      const body = { email: 'a@b.c', password: 'secret' }
-      await expect(authApi.login(body)).resolves.toBe('post-data')
-      expect(apiClient.post).toHaveBeenCalledWith('/auth/login', body)
+    it('logoutAll posts to the logout-all endpoint', async () => {
+      await authApi.logoutAll()
+      expect(apiClient.post).toHaveBeenCalledWith('/auth/logout-all')
     })
-
-    it('logout posts to the logout endpoint', async () => {
-      await authApi.logout()
-      expect(apiClient.post).toHaveBeenCalledWith('/auth/logout')
-    })
-
-    it('silentRefresh uses the shared session refresh', async () => {
-      const payload = { accessToken: 't', userId: 'u', email: 'a@test.com', displayName: 'A', avatarUrl: null }
-      vi.mocked(refreshSession).mockResolvedValueOnce(payload)
-      await expect(authApi.silentRefresh()).resolves.toEqual(payload)
-      expect(refreshSession).toHaveBeenCalledOnce()
-      expect(apiClient.post).not.toHaveBeenCalled()
-    })
-
   })
 
   describe('telegramApi', () => {
@@ -62,6 +45,11 @@ describe('API modules', () => {
   })
 
   describe('usersApi', () => {
+    it('getProfile reads the signed-in account', async () => {
+      await expect(usersApi.getProfile()).resolves.toBe('get-data')
+      expect(apiClient.get).toHaveBeenCalledWith('/users/me')
+    })
+
     it('uploadAvatar puts the file as multipart form data', async () => {
       const file = new File(['x'], 'me.png', { type: 'image/png' })
       await expect(usersApi.uploadAvatar(file)).resolves.toBe('put-data')

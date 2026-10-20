@@ -427,6 +427,29 @@ paths:
       summary: Unlink the Telegram account
       tags:
       - Telegram
+  /api/v1/users/me:
+    get:
+      description: What the app shows of the account; read after signing in through
+        Keycloak.
+      operationId: getProfile
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+          description: OK
+        "401":
+          description: Missing or invalid access token
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Error described by a problem detail
+      summary: The signed-in account's profile
+      tags:
+      - Users
   /api/v1/users/me/avatar:
     delete:
       operationId: deleteAvatar
@@ -1385,6 +1408,23 @@ components:
       - code
       - status
       - title
+    ProfileResponse:
+      type: object
+      properties:
+        avatarUrl:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+        email:
+          type: string
+        userId:
+          type: string
+      required:
+      - avatarUrl
+      - displayName
+      - email
+      - userId
     RefreshRequest:
       type: object
       properties:

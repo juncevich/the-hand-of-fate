@@ -61,6 +61,14 @@ data class AuthResponse(
     val avatarUrl: String?,
 )
 
+data class ProfileResponse(
+    val userId: String,
+    val email: String,
+    val displayName: String,
+    /** Versioned URL of the avatar image; `null` when the user has none. */
+    val avatarUrl: String?,
+)
+
 // The refresh token is deliberately left out: it only travels in the httpOnly cookie.
 fun AuthTokens.toResponse() =
     AuthResponse(

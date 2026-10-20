@@ -1,50 +1,21 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/store/authStore'
-import type { AuthPayload } from './auth'
 
 type AuthRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean; _sessionVersion?: number }
 
 export const apiClient = axios.create({
   baseURL: '/api/v1',
-  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 })
 
 // Endpoints that work without a session: a 401 from them is a real answer, not an expired token.
-const SESSIONLESS = /^\/auth\/(login|register|refresh|logout|verify-email|resend-verification|forgot-password|reset-password)$|^\/notifications\/unsubscribe/
+const SESSIONLESS = /^\/notifications\/unsubscribe/
 
-let refreshPromise: Promise<AuthPayload> | null = null
-let refreshVersion: number | null = null
+let renewSession: (() => Promise<string>) | null = null
 
-const REFRESH_LOCK = 'fate-auth-refresh'
-
-// Every tab shares one refresh cookie, and each refresh rotates it. Under a lock held across
-// tabs, a second tab refreshes only after the first finished — with the rotated cookie — instead
-// of replaying the old one. Without the Web Locks API the backend's short reuse grace still helps.
-function withRefreshLock<T>(refresh: () => Promise<T>): Promise<T> {
-  return 'locks' in navigator ? navigator.locks.request(REFRESH_LOCK, refresh) : refresh()
-}
-
-export function refreshSession(): Promise<AuthPayload> {
-  const version = useAuthStore.getState().sessionVersion
-  if (refreshPromise && refreshVersion === version) return refreshPromise
-  refreshVersion = version
-  const pending = withRefreshLock(() => axios.post<AuthPayload>('/api/v1/auth/refresh', {}, { withCredentials: true }))
-    .then(({ data }) => {
-      if (useAuthStore.getState().sessionVersion !== version) {
-        throw new Error('Session changed during refresh')
-      }
-      useAuthStore.getState().setAuth(data)
-      return data
-    })
-    .finally(() => {
-      if (refreshPromise === pending) {
-        refreshPromise = null
-        refreshVersion = null
-      }
-    })
-  refreshPromise = pending
-  return pending
+/** How a rejected access token is replaced: by the sign-in session (src/auth/session.ts). */
+export function setSessionRenewal(renew: () => Promise<string>) {
+  renewSession = renew
 }
 
 apiClient.interceptors.request.use((config) => {
@@ -56,6 +27,8 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+// A 401 means the access token stopped working before its renewal: renew once and retry. When
+// the sign-in itself has ended, the session is cleared and the app goes to /login.
 apiClient.interceptors.response.use(
   (res) => res,
   async (error: unknown) => {
@@ -64,17 +37,18 @@ apiClient.interceptors.response.use(
     if (error.response?.status !== 401 || !original || original._retry || SESSIONLESS.test(original.url ?? '')) {
       return Promise.reject(error)
     }
-    if (original._sessionVersion !== useAuthStore.getState().sessionVersion) return Promise.reject(error)
-    original._retry = true
     const version = useAuthStore.getState().sessionVersion
-    let data: AuthPayload
+    if (original._sessionVersion !== version || !renewSession) return Promise.reject(error)
+    original._retry = true
+    let token: string
     try {
-      data = await refreshSession()
-    } catch (refreshError) {
+      token = await renewSession()
+    } catch (renewError) {
       if (useAuthStore.getState().sessionVersion === version) useAuthStore.getState().clearAuth()
-      return Promise.reject(refreshError)
+      return Promise.reject(renewError)
     }
-    original.headers.Authorization = `Bearer ${data.accessToken}`
+    // Also what the retry (and every later request) is sent with.
+    useAuthStore.getState().updateAccessToken(token)
     return apiClient(original)
   }
 )

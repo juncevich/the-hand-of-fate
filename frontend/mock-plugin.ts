@@ -5,7 +5,8 @@ import type { components } from './src/api/generated/schema'
 
 // In-memory stand-in for the REST API (`npm run dev:mock`). Response bodies are typed with the
 // schema generated from api/openapi.yaml, so `tsc -b` flags this file when the contract changes.
-// Mailed links (verification, password reset) are printed to the dev-server console.
+// There is no Keycloak here: POST /mock/sign-in hands out a token for the demo account
+// (src/auth/mock.ts), and the API accepts it as `Bearer mock-access.<user id>`.
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -18,8 +19,7 @@ type VoteOption   = Schemas['VoteOptionDto']
 type HistoryEntry = Schemas['DrawHistoryDto'] & { optionId: string | null }
 
 interface Account {
-  id: string; email: string; displayName: string; password: string
-  verified: boolean; avatarVersion: number | null
+  id: string; email: string; displayName: string; avatarVersion: number | null
 }
 interface Vote {
   id: string; title: string; description: string | null
@@ -29,7 +29,6 @@ interface Vote {
   options: VoteOption[]           // in position order
   history: HistoryEntry[]         // oldest first
 }
-interface EmailToken { userId: string; purpose: 'verify' | 'reset'; expiresAt: number }
 
 // ── Limits (VoteLimits on the backend) ────────────────────────────────────────
 
@@ -38,7 +37,6 @@ const MAX_DESCRIPTION = 2000
 const MAX_PARTICIPANTS = 100
 const MAX_OPTIONS = 100
 const MAX_PAGE_SIZE = 100
-const REFRESH_COOKIE = 'fate_refresh_token'
 
 // ── Mock state ────────────────────────────────────────────────────────────────
 
@@ -47,19 +45,16 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString
 const hoursAgo = (n: number) => new Date(Date.now() - n * 3_600_000).toISOString()
 const fixedId = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 
-// Every seeded account signs in with the password "password".
 const accounts = new Map<string, Account>(
   [
     { id: fixedId(1), email: 'demo@example.com',  displayName: 'Demo User' },
     { id: fixedId(2), email: 'alice@example.com', displayName: 'Alice' },
     { id: fixedId(3), email: 'bob@example.com',   displayName: 'Bob' },
-  ].map((a) => [a.id, { ...a, password: 'password', verified: true, avatarVersion: null }]),
+  ].map((a) => [a.id, { ...a, avatarVersion: null }]),
 )
 const [DEMO_ID, ALICE_ID] = [fixedId(1), fixedId(2)]
 
-const refreshTokens = new Map<string, string>()   // token → user id
-const emailTokens   = new Map<string, EmailToken>()
-const suppressed    = new Set<string>()           // unsubscribed addresses
+const suppressed = new Set<string>()   // unsubscribed addresses
 
 const participantWin = (id: number, email: string, round: number, drawnAt: string): HistoryEntry =>
   ({ id: fixedId(id), winnerEmail: email, winnerDisplayName: displayNameOf(email), winnerOptionTitle: null, optionId: null, round, drawnAt })
@@ -126,8 +121,8 @@ const isEmail = (email: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)
 const avatarUrl = (a: Account) =>
   a.avatarVersion === null ? null : `/api/v1/users/${a.id}/avatar?v=${a.avatarVersion}`
 
-const authResponse = (a: Account): Schemas['AuthResponse'] => ({
-  accessToken: `mock-access.${a.id}`, userId: a.id, email: a.email, displayName: a.displayName, avatarUrl: avatarUrl(a),
+const profile = (a: Account): Schemas['ProfileResponse'] => ({
+  userId: a.id, email: a.email, displayName: a.displayName, avatarUrl: avatarUrl(a),
 })
 
 const toSummary = (v: Vote, user: Account): Schemas['VoteSummaryDto'] => ({
@@ -161,18 +156,6 @@ function paginate<T>(items: T[], query: URLSearchParams): Page<T> | null {
   }
 }
 
-function mail(req: IncomingMessage, to: string, subject: string, path: string) {
-  const link = `http://${req.headers.host ?? 'localhost:3000'}${path}`
-  logger?.info(`[mock mail] to ${to}: ${subject} → ${link}`, { timestamp: true })
-}
-
-function issueEmailToken(userId: string, purpose: EmailToken['purpose']) {
-  for (const [token, t] of emailTokens) if (t.userId === userId && t.purpose === purpose) emailTokens.delete(token)
-  const token = randomBytes(16).toString('hex')
-  emailTokens.set(token, { userId, purpose, expiresAt: Date.now() + (purpose === 'verify' ? 86_400_000 : 1_800_000) })
-  return token
-}
-
 function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve) => {
     let raw = ''
@@ -181,14 +164,6 @@ function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
       try { resolve(JSON.parse(raw || '{}')) } catch { resolve({}) }
     })
   })
-}
-
-function cookie(req: IncomingMessage, name: string) {
-  for (const part of (req.headers.cookie ?? '').split(';')) {
-    const [key, ...value] = part.trim().split('=')
-    if (key === name) return decodeURIComponent(value.join('='))
-  }
-  return undefined
 }
 
 const json = (res: ServerResponse, data: unknown, status = 200) => {
@@ -204,118 +179,20 @@ const problem = (res: ServerResponse, status: number, code: ErrorCode, title: st
 const invalidField = (res: ServerResponse, field: string, message: string, constraint: string) =>
   problem(res, 400, 'VALIDATION_FAILED', 'Validation failed', { errors: { [field]: message }, fieldErrors: { [field]: constraint } })
 
-function startSession(res: ServerResponse, a: Account, status = 200) {
-  const token = randomUUID()
-  refreshTokens.set(token, a.id)
-  res.setHeader('Set-Cookie', `${REFRESH_COOKIE}=${token}; Path=/api/v1/auth; HttpOnly; SameSite=Strict; Max-Age=2592000`)
-  json(res, authResponse(a), status)
-}
-function endSessions(userId: string, except?: string) {
-  for (const [token, id] of refreshTokens) if (id === userId && token !== except) refreshTokens.delete(token)
-}
-const clearCookie = (res: ServerResponse) =>
-  res.setHeader('Set-Cookie', `${REFRESH_COOKIE}=; Path=/api/v1/auth; HttpOnly; SameSite=Strict; Max-Age=0`)
-
 function currentUser(req: IncomingMessage) {
   const match = /^Bearer mock-access\.(.+)$/.exec(req.headers.authorization ?? '')
   return match ? accounts.get(match[1]) : undefined
 }
 
-// ── Auth (no session needed) ──────────────────────────────────────────────────
+// ── Account ───────────────────────────────────────────────────────────────────
 
-async function routeAuth(req: IncomingMessage, res: ServerResponse, action: string) {
-  const body = await readBody(req)
-  const email = normalizeEmail(body.email)
-
+function routeAccount(req: IncomingMessage, res: ServerResponse, action: string, user: Account) {
   switch (action) {
-    case 'register': {
-      if (!isEmail(email)) return invalidField(res, 'email', 'must be a well-formed email address', 'Email')
-      if (String(body.password ?? '').length < 8) return invalidField(res, 'password', 'size must be between 8 and 100', 'Size')
-      if (accountByEmail(email)) return problem(res, 409, 'EMAIL_ALREADY_REGISTERED', 'Email already registered')
-      const account: Account = {
-        id: randomUUID(), email, displayName: String(body.displayName ?? '').trim() || email.split('@')[0],
-        password: String(body.password), verified: false, avatarVersion: null,
-      }
-      accounts.set(account.id, account)
-      mail(req, email, 'confirm your address', `/verify-email?token=${issueEmailToken(account.id, 'verify')}`)
-      return json(res, { email } satisfies Schemas['RegistrationResponse'], 202)
-    }
-    case 'login': {
-      const account = accountByEmail(email)
-      if (!account || account.password !== body.password) return problem(res, 401, 'INVALID_CREDENTIALS', 'Invalid email or password')
-      if (!account.verified) return problem(res, 403, 'EMAIL_NOT_VERIFIED', 'Email address is not verified')
-      return startSession(res, account)
-    }
-    case 'refresh': {
-      const token = cookie(req, REFRESH_COOKIE) ?? (body.refreshToken as string | undefined)
-      if (!token) return problem(res, 400, 'REFRESH_TOKEN_REQUIRED', 'Refresh token is required')
-      const account = accounts.get(refreshTokens.get(token) ?? '')
-      if (!account) return problem(res, 401, 'UNAUTHORIZED', 'Invalid refresh token')
-      return json(res, authResponse(account))   // the mock does not rotate the token
-    }
-    case 'logout': {
-      const token = cookie(req, REFRESH_COOKIE)
-      if (token) refreshTokens.delete(token)
-      clearCookie(res)
-      return noContent(res)
-    }
-    case 'verify-email': {
-      const t = emailTokens.get(String(body.token ?? ''))
-      if (!t || t.purpose !== 'verify') return problem(res, 400, 'INVALID_TOKEN', 'This link is invalid or has already been used')
-      emailTokens.delete(String(body.token))
-      if (t.expiresAt < Date.now()) return problem(res, 400, 'TOKEN_EXPIRED', 'This link has expired')
-      const account = accounts.get(t.userId)
-      if (!account) return problem(res, 400, 'INVALID_TOKEN', 'This link is invalid or has already been used')
-      account.verified = true
-      return startSession(res, account)
-    }
-    case 'resend-verification': {
-      const account = accountByEmail(email)
-      if (account && !account.verified)
-        mail(req, email, 'confirm your address', `/verify-email?token=${issueEmailToken(account.id, 'verify')}`)
-      res.writeHead(202); return res.end()
-    }
-    case 'forgot-password': {
-      const account = accountByEmail(email)
-      if (account) mail(req, email, 'reset your password', `/reset-password?token=${issueEmailToken(account.id, 'reset')}`)
-      res.writeHead(202); return res.end()
-    }
-    case 'reset-password': {
-      const t = emailTokens.get(String(body.token ?? ''))
-      if (!t || t.purpose !== 'reset') return problem(res, 400, 'INVALID_TOKEN', 'This link is invalid or has already been used')
-      if (String(body.newPassword ?? '').length < 8) return invalidField(res, 'newPassword', 'size must be between 8 and 100', 'Size')
-      emailTokens.delete(String(body.token))
-      if (t.expiresAt < Date.now()) return problem(res, 400, 'TOKEN_EXPIRED', 'This link has expired')
-      const account = accounts.get(t.userId)
-      if (!account) return problem(res, 400, 'INVALID_TOKEN', 'This link is invalid or has already been used')
-      account.password = String(body.newPassword)
-      account.verified = true
-      endSessions(account.id)
-      return noContent(res)
-    }
-  }
-  return problem(res, 404, 'REQUEST_INVALID', 'Not found')
-}
-
-// ── Account (session needed) ──────────────────────────────────────────────────
-
-async function routeAccount(req: IncomingMessage, res: ServerResponse, action: string, user: Account) {
-  const body = await readBody(req)
-
-  switch (action) {
-    case 'change-password': {
-      if (user.password !== body.currentPassword) return problem(res, 400, 'WRONG_PASSWORD', 'Wrong password')
-      if (String(body.newPassword ?? '').length < 8) return invalidField(res, 'newPassword', 'size must be between 8 and 100', 'Size')
-      user.password = String(body.newPassword)
-      endSessions(user.id)
-      return startSession(res, user)
-    }
     case 'logout-all':
-      endSessions(user.id)
-      clearCookie(res)
       return noContent(res)
+    // Keycloak would ask for the password again after an old sign-in; the mock never does.
     case 'delete-account': {
-      if (user.password !== body.password) return problem(res, 400, 'WRONG_PASSWORD', 'Wrong password')
+      req.resume()
       for (const vote of [...votes.values()]) {
         if (vote.creatorId === user.id) { votes.delete(vote.id); continue }
         vote.participants = vote.participants.filter((email) => email !== user.email)
@@ -323,9 +200,7 @@ async function routeAccount(req: IncomingMessage, res: ServerResponse, action: s
           if (h.winnerEmail === user.email) { h.winnerEmail = null; h.winnerDisplayName = 'Deleted user' }
         }
       }
-      endSessions(user.id)
       accounts.delete(user.id)
-      clearCookie(res)
       return noContent(res)
     }
   }
@@ -485,14 +360,15 @@ async function routeVotes(req: IncomingMessage, res: ServerResponse, parts: stri
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
-const SESSIONLESS_AUTH = new Set(['register', 'login', 'refresh', 'logout', 'verify-email', 'resend-verification', 'forgot-password', 'reset-password'])
-
 async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
   const method = req.method ?? 'GET'
   const parts  = url.pathname.replace(/^\//, '').split('/')
 
   // ── Public ────────────────────────────────────────────────────────────────
-  if (parts[0] === 'auth' && SESSIONLESS_AUTH.has(parts[1]) && method === 'POST') return routeAuth(req, res, parts[1])
+  // Stands in for signing in through Keycloak (src/auth/mock.ts): always the demo account.
+  if (parts[0] === 'mock' && parts[1] === 'sign-in' && method === 'POST') {
+    return json(res, { accessToken: `mock-access.${DEMO_ID}` })
+  }
 
   if (parts[0] === 'notifications' && method === 'POST') {
     // Any non-empty signature passes: the mock cannot sign links it never mailed.
@@ -519,6 +395,7 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
   if (parts[0] === 'votes') return routeVotes(req, res, parts, url.searchParams, user)
 
   if (parts[0] === 'users' && parts[1] === 'me') {
+    if (parts.length === 2 && method === 'GET') return json(res, profile(user))
     if (parts[2] === 'avatar' && method === 'PUT') {
       req.resume()
       user.avatarVersion = Date.now()
@@ -553,7 +430,7 @@ export function mockApiPlugin(): Plugin {
     name: 'mock-api',
     configureServer(server) {
       logger = server.config.logger
-      logger.info('[mock api] sign in as demo@example.com / password (also alice@ and bob@example.com)')
+      logger.info('[mock api] "Войти" signs in as demo@example.com (no Keycloak in mock mode)')
       server.middlewares.use('/api/v1', async (req, res, next) => {
         const url = new URL(req.url ?? '/', 'http://localhost')
         try {

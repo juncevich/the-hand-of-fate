@@ -1,32 +1,38 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useSearchParams } from 'react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { TriangleAlert } from 'lucide-react'
 import { authApi } from '@/api/auth'
 import { votesApi } from '@/api/votes'
-import { useAuthStore } from '@/store/authStore'
+import { session } from '@/auth/session'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/toaster'
-import { onMutationError } from '@/lib/errors'
+import { errorCode, onMutationError } from '@/lib/errors'
+
+/** Back on /settings after signing in again, the dialog opens by itself. */
+const CONFIRM_PARAM = 'delete-account'
 
 export function DeleteAccountCard() {
-  const [open, setOpen] = useState(false)
-  const [password, setPassword] = useState('')
-  const clearAuth = useAuthStore((s) => s.clearAuth)
-  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const [open, setOpen] = useState(searchParams.has(CONFIRM_PARAM))
   const stats = useQuery({ queryKey: ['vote-stats'], queryFn: votesApi.stats, enabled: open })
 
   const remove = useMutation({
-    mutationFn: () => authApi.deleteAccount(password),
-    onSuccess: () => {
-      clearAuth()
+    mutationFn: authApi.deleteAccount,
+    onSuccess: async () => {
       toast('Аккаунт удалён')
-      void navigate('/login', { replace: true })
+      // The Keycloak account goes too (the backend deletes it); end its session here.
+      await session.signOut()
     },
-    onError: onMutationError,
+    onError: (error) => {
+      // The deletion needs a fresh sign-in: confirm with the password, then come back here.
+      if (errorCode(error) === 'REAUTHENTICATION_REQUIRED') {
+        void session.signIn({ reauthenticate: true, returnTo: `/settings?${CONFIRM_PARAM}` })
+        return
+      }
+      onMutationError(error)
+    },
   })
 
   const created = stats.data?.createdCount
@@ -40,7 +46,7 @@ export function DeleteAccountCard() {
       <p className="text-sm text-fate-muted mb-4">
         Аккаунт, созданные вами голосования и их история будут удалены безвозвратно.
       </p>
-      <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) setPassword('') }}>
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" className="border-red-500/40 text-red-400 hover:text-red-300">
             Удалить аккаунт
@@ -57,23 +63,15 @@ export function DeleteAccountCard() {
                 : `Будет удалено голосований, созданных вами: ${created}.`}{' '}
               В чужих голосованиях вас уберут из участников, а прошлые победы останутся без имени.
             </p>
-            <div className="space-y-1.5">
-              <Label htmlFor="delete-password">Пароль для подтверждения</Label>
-              <Input
-                id="delete-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+            <p className="text-xs text-fate-muted">
+              Если вы входили давно, сначала попросим ввести пароль ещё раз.
+            </p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setOpen(false)}>Отмена</Button>
               <Button
                 className="bg-red-600 hover:bg-red-500 text-white"
                 onClick={() => remove.mutate()}
                 isLoading={remove.isPending}
-                disabled={!password}
               >
                 Удалить навсегда
               </Button>

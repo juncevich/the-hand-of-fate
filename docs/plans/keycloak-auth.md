@@ -1,6 +1,6 @@
 # План: Keycloak как сервер авторизации
 
-Статус: **этап 2 — в работе** · создан 2026-10-20
+Статус: **этап 3 — в работе** · создан 2026-10-20
 
 Как вести файл:
 - Пункт отмечается `[x]` в том же коммите, где сделана работа. Сделано частично — пункт остаётся `[ ]`, а в «Журнал» пишется, что уже готово.
@@ -56,7 +56,7 @@
   - одноразовый сервис config-cli.
 - [x] `frontend/vite.config.ts`: proxy `/auth` → Keycloak.
 - [x] `infra/nginx/nginx.conf`: `location /auth/` со своими security headers, без CSP приложения. `/auth/admin/` не проксировать за пределы dev.
-- [ ] k8s:
+- [x] k8s:
   - `overlays/local`: Deployment и Service `keycloak`, configMapGenerator с realm, Job config-cli;
   - секреты в `write-secrets.sh`;
   - `MINIKUBE_MEMORY` 6g → 8g;
@@ -67,7 +67,7 @@
 - [x] `.env.example`: переменные `KC_*` и `OAUTH_{GOOGLE,YANDEX,GITHUB}_CLIENT_ID/SECRET`.
 - [x] `dev-start.sh`, `k8s-start.sh` и skill `dev-environment` знают про Keycloak.
 - [x] Проверка руками на compose (`docker-compose.infra.yml` + Vite): PKCE-поток через `:3000/auth`, `prompt=none`, токены `fate-test`, Admin API от `fate-backend`.
-- [ ] Проверка руками на minikube: вход демо-пользователем через `http://localhost:30080/auth/`, письма Keycloak приходят в Mailpit.
+- [x] Проверка руками на minikube: вход демо-пользователем через `http://localhost:30080/auth/` (PKCE через gateway), токен принят бэкендом через `/api`, строка V7 перенята; письмо Keycloak («Сброс пароля») пришло в Mailpit.
 
 ## Этап 2. Бэкенд принимает оба выпускающих сервера
 
@@ -90,21 +90,22 @@
 
 ## Этап 3. Фронтенд на Keycloak
 
-- [ ] Зависимость `oidc-client-ts`, `AuthProvider` и `UserManager` (`fate-spa`, PKCE, `automaticSilentRenew` через `prompt=none`).
-- [ ] Маршруты `/oidc/callback` и `/oidc/silent`. Путь `/auth/` занят Keycloak на gateway, поэтому не он.
-- [ ] Gateway: `/oidc/silent` грузится в iframe, а у SPA `X-Frame-Options: DENY` и `frame-ancestors 'none'`. Нужен отдельный `location = /oidc/silent` (или статический `silent.html`) с `frame-ancestors 'self'` и `X-Frame-Options: SAMEORIGIN`. То же в Vite и в nginx фронтенд-образа.
-- [ ] `authStore` получает токен из `UserManager`.
-- [ ] `api/client.ts`: на 401 `signinSilent()` и повтор запроса, иначе `signinRedirect()`. Убрать свой refresh и Web Lock.
-- [ ] Обработка `REAUTHENTICATION_REQUIRED`: `signinRedirect({ max_age: 0 })` с возвратом к действию.
-- [ ] Settings:
+- [x] Зависимость `oidc-client-ts` 3.5.0, `UserManager` (`fate-spa`, PKCE, `automaticSilentRenew` через `prompt=none`) — `src/auth/keycloak.ts`; общий интерфейс `src/auth/session.ts`.
+- [x] Маршрут `/oidc/callback` (`OidcCallbackPage`) и статическая страница `/oidc/silent.html` (второй вход сборки Vite, `src/oidc-silent.ts`). Путь `/auth/` занят Keycloak на gateway, поэтому не он.
+- [x] Gateway: `location = /oidc/silent.html` с `frame-ancestors 'self'` и `X-Frame-Options: SAMEORIGIN`; у остального SPA по-прежнему `DENY`. Vite и nginx фронтенд-образа заголовков фреймов не ставят, им ничего не нужно.
+- [x] `authStore` получает токен из `UserManager` (вход, `addUserLoaded` при фоновом продлении); профиль — новый `GET /api/v1/users/me`.
+- [x] `api/client.ts`: на 401 одно общее продление (`session.renew` → `signinSilent()`) и повтор запроса, иначе сессия очищается и ProtectedRoute ведёт на `/login`. Свой refresh, cookie и Web Lock убраны.
+- [x] Обработка `REAUTHENTICATION_REQUIRED`: `signIn({ reauthenticate: true })` → `prompt=login`, возврат на `/settings?delete-account` с открытым диалогом.
+- [x] Settings:
   - «Сменить пароль» → `kc_action=UPDATE_PASSWORD`;
   - «Связанные аккаунты» → account console;
   - «Выйти везде»;
   - удаление аккаунта без поля пароля.
-- [ ] Выход: RP-initiated logout (`end_session_endpoint`).
-- [ ] Удалить `LoginPage`, `RegisterPage`, `ForgotPasswordPage`, `ResetPasswordPage`, `VerifyEmailPage` и их тесты; вместо входа — redirect на Keycloak.
-- [ ] `dev:mock`: заглушка `AuthProvider` с демо-пользователем.
-- [ ] Тесты Vitest, `npm run lint`, `npm run build`.
+- [x] Выход: RP-initiated logout (`end_session_endpoint`).
+- [x] Удалить `RegisterPage`, `ForgotPasswordPage`, `ResetPasswordPage`, `VerifyEmailPage`, `ResendVerification`, `ChangePasswordCard` и их тесты. `LoginPage` осталась стартовой страницей с кнопками «Войти» и «Создать аккаунт» (`prompt=create`), обе ведут в Keycloak.
+- [x] `dev:mock`: `src/auth/mock.ts` + `POST /api/v1/mock/sign-in` в `mock-plugin.ts` (всегда демо-аккаунт); имитация входа по паролю, refresh и писем из mock-API убрана.
+- [x] Тесты Vitest (169), `npm run lint`, `tsc -b`, `vite build`.
+- [ ] Проверка в браузере на minikube: вход, перезагрузка без повторного входа (тихое восстановление через iframe), смена пароля через AIA, выход.
 
 ## Этап 4. Клиенты API и e2e
 
@@ -163,3 +164,11 @@
   - Новые переменные бэкенда: `KEYCLOAK_URL` (внутренний адрес), `KEYCLOAK_PUBLIC_URL` (issuer = `<public>/realms/fate`), `KEYCLOAK_CLIENT_SECRET`. Значения по умолчанию подходят для dev-start; compose и k8s задают свои.
   - В тестах `@DynamicPropertySource` подкласса не перекрывает те же ключи базового класса, поэтому smoke-тест подставляет адрес настоящего Keycloak через `ApplicationContextInitializer` (`addFirst`).
   - `ErrorMappingContractTest` сравнивает и порядок значений: новый код добавляется в конец Kotlin enum.
+- 2026-10-20 — этап 3. Находки и решения:
+  - Бэкенду добавлен `GET /api/v1/users/me` (`ProfileResponse`): профиль раньше приходил в ответе на логин.
+  - Silent renew — отдельная HTML-страница, а не маршрут SPA: в iframe не грузится всё приложение, путь `/oidc/silent.html` попадает под зарегистрированный `KC_APP_URL/oidc/*`.
+  - Повторная аутентификация через `prompt=login`, а не `max_age=0`.
+  - `client.ts` сам кладёт продлённый токен в store перед повтором, иначе request-interceptor подставил бы старый.
+  - `npm run check:api` до коммита показывает diff — это ожидаемо: он сравнивает с HEAD.
+  - e2e (`auth.spec`, `account.spec`) и simulation сломаются до этапа 4: они используют старый вход.
+  - `vite build` предупреждает, что основной чанк больше 500 КБ (528 КБ вместе с `oidc-client-ts`); не исправлял.

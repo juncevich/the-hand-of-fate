@@ -2,24 +2,23 @@ import { Link, useNavigate } from 'react-router'
 import { LogOut, Moon, Settings, Sparkles, Sun } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
-import { authApi } from '@/api/auth'
+import { session } from '@/auth/session'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/UserAvatar'
 
 export function Topbar() {
-  const { displayName, avatarUrl, clearAuth } = useAuthStore()
+  const { displayName, avatarUrl } = useAuthStore()
   const { theme, toggleTheme } = useThemeStore()
   const navigate = useNavigate()
 
+  // Ends the Keycloak session too and comes back to /login (mock mode just signs out here).
   const handleLogout = async () => {
     try {
-      await authApi.logout()
+      await session.signOut()
     } catch {
-      // Server-side logout is best effort — the local session is cleared regardless
-    } finally {
-      clearAuth()
-      void navigate('/login')
+      // Keycloak unreachable: the local session is cleared regardless
     }
+    void navigate('/login')
   }
 
   return (

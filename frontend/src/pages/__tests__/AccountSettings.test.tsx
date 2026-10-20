@@ -4,12 +4,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { AxiosError } from 'axios'
+import { AccountSecurityCard } from '@/components/settings/AccountSecurityCard'
 import { DeleteAccountCard } from '@/components/settings/DeleteAccountCard'
 import { EmailNotificationsCard } from '@/components/settings/EmailNotificationsCard'
 import { UnsubscribePage } from '../UnsubscribePage'
 import { useAuthStore } from '@/store/authStore'
 
-vi.mock('@/api/auth', () => ({ authApi: { deleteAccount: vi.fn() } }))
+vi.mock('@/api/auth', () => ({ authApi: { deleteAccount: vi.fn(), logoutAll: vi.fn() } }))
+vi.mock('@/auth/session', () => ({
+  session: { signIn: vi.fn(), signOut: vi.fn(), accountUrl: 'http://app.test/auth/realms/fate/account' },
+}))
 vi.mock('@/api/votes', () => ({ votesApi: { stats: vi.fn() } }))
 vi.mock('@/api/users', () => ({
   usersApi: { getEmailPreferences: vi.fn(), updateEmailPreferences: vi.fn(), unsubscribe: vi.fn() },
@@ -51,31 +55,73 @@ describe('account settings', () => {
     expect(vi.mocked(usersApi.updateEmailPreferences).mock.calls[0][0]).toBe(false)
   })
 
-  it('shows how many votes go with the account and deletes it with the password', async () => {
+  it('shows how many votes go with the account, deletes it and signs out', async () => {
     const { authApi } = await import('@/api/auth')
     const { votesApi } = await import('@/api/votes')
-    const { toast } = await import('@/components/ui/toaster')
+    const { session } = await import('@/auth/session')
     vi.mocked(votesApi.stats).mockResolvedValue({ createdCount: 4 })
-    const wrong = new AxiosError('Bad', '400')
-    wrong.response = { data: { code: 'WRONG_PASSWORD' }, status: 400, statusText: '', headers: {}, config: wrong.config! }
-    vi.mocked(authApi.deleteAccount).mockRejectedValueOnce(wrong).mockResolvedValueOnce({} as never)
+    vi.mocked(authApi.deleteAccount).mockResolvedValueOnce({} as never)
+    vi.mocked(session.signOut).mockResolvedValueOnce()
     const user = userEvent.setup()
 
     renderAt('/settings', <DeleteAccountCard />, '/settings')
     await user.click(screen.getByRole('button', { name: 'Удалить аккаунт' }))
     expect(await screen.findByText(/созданных вами: 4/)).toBeInTheDocument()
-    const confirm = screen.getByRole('button', { name: 'Удалить навсегда' })
-    expect(confirm).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Удалить навсегда' }))
 
-    await user.type(screen.getByLabelText('Пароль для подтверждения'), 'guess')
-    await user.click(confirm)
-    await waitFor(() => expect(toast).toHaveBeenCalledWith('Ошибка', 'Неверный пароль', 'error'))
-    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    await waitFor(() => expect(session.signOut).toHaveBeenCalledOnce())
+    expect(authApi.deleteAccount).toHaveBeenCalledOnce()
+  })
 
-    await user.click(confirm)
-    expect(await screen.findByText('Login page')).toBeInTheDocument()
-    expect(useAuthStore.getState().isAuthenticated).toBe(false)
-    expect(authApi.deleteAccount).toHaveBeenLastCalledWith('guess')
+  it('after an old sign-in, asks for the password in Keycloak and comes back to the open dialog', async () => {
+    const { authApi } = await import('@/api/auth')
+    const { votesApi } = await import('@/api/votes')
+    const { session } = await import('@/auth/session')
+    vi.mocked(votesApi.stats).mockResolvedValue({ createdCount: 0 })
+    const stale = new AxiosError('Forbidden', '403')
+    stale.response = { data: { code: 'REAUTHENTICATION_REQUIRED' }, status: 403, statusText: '', headers: {}, config: stale.config! }
+    vi.mocked(authApi.deleteAccount).mockRejectedValueOnce(stale)
+    vi.mocked(session.signIn).mockReturnValueOnce(new Promise(() => {}))
+    const user = userEvent.setup()
+
+    renderAt('/settings', <DeleteAccountCard />, '/settings')
+    await user.click(screen.getByRole('button', { name: 'Удалить аккаунт' }))
+    await user.click(screen.getByRole('button', { name: 'Удалить навсегда' }))
+
+    await waitFor(() =>
+      expect(session.signIn).toHaveBeenCalledWith({ reauthenticate: true, returnTo: '/settings?delete-account' }),
+    )
+    expect(session.signOut).not.toHaveBeenCalled()
+  })
+
+  it('opens the deletion dialog when coming back from signing in again', async () => {
+    const { votesApi } = await import('@/api/votes')
+    vi.mocked(votesApi.stats).mockResolvedValue({ createdCount: 1 })
+
+    renderAt('/settings?delete-account', <DeleteAccountCard />, '/settings')
+
+    expect(await screen.findByRole('button', { name: 'Удалить навсегда' })).toBeInTheDocument()
+  })
+
+  it('reaches Keycloak for the password and linked accounts, and logs out everywhere', async () => {
+    const { authApi } = await import('@/api/auth')
+    const { session } = await import('@/auth/session')
+    vi.mocked(session.signIn).mockReturnValueOnce(new Promise(() => {}))
+    vi.mocked(authApi.logoutAll).mockResolvedValueOnce({} as never)
+    vi.mocked(session.signOut).mockResolvedValueOnce()
+    const user = userEvent.setup()
+
+    renderAt('/settings', <AccountSecurityCard />, '/settings')
+    expect(screen.getByRole('link', { name: /Связанные аккаунты/ })).toHaveAttribute(
+      'href',
+      'http://app.test/auth/realms/fate/account',
+    )
+    await user.click(screen.getByRole('button', { name: 'Сменить пароль' }))
+    expect(session.signIn).toHaveBeenCalledWith({ action: 'UPDATE_PASSWORD', returnTo: '/settings' })
+
+    await user.click(screen.getByRole('button', { name: /Выйти на всех устройствах/ }))
+    await waitFor(() => expect(session.signOut).toHaveBeenCalledOnce())
+    expect(authApi.logoutAll).toHaveBeenCalledOnce()
   })
 
   it('unsubscribes only when asked, not on opening the link', async () => {

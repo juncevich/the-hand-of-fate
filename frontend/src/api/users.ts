@@ -1,13 +1,17 @@
 import { apiClient } from './client'
 import type { components } from './generated/schema'
 
-/** Server-side limit (spring.servlet.multipart.max-file-size); checked early to skip a doomed upload. */
 export type EmailPreferences = components['schemas']['EmailPreferencesDto']
+export type Profile = components['schemas']['ProfileResponse']
 
+/** Server-side limit (spring.servlet.multipart.max-file-size); checked early to skip a doomed upload. */
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024
 export const AVATAR_ACCEPT = 'image/png,image/jpeg,image/gif'
 
 export const usersApi = {
+  /** The signed-in account; its first call after a Keycloak sign-in also creates it on the backend. */
+  getProfile: () => apiClient.get<Profile>('/users/me').then((r) => r.data),
+
   uploadAvatar: (file: File) => {
     const form = new FormData()
     form.append('file', file)

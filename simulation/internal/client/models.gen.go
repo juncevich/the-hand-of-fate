@@ -342,6 +342,14 @@ type ProblemDetail struct {
 	Type  *string `json:"type,omitempty"`
 }
 
+// ProfileResponse defines model for ProfileResponse.
+type ProfileResponse struct {
+	AvatarURL   *string `json:"avatarUrl"`
+	DisplayName string  `json:"displayName"`
+	Email       string  `json:"email"`
+	UserID      string  `json:"userId"`
+}
+
 // RefreshRequest defines model for RefreshRequest.
 type RefreshRequest struct {
 	RefreshToken *string `json:"refreshToken,omitempty"`

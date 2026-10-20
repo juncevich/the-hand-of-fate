@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/UserAvatar'
 import { Bot, Copy, ImageUp, Link2, Link2Off, Trash2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
-import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard'
+import { AccountSecurityCard } from '@/components/settings/AccountSecurityCard'
 import { DeleteAccountCard } from '@/components/settings/DeleteAccountCard'
 import { EmailNotificationsCard } from '@/components/settings/EmailNotificationsCard'
 
@@ -72,7 +72,7 @@ export function SettingsPage() {
         <p className="text-xs text-fate-muted mt-2">PNG, JPEG или GIF до 2 МБ</p>
       </div>
 
-      <ChangePasswordCard />
+      <AccountSecurityCard />
 
       <EmailNotificationsCard />
 

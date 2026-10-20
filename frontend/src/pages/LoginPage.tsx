@@ -1,137 +1,65 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { useMutation } from '@tanstack/react-query'
-import axios from 'axios'
-import { authApi } from '@/api/auth'
-import { useAuthStore } from '@/store/authStore'
+import { Navigate, useLocation } from 'react-router'
+import { LogIn, UserPlus } from 'lucide-react'
+import { session } from '@/auth/session'
 import { AuthLayout } from '@/components/auth/AuthLayout'
-import { ResendVerification } from '@/components/auth/ResendVerification'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toaster'
-import { errorCode } from '@/lib/errors'
-import { Eye, EyeOff } from 'lucide-react'
+import { useAuthStore } from '@/store/authStore'
 
-// The account seeded by mock-plugin.ts; it exists only under `npm run dev:mock`.
-const MOCK_CREDENTIALS = { email: 'demo@example.com', password: 'password' }
+interface LoginState {
+  /** The protected page the user was sent here from. */
+  from?: string
+  /** Why the last sign-in did not complete. */
+  error?: string
+}
 
+/**
+ * The signed-out start page. Signing in and registering happen on Keycloak's pages (docs/adr/0001),
+ * which come back to /oidc/callback.
+ */
 export function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [unverified, setUnverified] = useState(false)
-  const setAuth = useAuthStore((s) => s.setAuth)
-  const navigate = useNavigate()
+  const state = (useLocation().state ?? {}) as LoginState
+  const [pending, setPending] = useState<'sign-in' | 'register' | null>(null)
+  // A sign-in restored in the background (Keycloak's session cookie) needs no button.
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
-  const { mutate, isPending } = useMutation({
-    mutationFn: () => authApi.login({ email, password }),
-    onSuccess: (data) => {
-      setAuth(data)
-      void navigate('/')
-    },
-    onError: (error) => {
-      // The backend answers this only after the password matched.
-      if (errorCode(error) === 'EMAIL_NOT_VERIFIED') {
-        setUnverified(true)
-        return
-      }
-      if (axios.isAxiosError(error) && error.response?.status === 429) {
-        toast('Слишком много попыток', 'Попробуйте немного позже', 'error')
-        return
-      }
-      // Deliberately a fixed generic message rather than the backend's text:
-      // login failures shouldn't reveal whether the account exists.
-      toast('Ошибка входа', 'Неверный email или пароль', 'error')
-    },
-  })
-
-  if (unverified) {
-    return (
-      <AuthLayout subtitle="Подтвердите email">
-        <ResendVerification email={email} title="Сначала подтвердите адрес почты" />
-        <p className="text-center text-sm text-fate-muted mt-4">
-          <button type="button" onClick={() => setUnverified(false)} className="text-fate-gold hover:underline">
-            Вернуться ко входу
-          </button>
-        </p>
-      </AuthLayout>
-    )
+  const go = (register: boolean) => {
+    setPending(register ? 'register' : 'sign-in')
+    session.signIn({ returnTo: state.from, register }).catch(() => {
+      setPending(null)
+      toast('Сервис входа недоступен', 'Попробуйте немного позже', 'error')
+    })
   }
 
-  return (
-    <AuthLayout subtitle="Войдите в свой аккаунт">
-      <div className="glass relative p-6 space-y-4">
-        {import.meta.env.MODE === 'mock' && (
-          <button
-            type="button"
-            onClick={() => {
-              setEmail(MOCK_CREDENTIALS.email)
-              setPassword(MOCK_CREDENTIALS.password)
-            }}
-            title="Подставить демо-учётку"
-            className="absolute top-2 right-2 rounded-md border border-fate-gold/40 px-2 py-0.5 text-right text-[11px] leading-tight text-fate-muted hover:text-fate-text hover:border-fate-gold transition-colors"
-          >
-            <span className="block text-fate-gold">Мок-режим</span>
-            {MOCK_CREDENTIALS.email} / {MOCK_CREDENTIALS.password}
-          </button>
-        )}
-        <div className="space-y-1.5">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="you@example.com"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">Пароль</Label>
-            <Link to="/forgot-password" className="text-xs text-fate-gold hover:underline">
-              Забыли пароль?
-            </Link>
-          </div>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              placeholder="••••••••"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && mutate()}
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
-              className="absolute inset-y-0 right-0 flex items-center px-3 text-fate-muted hover:text-fate-text transition-colors"
-            >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
+  if (isAuthenticated) return <Navigate to={state.from ?? '/'} replace />
 
-        <Button
-          className="w-full"
-          onClick={() => mutate()}
-          isLoading={isPending}
-          disabled={!email || !password}
-        >
+  return (
+    <AuthLayout subtitle="Честный жребий для команды">
+      <div className="glass p-6 space-y-3">
+        {state.error && (
+          <p role="alert" className="text-sm text-red-400">
+            {state.error}
+          </p>
+        )}
+        <Button className="w-full" onClick={() => go(false)} isLoading={pending === 'sign-in'} disabled={pending !== null}>
+          <LogIn className="w-4 h-4" />
           Войти
         </Button>
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => go(true)}
+          isLoading={pending === 'register'}
+          disabled={pending !== null}
+        >
+          <UserPlus className="w-4 h-4" />
+          Создать аккаунт
+        </Button>
+        {import.meta.env.MODE === 'mock' && (
+          <p className="text-xs text-center text-fate-muted">Мок-режим: вход сразу под демо-аккаунтом</p>
+        )}
       </div>
-
-      <p className="text-center text-sm text-fate-muted mt-4">
-        Нет аккаунта?{' '}
-        <Link to="/register" className="text-fate-gold hover:underline">
-          Зарегистрироваться
-        </Link>
-      </p>
     </AuthLayout>
   )
 }

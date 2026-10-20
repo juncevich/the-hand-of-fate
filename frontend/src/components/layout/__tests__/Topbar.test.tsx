@@ -6,8 +6,8 @@ import { Topbar } from '../Topbar'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
 
-vi.mock('@/api/auth', () => ({
-  authApi: { logout: vi.fn() },
+vi.mock('@/auth/session', () => ({
+  session: { signOut: vi.fn() },
 }))
 
 function renderTopbar() {
@@ -50,26 +50,30 @@ describe('Topbar', () => {
     expect(await screen.findByText('Settings page')).toBeInTheDocument()
   })
 
-  it('logs out, clears auth and redirects to login', async () => {
-    const { authApi } = await import('@/api/auth')
-    vi.mocked(authApi.logout).mockResolvedValueOnce({} as never)
+  it('signs out and goes to the login page', async () => {
+    const { session } = await import('@/auth/session')
+    vi.mocked(session.signOut).mockImplementationOnce(() => {
+      useAuthStore.getState().clearAuth()
+      return Promise.resolve()
+    })
     renderTopbar()
 
-    const buttons = screen.getAllByRole('button')
-    await userEvent.click(buttons[buttons.length - 1])
+    await userEvent.click(screen.getByRole('button', { name: 'Выйти' }))
 
     expect(await screen.findByText('Login page')).toBeInTheDocument()
-    expect(authApi.logout).toHaveBeenCalledOnce()
+    expect(session.signOut).toHaveBeenCalledOnce()
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
   })
 
-  it('still logs out locally when the logout request fails', async () => {
-    const { authApi } = await import('@/api/auth')
-    vi.mocked(authApi.logout).mockRejectedValueOnce(new Error('offline'))
+  it('still goes to the login page when Keycloak cannot be reached', async () => {
+    const { session } = await import('@/auth/session')
+    vi.mocked(session.signOut).mockImplementationOnce(() => {
+      useAuthStore.getState().clearAuth()
+      return Promise.reject(new Error('offline'))
+    })
     renderTopbar()
 
-    const buttons = screen.getAllByRole('button')
-    await userEvent.click(buttons[buttons.length - 1])
+    await userEvent.click(screen.getByRole('button', { name: 'Выйти' }))
 
     expect(await screen.findByText('Login page')).toBeInTheDocument()
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
