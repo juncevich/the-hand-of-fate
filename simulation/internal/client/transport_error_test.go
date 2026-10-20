@@ -1,7 +1,6 @@
 package client_test
 
 import (
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,19 +22,11 @@ func TestMethods_TransportError(t *testing.T) {
 	}
 
 	calls := map[string]func() error{
-		"Register": func() error {
-			_, err := c.Register(client.RegisterRequest{Email: "a@b.c"})
+		"GetProfile": func() error {
+			_, err := c.GetProfile()
 			return err
 		},
-		"Login": func() error {
-			_, err := c.Login(client.LoginRequest{Email: "a@b.c"})
-			return err
-		},
-		"Refresh": func() error {
-			_, err := c.Refresh("rt")
-			return err
-		},
-		"Logout": func() error { return c.Logout("rt") },
+		"LogoutAll": func() error { return c.LogoutAll() },
 		"CreateVote": func() error {
 			_, err := c.CreateVote(client.CreateVoteWebRequest{Title: "t"})
 			return err
@@ -98,56 +89,5 @@ func TestDecode_InvalidJSON(t *testing.T) {
 	_, err := c.GetVote("v1")
 	if err == nil || !strings.Contains(err.Error(), "decode (status 200)") {
 		t.Fatalf("error = %v, want decode error", err)
-	}
-}
-
-// Without a refresh token the request must carry no body at all (the backend
-// then falls back to the httpOnly cookie), not a JSON "null".
-func TestRefreshAndLogout_EmptyTokenSendsNoBody(t *testing.T) {
-	type captured struct{ body, contentType string }
-	var got []captured
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b, _ := io.ReadAll(r.Body)
-		got = append(got, captured{string(b), r.Header.Get("Content-Type")})
-		if r.URL.Path == "/api/v1/auth/logout" {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"accessToken":"at"}`))
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	if _, err := c.Refresh(""); err != nil {
-		t.Fatalf("Refresh() error: %v", err)
-	}
-	if err := c.Logout(""); err != nil {
-		t.Fatalf("Logout() error: %v", err)
-	}
-
-	for i, req := range got {
-		if req.body != "" || req.contentType != "" {
-			t.Errorf("request %d: body = %q, Content-Type = %q, want neither", i, req.body, req.contentType)
-		}
-	}
-}
-
-func TestRefresh_WithTokenSendsJSONBody(t *testing.T) {
-	var body string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b, _ := io.ReadAll(r.Body)
-		body = string(b)
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"accessToken":"at"}`))
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	if _, err := c.Refresh("rt-1"); err != nil {
-		t.Fatalf("Refresh() error: %v", err)
-	}
-	if body != `{"refreshToken":"rt-1"}` {
-		t.Errorf("body = %q", body)
 	}
 }

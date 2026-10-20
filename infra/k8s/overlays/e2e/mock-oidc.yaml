@@ -1,0 +1,56 @@
+# Stand-in for Google & co. in the browser tests (e2e/tests/social.spec.ts): an OIDC provider that
+# signs in a fixed user without asking. Keycloak knows it as identity provider `e2e-mock`
+# (infra/keycloak/realm/fate.yaml); the browser reaches it through the gateway's /mock-oidc/,
+# Keycloak directly at http://mock-oidc:8080.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-oidc
+  labels:
+    app.kubernetes.io/name: mock-oidc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mock-oidc
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mock-oidc
+    spec:
+      containers:
+        - name: mock-oidc
+          image: ghcr.io/navikt/mock-oauth2-server:6.0.4
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: JSON_CONFIG
+              value: >-
+                {"interactiveLogin": false, "tokenCallbacks": [{"issuerId": "e2e", "tokenExpiry": 300,
+                "requestMappings": [{"requestParam": "grant_type", "match": "*", "claims": {
+                "sub": "e2e-social-user", "aud": ["fate-keycloak"], "email": "social@e2e.test",
+                "email_verified": true, "given_name": "Social", "family_name": "User"}}]}]}
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+            limits:
+              memory: 384Mi
+          readinessProbe:
+            httpGet:
+              path: /isalive
+              port: http
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-oidc
+spec:
+  selector:
+    app.kubernetes.io/name: mock-oidc
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

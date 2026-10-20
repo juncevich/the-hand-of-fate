@@ -1,95 +1,91 @@
 package scenario
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/juncevich/fate/simulation/internal/client"
+	"github.com/juncevich/fate/simulation/internal/keycloak"
 	"go.uber.org/zap"
 )
 
-// SessionLifecycleScenario tests the full auth lifecycle:
-//  1. Register, check that login waits for email verification, follow the mailed link
-//  2. Login with wrong password → expect error
-//  3. Login with correct password
-//  4. Refresh token
-//  5. Get Telegram link token
-//  6. Logout
-//  7. Confirm refresh fails after logout
-func SessionLifecycleScenario(base string, mail Mailbox, log *zap.Logger) error {
+// SessionLifecycleScenario walks through signing in with Keycloak against the backend:
+//  1. Sign up (Keycloak's form, email confirmed from the mailbox, password set afterwards)
+//  2. A wrong password is rejected on the login form
+//  3. Sign in in a second browser; the backend accepts its token
+//  4. Renew silently with the session cookie (prompt=none), as the SPA's iframe does
+//  5. Get a Telegram link token
+//  6. Sign out in the first browser: its silent renewal fails
+//  7. Log out everywhere through the backend: the second browser's renewal fails too
+func SessionLifecycleScenario(app, base string, mail keycloak.Mailbox, log *zap.Logger) error {
 	log.Info("=== SessionLifecycleScenario start ===")
 
-	email := randomEmail()
-	password := "Lifecycle#99"
-	name := randomName()
-
-	c, err := client.New(base, log)
+	// 1. Sign up
+	account, err := SignUp(app, base, mail, log)
 	if err != nil {
 		return err
 	}
 
-	// 1. Register; signing in waits for the mailed link
-	if _, err = c.Register(client.RegisterRequest{Email: email, Password: password, DisplayName: name}); err != nil {
-		return fmt.Errorf("register: %w", err)
-	}
-	if _, err = c.Login(client.LoginRequest{Email: email, Password: password}); err == nil {
-		return fmt.Errorf("expected login to wait for email verification, got a session")
-	}
-	log.Info("login before verification correctly rejected", zap.Error(err))
-	token, err := mail.LinkToken(email, "/verify-email")
+	// 2. Wrong password
+	other, err := keycloak.New(app)
 	if err != nil {
-		return fmt.Errorf("verification email: %w", err)
+		return err
 	}
-	auth, err := c.VerifyEmail(token)
-	if err != nil {
-		return fmt.Errorf("verify email: %w", err)
+	if _, err = other.SignIn(account.Email, "wrong-password"); err == nil {
+		return fmt.Errorf("expected the wrong password to be rejected")
 	}
-	log.Info("registered and verified", zap.String("userId", auth.UserID))
-	refreshToken := auth.RefreshToken
-	c.SetAccessToken(auth.AccessToken)
+	log.Info("wrong password correctly rejected", zap.Error(err))
 
-	// 2. Wrong password login — should fail
-	_, err = c.Login(client.LoginRequest{Email: email, Password: "wrongpassword"})
-	if err == nil {
-		return fmt.Errorf("expected error on wrong password, got none")
-	}
-	log.Info("wrong-password login correctly rejected", zap.Error(err))
-
-	// 3. Correct login
-	auth2, err := c.Login(client.LoginRequest{Email: email, Password: password})
+	// 3. Second browser
+	tokens, err := other.SignIn(account.Email, password)
 	if err != nil {
-		return fmt.Errorf("login: %w", err)
+		return fmt.Errorf("sign in: %w", err)
 	}
-	c.SetAccessToken(auth2.AccessToken)
-	log.Info("logged in", zap.String("userId", auth2.UserID))
-
-	// 4. Refresh
-	auth3, err := c.Refresh(auth2.RefreshToken)
+	api, err := client.New(base, log)
 	if err != nil {
-		return fmt.Errorf("refresh: %w", err)
+		return err
 	}
-	c.SetAccessToken(auth3.AccessToken)
-	log.Info("token refreshed")
+	api.SetAccessToken(tokens.AccessToken)
+	if _, err = api.GetProfile(); err != nil {
+		return fmt.Errorf("profile with the second session: %w", err)
+	}
+	log.Info("signed in in a second browser")
+
+	// 4. Silent renewal
+	renewed, err := other.Renew()
+	if err != nil {
+		return fmt.Errorf("silent renewal: %w", err)
+	}
+	api.SetAccessToken(renewed.AccessToken)
+	if _, err = api.GetProfile(); err != nil {
+		return fmt.Errorf("profile with the renewed token: %w", err)
+	}
+	log.Info("token renewed silently")
 
 	// 5. Telegram link token
-	lt, err := c.GetLinkToken()
+	lt, err := api.GetLinkToken()
 	if err != nil {
 		return fmt.Errorf("get link token: %w", err)
 	}
 	log.Info("telegram link token obtained", zap.String("token", lt.Token[:8]+"…"))
 
-	// 6. Logout (using original refresh token from the verification session)
-	if err = c.Logout(refreshToken); err != nil {
-		log.Warn("logout with stale token (may already be invalidated)", zap.Error(err))
+	// 6. Sign out in the first browser
+	if err = account.Browser.SignOut(account.Tokens.IDToken); err != nil {
+		return fmt.Errorf("sign out: %w", err)
 	}
-	log.Info("logout done")
+	if _, err = account.Browser.Renew(); !errors.Is(err, keycloak.ErrSignedOut) {
+		return fmt.Errorf("renewal after signing out: got %v, want a signed-out session", err)
+	}
+	log.Info("signed out of the first browser")
 
-	// 7. Refresh should now fail because we logged out
-	_, err = c.Refresh(refreshToken)
-	if err == nil {
-		log.Warn("refresh after logout did not fail — token may still be valid")
-	} else {
-		log.Info("refresh after logout correctly rejected")
+	// 7. Log out everywhere
+	if err = api.LogoutAll(); err != nil {
+		return fmt.Errorf("logout-all: %w", err)
 	}
+	if _, err = other.Renew(); !errors.Is(err, keycloak.ErrSignedOut) {
+		return fmt.Errorf("renewal after logout-all: got %v, want a signed-out session", err)
+	}
+	log.Info("logged out everywhere")
 
 	log.Info("=== SessionLifecycleScenario done ===")
 	return nil

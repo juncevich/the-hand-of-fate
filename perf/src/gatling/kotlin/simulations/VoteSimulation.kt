@@ -13,14 +13,7 @@ class VoteSimulation : Simulation() {
             .acceptHeader("application/json")
             .contentTypeHeader("application/json")
 
-    private val login =
-        exec(
-            http("Login")
-                .post("/api/v1/auth/login")
-                .body(StringBody("""{"email":"admin@admin.com","password":"admin"}"""))
-                .check(status().`is`(200))
-                .check(jsonPath("$.accessToken").saveAs("accessToken")),
-        )
+    private val login = signIn()
 
     private val listVotes =
         exec(
@@ -36,7 +29,7 @@ class VoteSimulation : Simulation() {
                 .post("/api/v1/votes")
                 .header("Authorization", "Bearer #{accessToken}")
                 .body(StringBody("""{"title":"Perf Vote #{voteIdx}","mode":"SIMPLE"}"""))
-                .check(status().`is`(200))
+                .check(status().`is`(201))
                 .check(jsonPath("$.id").saveAs("voteId")),
         )
 

@@ -1,6 +1,6 @@
 # План: Keycloak как сервер авторизации
 
-Статус: **этап 3 — в работе** · создан 2026-10-20
+Статус: **этап 5 — следующий** (этапы 0–4 готовы) · создан 2026-10-20
 
 Как вести файл:
 - Пункт отмечается `[x]` в том же коммите, где сделана работа. Сделано частично — пункт остаётся `[ ]`, а в «Журнал» пишется, что уже готово.
@@ -109,17 +109,12 @@
 
 ## Этап 4. Клиенты API и e2e
 
-- [ ] simulation:
-  - пользователи создаются через Admin API (`emailVerified=true`), токены — через `fate-test`;
-  - сценарий `session` переписать на проверку токенов.
-- [ ] perf: убрать `AuthSimulation`, `VoteSimulation` и `SmokeSimulation` получают токены через `fate-test`.
-- [ ] Учесть: в токенах `fate-test` (Direct Grant) нет `auth_time`. Операции с повторной аутентификацией (удаление аккаунта) тестировать через браузерный поток.
-- [ ] e2e:
-  - `support/accounts.ts` и `apiAs()` через Keycloak;
-  - `auth.spec`: регистрация и сброс пароля на страницах Keycloak, письма через Mailpit;
-  - `account.spec`: смена пароля через AIA.
-- [ ] e2e: вход через соцсеть с `mock-oauth2-server` как OIDC-провайдером Keycloak, только в e2e-оверлее.
-- [ ] `infra/k8s/e2e.sh` и `e2e.yml` зелёные.
+- [x] simulation: пользователи регистрируются на страницах Keycloak, как в браузере (`internal/keycloak.Browser`: `fate-spa`, PKCE, письмо из Mailpit, пароль после подтверждения), админские права не нужны. Сценарий `session` переписан: неверный пароль, второй браузер, тихое продление (`prompt=none`), RP-logout, logout-all. Тесты на фейковом Keycloak (`keycloaktest`). Новый флаг `-app` (origin SPA).
+- [x] perf: `AuthSimulation` удалён, `SmokeSimulation` и `VoteSimulation` получают токены через `fate-test` (`Keycloak.kt`, `-DkeycloakUrl`). Заодно исправлена давняя ошибка: создание голосования отвечает 201, а проверка ждала 200. `VoteSimulation` на minikube — 630/630.
+- [x] Учесть: в токенах `fate-test` (Direct Grant) нет `auth_time`. Удаление аккаунта тестируется через браузерный поток (`account.spec`).
+- [x] e2e: `support/accounts.ts` (регистрация на форме Keycloak, пароль после письма) и `apiAs()` через `fate-test`; `auth.spec` (регистрация, восстановление сессии при перезагрузке, сброс пароля), `account.spec` (смена пароля через AIA, «выйти везде», удаление — пользователь исчезает и в Keycloak).
+- [x] e2e: вход через соцсеть (`social.spec`) с `mock-oauth2-server` 6.0.4 как OIDC-провайдером `e2e-mock` — только в e2e-оверлее (`overlays/e2e/mock-oidc.yaml`, `/mock-oidc/` в gateway).
+- [x] `infra/k8s/e2e.sh` зелёный локально (simulation теперь через gateway, плюс метрики и трассы Keycloak); Playwright 13/13 на e2e-оверлее. CI (`e2e.yml`) проверится на пуше.
 
 ## Этап 5. Удалить старую аутентификацию
 
@@ -178,3 +173,10 @@
     - `fullScopeAllowed` у клиентов устарел (предупреждения в логе Keycloak): всем клиентам `false`, роли Admin API у `fate-backend` выданы через `clientScopeMappings`.
   - Не ошибка: с `verifyEmail` Keycloak 26.8 не просит пароль на форме регистрации — пароль задаётся после перехода по ссылке из письма (required action `UPDATE_PASSWORD`; так чужой адрес нельзя занять своим паролем). Ошибка JS `addEventListener` на этой странице — дефект стандартной темы Keycloak (ищет поле пароля); уйдёт с темой этапа 6.
   - e2e/simulation ещё на старом входе (этап 4); в журнале этапа 4 учесть порядок регистрации: пароль после подтверждения email.
+- 2026-10-21 — этап 4. Находки и решения:
+  - Лимит gateway на Keycloak сужен до POST на `login-actions/` (формы входа, регистрации, сброса). Раньше считались все POST, включая token endpoint: «тихие» продления всех пользователей за одним NAT упёрлись бы в 30 в минуту (на `VoteSimulation` 21 из 70 входов получили 503). Brute force по аккаунту закрывает Keycloak, а token endpoint пароли не проверяет (direct grant только в dev/e2e).
+  - Tempo упал по OOM (512Mi) при сборке блока с трассами Keycloak (семплирование 1.0) — лимит поднят до 1Gi.
+  - Тестовый провайдер `e2e-mock` описан в основном `fate.yaml` (выключен, пока не задан `KC_E2E_IDP_INTERNAL_URL`): список `identityProviders` во втором файле realm заставил keycloak-config-cli удалить Google/GitHub/Яндекс — проверено.
+  - Keycloak допускает http для IdP только на «локальный» адрес; `mock-oidc` в кластере резолвится в приватный ClusterIP — подходит, в compose такого хоста нет.
+  - У e2e-оверлея не было `namespace:` — ресурсы самого оверлея уходили в `default`. Исправлено.
+  - Имя пользователя в приложении теперь «Имя Фамилия» из Keycloak (форма регистрации требует оба поля).

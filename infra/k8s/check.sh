@@ -116,7 +116,7 @@ step "Gateway nginx config ($(image_of nginx))"
 for conf in infra/nginx/nginx.conf .tilt-build/nginx.conf .e2e-build/nginx.conf; do
   # Upstreams are resolved at load time; point them anywhere.
   docker run --rm -v "$ROOT/$conf:/etc/nginx/nginx.conf:ro" \
-    --add-host backend:127.0.0.1 --add-host frontend:127.0.0.1 --add-host keycloak:127.0.0.1 \
+    --add-host backend:127.0.0.1 --add-host frontend:127.0.0.1 --add-host keycloak:127.0.0.1 --add-host mock-oidc:127.0.0.1 \
     --entrypoint nginx "$(image_of nginx)" -t -q
   echo "    $conf ok"
 done

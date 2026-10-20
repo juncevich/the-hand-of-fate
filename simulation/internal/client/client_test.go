@@ -83,200 +83,6 @@ func TestSetAccessToken_Empty(t *testing.T) {
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
-func TestRegister(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/auth/register" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write(toJSON(client.RegistrationResponse{Email: "a@a.com"}))
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	registered, err := c.Register(client.RegisterRequest{Email: "a@a.com", Password: "p", DisplayName: "Alice"})
-	if err != nil {
-		t.Fatalf("Register() error: %v", err)
-	}
-	if registered.Email != "a@a.com" {
-		t.Errorf("Email = %q", registered.Email)
-	}
-}
-
-func TestVerifyEmail(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req client.VerifyEmailRequest
-		_ = json.NewDecoder(r.Body).Decode(&req)
-		if r.URL.Path != "/api/v1/auth/verify-email" || req.Token != "vt" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		http.SetCookie(w, &http.Cookie{Name: "fate_refresh_token", Value: "rt-v"})
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(toJSON(client.AuthResponse{AccessToken: "at-v", UserID: "u-1"}))
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	auth, err := c.VerifyEmail("vt")
-	if err != nil {
-		t.Fatalf("VerifyEmail() error: %v", err)
-	}
-	if auth.AccessToken != "at-v" || auth.RefreshToken != "rt-v" {
-		t.Errorf("session = %+v", auth)
-	}
-	if _, err = c.VerifyEmail("bad"); err == nil {
-		t.Error("expected an error for a rejected token")
-	}
-}
-
-func TestRegister_HTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		_, _ = w.Write(toJSON(map[string]string{"error": "email taken"}))
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	_, err := c.Register(client.RegisterRequest{Email: "dup@a.com", Password: "p", DisplayName: "X"})
-	if err == nil {
-		t.Fatal("expected error on HTTP 409")
-	}
-}
-
-func TestLogin(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/auth/login" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		http.SetCookie(w, &http.Cookie{Name: "fate_refresh_token", Value: "rt-login"})
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(toJSON(client.AuthResponse{AccessToken: "at-login", UserID: "u-2"}))
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	auth, err := c.Login(client.LoginRequest{Email: "u@u.com", Password: "pass"})
-	if err != nil {
-		t.Fatalf("Login() error: %v", err)
-	}
-	if auth.AccessToken != "at-login" {
-		t.Errorf("AccessToken = %q", auth.AccessToken)
-	}
-	if auth.RefreshToken != "rt-login" {
-		t.Errorf("RefreshToken = %q", auth.RefreshToken)
-	}
-}
-
-func TestLogin_Unauthorized(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write(toJSON(map[string]string{"error": "invalid credentials"}))
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	_, err := c.Login(client.LoginRequest{Email: "u@u.com", Password: "wrong"})
-	if err == nil {
-		t.Fatal("expected error on 401")
-	}
-}
-
-func TestRefresh_WithToken(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/auth/refresh" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		http.SetCookie(w, &http.Cookie{Name: "fate_refresh_token", Value: "new-rt"})
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(toJSON(client.AuthResponse{AccessToken: "new-at"}))
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	auth, err := c.Refresh("old-rt")
-	if err != nil {
-		t.Fatalf("Refresh() error: %v", err)
-	}
-	if auth.AccessToken != "new-at" {
-		t.Errorf("AccessToken = %q", auth.AccessToken)
-	}
-	if auth.RefreshToken != "new-rt" {
-		t.Errorf("RefreshToken = %q", auth.RefreshToken)
-	}
-}
-
-func TestRefresh_EmptyToken(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(toJSON(client.AuthResponse{AccessToken: "at-empty"}))
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	_, err := c.Refresh("")
-	if err != nil {
-		t.Fatalf("Refresh('') error: %v", err)
-	}
-	if !called {
-		t.Error("expected handler to be called")
-	}
-}
-
-func TestRefresh_Error(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write(toJSON(map[string]string{"error": "token expired"}))
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	_, err := c.Refresh("expired-token")
-	if err == nil {
-		t.Fatal("expected error on 401")
-	}
-}
-
-func TestLogout(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/auth/logout" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	if err := c.Logout("rt-abc"); err != nil {
-		t.Fatalf("Logout() error: %v", err)
-	}
-}
-
-func TestLogout_ServerError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte("internal error"))
-	}))
-	defer srv.Close()
-
-	c, _ := client.New(srv.URL, newLogger(t))
-	if err := c.Logout("rt"); err == nil {
-		t.Fatal("expected error on 500")
-	}
-}
-
-// ── Votes ─────────────────────────────────────────────────────────────────────
-
 func TestCreateVote(t *testing.T) {
 	expected := client.VoteDetailDto{ID: "vote-1", Title: "Lunch Spot", Mode: "SIMPLE"}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -648,5 +454,40 @@ func TestGetHistoryRejectsMalformedPage(t *testing.T) {
 	c, _ := client.New(srv.URL, newLogger(t))
 	if _, err := c.GetHistory("v1"); err == nil {
 		t.Fatal("expected malformed page error")
+	}
+}
+
+func TestGetProfile(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/users/me" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer kc-token" {
+			t.Errorf("Authorization = %q", got)
+		}
+		_ = json.NewEncoder(w).Encode(client.ProfileResponse{UserID: "u1", Email: "ann@test.com", DisplayName: "Ann"})
+	}))
+	defer srv.Close()
+	c, _ := client.New(srv.URL, newLogger(t))
+	c.SetAccessToken("kc-token")
+
+	profile, err := c.GetProfile()
+	if err != nil || profile.Email != "ann@test.com" {
+		t.Fatalf("GetProfile() = %+v, %v", profile, err)
+	}
+}
+
+func TestLogoutAll(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/auth/logout-all" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c, _ := client.New(srv.URL, newLogger(t))
+	if err := c.LogoutAll(); err != nil {
+		t.Fatalf("LogoutAll() error: %v", err)
 	}
 }

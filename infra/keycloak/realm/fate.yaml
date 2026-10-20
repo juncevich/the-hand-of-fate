@@ -9,6 +9,7 @@
 #   KC_DEV_CLIENTS_ENABLED   true only in dev/e2e: `fate-test` (direct grant) and `fate-swagger`
 #   KC_SMTP_*                outgoing mail (verification, password reset)
 #   OAUTH_<P>_ENABLED        computed by apply-config.sh: true when OAUTH_<P>_CLIENT_ID is set
+#   KC_E2E_IDP_*             e2e overlay only: the mock OIDC provider of the browser tests
 realm: fate
 enabled: true
 displayName: The Hand of Fate
@@ -215,4 +216,26 @@ identityProviders:
       givenNameClaim: first_name
       familyNameClaim: last_name
       fullNameClaim: real_name
+      syncMode: IMPORT
+
+  # The browser tests' stand-in for Google & co. (mock-oauth2-server, infra/k8s/overlays/e2e). Defined
+  # here because a provider list in a second realm file would replace this one. Off unless
+  # KC_E2E_IDP_INTERNAL_URL is set; the browser reaches the mock through the gateway (public URL),
+  # Keycloak directly (internal URL).
+  - alias: e2e-mock
+    displayName: E2E Mock
+    providerId: oidc
+    enabled: $(env:KC_E2E_IDP_ENABLED:-false)
+    trustEmail: true
+    firstBrokerLoginFlowAlias: first broker login
+    config:
+      clientId: fate-keycloak
+      clientSecret: e2e-mock-secret
+      clientAuthMethod: client_secret_post
+      authorizationUrl: $(env:KC_E2E_IDP_PUBLIC_URL:-http://localhost/disabled)/authorize
+      tokenUrl: $(env:KC_E2E_IDP_INTERNAL_URL:-http://localhost/disabled)/token
+      jwksUrl: $(env:KC_E2E_IDP_INTERNAL_URL:-http://localhost/disabled)/jwks
+      useJwksUrl: "true"
+      validateSignature: "true"
+      defaultScope: openid email profile
       syncMode: IMPORT

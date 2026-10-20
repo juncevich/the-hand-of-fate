@@ -1,10 +1,11 @@
-// Package mailbox reads the emails the backend sends, so scenarios can follow mailed links
-// (email verification, password reset) like a user would. Locally the SMTP server is Mailpit.
+// Package mailbox reads the emails Keycloak and the backend send, so scenarios can follow mailed
+// links (email verification) like a user would. Locally the SMTP server is Mailpit.
 package mailbox
 
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -32,23 +33,23 @@ func NewMailpit(base string) *Mailpit {
 
 var hrefPattern = regexp.MustCompile(`href="([^"]+)"`)
 
-// LinkToken waits for the newest email to `to` that links to `path` (e.g. "/verify-email") and
-// returns the link's token query parameter.
-func (m *Mailpit) LinkToken(to, path string) (string, error) {
+// Link waits for the newest email to `to` with a link whose path starts with `pathPrefix` (e.g.
+// Keycloak's action-token path) and returns that link.
+func (m *Mailpit) Link(to, pathPrefix string) (string, error) {
 	deadline := time.Now().Add(m.Timeout)
 	for {
-		token, err := m.findToken(to, path)
-		if err != nil || token != "" {
-			return token, err
+		link, err := m.findLink(to, pathPrefix)
+		if err != nil || link != "" {
+			return link, err
 		}
 		if time.Now().After(deadline) {
-			return "", fmt.Errorf("no email to %s linking to %s within %s", to, path, m.Timeout)
+			return "", fmt.Errorf("no email to %s linking to %s within %s", to, pathPrefix, m.Timeout)
 		}
 		time.Sleep(m.Poll)
 	}
 }
 
-func (m *Mailpit) findToken(to, path string) (string, error) {
+func (m *Mailpit) findLink(to, pathPrefix string) (string, error) {
 	var found struct {
 		Messages []struct {
 			ID string `json:"ID"`
@@ -66,21 +67,19 @@ func (m *Mailpit) findToken(to, path string) (string, error) {
 		if err := m.get("/api/v1/message/"+url.PathEscape(msg.ID), &body); err != nil {
 			return "", err
 		}
-		if token := tokenFromHTML(body.HTML, path); token != "" {
-			return token, nil
+		if link := linkFromHTML(body.HTML, pathPrefix); link != "" {
+			return link, nil
 		}
 	}
 	return "", nil
 }
 
-func tokenFromHTML(html, path string) string {
-	for _, match := range hrefPattern.FindAllStringSubmatch(html, -1) {
-		link, err := url.Parse(match[1])
-		if err != nil || link.Path != path {
-			continue
-		}
-		if token := link.Query().Get("token"); token != "" {
-			return token
+func linkFromHTML(body, pathPrefix string) string {
+	for _, match := range hrefPattern.FindAllStringSubmatch(body, -1) {
+		raw := html.UnescapeString(match[1])
+		link, err := url.Parse(raw)
+		if err == nil && strings.HasPrefix(link.Path, pathPrefix) {
+			return raw
 		}
 	}
 	return ""

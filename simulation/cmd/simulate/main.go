@@ -13,15 +13,16 @@ import (
 
 func main() {
 	base := flag.String("url", "http://localhost:8080", "Backend base URL")
+	app := flag.String("app", "http://localhost:3000", "The SPA's origin, which serves Keycloak under /auth (dev server or gateway)")
 	which := flag.String("scenario", "all", "Scenario to run: all | simple | fair | options | session")
-	mailpit := flag.String("mailpit", "http://localhost:8025", "Mailpit base URL, to follow the verification links the backend mails")
+	mailpit := flag.String("mailpit", "http://localhost:8025", "Mailpit base URL, to follow the verification links Keycloak mails")
 	flag.Parse()
 	mail := mailbox.NewMailpit(*mailpit)
 
 	log, _ := zap.NewDevelopment()
 	defer log.Sync()
 
-	log.Info("simulation starting", zap.String("url", *base), zap.String("scenario", *which))
+	log.Info("simulation starting", zap.String("url", *base), zap.String("app", *app), zap.String("scenario", *which))
 
 	run := func(name string, fn func() error) {
 		if *which != "all" && *which != name {
@@ -38,11 +39,11 @@ func main() {
 	}
 
 	run("session", func() error {
-		return scenario.SessionLifecycleScenario(*base, mail, log)
+		return scenario.SessionLifecycleScenario(*app, *base, mail, log)
 	})
 
 	run("simple", func() error {
-		c, _, err := scenario.RegisterAndLogin(*base, mail, log)
+		c, err := scenario.SignedUpClient(*app, *base, mail, log)
 		if err != nil {
 			return err
 		}
@@ -50,7 +51,7 @@ func main() {
 	})
 
 	run("options", func() error {
-		c, _, err := scenario.RegisterAndLogin(*base, mail, log)
+		c, err := scenario.SignedUpClient(*app, *base, mail, log)
 		if err != nil {
 			return err
 		}
@@ -58,7 +59,7 @@ func main() {
 	})
 
 	run("fair", func() error {
-		c, _, err := scenario.RegisterAndLogin(*base, mail, log)
+		c, err := scenario.SignedUpClient(*app, *base, mail, log)
 		if err != nil {
 			return err
 		}

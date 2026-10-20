@@ -13,7 +13,7 @@ async function lastWinner(page: Page): Promise<string> {
 test('a fair rotation vote lets every participant win once per round', async ({ page }) => {
   const guest = uniqueEmail('guest')
   const extra = uniqueEmail('extra')
-  await registerVerified(page, uniqueEmail('fair'), 'Хозяин')
+  await registerVerified(page, uniqueEmail('fair'), 'Хозяин', 'Голосования')
 
   await page.getByRole('button', { name: 'Создать голосование' }).click()
   const dialog = page.getByRole('dialog')
@@ -45,7 +45,7 @@ test('a fair rotation vote lets every participant win once per round', async ({ 
     await expect(page.getByText(`История (${draw})`)).toBeVisible()
     winners.push(await lastWinner(page))
   }
-  expect(winners.sort()).toEqual(['Хозяин', guest].sort())
+  expect(winners.sort()).toEqual(['Хозяин Голосования', guest].sort())
 
   // Everyone has won: the next draw opens round 2.
   await page.getByRole('button', { name: 'Голосовать снова' }).click()

@@ -44,7 +44,9 @@ spec:
               cpu: 50m
               memory: 128Mi
             limits:
-              memory: 512Mi
+              # Completing a block of Keycloak's traces (every sign-in step, sampled fully
+              # locally) took more than 512Mi.
+              memory: 1Gi
           readinessProbe:
             httpGet:
               path: /ready

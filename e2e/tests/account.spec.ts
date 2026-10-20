@@ -1,5 +1,15 @@
 import { expect, test } from '@playwright/test'
-import { PASSWORD, expectToast, logIn, registerVerified, uniqueEmail } from '../support/accounts'
+import {
+  expectKeycloakPage,
+  expectLoginRejected,
+  expectToast,
+  logIn,
+  registerVerified,
+  setNewPassword,
+  signOut,
+  uniqueEmail,
+} from '../support/accounts'
+import { keycloakToken } from '../support/api'
 import { mailedLink } from '../support/mailpit'
 
 test('an invited address unsubscribes through the link in the invitation', async ({ page }) => {
@@ -22,7 +32,7 @@ test('an invited address unsubscribes through the link in the invitation', async
   await expect(page.getByText('Вы отписались')).toBeVisible()
 })
 
-test('a deleted account is gone with its votes', async ({ page }) => {
+test('a deleted account is gone with its votes, in Keycloak too', async ({ page, request }) => {
   const email = uniqueEmail('delete')
   await registerVerified(page, email)
   await page.getByRole('button', { name: 'Создать голосование' }).click()
@@ -30,19 +40,17 @@ test('a deleted account is gone with its votes', async ({ page }) => {
   await page.getByRole('dialog').getByRole('button', { name: /^Создать$/ }).click()
   await expectToast(page, 'Голосование создано!')
 
+  // Just signed in, so no password is asked for again.
   await page.goto('/settings')
   await page.getByRole('button', { name: 'Удалить аккаунт' }).click()
   await expect(page.getByText('Будет удалено голосований, созданных вами: 1.', { exact: false })).toBeVisible()
-  await page.getByLabel('Пароль для подтверждения').fill('wrong-password')
-  await page.getByRole('button', { name: 'Удалить навсегда' }).click()
-  await expectToast(page, 'Неверный пароль')
-
-  await page.getByLabel('Пароль для подтверждения').fill(PASSWORD)
   await page.getByRole('button', { name: 'Удалить навсегда' }).click()
   await expect(page).toHaveURL('/login')
 
-  await logIn(page, email)
-  await expectToast(page, 'Неверный email или пароль')
+  // The backend deletes the Keycloak user right after (IdentityDeletionWorker, every 30 s).
+  await expect
+    .poll(async () => (await keycloakToken(request, email)).status(), { timeout: 60_000, intervals: [2_000] })
+    .not.toBe(200)
 })
 
 test('a changed password replaces the old one', async ({ page }) => {
@@ -50,20 +58,33 @@ test('a changed password replaces the old one', async ({ page }) => {
   await registerVerified(page, email)
   await page.goto('/settings')
 
-  await page.getByLabel('Текущий пароль').fill('Not-my-password-0')
-  await page.getByLabel('Новый пароль').fill('Changed-e2e-password-3')
+  // Keycloak's own form (kc_action=UPDATE_PASSWORD), then back to the settings.
   await page.getByRole('button', { name: 'Сменить пароль' }).click()
-  await expectToast(page, 'Неверный пароль')
+  await expectKeycloakPage(page)
+  await setNewPassword(page, 'Changed-e2e-password-3')
+  await expect(page).toHaveURL('/settings')
 
-  await page.getByLabel('Текущий пароль').fill(PASSWORD)
-  await page.getByRole('button', { name: 'Сменить пароль' }).click()
-  await expectToast(page, 'Пароль изменён')
-
-  await page.getByRole('button', { name: 'Выйти' }).click()
+  await signOut(page)
   await logIn(page, email)
-  await expectToast(page, 'Неверный email или пароль')
+  await expectLoginRejected(page)
   await logIn(page, email, 'Changed-e2e-password-3')
   await expect(page).toHaveURL('/')
+})
+
+test('logging out everywhere ends the other browser\'s session too', async ({ page, browser }) => {
+  const email = uniqueEmail('everywhere')
+  await registerVerified(page, email)
+  const other = await (await browser.newContext()).newPage()
+  await logIn(other, email)
+  await expect(other).toHaveURL('/')
+
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Выйти на всех устройствах' }).click()
+  await expect(page).toHaveURL('/login')
+
+  // Its Keycloak session is gone: a reload finds nothing to restore.
+  await other.reload()
+  await expect(other).toHaveURL('/login')
 })
 
 test('vote emails are switched off and on in settings', async ({ page }) => {
@@ -87,17 +108,17 @@ const PIXEL_PNG = Buffer.from(
 )
 
 test('an avatar is uploaded to object storage and removed', async ({ page }) => {
-  await registerVerified(page, uniqueEmail('avatar'), 'Аватарка')
+  await registerVerified(page, uniqueEmail('avatar'), 'Аватарка', 'Тестова')
   await page.goto('/settings')
 
   await page.getByLabel('Файл аватара').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: PIXEL_PNG })
   await expectToast(page, 'Аватар обновлён')
   // Settings and the top bar both show it; the image really comes back from storage, re-encoded.
-  const avatar = page.getByRole('img', { name: 'Аватар Аватарка' }).first()
+  const avatar = page.getByRole('img', { name: 'Аватар Аватарка Тестова' }).first()
   await expect(avatar).toBeVisible()
   await expect.poll(() => avatar.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(256)
 
   await page.getByRole('button', { name: 'Удалить', exact: true }).click()
-  await expect(page.getByRole('img', { name: 'Аватар Аватарка' })).toHaveCount(0)
+  await expect(page.getByRole('img', { name: 'Аватар Аватарка Тестова' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Загрузить аватар' })).toBeVisible()
 })

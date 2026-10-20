@@ -1,0 +1,6 @@
+        # e2e only: the mock OIDC provider (overlays/e2e/mock-oidc.yaml), reached by the browser.
+        location /mock-oidc/ {
+            proxy_pass       http://mock-oidc:8080/;
+            proxy_set_header Host $http_host;
+        }
+

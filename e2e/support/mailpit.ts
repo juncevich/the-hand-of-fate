@@ -1,4 +1,4 @@
-/** Reads the emails the backend sent, to follow their links like a user would. */
+/** Reads the emails Keycloak and the backend sent, to follow their links like a user would. */
 const MAILPIT = process.env.E2E_MAILPIT_URL ?? 'http://localhost:30025'
 
 interface Summary { ID: string }
@@ -10,8 +10,9 @@ async function json<T>(path: string): Promise<T> {
 }
 
 /**
- * Waits for the newest email to `to` with a link whose path is `path` (e.g. "/verify-email")
- * and returns that link, relative to the app (path + query), so it opens on the tested origin.
+ * Waits for the newest email to `to` with a link whose path is `path` (e.g. Keycloak's action-token
+ * path, or "/unsubscribe") and returns that link, relative to the app (path + query), so it opens
+ * on the tested origin.
  */
 export async function mailedLink(to: string, path: string, timeoutMs = 30_000): Promise<string> {
   const deadline = Date.now() + timeoutMs

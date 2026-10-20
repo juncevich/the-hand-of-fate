@@ -152,14 +152,14 @@ go build -o fate-bot ./cmd/bot  # build binary
 ### Simulation (Go)
 ```bash
 cd simulation
-go run ./cmd/simulate                          # all scenarios against localhost:8080
+go run ./cmd/simulate                          # all scenarios against localhost:8080 (Keycloak via the SPA origin :3000)
 go run ./cmd/simulate -scenario simple         # single scenario: simple | fair | options | session
-go run ./cmd/simulate -url https://host.com    # target non-local backend
-go run ./cmd/simulate -mailpit http://localhost:30025   # Mailpit of the minikube stack (default :8025)
+go run ./cmd/simulate -url https://host.com -app https://host.com -mailpit …   # target non-local stack
+go run ./cmd/simulate -url http://localhost:30080 -app http://localhost:30080 -mailpit http://localhost:30025   # the minikube stack
 go build -o fate-sim ./cmd/simulate            # build binary
 ```
 - Scenarios: `session` (auth lifecycle), `simple` (options-based vote), `fair` (FAIR_ROTATION + round tracking), `options` (dynamic option add/remove)
-- Each run registers fresh random users and confirms them by reading the verification email from Mailpit's API (`internal/mailbox`); no fixtures or seed data required
+- Each run signs up fresh random users on Keycloak's own pages (`internal/keycloak.Browser`: client `fate-spa`, Authorization Code + PKCE, `-app` is the SPA origin serving Keycloak under `/auth`) and confirms them through the verification email Keycloak sends, read from Mailpit (`internal/mailbox`); no fixtures or seed data required. Unit tests use the fake Keycloak in `internal/keycloak/keycloaktest`
 - Exits with code 1 and prints `FAIL <scenario>: <error>` on the first failure
 
 ### Browser tests (Playwright)
@@ -169,8 +169,8 @@ cd e2e && npx playwright test tests/votes.spec.ts   # one spec
 E2E_BASE_URL=http://localhost:3000 E2E_MAILPIT_URL=http://localhost:8025 make e2e-web   # against dev-start.sh
 ```
 - `dev-start.sh` starts the backend with the per-IP auth limit raised to 1000/min (`DEV_AUTH_RATE_LIMIT`, set it to 10 to try the production limit), so a full run works there too
-- Nothing is started by the tests: deploy first (`K8S_OVERLAY=e2e ./k8s-start.sh` — its overlay raises the backend's and the gateway's per-IP auth rate limits; `overlays/e2e/prepare.sh` writes the gateway config to `.e2e-build/nginx.conf`)
-- Specs in `e2e/tests/`: `auth` (sign-up, password reset), `account` (unsubscribe, deletion, password change, email preferences, avatar), `votes` (FAIR_ROTATION rounds, options vote, history paging); `e2e/support/` registers fresh users and follows the mailed links via Mailpit; `apiAs()` (`support/api.ts`) signs in over REST in the separate `request` context for setup that would be slow through the UI (e.g. 21 draws). One worker — the tests share the stack's rate limits and mailbox
+- Nothing is started by the tests: deploy first (`K8S_OVERLAY=e2e ./k8s-start.sh` — its overlay raises the backend's and the gateway's per-IP limits and adds `mock-oidc` (mock-oauth2-server), Keycloak's identity provider `e2e-mock` for the social sign-in test, reached by the browser through the gateway's `/mock-oidc/`; `overlays/e2e/prepare.sh` writes the gateway config to `.e2e-build/nginx.conf`). Against `dev-start.sh` the social test fails: there is no mock provider
+- Specs in `e2e/tests/`: `auth` (sign-up on Keycloak's form with the password set after the mailed link, silent restore on reload, password reset), `account` (unsubscribe, deletion — the Keycloak user goes too, password change via `kc_action`, logout everywhere, email preferences, avatar), `social` (sign-in through the mock provider), `votes` (FAIR_ROTATION rounds, options vote, history paging); `e2e/support/` registers fresh users on Keycloak's pages and follows the links Keycloak mails via Mailpit; `apiAs()` (`support/api.ts`) gets a token from Keycloak's `fate-test` client (direct grant) in the separate `request` context for setup that would be slow through the UI (e.g. 21 draws). One worker — the tests share the stack's rate limits and mailbox
 - `npm run typecheck` (TS 6 alias, like the frontend's ESLint side); failure traces/screenshots land in `e2e/test-results/`
 
 ### Performance Tests (Gatling)
@@ -178,9 +178,8 @@ E2E_BASE_URL=http://localhost:3000 E2E_MAILPIT_URL=http://localhost:8025 make e2
 cd perf
 ./gradlew gatlingRun                                              # all simulations
 ./gradlew gatlingRun --simulation simulations.SmokeSimulation    # smoke (1 user, all key endpoints)
-./gradlew gatlingRun --simulation simulations.AuthSimulation     # register + login + refresh load
 ./gradlew gatlingRun --simulation simulations.VoteSimulation     # CRUD + draw load (assertions: p100 < 2s, >95% success)
-./gradlew gatlingRun -DbaseUrl=https://your-server.com           # target non-local env
+./gradlew gatlingRun -DbaseUrl=https://your-server.com -DkeycloakUrl=https://your-server.com/auth  # target non-local env
 ./gradlew detekt                                                  # static analysis
 ./gradlew spotlessCheck                                           # formatting check
 ./gradlew spotlessApply                                           # auto-fix formatting
@@ -188,6 +187,7 @@ cd perf
 - Reports: `perf/build/reports/gatling/<simulation-name-timestamp>/index.html`
 - JVM: Gradle provisions Temurin 26 for itself (`gradle/gradle-daemon-jvm.properties`) and for the Java 26 toolchain; `gatlingRun` runs simulations in the Gradle daemon JVM
 - Simulations: `src/gatling/kotlin/simulations/`
+- Tokens come from Keycloak (`Keycloak.kt`: the demo user `admin@admin.com` / `admin123` through `fate-test`, the dev/e2e realm's direct-grant client; `-DkeycloakUrl`, default `http://localhost:8180/auth`)
 - `perf/detekt.yml` mirrors the backend's ruleset but disables `WildcardImport` (Gatling's Java DSL is conventionally imported via `CoreDsl.*`/`HttpDsl.*`) and relaxes `FunctionNaming` (PascalCase factory functions like `LongFeeder(...)`)
 
 **Direct dependencies** (from `bot/go.mod`):
@@ -455,7 +455,7 @@ Each project has its own workflow file, triggered on PR and push to `main` via p
 - `perf.yml`: `perf-check` — spotless + detekt + `compileGatlingKotlin`. Lint/compile only; `gatlingRun` is a load test against a live backend and is run manually, not gated in CI.
 - `simulation.yml`: `simulation-test` — generated-models check + gofmt + go vet + staticcheck + go test + build. The scenarios themselves (`go run ./cmd/simulate`) need a running backend and are not run in CI.
 - `api.yml`: `api-check` on changes to `api/**` — Redocly lint of `api/openapi.yaml` and, on PRs, `oasdiff breaking` against the base branch (the REST analogue of `buf breaking`).
-- `e2e.yml`: the whole stack on a throwaway minikube cluster (`K8S_OVERLAY=e2e ./k8s-start.sh`), then `infra/k8s/e2e.sh` (gateway smoke, every simulation scenario, mail delivery, metrics/logs in Mimir/Loki — also `make k8s-e2e`) and the Playwright tests in `e2e/`; uploads `playwright-report` on failure. The bot is not deployed.
+- `e2e.yml`: the whole stack on a throwaway minikube cluster (`K8S_OVERLAY=e2e ./k8s-start.sh`), then `infra/k8s/e2e.sh` (gateway smoke with a Keycloak token, every simulation scenario through the gateway, mail delivery, backend metrics/logs/traces and Keycloak metrics/traces — also `make k8s-e2e`) and the Playwright tests in `e2e/`; uploads `playwright-report` on failure. The bot is not deployed.
 - `k8s.yml`: `k8s-check` on changes to `infra/k8s/**`, `infra/nginx/**`, `infra/monitoring/**`, `docker-compose*.yml`, `k8s-*.sh` — runs `infra/k8s/check.sh` (also `make k8s-check`, needs Go + Docker, no cluster): renders every overlay (kustomize v5.8.2), `kubeconform -strict`, validates the OTel Collector (compose config and the k8s merge), Loki, Tempo and gateway nginx configs with the image versions the manifests pin, checks the Grafana dashboard JSON, requires every third-party image shared by `docker-compose*.yml` and the manifests to use the same tag (bump both together), and runs shellcheck on the k8s scripts.
 - `frontend.yml` also runs `npm run check:api`; backend, frontend and simulation workflows all trigger on `api/openapi.yaml`.
 

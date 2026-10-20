@@ -21,14 +21,14 @@ class SmokeSimulation : Simulation() {
                     .get("/actuator/health")
                     .check(status().`is`(200)),
             ).pause(1)
+            .exec(signIn())
+            .pause(1)
             .exec(
-                http("Login")
-                    .post("/api/v1/auth/login")
-                    .body(StringBody("""{"email":"admin@admin.com","password":"admin"}"""))
-                    .check(status().`is`(200))
-                    .check(jsonPath("$.accessToken").saveAs("accessToken")),
-            ).pause(1)
-            .exec(
+                http("Profile")
+                    .get("/api/v1/users/me")
+                    .header("Authorization", "Bearer #{accessToken}")
+                    .check(status().`is`(200)),
+            ).exec(
                 http("List Votes")
                     .get("/api/v1/votes?page=0&size=10")
                     .header("Authorization", "Bearer #{accessToken}")

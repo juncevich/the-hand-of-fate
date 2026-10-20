@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"strings"
 	"time"
 
@@ -21,17 +20,10 @@ type Client struct {
 }
 
 func New(base string, log *zap.Logger) (*Client, error) {
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		return nil, err
-	}
 	return &Client{
 		base: strings.TrimRight(base, "/"),
-		http: &http.Client{
-			Jar:     jar,
-			Timeout: 10 * time.Second,
-		},
-		log: log,
+		http: &http.Client{Timeout: 10 * time.Second},
+		log:  log,
 	}, nil
 }
 
@@ -90,81 +82,21 @@ func expectStatus(resp *http.Response, want int) error {
 	return nil
 }
 
-// extractRefreshToken reads the Set-Cookie header for fate_refresh_token.
-func extractRefreshToken(resp *http.Response) string {
-	for _, c := range resp.Cookies() {
-		if c.Name == "fate_refresh_token" {
-			return c.Value
-		}
+// ── Account ──────────────────────────────────────────────────────────────────
+// Signing up and in happen on Keycloak's pages (package keycloak); the backend accepts its tokens.
+
+// GetProfile returns the signed-in account; the first call with a Keycloak token creates it.
+func (c *Client) GetProfile() (ProfileResponse, error) {
+	resp, err := c.do("GET", "/api/v1/users/me", nil)
+	if err != nil {
+		return ProfileResponse{}, err
 	}
-	return ""
+	return decode[ProfileResponse](resp)
 }
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
-
-// Register creates an account; it starts no session until the mailed link is followed (VerifyEmail).
-func (c *Client) Register(req RegisterRequest) (RegistrationResponse, error) {
-	resp, err := c.do("POST", "/api/v1/auth/register", req)
-	if err != nil {
-		return RegistrationResponse{}, err
-	}
-	return decode[RegistrationResponse](resp)
-}
-
-// VerifyEmail follows the verification link's token and returns the session it starts.
-func (c *Client) VerifyEmail(token string) (Session, error) {
-	resp, err := c.do("POST", "/api/v1/auth/verify-email", VerifyEmailRequest{Token: token})
-	if err != nil {
-		return Session{}, err
-	}
-	auth, err := decode[Session](resp)
-	if err != nil {
-		return Session{}, err
-	}
-	auth.RefreshToken = extractRefreshToken(resp)
-	return auth, nil
-}
-
-func (c *Client) Login(req LoginRequest) (Session, error) {
-	resp, err := c.do("POST", "/api/v1/auth/login", req)
-	if err != nil {
-		return Session{}, err
-	}
-	auth, err := decode[Session](resp)
-	if err != nil {
-		return Session{}, err
-	}
-	auth.RefreshToken = extractRefreshToken(resp)
-	return auth, nil
-}
-
-func (c *Client) Refresh(refreshToken string) (Session, error) {
-	// Untyped nil when there is no token: a nil *RefreshRequest stored in `any`
-	// is non-nil and would be sent as a JSON "null" body.
-	var body any
-	if refreshToken != "" {
-		body = RefreshRequest{RefreshToken: &refreshToken}
-	}
-	resp, err := c.do("POST", "/api/v1/auth/refresh", body)
-	if err != nil {
-		return Session{}, err
-	}
-	auth, err := decode[Session](resp)
-	if err != nil {
-		return Session{}, err
-	}
-	auth.RefreshToken = extractRefreshToken(resp)
-	return auth, nil
-}
-
-func (c *Client) Logout(refreshToken string) error {
-	// Untyped nil when there is no token: a nil *RefreshRequest stored in `any`
-	// is non-nil and would be sent as a JSON "null" body.
-	var body any
-	if refreshToken != "" {
-		body = RefreshRequest{RefreshToken: &refreshToken}
-	}
-	resp, err := c.do("POST", "/api/v1/auth/logout", body)
+// LogoutAll ends every session of the account, in Keycloak too.
+func (c *Client) LogoutAll() error {
+	resp, err := c.do("POST", "/api/v1/auth/logout-all", nil)
 	if err != nil {
 		return err
 	}
