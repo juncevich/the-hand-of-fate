@@ -49,6 +49,7 @@ const (
 	ErrorCodePARTICIPANTEXISTS        ErrorCode = "PARTICIPANT_EXISTS"
 	ErrorCodePAYLOADTOOLARGE          ErrorCode = "PAYLOAD_TOO_LARGE"
 	ErrorCodeRATELIMITED              ErrorCode = "RATE_LIMITED"
+	ErrorCodeREAUTHENTICATIONREQUIRED ErrorCode = "REAUTHENTICATION_REQUIRED"
 	ErrorCodeREFRESHTOKENREQUIRED     ErrorCode = "REFRESH_TOKEN_REQUIRED"
 	ErrorCodeREQUESTINVALID           ErrorCode = "REQUEST_INVALID"
 	ErrorCodeSTORAGEUNAVAILABLE       ErrorCode = "STORAGE_UNAVAILABLE"
@@ -119,6 +120,8 @@ func (e ErrorCode) Valid() bool {
 	case ErrorCodePAYLOADTOOLARGE:
 		return true
 	case ErrorCodeRATELIMITED:
+		return true
+	case ErrorCodeREAUTHENTICATIONREQUIRED:
 		return true
 	case ErrorCodeREFRESHTOKENREQUIRED:
 		return true
@@ -245,7 +248,7 @@ type CreateVoteWebRequest struct {
 
 // DeleteAccountRequest defines model for DeleteAccountRequest.
 type DeleteAccountRequest struct {
-	Password string `json:"password"`
+	Password *string `json:"password,omitempty"`
 }
 
 // DrawHistoryDto defines model for DrawHistoryDto.

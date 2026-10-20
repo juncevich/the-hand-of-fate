@@ -189,15 +189,16 @@ class AuthController(
         operationId = "deleteAccount",
         summary = "Delete the account and everything it created",
         description =
-            "Requires the password (400 with code WRONG_PASSWORD otherwise). Deletes the votes the user " +
-                "created; in other votes the user stops being a participant and past wins are anonymized."
+            "Confirmed by the password (400 with code WRONG_PASSWORD if wrong) or, without one, by a sign-in " +
+                "within the last minutes (403 with code REAUTHENTICATION_REQUIRED otherwise). Deletes the votes " +
+                "the user created; in other votes the user stops being a participant and past wins are anonymized."
     )
     @ApiResponse(responseCode = "204", description = "Deleted; the refresh cookie is cleared")
     fun deleteAccount(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @Valid @RequestBody request: DeleteAccountRequest,
     ): ResponseEntity<Unit> {
-        accountDeletionService.deleteAccount(user.id, request.password)
+        accountDeletionService.deleteAccount(user, request.password)
         return ResponseEntity
             .noContent()
             .header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())

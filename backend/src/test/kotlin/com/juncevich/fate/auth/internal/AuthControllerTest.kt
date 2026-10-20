@@ -132,7 +132,7 @@ class AuthControllerTest {
     fun `POST delete-account - deletes and clears the refresh cookie`() {
         val id = UUID.randomUUID()
         setAuth(id)
-        every { accountDeletionService.deleteAccount(id, "password123") } returns Unit
+        every { accountDeletionService.deleteAccount(match { it.id == id }, "password123") } returns Unit
 
         mockMvc
             .post("/api/v1/auth/delete-account") {

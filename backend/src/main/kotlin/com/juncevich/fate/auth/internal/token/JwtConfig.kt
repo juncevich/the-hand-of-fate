@@ -1,6 +1,8 @@
 package com.juncevich.fate.auth.internal.token
 
 import com.juncevich.fate.auth.AuthenticatedUser
+import com.juncevich.fate.auth.internal.keycloak.KeycloakProperties
+import com.juncevich.fate.auth.internal.service.KeycloakUserProvisioner
 import com.nimbusds.jose.jwk.source.ImmutableSecret
 import com.nimbusds.jose.proc.SecurityContext
 import org.springframework.context.annotation.Bean
@@ -24,7 +26,7 @@ import java.util.UUID
 import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 
-/** Access tokens are HS256 JWTs signed with `jwt.access-secret` (see [JwtTokenProvider]). */
+/** The app's own access tokens are HS256 JWTs signed with `jwt.access-secret` (see [JwtTokenProvider]). */
 internal val ACCESS_TOKEN_ALGORITHM = MacAlgorithm.HS256
 
 internal const val EMAIL_CLAIM = "email"
@@ -34,12 +36,28 @@ class JwtConfig {
     @Bean
     fun jwtEncoder(props: JwtProperties): JwtEncoder = accessTokenEncoder(props.accessSecret)
 
+    /** Keycloak's tokens (docs/adr/0001) and, until the app's own login is removed, its own ones. */
     @Bean
-    fun jwtDecoder(props: JwtProperties): JwtDecoder = accessTokenDecoder(props.accessSecret)
+    fun jwtDecoder(
+        props: JwtProperties,
+        keycloak: KeycloakProperties,
+    ): JwtDecoder =
+        IssuerRoutingJwtDecoder(
+            keycloakIssuer = keycloak.issuer,
+            keycloak = keycloakAccessTokenDecoder(keycloak),
+            own = accessTokenDecoder(props.accessSecret)
+        )
 
     @Bean
-    fun accessTokenAuthenticationConverter(): Converter<Jwt, AbstractAuthenticationToken> =
-        AccessTokenAuthenticationConverter()
+    fun accessTokenAuthenticationConverter(
+        keycloak: KeycloakProperties,
+        provisioner: KeycloakUserProvisioner,
+    ): Converter<Jwt, AbstractAuthenticationToken> =
+        IssuerRoutingAuthenticationConverter(
+            keycloakIssuer = keycloak.issuer,
+            keycloak = KeycloakAccessTokenConverter(provisioner),
+            own = AccessTokenAuthenticationConverter()
+        )
 }
 
 private fun secretKey(secret: String): SecretKey = SecretKeySpec(secret.toByteArray(), ACCESS_TOKEN_ALGORITHM.getName())

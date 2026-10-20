@@ -2,6 +2,7 @@ package com.juncevich.fate.auth.internal.service
 
 import com.juncevich.fate.auth.User
 import com.juncevich.fate.auth.internal.domain.RefreshToken
+import com.juncevich.fate.auth.internal.port.IdentityAdminPort
 import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.auth.internal.token.JwtProperties
@@ -31,6 +32,7 @@ class AuthService(
     private val jwtTokenProvider: JwtTokenProvider,
     private val jwtProperties: JwtProperties,
     private val loginThrottle: LoginThrottle,
+    private val identityAdmin: IdentityAdminPort,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -83,8 +85,10 @@ class AuthService(
     /** Signs [user] in: a new session family with fresh access and refresh tokens. */
     fun startSession(user: User): AuthTokens = issueTokens(user)
 
+    /** Ends the user's sessions here and in Keycloak; access tokens already issued live until they expire. */
     fun logoutAll(userId: UUID) {
         refreshTokenRepositoryPort.deleteAllByUserId(userId)
+        identityAdmin.logoutUser(userId)
     }
 
     /** Starts a new session, or continues the session [familyId] when rotating. */

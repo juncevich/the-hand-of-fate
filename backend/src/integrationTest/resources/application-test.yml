@@ -22,6 +22,9 @@ springdoc:
     enabled: true
 
 app:
+  keycloak:
+    # Tests run IdentityDeletionWorker themselves.
+    deletion-delay-ms: 3600000
   notifications:
     delivery-enabled: false
   # Tests fire many auth requests from a single (loopback) client; the limiter

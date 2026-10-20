@@ -35,7 +35,7 @@ export interface paths {
         put?: never;
         /**
          * Delete the account and everything it created
-         * @description Requires the password (400 with code WRONG_PASSWORD otherwise). Deletes the votes the user created; in other votes the user stops being a participant and past wins are anonymized.
+         * @description Confirmed by the password (400 with code WRONG_PASSWORD if wrong) or, without one, by a sign-in within the last minutes (403 with code REAUTHENTICATION_REQUIRED otherwise). Deletes the votes the user created; in other votes the user stops being a participant and past wins are anonymized.
          */
         post: operations["deleteAccount"];
         delete?: never;
@@ -615,7 +615,7 @@ export interface components {
             title: string;
         };
         DeleteAccountRequest: {
-            password: string;
+            password?: string | null;
         };
         DrawHistoryDto: {
             /** Format: date-time */
@@ -652,7 +652,7 @@ export interface components {
          * @description Machine-readable reason of the error. Clients show their own wording per value; `title` is an English fallback.
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_FAILED" | "REQUEST_INVALID" | "PAYLOAD_TOO_LARGE" | "UNAUTHORIZED" | "RATE_LIMITED" | "CONCURRENT_MODIFICATION" | "ALREADY_EXISTS" | "INTERNAL_ERROR" | "INVALID_EMAIL" | "INVALID_CREDENTIALS" | "EMAIL_ALREADY_REGISTERED" | "EMAIL_NOT_VERIFIED" | "WRONG_PASSWORD" | "LOGIN_THROTTLED" | "INVALID_TOKEN" | "TOKEN_EXPIRED" | "REFRESH_TOKEN_REQUIRED" | "USER_NOT_FOUND" | "EMAIL_LIMIT_REACHED" | "AVATAR_INVALID" | "AVATAR_NOT_FOUND" | "STORAGE_UNAVAILABLE" | "TELEGRAM_NOT_LINKED" | "TELEGRAM_ALREADY_LINKED" | "TELEGRAM_PRIVATE_CHAT_ONLY" | "TELEGRAM_LINK_TOKEN_INVALID" | "TELEGRAM_LINK_TOKEN_EXPIRED" | "VOTE_NOT_FOUND" | "VOTE_ACCESS_DENIED" | "NOT_VOTE_CREATOR" | "VOTE_NOT_PENDING" | "VOTE_NOT_DRAWN" | "VOTE_ALREADY_CLOSED" | "TITLE_INVALID" | "DESCRIPTION_TOO_LONG" | "TOO_MANY_PARTICIPANTS" | "TOO_MANY_OPTIONS" | "PARTICIPANT_EXISTS" | "OPTIONS_NOT_ALLOWED" | "OPTION_ORDER_INVALID" | "NO_OPTIONS" | "NO_PARTICIPANTS" | "PAGE_INVALID" | "VOTE_ID_INVALID";
+        ErrorCode: "VALIDATION_FAILED" | "REQUEST_INVALID" | "PAYLOAD_TOO_LARGE" | "UNAUTHORIZED" | "RATE_LIMITED" | "CONCURRENT_MODIFICATION" | "ALREADY_EXISTS" | "INTERNAL_ERROR" | "INVALID_EMAIL" | "INVALID_CREDENTIALS" | "EMAIL_ALREADY_REGISTERED" | "EMAIL_NOT_VERIFIED" | "WRONG_PASSWORD" | "LOGIN_THROTTLED" | "INVALID_TOKEN" | "TOKEN_EXPIRED" | "REFRESH_TOKEN_REQUIRED" | "USER_NOT_FOUND" | "EMAIL_LIMIT_REACHED" | "AVATAR_INVALID" | "AVATAR_NOT_FOUND" | "STORAGE_UNAVAILABLE" | "TELEGRAM_NOT_LINKED" | "TELEGRAM_ALREADY_LINKED" | "TELEGRAM_PRIVATE_CHAT_ONLY" | "TELEGRAM_LINK_TOKEN_INVALID" | "TELEGRAM_LINK_TOKEN_EXPIRED" | "VOTE_NOT_FOUND" | "VOTE_ACCESS_DENIED" | "NOT_VOTE_CREATOR" | "VOTE_NOT_PENDING" | "VOTE_NOT_DRAWN" | "VOTE_ALREADY_CLOSED" | "TITLE_INVALID" | "DESCRIPTION_TOO_LONG" | "TOO_MANY_PARTICIPANTS" | "TOO_MANY_OPTIONS" | "PARTICIPANT_EXISTS" | "OPTIONS_NOT_ALLOWED" | "OPTION_ORDER_INVALID" | "NO_OPTIONS" | "NO_PARTICIPANTS" | "PAGE_INVALID" | "VOTE_ID_INVALID" | "REAUTHENTICATION_REQUIRED";
         LinkTokenResponse: {
             /** Format: date-time */
             expiresAt: string;

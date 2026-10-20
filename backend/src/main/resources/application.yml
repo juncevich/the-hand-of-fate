@@ -131,6 +131,16 @@ jwt:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  # Keycloak, the authorization server (docs/adr/0001, see KeycloakProperties). Its access tokens
+  # are accepted next to the app's own until those are removed. Defaults match dev-start.sh:
+  # Keycloak on :8180, the SPA (and so the token issuer) on :3000/auth via Vite's proxy.
+  keycloak:
+    url: ${KEYCLOAK_URL:http://localhost:8180/auth}
+    public-url: ${KEYCLOAK_PUBLIC_URL:http://localhost:3000/auth}
+    realm: fate
+    audience: fate-api
+    client-id: fate-backend
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:dev-keycloak-backend-secret}
   mail:
     # Sender address; when blank, falls back to MAIL_USERNAME, then noreply@handoffate.app
     from: ${MAIL_FROM:}

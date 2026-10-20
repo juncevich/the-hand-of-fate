@@ -222,6 +222,7 @@ The bot answers only in private chats and identifies the user by `message.From.I
 
 ### Auth Flow
 - **Registration requires email verification**: `POST /auth/register` answers `202 {email}` without a session and mails a link (`/verify-email?token=…`, valid 24 h). Login with the right password on an unconfirmed address is `403` with problem `code: EMAIL_NOT_VERIFIED` (only after the password matched — no account enumeration). `POST /auth/verify-email {token}` confirms and signs in. `resend-verification` / `forgot-password` always answer `202`, mail at most once a minute per account (`app.auth.email-token-cooldown`) and are IP-rate-limited. `reset-password {token,newPassword}` (link valid 30 min) ends every session and also confirms the address; `change-password` (authenticated, current password required — a wrong one is `400 WRONG_PASSWORD` and counts towards `LoginThrottle`) ends every other session and returns a fresh one. One-time tokens (`email_tokens`, V23) are 32 random bytes stored as SHA-256, one per user and purpose, consumed on first use. Accounts that existed before V23 (incl. the demo user) count as verified. Logic: `auth/internal/service/AccountService`, endpoints in `AuthController` (those that set the cookie) and `AccountController`
+- **Migrating to Keycloak** (docs/adr/0001, checklist docs/plans/keycloak-auth.md): the resource server already accepts Keycloak's RS256 tokens next to its own — `IssuerRoutingJwtDecoder` / `IssuerRoutingAuthenticationConverter` (`auth/internal/token/KeycloakTokens.kt`) route by `iss` (the app's own tokens carry none). A Keycloak token must have `aud` ∋ `fate-api` and `email_verified=true`; on first use `KeycloakUserProvisioner` creates the `users` row with id = `sub` (or takes over the pre-Keycloak account with that verified email), `auth_time` becomes `AuthenticatedUser.authenticatedAt` (delete-account without a password needs a sign-in ≤ 5 min ago, else `403 REAUTHENTICATION_REQUIRED`). `KeycloakAdminClient` (service account `fate-backend`) ends sessions on `logout-all` and, via `IdentityDeletionWorker`, deletes the Keycloak user of a deleted account. Integration tests mint Keycloak tokens with `FakeKeycloak` (`keycloakToken(...)`); `KeycloakSmokeIntegrationTest` runs a real Keycloak configured from `infra/keycloak/`
 - Login/verification returns `accessToken` (HS256 JWT, 15 min — issued with `NimbusJwtEncoder`, validated by Spring Security's OAuth2 resource server, see `auth/internal/token/JwtConfig.kt`) + `refreshToken` (UUID, 30 days)
 - `refreshToken` is stored hashed in `refresh_tokens` table. Each refresh rotates it: the old row gets `revoked_at` and its successor keeps the session's `family_id` (a login starts a new family). A rotated token replayed within `jwt.refresh-reuse-grace-seconds` (30) is a concurrent refresh and is served; replayed later it is treated as stolen and the whole family is deleted (log warning, both holders must log in again). Logout deletes the token's family, `logout-all` every family of the user
 - `ExpiredTokenPurger` deletes expired refresh and Telegram link tokens hourly (`app.auth.token-purge-delay-ms`)
@@ -397,6 +398,7 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 - V22: `draw_history.seed` + `candidates TEXT[]` (draw audit; NULL for older draws)
 - V23: `users.email_verified_at` (existing users backfilled as verified) + `email_tokens` (verification / password reset)
 - V24: `email_suppressions` (addresses that unsubscribed)
+- V25: FKs to `users(id)` get `ON UPDATE CASCADE` (a pre-Keycloak account is taken over by re-keying it to the Keycloak subject) + `deleted_accounts` (tombstones: a still-valid Keycloak token can't recreate a deleted account; also the retry queue of `IdentityDeletionWorker`)
 
 ### Key Environment Variables
 | Variable | Default | Description |
@@ -428,6 +430,9 @@ Flyway, files in `backend/src/main/resources/db/migration/`:
 | `S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` | `http://localhost:9000` / `us-east-1` / `fate` | S3-compatible store |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | — (`rustfsadmin` in `dev`) | Required when storage is enabled (startup fails otherwise) |
 | `S3_PATH_STYLE` | `true` | Path-style addressing |
+| `KEYCLOAK_URL` | `http://localhost:8180/auth` | Where the backend reaches Keycloak (JWKS, Admin API) |
+| `KEYCLOAK_PUBLIC_URL` | `http://localhost:3000/auth` | Keycloak's public base URL; accepted tokens have `iss` = `<this>/realms/fate` |
+| `KEYCLOAK_CLIENT_SECRET` | (dev default set) | Secret of the `fate-backend` service account (Admin API: end sessions, delete users); checked by `SecretsValidator` outside `dev`/`test` |
 
 ## CI/CD
 

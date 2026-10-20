@@ -61,4 +61,7 @@ enum class ErrorCode {
     NO_PARTICIPANTS,
     PAGE_INVALID,
     VOTE_ID_INVALID,
+
+    // ── Accounts (added later; the proto numbering follows declaration order) ───
+    REAUTHENTICATION_REQUIRED,
 }

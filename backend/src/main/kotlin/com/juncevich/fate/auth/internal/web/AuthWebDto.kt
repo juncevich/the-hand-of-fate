@@ -40,7 +40,8 @@ data class ChangePasswordRequest(
 )
 
 data class DeleteAccountRequest(
-    @field:NotBlank val password: String,
+    /** Confirms the deletion; without it a sign-in within the last few minutes is required. */
+    val password: String? = null,
 )
 
 data class EmailPreferencesDto(

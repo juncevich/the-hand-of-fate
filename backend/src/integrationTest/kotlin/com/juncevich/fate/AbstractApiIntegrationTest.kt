@@ -18,6 +18,8 @@ import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.postgresql.PostgreSQLContainer
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
+import java.time.Instant
+import java.util.UUID
 
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
@@ -81,6 +83,9 @@ abstract class AbstractApiIntegrationTest {
             registry.add("app.storage.endpoint") { "http://${rustfs.host}:${rustfs.getMappedPort(9000)}" }
             registry.add("app.storage.access-key") { STORAGE_KEY }
             registry.add("app.storage.secret-key") { STORAGE_KEY }
+            // Keycloak's keys and Admin API come from FakeKeycloak; tokens carry its public issuer.
+            registry.add("app.keycloak.url") { FakeKeycloak.url }
+            registry.add("app.keycloak.public-url") { FakeKeycloak.PUBLIC_URL }
         }
     }
 
@@ -153,6 +158,19 @@ abstract class AbstractApiIntegrationTest {
                 ?.get(1)
                 .orEmpty()
         return accessToken to refreshToken
+    }
+
+    /**
+     * An access token Keycloak would issue to the SPA for a user it holds (see [FakeKeycloak]); the
+     * backend creates the account on its first request.
+     */
+    protected fun keycloakToken(
+        email: String,
+        userId: UUID = UUID.randomUUID(),
+        authTime: Instant? = Instant.now(),
+    ): String {
+        FakeKeycloak.users += userId
+        return FakeKeycloak.token(userId, email, authTime = authTime)
     }
 
     protected fun parse(json: String): JsonNode = objectMapper.readTree(json)

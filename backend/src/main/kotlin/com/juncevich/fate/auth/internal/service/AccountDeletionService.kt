@@ -1,16 +1,20 @@
 package com.juncevich.fate.auth.internal.service
 
 import com.juncevich.fate.auth.AccountDeleted
+import com.juncevich.fate.auth.AuthenticatedUser
+import com.juncevich.fate.auth.internal.keycloak.KeycloakProperties
+import com.juncevich.fate.auth.internal.port.DeletedAccountRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.notification.NotificationOutbox
 import com.juncevich.fate.shared.ErrorCode
+import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
-import java.util.UUID
+import java.time.Instant
 
 @Service
 @Transactional
@@ -21,20 +25,29 @@ class AccountDeletionService(
     private val loginThrottle: LoginThrottle,
     private val avatars: AvatarService,
     private val events: ApplicationEventPublisher,
+    private val deletedAccounts: DeletedAccountRepositoryPort,
+    private val keycloak: KeycloakProperties,
 ) {
     /**
-     * Deletes the account after checking its password: its own votes, sessions, tokens and avatar
-     * go with it, other modules forget it via [AccountDeleted], queued emails to it are dropped.
+     * Deletes the account once the caller proved it is them — by its [password], or without one by
+     * a recent sign-in: its own votes, sessions, tokens and avatar go with it, other modules forget
+     * it via [AccountDeleted], queued emails to it are dropped. Its Keycloak user is deleted after
+     * the commit by [IdentityDeletionWorker].
      */
     fun deleteAccount(
-        userId: UUID,
-        password: String,
+        caller: AuthenticatedUser,
+        password: String?,
     ) {
-        val user = users.findById(userId) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
-        passwordConfirmation.require(user, password)
+        val user = users.findById(caller.id) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
+        if (password != null) {
+            passwordConfirmation.require(user, password)
+        } else {
+            requireRecentSignIn(caller)
+        }
         events.publishEvent(AccountDeleted(user.id, user.email))
         outbox.cancelFor(user.email)
         users.delete(user.id)
+        deletedAccounts.record(user.id, Instant.now())
         loginThrottle.reset(user.email)
         // Object storage is not transactional: only remove the avatar once the deletion is committed.
         TransactionSynchronizationManager.registerSynchronization(
@@ -42,5 +55,12 @@ class AccountDeletionService(
                 override fun afterCommit() = avatars.deleteStoredObject(user.id)
             }
         )
+    }
+
+    private fun requireRecentSignIn(caller: AuthenticatedUser) {
+        val signedInAt = caller.authenticatedAt
+        if (signedInAt == null || signedInAt.isBefore(Instant.now().minus(keycloak.reauthenticationMaxAge))) {
+            throw ForbiddenException("Sign in again to confirm it is you", ErrorCode.REAUTHENTICATION_REQUIRED)
+        }
     }
 }

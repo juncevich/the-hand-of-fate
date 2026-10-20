@@ -49,6 +49,8 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       GRPC_SHARED_SECRET: ${GRPC_SHARED_SECRET:-dev-grpc-shared-secret-for-testing-only}
       S3_ENDPOINT: http://rustfs:9000
+      KEYCLOAK_URL: http://keycloak:8080/auth
+      KEYCLOAK_PUBLIC_URL: http://localhost/auth
     depends_on:
       postgres:
         condition: service_healthy

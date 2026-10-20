@@ -54,9 +54,10 @@ paths:
       - Auth
   /api/v1/auth/delete-account:
     post:
-      description: Requires the password (400 with code WRONG_PASSWORD otherwise).
-        Deletes the votes the user created; in other votes the user stops being a
-        participant and past wins are anonymized.
+      description: "Confirmed by the password (400 with code WRONG_PASSWORD if wrong)\
+        \ or, without one, by a sign-in within the last minutes (403 with code REAUTHENTICATION_REQUIRED\
+        \ otherwise). Deletes the votes the user created; in other votes the user\
+        \ stops being a participant and past wins are anonymized."
       operationId: deleteAccount
       requestBody:
         content:
@@ -1136,9 +1137,7 @@ components:
       properties:
         password:
           type: string
-          minLength: 1
-      required:
-      - password
+          nullable: true
     DrawHistoryDto:
       type: object
       properties:
@@ -1262,6 +1261,7 @@ components:
       - NO_PARTICIPANTS
       - PAGE_INVALID
       - VOTE_ID_INVALID
+      - REAUTHENTICATION_REQUIRED
     LinkTokenResponse:
       type: object
       properties:

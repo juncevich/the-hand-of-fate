@@ -2,6 +2,7 @@ package com.juncevich.fate.auth
 
 import com.juncevich.fate.auth.internal.config.RateLimitProperties
 import com.juncevich.fate.auth.internal.domain.RefreshToken
+import com.juncevich.fate.auth.internal.port.IdentityAdminPort
 import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import com.juncevich.fate.auth.internal.service.AuthService
@@ -25,6 +26,7 @@ class AuthServiceTest {
     private val refreshTokenRepositoryPort = mockk<RefreshTokenRepositoryPort>()
     private val passwordEncoder = mockk<PasswordEncoder>()
     private val jwtTokenProvider = mockk<JwtTokenProvider>()
+    private val identityAdmin = mockk<IdentityAdminPort>(relaxed = true)
     private val jwtProperties =
         JwtProperties(
             accessSecret = "test-secret-that-is-definitely-long-enough-for-hmac-sha256",
@@ -39,7 +41,8 @@ class AuthServiceTest {
             passwordEncoder,
             jwtTokenProvider,
             jwtProperties,
-            LoginThrottle(RateLimitProperties(loginFailuresPerAccount = 2))
+            LoginThrottle(RateLimitProperties(loginFailuresPerAccount = 2)),
+            identityAdmin
         )
 
     private fun makeUser(
@@ -307,12 +310,13 @@ class AuthServiceTest {
     }
 
     @Test
-    fun `logoutAll - deletes all tokens for user`() {
+    fun `logoutAll - deletes all tokens for user and ends their Keycloak sessions`() {
         val userId = UUID.randomUUID()
         every { refreshTokenRepositoryPort.deleteAllByUserId(userId) } just Runs
 
         authService.logoutAll(userId)
 
         verify { refreshTokenRepositoryPort.deleteAllByUserId(userId) }
+        verify { identityAdmin.logoutUser(userId) }
     }
 }

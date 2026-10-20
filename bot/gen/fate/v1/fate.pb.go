@@ -222,6 +222,7 @@ const (
 	ErrorCode_ERROR_CODE_NO_PARTICIPANTS             ErrorCode = 42
 	ErrorCode_ERROR_CODE_PAGE_INVALID                ErrorCode = 43
 	ErrorCode_ERROR_CODE_VOTE_ID_INVALID             ErrorCode = 44
+	ErrorCode_ERROR_CODE_REAUTHENTICATION_REQUIRED   ErrorCode = 45
 )
 
 // Enum value maps for ErrorCode.
@@ -272,6 +273,7 @@ var (
 		42: "ERROR_CODE_NO_PARTICIPANTS",
 		43: "ERROR_CODE_PAGE_INVALID",
 		44: "ERROR_CODE_VOTE_ID_INVALID",
+		45: "ERROR_CODE_REAUTHENTICATION_REQUIRED",
 	}
 	ErrorCode_value = map[string]int32{
 		"ERROR_CODE_UNSPECIFIED":                 0,
@@ -319,6 +321,7 @@ var (
 		"ERROR_CODE_NO_PARTICIPANTS":             42,
 		"ERROR_CODE_PAGE_INVALID":                43,
 		"ERROR_CODE_VOTE_ID_INVALID":             44,
+		"ERROR_CODE_REAUTHENTICATION_REQUIRED":   45,
 	}
 )
 
@@ -1800,7 +1803,7 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"DrawTarget\x12\x1b\n" +
 	"\x17DRAW_TARGET_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18DRAW_TARGET_PARTICIPANTS\x10\x01\x12\x17\n" +
-	"\x13DRAW_TARGET_OPTIONS\x10\x02*\x86\f\n" +
+	"\x13DRAW_TARGET_OPTIONS\x10\x02*\xb0\f\n" +
 	"\tErrorCode\x12\x1a\n" +
 	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cERROR_CODE_VALIDATION_FAILED\x10\x01\x12\x1e\n" +
@@ -1847,7 +1850,8 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\x15ERROR_CODE_NO_OPTIONS\x10)\x12\x1e\n" +
 	"\x1aERROR_CODE_NO_PARTICIPANTS\x10*\x12\x1b\n" +
 	"\x17ERROR_CODE_PAGE_INVALID\x10+\x12\x1e\n" +
-	"\x1aERROR_CODE_VOTE_ID_INVALID\x10,2\xa8\x05\n" +
+	"\x1aERROR_CODE_VOTE_ID_INVALID\x10,\x12(\n" +
+	"$ERROR_CODE_REAUTHENTICATION_REQUIRED\x10-2\xa8\x05\n" +
 	"\vFateService\x12`\n" +
 	"\x13LinkTelegramAccount\x12#.fate.v1.LinkTelegramAccountRequest\x1a$.fate.v1.LinkTelegramAccountResponse\x12f\n" +
 	"\x15UnlinkTelegramAccount\x12%.fate.v1.UnlinkTelegramAccountRequest\x1a&.fate.v1.UnlinkTelegramAccountResponse\x12E\n" +

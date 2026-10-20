@@ -42,6 +42,8 @@ configMapGenerator:
       - MAIL_PORT=1025
       - FRONTEND_URL=http://localhost:30080
       - S3_ENDPOINT=http://rustfs:9000
+      - KEYCLOAK_URL=http://keycloak:8080/auth
+      - KEYCLOAK_PUBLIC_URL=http://localhost:30080/auth
   # Keycloak server: issuer http://localhost:30080/auth/realms/fate (through the gateway).
   - name: keycloak-server-config
     literals:
@@ -73,6 +75,7 @@ secretGenerator:
       - DB_USERNAME=fate
       - DB_PASSWORD=fate
       - JWT_ACCESS_SECRET=dev-secret-key-at-least-256-bits-long-for-testing-purposes-only
+      - KEYCLOAK_CLIENT_SECRET=dev-keycloak-backend-secret
   - name: postgres-secrets
     literals:
       - POSTGRES_USER=fate

@@ -35,6 +35,21 @@ class UserPersistenceAdapter(
 
     override fun save(user: User): User = userJpaRepository.save(user.toJpaEntity()).toDomain()
 
+    override fun changeId(
+        from: UUID,
+        to: UUID,
+    ): Boolean = userJpaRepository.changeId(from, to) > 0
+
+    override fun insertIfAbsent(user: User): Boolean =
+        userJpaRepository.insertIfAbsent(
+            id = user.id,
+            email = user.email,
+            passwordHash = user.passwordHash,
+            displayName = user.displayName,
+            emailVerifiedAt = user.emailVerifiedAt,
+            createdAt = user.createdAt
+        ) > 0
+
     override fun delete(id: UUID) {
         userJpaRepository.deleteById(id)
         // The row must be gone before the transaction's other work (and its FK cascades) is checked.

@@ -1,6 +1,6 @@
 # План: Keycloak как сервер авторизации
 
-Статус: **этап 1 — в работе** · создан 2026-10-20
+Статус: **этап 2 — в работе** · создан 2026-10-20
 
 Как вести файл:
 - Пункт отмечается `[x]` в том же коммите, где сделана работа. Сделано частично — пункт остаётся `[ ]`, а в «Журнал» пишется, что уже готово.
@@ -71,22 +71,22 @@
 
 ## Этап 2. Бэкенд принимает оба выпускающих сервера
 
-- [ ] `JwtIssuerAuthenticationManagerResolver`: старый HS256-декодер и RS256-декодер Keycloak (`jwk-set-uri` — внутренний адрес, `issuer` — публичный).
-- [ ] Валидатор claims для Keycloak (решение 4) и конвертер в `AuthenticatedUser`.
-- [ ] `CurrentUserProvisioner`: JIT-upsert в `users` по `sub`, `email` и `name`, через `ON CONFLICT DO NOTHING`.
-- [ ] Демо-пользователь: у него в Keycloak `sub` не совпадает с `users.id` строки из V7 (Admin API не даёт задать id), и JIT упадёт на уникальности email. В dev/test выключить `seedDemoUser` (V7 оставить: миграции не меняются) и проверить интеграционные тесты, которые на него опираются (`VoteVersioningIntegrationTest`).
-- [ ] Порт `IdentityAdminPort` и адаптер Keycloak (`RestClient` + client credentials `fate-backend`): `deleteUser`, `logoutUser`.
-- [ ] Удаление аккаунта:
+- [x] Бэкенд принимает оба вида токенов: старый HS256-декодер и RS256-декодер Keycloak (`jwk-set-uri` — внутренний адрес, `issuer` — публичный). Вместо `JwtIssuerAuthenticationManagerResolver` — свой `IssuerRoutingJwtDecoder`: у старых токенов нет `iss`, а стандартный resolver такие отвергает.
+- [x] Валидатор claims для Keycloak (решение 4) и конвертер в `AuthenticatedUser`; `auth_time` попадает в `AuthenticatedUser.authenticatedAt`.
+- [x] `KeycloakUserProvisioner`: JIT-upsert в `users` по `sub`, `email` и `name`, через `ON CONFLICT DO NOTHING`. Перенимает старый подтверждённый аккаунт с тем же email (V25: `ON UPDATE CASCADE`), заменяет неподтверждённый, не воскрешает удалённый (`deleted_accounts`).
+- [x] Демо-пользователь: его `sub` в Keycloak не совпадает с `users.id` из V7, поэтому строка V7 перенимается при первом входе через Keycloak. `seedDemoUser` выключать не нужно.
+- [x] Порт `IdentityAdminPort` и адаптер Keycloak (`RestClient` + client credentials `fate-backend`): `deleteUser`, `logoutUser` (`KeycloakAdminClient`; 404 считается успехом).
+- [x] Удаление аккаунта:
   - проверка `auth_time`;
-  - после commit — удаление пользователя в Keycloak, надёжно: outbox или ретраи.
-- [ ] `logout-all` → `IdentityAdminPort.logoutUser`.
-- [ ] `ErrorCode.REAUTHENTICATION_REQUIRED`: в Kotlin, proto (skill `proto-sync`), `frontend/src/lib/errorMessages.ts`, `bot/internal/handler/errors.go`.
-- [ ] `SecretsValidator`: секрет клиента `fate-backend`.
-- [ ] Тесты:
-  - тестовый RSA-ключ и `tokenFor(user)` в `AbstractApiIntegrationTest`;
+  - после commit — удаление пользователя в Keycloak, надёжно: `deleted_accounts` + `IdentityDeletionWorker` (раз в 30 с, повторы до успеха). В `DeleteAccountRequest` поле `password` стало необязательным: без пароля нужен вход не позже 5 минут назад.
+- [x] `logout-all` → `IdentityAdminPort.logoutUser`.
+- [x] `ErrorCode.REAUTHENTICATION_REQUIRED`: в Kotlin, proto (skill `proto-sync`), `frontend/src/lib/errorMessages.ts`, `bot/internal/handler/errors.go`.
+- [x] `SecretsValidator`: секрет клиента `fate-backend` (`KEYCLOAK_CLIENT_SECRET`).
+- [x] Тесты:
+  - тестовый RSA-ключ и `keycloakToken(...)` в `AbstractApiIntegrationTest` (`FakeKeycloak`: JWKS, токен service account, Admin API);
   - юнит-тесты provisioner/validator/adapter;
-  - smoke-тест на `testcontainers-keycloak`.
-- [ ] `ModularityTest` и JaCoCo (95/85) зелёные.
+  - smoke-тест на настоящем Keycloak в Testcontainers (`KeycloakSmokeIntegrationTest`, realm применяется keycloak-config-cli из `infra/keycloak/`; отдельная зависимость `testcontainers-keycloak` не нужна).
+- [x] `ModularityTest` и JaCoCo (95/85) зелёные (`check`: 333 unit + 144 интеграционных, покрытие 98,6% строк / 87,6% ветвей).
 
 ## Этап 3. Фронтенд на Keycloak
 
@@ -130,7 +130,7 @@
   - регистрацию, верификацию и сброс в `AccountService`.
 - [ ] `notification`: убрать payload'ы `EMAIL_VERIFICATION` и `PASSWORD_RESET` с их шаблонами.
 - [ ] `ExpiredTokenPurger`: оставить только Telegram-токены.
-- [ ] Миграция V25 (skill `new-migration`): `DROP TABLE refresh_tokens, email_tokens`; `DROP COLUMN users.password_hash, users.email_verified_at`. Seed V7 больше ни на что не влияет: проверить, что плейсхолдер `seedDemoUser` тоже убран.
+- [ ] Миграция V26 (skill `new-migration`; V25 занята этапом 2): `DROP TABLE refresh_tokens, email_tokens`; `DROP COLUMN users.password_hash, users.email_verified_at`. Seed V7 больше ни на что не влияет: проверить, что плейсхолдер `seedDemoUser` тоже убран.
 - [ ] Устаревшие `ErrorCode` пометить deprecated, в proto сделать `reserved`, не удалять и не переиспользовать. Контрактные тесты зелёные.
 - [ ] Убрать `JWT_ACCESS_SECRET` и `JWT_*`: из конфигурации, `SecretsValidator`, `.env.example`, deploy-workflows.
 - [ ] OpenAPI:
@@ -157,3 +157,9 @@
   - Метрика `keycloak_user_events_total{event,error,realm}` включается feature `user-event-metrics` + `KC_EVENT_METRICS_USER_ENABLED`. Event listener `metrics-listener` в 26.8 не существует (ошибка «provider not found»), поэтому в realm только `jboss-logging`.
   - `KC_HOSTNAME` — полный публичный URL с `/auth`: `http://localhost:3000/auth` для dev-start (Vite проксирует `/auth` → `:8180`), `http://localhost/auth` для полного compose (gateway :80), `http://localhost:30080/auth` для minikube. JWKS бэкенд берёт по внутреннему адресу (`:8180` / `keycloak:8080`), `iss` всегда публичный.
   - В k8s Job `keycloak-config` неизменяемый, поэтому `k8s-start.sh` удаляет его перед apply, а Tilt пересоздаёт сам.
+  - Проверка на minikube не прошла: на диске хоста кончилось место (свободно было 1,5 ГБ из 213 ГБ). Созданный кластер удалён (`./k8s-stop.sh --delete`), пункт остаётся открытым до повтора. На первом запуске свежего кластера `k8s-start.sh` упёрся в 180 с ожидания postgres: образы ещё скачивались.
+- 2026-10-20 — этап 2. Находки и решения:
+  - Неподтверждённый старый аккаунт с тем же email не перенимается, а удаляется и создаётся заново: его пароль мог задать посторонний.
+  - Новые переменные бэкенда: `KEYCLOAK_URL` (внутренний адрес), `KEYCLOAK_PUBLIC_URL` (issuer = `<public>/realms/fate`), `KEYCLOAK_CLIENT_SECRET`. Значения по умолчанию подходят для dev-start; compose и k8s задают свои.
+  - В тестах `@DynamicPropertySource` подкласса не перекрывает те же ключи базового класса, поэтому smoke-тест подставляет адрес настоящего Keycloak через `ApplicationContextInitializer` (`addFirst`).
+  - `ErrorMappingContractTest` сравнивает и порядок значений: новый код добавляется в конец Kotlin enum.

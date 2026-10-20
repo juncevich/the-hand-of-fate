@@ -27,6 +27,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   REFRESH_TOKEN_REQUIRED: 'Сессия истекла, войдите снова',
   USER_NOT_FOUND: 'Пользователь не найден',
   EMAIL_LIMIT_REACHED: 'Достигнут суточный лимит писем. Попробуйте позже или пригласите меньше участников',
+  REAUTHENTICATION_REQUIRED: 'Для подтверждения войдите ещё раз',
 
   AVATAR_INVALID: 'Нужна картинка PNG, JPEG или GIF до 4096×4096',
   AVATAR_NOT_FOUND: 'Аватар не найден',
