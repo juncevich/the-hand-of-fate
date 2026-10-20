@@ -1,0 +1,15 @@
+# Keycloak traces (login flows, token requests, Admin API calls) to the collector → Tempo.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+spec:
+  template:
+    spec:
+      containers:
+        - name: keycloak
+          env:
+            - name: KC_TRACING_ENABLED
+              value: "true"
+            - name: KC_TRACING_ENDPOINT
+              value: http://otel-collector:4317

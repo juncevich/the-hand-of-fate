@@ -19,6 +19,8 @@ components:
 
 patches:
   - path: backend-wait-for-postgres.yaml
+  - path: keycloak-create-database.yaml
+  - path: keycloak-config-dev-realm.yaml
 
 # Built on the host and `minikube image load`-ed by k8s-start.sh, never pulled.
 images:
@@ -40,6 +42,29 @@ configMapGenerator:
       - MAIL_PORT=1025
       - FRONTEND_URL=http://localhost:30080
       - S3_ENDPOINT=http://rustfs:9000
+  # Keycloak server: issuer http://localhost:30080/auth/realms/fate (through the gateway).
+  - name: keycloak-server-config
+    literals:
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_HOSTNAME=http://localhost:30080/auth
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+  # keycloak-config-cli: this environment's realm settings, plus the dev realm file.
+  - name: keycloak-config
+    literals:
+      - KEYCLOAK_USER=admin
+      - IMPORT_FILES_LOCATIONS=file:/config/realm/*,file:/config/realm-dev/*
+      - KC_APP_URL=http://localhost:30080
+      - KC_DEV_CLIENTS_ENABLED=true
+      - KC_SMTP_HOST=mailpit
+      - KC_SMTP_PORT=1025
+  - name: keycloak-realm-dev
+    files:
+      - fate-dev.yaml=../../../keycloak/realm-dev/fate-dev.yaml
+  - name: keycloak-db-scripts
+    files:
+      - create-database.sh=../../../keycloak/create-database.sh
 
 # Dev-only credentials, the same values docker-compose.yml uses.
 secretGenerator:
@@ -56,7 +81,19 @@ secretGenerator:
     literals:
       - RUSTFS_ACCESS_KEY=rustfsadmin
       - RUSTFS_SECRET_KEY=rustfsadmin
+  - name: keycloak-server-secrets
+    literals:
+      - KC_DB_PASSWORD=keycloak
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+  - name: keycloak-config-secrets
+    literals:
+      - KEYCLOAK_PASSWORD=admin
+      - KC_BACKEND_CLIENT_SECRET=dev-keycloak-backend-secret
   # GRPC_SHARED_SECRET + BOT_TOKEN, written from the root .env by k8s-start.sh (gitignored).
   - name: shared-secrets
     envs:
       - .secrets.env
+  # OAUTH_<P>_CLIENT_ID/SECRET for social login, likewise from .env (empty → provider off).
+  - name: oauth-secrets
+    envs:
+      - .oauth.env

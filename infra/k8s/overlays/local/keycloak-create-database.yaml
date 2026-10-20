@@ -1,0 +1,39 @@
+# Keycloak's database lives in the overlay's Postgres: create its role and database first
+# (idempotent, so it also works on a volume from before Keycloak was added).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: create-database
+          image: postgres:17.4-alpine
+          command: ["/bin/sh", "/scripts/create-database.sh"]
+          env:
+            - name: PGHOST
+              value: postgres
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: POSTGRES_PASSWORD
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-server-secrets
+                  key: KC_DB_PASSWORD
+          volumeMounts:
+            - name: db-scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: db-scripts
+          configMap:
+            name: keycloak-db-scripts

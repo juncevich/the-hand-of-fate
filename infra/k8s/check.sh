@@ -28,6 +28,8 @@ step "Rendering overlays"
 # Inputs normally produced by k8s-start.sh / the Tiltfile (both gitignored).
 [[ -f infra/k8s/overlays/local/.secrets.env ]] \
   || printf 'GRPC_SHARED_SECRET=check\nBOT_TOKEN=\n' >infra/k8s/overlays/local/.secrets.env
+[[ -f infra/k8s/overlays/local/.oauth.env ]] \
+  || printf 'OAUTH_GOOGLE_CLIENT_ID=\n' >infra/k8s/overlays/local/.oauth.env
 mkdir -p .tilt-build
 sed '/Content-Security-Policy/d' infra/nginx/nginx.conf >.tilt-build/nginx.conf
 infra/k8s/overlays/e2e/prepare.sh
@@ -114,7 +116,7 @@ step "Gateway nginx config ($(image_of nginx))"
 for conf in infra/nginx/nginx.conf .tilt-build/nginx.conf .e2e-build/nginx.conf; do
   # Upstreams are resolved at load time; point them anywhere.
   docker run --rm -v "$ROOT/$conf:/etc/nginx/nginx.conf:ro" \
-    --add-host backend:127.0.0.1 --add-host frontend:127.0.0.1 \
+    --add-host backend:127.0.0.1 --add-host frontend:127.0.0.1 --add-host keycloak:127.0.0.1 \
     --entrypoint nginx "$(image_of nginx)" -t -q
   echo "    $conf ok"
 done
@@ -123,7 +125,7 @@ done
 step "shellcheck"
 docker run --rm -v "$ROOT:/mnt:ro" -w /mnt "$SHELLCHECK_IMAGE" \
   k8s-start.sh k8s-stop.sh infra/k8s/check.sh infra/k8s/e2e.sh infra/k8s/overlays/local/write-secrets.sh \
-  infra/k8s/overlays/e2e/prepare.sh
+  infra/k8s/overlays/e2e/prepare.sh infra/keycloak/apply-config.sh infra/keycloak/create-database.sh
 echo "    ok"
 
 printf '\nAll Kubernetes checks passed.\n'

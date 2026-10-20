@@ -1,0 +1,14 @@
+# Dev/e2e additions to realm `fate` (infra/keycloak/realm/fate.yaml), applied after it.
+# Never mounted in production. The demo password meets the realm policy (8+ characters).
+realm: fate
+users:
+  - username: admin@admin.com
+    email: admin@admin.com
+    emailVerified: true
+    enabled: true
+    firstName: Admin
+    lastName: Demo
+    credentials:
+      - type: password
+        value: admin123
+        temporary: false

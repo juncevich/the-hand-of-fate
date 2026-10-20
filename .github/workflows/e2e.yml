@@ -17,6 +17,7 @@ on:
       - infra/k8s/**
       - infra/nginx/**
       - infra/monitoring/**
+      - infra/keycloak/**
       - k8s-start.sh
       - e2e/**
       - .github/workflows/e2e.yml
@@ -30,6 +31,7 @@ on:
       - infra/k8s/**
       - infra/nginx/**
       - infra/monitoring/**
+      - infra/keycloak/**
       - k8s-start.sh
       - e2e/**
       - .github/workflows/e2e.yml

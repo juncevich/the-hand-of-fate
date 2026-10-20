@@ -100,6 +100,16 @@ k8s_resource(
     links=[link('http://localhost:30901/rustfs/console/', 'RustFS console')],
     labels=['infra'],
 )
+k8s_resource(
+    'keycloak',
+    resource_deps=['postgres'],
+    links=[link('http://localhost:30080/auth/admin/', 'Keycloak admin (admin / admin)')],
+    labels=['auth'],
+)
+# Re-applied whenever infra/keycloak/realm*/ changes: the ConfigMap hash changes the Job, which
+# Tilt replaces (a Job's template is immutable).
+k8s_resource('keycloak-config', resource_deps=['keycloak'], labels=['auth'])
+watch_file('infra/keycloak')
 
 # ── Monitoring (infra/k8s/components/observability) ──────────────────────────
 k8s_resource('otel-collector', labels=['monitoring'])

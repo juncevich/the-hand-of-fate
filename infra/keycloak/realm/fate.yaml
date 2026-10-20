@@ -1,0 +1,207 @@
+# Realm `fate`, applied by keycloak-config-cli (infra/keycloak/apply-config.sh) on every start —
+# idempotently, so changes here reach existing realms without recreating them (ADR 0001).
+# `$(env:NAME:-default)` is substituted before parsing (IMPORT_VARSUBSTITUTION_ENABLED=true).
+# Lists present here are managed: an entry config-cli created and that is later removed from this
+# file is deleted from Keycloak; built-in entries (profile, email, …) are never touched.
+#
+#   KC_APP_URL               public origin of the SPA, e.g. http://localhost:30080
+#   KC_BACKEND_CLIENT_SECRET secret of the `fate-backend` service account (Admin API)
+#   KC_DEV_CLIENTS_ENABLED   true only in dev/e2e: `fate-test` (direct grant) and `fate-swagger`
+#   KC_SMTP_*                outgoing mail (verification, password reset)
+#   OAUTH_<P>_ENABLED        computed by apply-config.sh: true when OAUTH_<P>_CLIENT_ID is set
+realm: fate
+enabled: true
+displayName: The Hand of Fate
+
+# Email is the account name and cannot be changed: votes identify participants by it.
+registrationAllowed: true
+registrationEmailAsUsername: true
+editUsernameAllowed: false
+loginWithEmailAllowed: true
+duplicateEmailsAllowed: false
+verifyEmail: true
+resetPasswordAllowed: true
+rememberMe: false
+sslRequired: external
+passwordPolicy: length(8) and maxLength(100) and notEmail
+
+internationalizationEnabled: true
+supportedLocales: [ru, en]
+defaultLocale: ru
+
+# Per-account lockout, as LoginThrottle did: 10 failures within 15 min → growing waits.
+bruteForceProtected: true
+permanentLockout: false
+failureFactor: 10
+maxDeltaTimeSeconds: 900
+waitIncrementSeconds: 60
+maxFailureWaitSeconds: 900
+minimumQuickLoginWaitSeconds: 60
+quickLoginCheckMilliSeconds: 1000
+
+# keycloak_user_events_total{event,error} comes from the server's user-event-metrics feature;
+# no realm event listener is needed for it.
+eventsListeners: [jboss-logging]
+
+# Access token 5 min; the browser session (SSO cookie) slides for 30 days, at most 90.
+accessTokenLifespan: 300
+ssoSessionIdleTimeout: 2592000
+ssoSessionMaxLifespan: 7776000
+# Mailed links: password reset 30 min, email verification 24 h (as before).
+actionTokenGeneratedByUserLifespan: 1800
+attributes:
+  actionTokenGeneratedByUserLifespan.verify-email: "86400"
+
+smtpServer:
+  host: $(env:KC_SMTP_HOST:-mailpit)
+  port: "$(env:KC_SMTP_PORT:-1025)"
+  from: $(env:KC_SMTP_FROM:-noreply@handoffate.app)
+  fromDisplayName: The Hand of Fate
+  auth: "$(env:KC_SMTP_AUTH:-false)"
+  user: "$(env:KC_SMTP_USER:-)"
+  password: "$(env:KC_SMTP_PASSWORD:-)"
+  starttls: "$(env:KC_SMTP_STARTTLS:-false)"
+  ssl: "false"
+
+clientScopes:
+  # Puts `fate-api` into `aud` of access tokens; the backend accepts only tokens meant for it.
+  - name: fate-api
+    description: Access to the Hand of Fate REST API
+    protocol: openid-connect
+    attributes:
+      include.in.token.scope: "false"
+      display.on.consent.screen: "false"
+    protocolMappers:
+      - name: fate-api-audience
+        protocol: openid-connect
+        protocolMapper: oidc-audience-mapper
+        config:
+          included.custom.audience: fate-api
+          access.token.claim: "true"
+          id.token.claim: "false"
+          introspection.token.claim: "true"
+
+clients:
+  # The SPA: public client, Authorization Code + PKCE. No refresh tokens — the access token is
+  # renewed with `prompt=none` while the httpOnly SSO cookie lives (ADR 0001, decision 2).
+  - clientId: fate-spa
+    name: The Hand of Fate
+    enabled: true
+    publicClient: true
+    standardFlowEnabled: true
+    implicitFlowEnabled: false
+    directAccessGrantsEnabled: false
+    serviceAccountsEnabled: false
+    rootUrl: $(env:KC_APP_URL)
+    baseUrl: /
+    redirectUris:
+      - $(env:KC_APP_URL)/oidc/*
+    webOrigins:
+      - "+"
+    attributes:
+      pkce.code.challenge.method: S256
+      use.refresh.tokens: "false"
+      post.logout.redirect.uris: $(env:KC_APP_URL)/*
+    defaultClientScopes: [web-origins, acr, basic, profile, email, roles, fate-api]
+
+  # The backend's own identity for the Admin API (delete user, end sessions).
+  - clientId: fate-backend
+    name: The Hand of Fate backend
+    enabled: true
+    publicClient: false
+    clientAuthenticatorType: client-secret
+    secret: $(env:KC_BACKEND_CLIENT_SECRET)
+    standardFlowEnabled: false
+    implicitFlowEnabled: false
+    directAccessGrantsEnabled: false
+    serviceAccountsEnabled: true
+
+  # Dev/e2e only: tokens for the simulation, Gatling and Playwright's API setup by password.
+  - clientId: fate-test
+    name: Test clients (dev only)
+    enabled: $(env:KC_DEV_CLIENTS_ENABLED:-false)
+    publicClient: true
+    standardFlowEnabled: false
+    implicitFlowEnabled: false
+    directAccessGrantsEnabled: true
+    defaultClientScopes: [web-origins, acr, basic, profile, email, roles, fate-api]
+
+  # Dev only: "Authorize" in Swagger UI (backend on :8080, or :18080 via port-forward in k8s).
+  - clientId: fate-swagger
+    name: Swagger UI (dev only)
+    enabled: $(env:KC_DEV_CLIENTS_ENABLED:-false)
+    publicClient: true
+    standardFlowEnabled: true
+    implicitFlowEnabled: false
+    directAccessGrantsEnabled: false
+    redirectUris:
+      - http://localhost:8080/swagger-ui/*
+      - http://localhost:18080/swagger-ui/*
+    webOrigins:
+      - http://localhost:8080
+      - http://localhost:18080
+    attributes:
+      pkce.code.challenge.method: S256
+    defaultClientScopes: [web-origins, acr, basic, profile, email, roles, fate-api]
+
+users:
+  - username: service-account-fate-backend
+    enabled: true
+    serviceAccountClientId: fate-backend
+    clientRoles:
+      realm-management: [manage-users, view-users]
+
+# Social login. A provider is enabled only when its client id is configured; with the default
+# first broker login flow an existing account with the same email is never linked silently —
+# the user confirms by email or by signing in to it (ADR 0001, decision 8).
+identityProviders:
+  - alias: google
+    displayName: Google
+    providerId: google
+    enabled: $(env:OAUTH_GOOGLE_ENABLED:-false)
+    trustEmail: true
+    firstBrokerLoginFlowAlias: first broker login
+    config:
+      clientId: $(env:OAUTH_GOOGLE_CLIENT_ID:-)
+      clientSecret: $(env:OAUTH_GOOGLE_CLIENT_SECRET:-)
+      defaultScope: openid profile email
+      syncMode: IMPORT
+
+  - alias: github
+    displayName: GitHub
+    providerId: github
+    enabled: $(env:OAUTH_GITHUB_ENABLED:-false)
+    trustEmail: false
+    firstBrokerLoginFlowAlias: first broker login
+    config:
+      clientId: $(env:OAUTH_GITHUB_CLIENT_ID:-)
+      clientSecret: $(env:OAUTH_GITHUB_CLIENT_SECRET:-)
+      defaultScope: "user:email"
+      syncMode: IMPORT
+
+  # Yandex ID is plain OAuth 2.0 (no OIDC): Keycloak's generic `oauth2` provider reads the
+  # profile from login.yandex.ru/info. Whether `default_email` is verified is not stated, so
+  # Keycloak verifies it itself.
+  - alias: yandex
+    displayName: Яндекс
+    providerId: oauth2
+    enabled: $(env:OAUTH_YANDEX_ENABLED:-false)
+    trustEmail: false
+    firstBrokerLoginFlowAlias: first broker login
+    config:
+      clientId: $(env:OAUTH_YANDEX_CLIENT_ID:-)
+      clientSecret: $(env:OAUTH_YANDEX_CLIENT_SECRET:-)
+      clientAuthMethod: client_secret_post
+      authorizationUrl: https://oauth.yandex.ru/authorize
+      tokenUrl: https://oauth.yandex.ru/token
+      userInfoUrl: https://login.yandex.ru/info?format=json
+      defaultScope: "login:email login:info"
+      pkceEnabled: "true"
+      pkceMethod: S256
+      userIDClaim: id
+      userNameClaim: login
+      emailClaim: default_email
+      givenNameClaim: first_name
+      familyNameClaim: last_name
+      fullNameClaim: real_name
+      syncMode: IMPORT

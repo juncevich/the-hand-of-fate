@@ -22,7 +22,7 @@ APPS=(backend frontend bot)
 HOST_PORTS=(30080 30432 30025 30901 30300)   # + grafana
 
 MINIKUBE_CPUS="${MINIKUBE_CPUS:-4}"
-MINIKUBE_MEMORY="${MINIKUBE_MEMORY:-6g}"
+MINIKUBE_MEMORY="${MINIKUBE_MEMORY:-8g}"   # Keycloak adds ~1 GiB
 
 BUILD=true
 ONLY=""
@@ -118,6 +118,8 @@ existing=" $(kc get deployments -o name 2>/dev/null | tr '\n' ' ') "
 echo "==> Applying infra/k8s/overlays/$OVERLAY_NAME..."
 # An overlay may generate files its kustomization reads (e.g. e2e's gateway config).
 if [[ -x "$OVERLAY/prepare.sh" ]]; then "$OVERLAY/prepare.sh"; fi
+# A Job's pod template is immutable; the realm config Job is rerun on every apply anyway.
+kc delete job keycloak-config --ignore-not-found >/dev/null
 kubectl kustomize --load-restrictor LoadRestrictionsNone "$OVERLAY" \
   | kubectl --context "$PROFILE" apply -f -
 
@@ -137,9 +139,12 @@ fi
 
 echo "==> Waiting for rollout..."
 kc rollout status statefulset/postgres --timeout=180s
-for d in rustfs mailpit backend frontend gateway; do
+for d in rustfs mailpit keycloak backend frontend gateway; do
   kc rollout status "deployment/$d" --timeout=300s
 done
+echo "==> Waiting for the realm config (keycloak-config)..."
+kc wait --for=condition=complete job/keycloak-config --timeout=300s \
+  || { kc logs job/keycloak-config --tail=30 >&2; exit 1; }
 # Monitoring (components/observability) — skipped when the component is switched off.
 if kc get daemonset/otel-collector &>/dev/null; then
   kc rollout status daemonset/otel-collector --timeout=180s
@@ -161,6 +166,7 @@ cat <<EOF
   RustFS    → http://localhost:30901/rustfs/console/  (rustfsadmin / rustfsadmin)
   Postgres  → localhost:30432             (fate / fate, db fate)
   Grafana   → http://localhost:30300      (admin / admin; Mimir metrics, Loki pod logs, Tempo traces)
+  Keycloak  → http://localhost:30080/auth/admin/  (admin / admin; realm fate, demo user admin@admin.com / admin123)
 
   Swagger:  kubectl --context $PROFILE -n $NAMESPACE port-forward svc/backend 18080:8080
             → http://localhost:18080/swagger-ui.html

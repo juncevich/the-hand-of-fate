@@ -6,6 +6,17 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
 
+  # Keycloak's Prometheus endpoint on its management port (docker-compose.yml and k8s both
+  # name the service `keycloak`): HTTP, JVM and keycloak_user_events_total{event,error,realm}.
+  prometheus/keycloak:
+    config:
+      scrape_configs:
+        - job_name: keycloak
+          scrape_interval: 30s
+          metrics_path: /auth/metrics
+          static_configs:
+            - targets: ["keycloak:9000"]
+
 processors:
   batch:
     timeout: 10s
@@ -43,7 +54,7 @@ service:
       exporters:  [otlp/tempo]
 
     metrics:
-      receivers:  [otlp]
+      receivers:  [otlp, prometheus/keycloak]
       processors: [memory_limiter, resource, batch]
       exporters:  [prometheusremotewrite]
 

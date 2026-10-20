@@ -1,0 +1,63 @@
+# Applies realm `fate` (infra/keycloak/realm/) with keycloak-config-cli once Keycloak answers.
+# Idempotent; a Job's template is immutable, so k8s-start.sh deletes the finished Job before
+# every apply (Tilt replaces it by itself). Settings: keycloak-config, keycloak-config-secrets
+# and the optional oauth-secrets (social login client ids/secrets).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-config
+  labels:
+    app.kubernetes.io/name: keycloak-config
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak-config
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: keycloak-config
+          image: adorsys/keycloak-config-cli:6.5.1-26
+          command: ["/bin/sh", "/scripts/apply-config.sh"]
+          envFrom:
+            - configMapRef:
+                name: keycloak-config
+            - secretRef:
+                name: keycloak-config-secrets
+            - secretRef:
+                name: oauth-secrets
+                optional: true
+          env:
+            - name: KEYCLOAK_URL
+              value: http://keycloak:8080/auth
+            - name: KEYCLOAK_AVAILABILITYCHECK_ENABLED
+              value: "true"
+            - name: KEYCLOAK_AVAILABILITYCHECK_TIMEOUT
+              value: 300s
+            - name: IMPORT_VARSUBSTITUTION_ENABLED
+              value: "true"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: realm
+              mountPath: /config/realm
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: keycloak-scripts
+        - name: realm
+          configMap:
+            name: keycloak-realm

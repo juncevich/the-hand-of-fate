@@ -13,6 +13,7 @@ on:
       - infra/k8s/**
       - infra/nginx/**
       - infra/monitoring/**
+      - infra/keycloak/**
       - docker-compose.yml
       - docker-compose.infra.yml
       - k8s-start.sh
@@ -23,6 +24,7 @@ on:
       - infra/k8s/**
       - infra/nginx/**
       - infra/monitoring/**
+      - infra/keycloak/**
       - docker-compose.yml
       - docker-compose.infra.yml
       - k8s-start.sh

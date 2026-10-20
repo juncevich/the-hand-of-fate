@@ -32,6 +32,11 @@ export default defineConfig(({ mode }) => {
                 target: 'http://localhost:8080',
                 changeOrigin: true,
               },
+              // Keycloak (docker-compose.infra.yml) on the SPA's origin, like the gateway's /auth/
+              '/auth': {
+                target: 'http://localhost:8180',
+                xfwd: true,
+              },
             },
           }),
     },

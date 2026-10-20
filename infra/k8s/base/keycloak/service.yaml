@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+spec:
+  selector:
+    app.kubernetes.io/name: keycloak
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+    - name: management   # scraped by the OTel Collector (infra/monitoring/otel-collector.yaml)
+      port: 9000
+      targetPort: management

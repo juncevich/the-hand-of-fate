@@ -1,5 +1,5 @@
 # Single entry point, same as the `nginx` service in docker-compose: SPA on `/`, REST on
-# `/api/`, security headers and the auth rate limit. Actuator is not proxied.
+# `/api/`, Keycloak on `/auth/`, security headers and the auth rate limit. Actuator is not proxied.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,7 +21,7 @@ spec:
       initContainers:
         - name: wait-for-dns
           image: nginx:1.27.4-alpine
-          command: ["sh", "-c", "until getent hosts backend && getent hosts frontend; do sleep 1; done"]
+          command: ["sh", "-c", "until getent hosts backend && getent hosts frontend && getent hosts keycloak; do sleep 1; done"]
       containers:
         - name: nginx
           image: nginx:1.27.4-alpine

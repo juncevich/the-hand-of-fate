@@ -1,0 +1,83 @@
+# Keycloak, the authorization server (docs/adr/0001). Served on the app's origin through the
+# gateway's /auth/ location; the backend reaches it in-cluster at http://keycloak:8080/auth.
+# Server settings (database, hostname) come from the overlay: keycloak-server-config and
+# keycloak-server-secrets. Production mode (`start`), so the cluster runs what a server would.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+spec:
+  # One instance with a local cache; Recreate, so two pods never form a cluster during a rollout.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.8.0
+          args: ["start"]
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management   # health and Prometheus metrics
+              containerPort: 9000
+          envFrom:
+            - configMapRef:
+                name: keycloak-server-config
+            - secretRef:
+                name: keycloak-server-secrets
+          env:
+            - name: KC_HTTP_RELATIVE_PATH
+              value: /auth
+            - name: KC_HTTP_ENABLED   # TLS ends at the gateway
+              value: "true"
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
+              value: "true"
+            - name: KC_CACHE
+              value: local
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_METRICS_ENABLED
+              value: "true"
+            - name: KC_FEATURES
+              value: user-event-metrics
+            - name: KC_EVENT_METRICS_USER_ENABLED   # keycloak_user_events_total{event,error,idp}
+              value: "true"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              # No CPU limit: the build step of `start` and the JVM start are CPU-heavy.
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /auth/health/started
+              port: management
+            periodSeconds: 5
+            failureThreshold: 60   # up to 5 minutes: build step + schema migration on first start
+          readinessProbe:
+            httpGet:
+              path: /auth/health/ready
+              port: management
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /auth/health/live
+              port: management
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]

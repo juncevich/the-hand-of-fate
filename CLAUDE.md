@@ -42,10 +42,10 @@ cp .env.example .env          # add BOT_TOKEN
 ./dev-stop.sh                 # stop infrastructure
 # or via make:
 make dev-local                # same as dev-start.sh
-make infra                    # start only postgres + mailpit + rustfs
+make infra                    # start only postgres + mailpit + rustfs + keycloak
 make infra-down               # stop infrastructure
 ```
-- `docker-compose.infra.yml` — lightweight compose file with only postgres, mailpit and rustfs (used by `dev-start.sh`)
+- `docker-compose.infra.yml` — lightweight compose file with only postgres, mailpit, rustfs and Keycloak (used by `dev-start.sh`)
 - `dev-start.sh` handles stale process cleanup, colored log output per service, conditional bot startup (skipped if `BOT_TOKEN` unset)
 
 - Frontend:  http://localhost:3000
@@ -54,6 +54,7 @@ make infra-down               # stop infrastructure
 - Mailpit:   http://localhost:8025
 - RustFS:    http://localhost:9001 (S3 console, `rustfsadmin`/`rustfsadmin`; S3 API on :9000)
 - Grafana:   http://localhost:3001  (admin/admin; dashboard "Hand of Fate — Overview", Mimir/Loki/Tempo)
+- Keycloak:  admin console http://localhost:8180/auth/admin (admin/admin); realm `fate` is served on the SPA origin (`/auth/` — Vite proxy, or the gateway in the full compose at http://localhost/auth). Being introduced as the authorization server — see `docs/adr/0001-keycloak-authorization-server.md` and the checklist `docs/plans/keycloak-auth.md`
 
 **Option 3 — everything in local Kubernetes (minikube):**
 ```bash
@@ -67,9 +68,10 @@ make infra-down               # stop infrastructure
 make k8s-dev                         # hot-reload loop: k8s-start.sh --cluster-only + `tilt up` (UI http://localhost:10350)
 make k8s-dev-down                    # `tilt down` — removes the workloads, keeps the Postgres/RustFS volumes
 ```
-- Manifests: `infra/k8s/base/` (backend, frontend, bot, nginx `gateway` that reuses `infra/nginx/nginx.conf`) + `infra/k8s/overlays/local/` (Postgres StatefulSet, RustFS, Mailpit, dev config/secrets, NodePort services). Build with `kubectl kustomize --load-restrictor LoadRestrictionsNone infra/k8s/overlays/local` — the base reads the nginx config from outside its directory
+- Manifests: `infra/k8s/base/` (backend, frontend, bot, Keycloak + the `keycloak-config` Job, nginx `gateway` that reuses `infra/nginx/nginx.conf`) + `infra/k8s/overlays/local/` (Postgres StatefulSet, Keycloak's database and dev realm, RustFS, Mailpit, dev config/secrets, NodePort services). Build with `kubectl kustomize --load-restrictor LoadRestrictionsNone infra/k8s/overlays/local` — the base reads the nginx config from outside its directory
 - Images are built by the host Docker (`buildx build --load`, cache shared with docker-compose) as `fate-*:dev` and copied into the node with `minikube image load` — never pushed; the tag doesn't change, so the script `rollout restart`s rebuilt apps
-- `overlays/local/write-secrets.sh` (called by `k8s-start.sh` and the Tiltfile) writes `overlays/local/.secrets.env` (gitignored) from `.env`: `GRPC_SHARED_SECRET`, `BOT_TOKEN`; without a token the bot is scaled to 0 (Tilt doesn't deploy it)
+- `overlays/local/write-secrets.sh` (called by `k8s-start.sh` and the Tiltfile) writes `overlays/local/.secrets.env` (gitignored) from `.env`: `GRPC_SHARED_SECRET`, `BOT_TOKEN`; without a token the bot is scaled to 0 (Tilt doesn't deploy it). It also writes `.oauth.env` (`OAUTH_<GOOGLE|GITHUB|YANDEX>_CLIENT_ID/SECRET`, social login)
+- **Keycloak** (`infra/keycloak/`): realm `fate` is code — `realm/fate.yaml` (+ `realm-dev/fate-dev.yaml`, the demo user, dev/e2e only), applied idempotently by keycloak-config-cli (`apply-config.sh`; compose service / k8s Job `keycloak-config`, which `k8s-start.sh` deletes and recreates on every run). A social login provider is enabled only when its `OAUTH_*_CLIENT_ID` is set. Its database `keycloak` lives in the same Postgres (`create-database.sh`, idempotent). The gateway proxies `/auth/` with its own headers (Keycloak sends CSP/X-Frame-Options itself) and a per-IP limit on POSTs; metrics (`keycloak_user_events_total`) are scraped by the collector, traces go to Tempo
 - The cluster runs the **docker** container runtime (`--container-runtime=docker`) so Tilt builds straight into the node's daemon; `k8s-start.sh` warns about an older containerd cluster — recreate it with `./k8s-stop.sh --delete`
 - **Tilt** (`Tiltfile`, `infra/k8s/overlays/tilt/`) deploys the same manifests with dev images:
   - frontend: Vite dev server (`frontend/Dockerfile.dev`), `frontend/` synced live, HMR over the gateway (nginx proxies the WebSocket upgrade). `package*.json` / `vite.config.ts` changes rebuild the image. The tilt overlay drops the gateway CSP (React Refresh injects an inline script) via `.tilt-build/nginx.conf`, which the Tiltfile generates — build that overlay only through Tilt
@@ -78,12 +80,12 @@ make k8s-dev-down                    # `tilt down` — removes the workloads, ke
   - `rustfs-data`, `loki-data`, `mimir-data`, `tempo-data`, `grafana-data` PVCs carry `tilt.dev/down-policy: keep`; Postgres' StatefulSet volume is never deleted by Tilt
 - **Monitoring** — `infra/k8s/components/observability/` (a kustomize Component included by `overlays/local`; drop it from `components:` to run without): OTel Collector DaemonSet, Loki, Mimir, Tempo, Grafana (with the provisioned dashboards), all on the `infra/monitoring/*` configs. The collector additionally gets `otel-collector-k8s.yaml` (second `--config`, merged): a `filelog` receiver tails `/var/log/pods/hand-of-fate_*` (with the docker runtime those are symlinks into `/var/lib/docker/containers`), so every pod's stdout lands in Loki with `service_name` = container name (`backend`, `nginx` for the gateway, …) and `k8s_*` labels. `start_at: beginning` + `file_storage` offsets on a hostPath: startup logs are kept, collector restarts don't duplicate. The backend's OTLP metrics go to Mimir via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`
 - Host access goes through NodePorts published by `minikube start --ports` (fixed at cluster creation — `--delete` and recreate after changing them). The 30xxx ports don't clash with docker-compose, so both setups can run at once:
-  - App (gateway): http://localhost:30080 · Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432` · Grafana: http://localhost:30300 (admin/admin)
+  - App (gateway): http://localhost:30080 · Keycloak admin: http://localhost:30080/auth/admin/ · Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432` · Grafana: http://localhost:30300 (admin/admin)
   - `k8s-start.sh` warns when the node doesn't publish a port from `HOST_PORTS` (cluster created before the port was added)
   - Swagger: `kubectl --context hand-of-fate -n hand-of-fate port-forward svc/backend 18080:8080`
-- Everything uses kubectl context `hand-of-fate` explicitly; the scripts never touch other contexts. Cluster size: `MINIKUBE_CPUS` (4) / `MINIKUBE_MEMORY` (6g), applied on creation
+- Everything uses kubectl context `hand-of-fate` explicitly; the scripts never touch other contexts. Cluster size: `MINIKUBE_CPUS` (4) / `MINIKUBE_MEMORY` (8g — Keycloak needs ~1 GiB), applied on creation
 
-**Default demo user** (seeded by migration V7, **dev/test profiles only**): `admin@admin.com` / `admin`. The seed is gated behind the Flyway placeholder `seedDemoUser`, which defaults to `false` and is set to `true` only by the `dev`/`test` profiles — so it is never created in production.
+**Default demo user** (seeded by migration V7, **dev/test profiles only**): `admin@admin.com` / `admin`. The seed is gated behind the Flyway placeholder `seedDemoUser`, which defaults to `false` and is set to `true` only by the `dev`/`test` profiles — so it is never created in production. In Keycloak (realm `fate`, `infra/keycloak/realm-dev/`) the same address signs in with `admin123` — the realm's password policy needs 8+ characters.
 
 ### Backend (Kotlin + Gradle)
 ```bash

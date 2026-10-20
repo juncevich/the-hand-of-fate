@@ -1,0 +1,18 @@
+# Dev additions to the realm: the demo user (infra/keycloak/realm-dev/).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-config
+spec:
+  template:
+    spec:
+      containers:
+        - name: keycloak-config
+          volumeMounts:
+            - name: realm-dev
+              mountPath: /config/realm-dev
+              readOnly: true
+      volumes:
+        - name: realm-dev
+          configMap:
+            name: keycloak-realm-dev

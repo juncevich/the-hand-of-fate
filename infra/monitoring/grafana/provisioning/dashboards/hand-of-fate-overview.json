@@ -1,6 +1,6 @@
 {
   "uid": "hand-of-fate-overview",
-  "title": "Hand of Fate \u2014 Overview",
+  "title": "Hand of Fate — Overview",
   "tags": [
     "hand-of-fate"
   ],
@@ -667,7 +667,7 @@
     {
       "type": "timeseries",
       "title": "Notification failures / min",
-      "description": "Empty while every delivery succeeds \u2014 the counters appear on the first failure",
+      "description": "Empty while every delivery succeeds — the counters appear on the first failure",
       "id": 16,
       "datasource": {
         "type": "prometheus",
@@ -1142,6 +1142,125 @@
       }
     },
     {
+      "id": 28,
+      "type": "row",
+      "title": "Keycloak",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 57
+      },
+      "panels": []
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "Sign-ins / min",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 58
+      },
+      "targets": [
+        {
+          "expr": "sum by (event) (rate(keycloak_user_events_total{job=\"keycloak\", realm=\"fate\", error=\"\", event=~\"login|register|logout|code_to_token\"}[$__rate_interval])) * 60",
+          "legendFormat": "{{event}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir"
+          },
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 15,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Successful user events of realm fate (keycloak_user_events_total, user-event-metrics feature)"
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Sign-in errors / min",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 58
+      },
+      "targets": [
+        {
+          "expr": "sum by (event, error) (rate(keycloak_user_events_total{job=\"keycloak\", realm=\"fate\", error!=\"\"}[$__rate_interval])) * 60",
+          "legendFormat": "{{event}}: {{error}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir"
+          },
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 15,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Failed user events: wrong passwords, lockouts (user_temporarily_disabled), expired links…"
+    },
+    {
       "type": "row",
       "title": "Logs",
       "id": 26,
@@ -1150,7 +1269,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 57
+        "y": 66
       },
       "panels": []
     },
@@ -1167,7 +1286,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 67
       },
       "targets": [
         {

@@ -42,6 +42,93 @@ services:
     volumes:
       - rustfs_data:/data
 
+  # ── Keycloak (authorization server, docs/adr/0001) ─────────────────────────
+  # Served under /auth on the SPA's origin: Vite (:3000) proxies /auth here, so the issuer is
+  # http://localhost:3000/auth/realms/fate. Admin console directly: http://localhost:8180/auth/admin
+  # (admin / admin). The realm is (re)applied by `keycloak-config` on every `up`.
+  keycloak-db-init:
+    image: postgres:17.4-alpine
+    entrypoint: ["/bin/sh", "/scripts/create-database.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: fate
+      PGPASSWORD: fate
+      KC_DB_PASSWORD: keycloak
+    volumes:
+      - ./infra/keycloak/create-database.sh:/scripts/create-database.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.0
+    restart: unless-stopped
+    command: ["start-dev"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_HOSTNAME: http://localhost:3000/auth
+      KC_HOSTNAME_ADMIN: http://localhost:8180/auth
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_FEATURES: user-event-metrics
+      KC_EVENT_METRICS_USER_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8180:8080"   # HTTP (realm endpoints for the backend, admin console)
+    healthcheck:
+      # No curl in the image; ask the management port (9000) over bash's /dev/tcp.
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /auth/health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"UP"' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    depends_on:
+      keycloak-db-init:
+        condition: service_completed_successfully
+
+  keycloak-config:
+    image: adorsys/keycloak-config-cli:6.5.1-26
+    entrypoint: ["/bin/sh", "/scripts/apply-config.sh"]
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080/auth
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: admin
+      KEYCLOAK_AVAILABILITYCHECK_ENABLED: "true"
+      KEYCLOAK_AVAILABILITYCHECK_TIMEOUT: 180s
+      IMPORT_VARSUBSTITUTION_ENABLED: "true"
+      IMPORT_FILES_LOCATIONS: file:/config/realm/*,file:/config/realm-dev/*
+      KC_APP_URL: http://localhost:3000
+      KC_BACKEND_CLIENT_SECRET: dev-keycloak-backend-secret
+      KC_DEV_CLIENTS_ENABLED: "true"
+      KC_SMTP_HOST: mailpit
+      KC_SMTP_PORT: "1025"
+      # Social login (optional, from .env): a provider is enabled when its client id is set.
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
+      OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
+      OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
+      OAUTH_YANDEX_CLIENT_ID: ${OAUTH_YANDEX_CLIENT_ID:-}
+      OAUTH_YANDEX_CLIENT_SECRET: ${OAUTH_YANDEX_CLIENT_SECRET:-}
+    volumes:
+      - ./infra/keycloak/apply-config.sh:/scripts/apply-config.sh:ro
+      - ./infra/keycloak/realm:/config/realm:ro
+      - ./infra/keycloak/realm-dev:/config/realm-dev:ro
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   rustfs_data:
