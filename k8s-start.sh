@@ -95,9 +95,11 @@ done
 "$CLUSTER_ONLY" && exit 0
 
 # ── Images ──────────────────────────────────────────────────────────────────
-# Built by the host Docker (sharing its layer cache with docker-compose) and copied into
-# the node with `minikube image load` — independent of the node's container runtime and of
-# the host's buildx driver (`--load` puts the result in the local image store either way).
+# Built by the host Docker (sharing its layer cache with docker-compose) and copied into the
+# node's Docker daemon (the cluster runs the docker runtime, see above) — independent of the
+# host's buildx driver (`--load` puts the result in the local image store either way).
+# Not `minikube image load`: it keeps the old image when the `dev` tag already exists on the
+# node, so a rebuild was silently not deployed.
 if "$BUILD"; then
   for app in "${APPS[@]}"; do
     echo "==> Building fate-$app:dev..."
@@ -107,7 +109,7 @@ if "$BUILD"; then
       bot)      docker buildx build --load -t fate-bot:dev      -f "$ROOT/bot/Dockerfile" "$ROOT" ;;
     esac
     echo "==> Loading fate-$app:dev into minikube..."
-    minikube -p "$PROFILE" image load --overwrite "fate-$app:dev"
+    docker save "fate-$app:dev" | minikube -p "$PROFILE" ssh --native-ssh=false -- docker load >/dev/null
   done
 fi
 

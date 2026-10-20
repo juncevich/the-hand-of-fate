@@ -105,7 +105,7 @@
 - [x] Удалить `RegisterPage`, `ForgotPasswordPage`, `ResetPasswordPage`, `VerifyEmailPage`, `ResendVerification`, `ChangePasswordCard` и их тесты. `LoginPage` осталась стартовой страницей с кнопками «Войти» и «Создать аккаунт» (`prompt=create`), обе ведут в Keycloak.
 - [x] `dev:mock`: `src/auth/mock.ts` + `POST /api/v1/mock/sign-in` в `mock-plugin.ts` (всегда демо-аккаунт); имитация входа по паролю, refresh и писем из mock-API убрана.
 - [x] Тесты Vitest (169), `npm run lint`, `tsc -b`, `vite build`.
-- [ ] Проверка в браузере на minikube: вход, перезагрузка без повторного входа (тихое восстановление через iframe), смена пароля через AIA, выход.
+- [x] Проверка в браузере на minikube (Playwright-скрипт, 10 шагов): вход; перезагрузка без повторного входа (тихое восстановление через iframe); смена пароля через AIA; выход и «выйти везде»; регистрация → подтверждение email из Mailpit → пароль → вход; удаление аккаунта без пароля → пользователь удалён и в Keycloak. Ошибок CSP нет.
 
 ## Этап 4. Клиенты API и e2e
 
@@ -172,3 +172,9 @@
   - `npm run check:api` до коммита показывает diff — это ожидаемо: он сравнивает с HEAD.
   - e2e (`auth.spec`, `account.spec`) и simulation сломаются до этапа 4: они используют старый вход.
   - `vite build` предупреждает, что основной чанк больше 500 КБ (528 КБ вместе с `oidc-client-ts`); не исправлял.
+  - Найдено проверкой в браузере и исправлено:
+    - `k8s-start.sh`: `minikube image load --overwrite` не заменял образ, если тег `dev` уже был на узле, — пересобранные backend/frontend молча не доезжали. Теперь `docker save | minikube ssh -- docker load`. Таймаут ожидания postgres 180 → 300 с: на свежем кластере образы качаются дольше.
+    - Gateway проксировал Keycloak с `Host $host` (без порта) и `X-Forwarded-Port $server_port` (80 внутри pod): Keycloak отдавал браузеру `token_endpoint` без `:30080`, его блокировал CSP. Теперь `Host`/`X-Forwarded-Host` = `$http_host`, без `X-Forwarded-Port`.
+    - `fullScopeAllowed` у клиентов устарел (предупреждения в логе Keycloak): всем клиентам `false`, роли Admin API у `fate-backend` выданы через `clientScopeMappings`.
+  - Не ошибка: с `verifyEmail` Keycloak 26.8 не просит пароль на форме регистрации — пароль задаётся после перехода по ссылке из письма (required action `UPDATE_PASSWORD`; так чужой адрес нельзя занять своим паролем). Ошибка JS `addEventListener` на этой странице — дефект стандартной темы Keycloak (ищет поле пароля); уйдёт с темой этапа 6.
+  - e2e/simulation ещё на старом входе (этап 4); в журнале этапа 4 учесть порядок регистрации: пароль после подтверждения email.

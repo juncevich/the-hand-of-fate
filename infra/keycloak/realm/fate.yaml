@@ -87,6 +87,7 @@ clients:
   - clientId: fate-spa
     name: The Hand of Fate
     enabled: true
+    fullScopeAllowed: false
     publicClient: true
     standardFlowEnabled: true
     implicitFlowEnabled: false
@@ -108,6 +109,7 @@ clients:
   - clientId: fate-backend
     name: The Hand of Fate backend
     enabled: true
+    fullScopeAllowed: false
     publicClient: false
     clientAuthenticatorType: client-secret
     secret: $(env:KC_BACKEND_CLIENT_SECRET)
@@ -120,6 +122,7 @@ clients:
   - clientId: fate-test
     name: Test clients (dev only)
     enabled: $(env:KC_DEV_CLIENTS_ENABLED:-false)
+    fullScopeAllowed: false
     publicClient: true
     standardFlowEnabled: false
     implicitFlowEnabled: false
@@ -130,6 +133,7 @@ clients:
   - clientId: fate-swagger
     name: Swagger UI (dev only)
     enabled: $(env:KC_DEV_CLIENTS_ENABLED:-false)
+    fullScopeAllowed: false
     publicClient: true
     standardFlowEnabled: true
     implicitFlowEnabled: false
@@ -143,6 +147,13 @@ clients:
     attributes:
       pkce.code.challenge.method: S256
     defaultClientScopes: [web-origins, acr, basic, profile, email, roles, fate-api]
+
+# Clients get no roles in their tokens unless mapped here (fullScopeAllowed: false); the backend's
+# service account needs the Admin API roles granted below in its token.
+clientScopeMappings:
+  realm-management:
+    - client: fate-backend
+      roles: [manage-users, view-users]
 
 users:
   - username: service-account-fate-backend
