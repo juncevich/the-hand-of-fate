@@ -32,7 +32,7 @@ spec:
         fsGroup: 10001   # the image runs as uid 10001; makes the volume writable
       containers:
         - name: tempo
-          image: grafana/tempo:2.9.0
+          image: grafana/tempo:3.1.0
           args: ["-config.file=/etc/tempo/tempo.yaml"]
           ports:
             - name: http

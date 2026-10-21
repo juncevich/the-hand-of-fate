@@ -15,14 +15,14 @@ import java.util.UUID
 @EntityListeners(AuditingEntityListener::class)
 class VoteOptionJpaEntity(
     @Id
-    val id: UUID = uuidV7(),
+    var id: UUID = uuidV7(),
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "vote_id", nullable = false)
-    val vote: VoteJpaEntity,
+    var vote: VoteJpaEntity,
     @Column(nullable = false, length = 255)
-    val title: String,
+    var title: String,
     @Column(nullable = false)
-    val position: Int = 0,
+    var position: Int = 0,
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: Instant = Instant.now(),

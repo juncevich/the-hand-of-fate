@@ -4,8 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { keycloakify } from 'keycloakify/vite-plugin'
 import { appendFileSync } from 'node:fs'
 import path from 'node:path'
-import { mockApiPlugin } from './mock-plugin'
-import { messagesRu } from './src/login/messages_ru'
+import { mockApiPlugin } from './mock-plugin.ts'
+import { messagesRu } from './src/login/messages_ru.ts'
 
 export default defineConfig(({ mode }) => {
   const isMock = mode === 'mock'

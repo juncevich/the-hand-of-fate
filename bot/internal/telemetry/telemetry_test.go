@@ -7,6 +7,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestSetupDisabledInstallsOnlyThePropagator(t *testing.T) {
@@ -19,9 +20,13 @@ func TestSetupDisabledInstallsOnlyThePropagator(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			before := otel.GetTracerProvider()
-			shutdown, err := Setup(context.Background(), tc.endpoint, tc.disabled, zap.NewNop())
+			log := zap.NewNop()
+			shutdown, withOTLP, err := Setup(context.Background(), tc.endpoint, tc.disabled, log)
 			if err != nil {
 				t.Fatalf("Setup: %v", err)
+			}
+			if withOTLP != log {
+				t.Error("logger extended while export is disabled")
 			}
 			if err := shutdown(context.Background()); err != nil {
 				t.Errorf("shutdown: %v", err)
@@ -40,12 +45,26 @@ func TestSetupDisabledInstallsOnlyThePropagator(t *testing.T) {
 // resource merge (a semconv schema URL clash with resource.Default() fails here).
 func TestSetupWithEndpointInstallsProviders(t *testing.T) {
 	before := otel.GetTracerProvider()
-	shutdown, err := Setup(context.Background(), "http://127.0.0.1:4317", false, zap.NewNop())
+	beforeLogs := otel.GetLoggerProvider()
+	stdout, logs := observer.New(zap.InfoLevel)
+	shutdown, withOTLP, err := Setup(context.Background(), "http://127.0.0.1:4317", false, zap.New(stdout))
 	if err != nil {
 		t.Fatalf("Setup: %v", err)
 	}
 	if otel.GetTracerProvider() == before {
 		t.Error("tracer provider not installed")
+	}
+	if otel.GetLoggerProvider() == beforeLogs {
+		t.Error("logger provider not installed")
+	}
+	// The extended logger still writes where the original one did, at the same level.
+	withOTLP.Info("command handled")
+	withOTLP.Debug("below the level")
+	if got := logs.FilterMessage("command handled").Len(); got != 1 {
+		t.Errorf("stdout got %d records, want 1", got)
+	}
+	if logs.FilterMessage("below the level").Len() != 0 {
+		t.Error("debug record passed the info level")
 	}
 
 	// Nothing listens on the endpoint, so the final flush can't succeed: shutdown must give

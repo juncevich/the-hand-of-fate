@@ -36,17 +36,21 @@ func main() {
 	}
 
 	// ── Telemetry (before the gRPC client, whose stats handler uses the providers) ──
-	shutdownTelemetry, err := telemetry.Setup(context.Background(), cfg.OTELExporterEndpoint, cfg.OTELSDKDisabled, log)
+	shutdownTelemetry, otlpLog, err := telemetry.Setup(context.Background(), cfg.OTELExporterEndpoint, cfg.OTELSDKDisabled, log)
 	if err != nil {
 		log.Fatal("failed to set up telemetry", zap.Error(err))
 	}
+	stdoutLog := log
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		// Not the OTLP logger: its exporter is the one shutting down.
 		if err := shutdownTelemetry(ctx); err != nil {
-			log.Warn("telemetry shutdown", zap.Error(err))
+			stdoutLog.Warn("telemetry shutdown", zap.Error(err))
 		}
 	}()
+	// From here on the logs also go to the collector (OTLP logs → Loki).
+	log = otlpLog
 
 	// ── gRPC client ───────────────────────────────────────────────────────────
 	fateClient, conn, err := grpcclient.New(cfg.GRPCServerAddr, cfg.GRPCSharedSecret, log)

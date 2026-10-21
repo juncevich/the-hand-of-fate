@@ -60,7 +60,8 @@ class VoteSimulation : Simulation() {
 
     private val crudScenario =
         scenario("Create and Draw")
-            .feed(LongFeeder("voteIdx"))
+            // A run-wide counter numbers the votes (1, 2, …) in the session's `voteIdx`
+            .exec(counter("voteIdx").startingAt(1))
             .exec(login)
             .pause(1)
             .exec(createVote)
@@ -85,7 +86,4 @@ class VoteSimulation : Simulation() {
                 global().successfulRequests().percent().gt(95.0),
             )
     }
-
-    private fun LongFeeder(name: String): Iterator<Map<String, Long>> =
-        generateSequence(1L) { it + 1 }.map { mapOf(name to it) }.iterator()
 }

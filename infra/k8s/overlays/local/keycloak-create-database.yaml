@@ -9,7 +9,7 @@ spec:
     spec:
       initContainers:
         - name: create-database
-          image: postgres:17.4-alpine
+          image: postgres:17.11-alpine
           command: ["/bin/sh", "/scripts/create-database.sh"]
           env:
             - name: PGHOST

@@ -11,33 +11,33 @@ import java.util.UUID
 @Table(name = "draw_history")
 class DrawHistoryJpaEntity(
     @Id
-    val id: UUID = uuidV7(),
+    var id: UUID = uuidV7(),
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "vote_id", nullable = false)
-    val vote: VoteJpaEntity,
+    var vote: VoteJpaEntity,
     @Column(name = "winner_email", length = 255)
-    val winnerEmail: String? = null,
+    var winnerEmail: String? = null,
     @Column(name = "winner_display_name", length = 100)
-    val winnerDisplayName: String? = null,
+    var winnerDisplayName: String? = null,
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "winner_option_id")
-    val winnerOption: VoteOptionJpaEntity? = null,
+    var winnerOption: VoteOptionJpaEntity? = null,
     @Column(name = "winner_option_title", length = 255)
-    val winnerOptionTitle: String? = null,
+    var winnerOptionTitle: String? = null,
     @Column(nullable = false)
-    val round: Int,
+    var round: Int,
     @Column(name = "drawn_at", nullable = false)
-    val drawnAt: Instant = Instant.now(),
+    var drawnAt: Instant = Instant.now(),
     /** `null` for draws recorded before V22 (both columns NULL). */
     @Embedded
-    val audit: DrawAuditColumns? = null,
+    var audit: DrawAuditColumns? = null,
 )
 
 @Embeddable
 class DrawAuditColumns(
     @Column(name = "seed", length = 64, updatable = false)
-    val seed: String,
+    var seed: String,
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "candidates", columnDefinition = "TEXT[]", updatable = false)
-    val candidates: List<String>,
+    var candidates: List<String>,
 )

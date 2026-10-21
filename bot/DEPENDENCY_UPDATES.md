@@ -1,5 +1,25 @@
 # Dependency Updates
 
+## 2026-10-21
+
+Checked via the Go module proxy (`/@v/list` + `.info` release times), majors in scope; stable releases at least two weeks old.
+
+### go.opentelemetry.io/otel, metric, trace, sdk, sdk/metric, otlptracegrpc, otlpmetricgrpc `v1.46.0 → v1.47.0`
+### go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc `v0.71.0 → v0.72.0`
+- Both released 2026-10-02 (the pair skipped on 2026-10-15 for being too young). 1.47.0: **first stable Logs API/SDK** (`otel/log`, `sdk/log` at v1.47.0; `otel.GetLoggerProvider`/`SetLoggerProvider`), `WithMaxExportBatchSize` for `PeriodicReader`, attribute value depth limit (default 64), a `NewPeriodicReader` data race fix, `WithDialOption` now overrides internal defaults in the OTLP gRPC exporters, endpoint-path handling fixes; removed the experimental `OTEL_GO_X_METRIC_EXPORT_BATCH_SIZE` (not used). 1.47.0-rc.1 dropped Go 1.25
+- Pulled-in indirects: `otel/log` `v1.47.0`, `otlptrace` `v1.47.0`, `genproto/googleapis/{api,rpc}` pseudo-version `20260928230214-8a89bd6388cc`
+
+### New: go.opentelemetry.io/otel/sdk/log `v1.47.0`, exporters/otlp/otlplog/otlploggrpc `v0.23.0`, contrib/bridges/otelzap `v0.21.0`
+- Adopted the now-stable logs: `telemetry.Setup` also installs a `LoggerProvider` (batch processor → OTLP/gRPC, same resource `service.name=fate-bot`) and returns the zap logger teed into an `otelzap` core at the logger's own level, so the bot's logs reach Loki over OTLP — in docker-compose they didn't reach it at all before. Export errors still go to the stdout-only logger (they may be the log export failing), as does the telemetry shutdown warning. In minikube the bot's pod is excluded from the collector's `file_log` receiver, so lines aren't stored twice
+- `TestSetupWithEndpointInstallsProviders` also checks the logger provider and that the extended logger keeps writing to the original core at its level; the disabled path returns the logger unchanged
+
+### Docker image `alpine:3.21 → 3.24` (`Dockerfile`, `Dockerfile.dev`)
+- Runtime base of the static binary; newest Alpine release
+
+Checked and left unchanged: `telegram-bot-api/v5` `v5.5.1`, `spf13/viper` `v1.21.0`, `go.uber.org/zap` `v1.28.0`, `google.golang.org/grpc` `v1.84.0`, `google.golang.org/protobuf` `v1.36.12` — all latest. `go` directive `1.27.1`: `1.27.2` (2026-10-08) and `1.27.3` (2026-10-20) are too young — the next pass should pick up 1.27.2.
+
+`go vet`, `gofmt`, `staticcheck@latest`, `go test ./...` pass; `buf lint`/`breaking` unaffected (no proto changes).
+
 ## 2026-10-15
 
 New direct dependencies for telemetry (`internal/telemetry`, `otelgrpc` in `internal/grpcclient`, command spans/metrics in `internal/handler`) — the `OTEL_EXPORTER_OTLP_ENDPOINT` setting existed but nothing used it.

@@ -22,7 +22,7 @@ import javax.crypto.spec.SecretKeySpec
 @Transactional
 class EmailPreferences(
     private val suppressions: EmailSuppressionPort,
-    @param:Value("\${app.notifications.unsubscribe-secret}") secret: String,
+    @Value("\${app.notifications.unsubscribe-secret}") secret: String,
 ) {
     private val key = SecretKeySpec(secret.toByteArray(), HMAC)
 

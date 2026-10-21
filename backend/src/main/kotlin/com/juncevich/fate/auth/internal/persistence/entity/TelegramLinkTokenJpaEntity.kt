@@ -9,14 +9,14 @@ import java.util.UUID
 @Table(name = "telegram_link_tokens")
 class TelegramLinkTokenJpaEntity(
     @Id
-    val id: UUID = uuidV7(),
+    var id: UUID = uuidV7(),
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
-    val user: UserJpaEntity,
+    var user: UserJpaEntity,
     @Column(nullable = false, unique = true, length = 64)
-    val token: String,
+    var token: String,
     @Column(name = "expires_at", nullable = false)
-    val expiresAt: Instant,
+    var expiresAt: Instant,
     @Column(name = "created_at", nullable = false, updatable = false)
-    val createdAt: Instant = Instant.now(),
+    var createdAt: Instant = Instant.now(),
 )

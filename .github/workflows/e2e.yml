@@ -94,7 +94,9 @@ jobs:
           npm ci
           npm run typecheck
           npx playwright install --with-deps chromium
-          npx playwright test
+          # Random order (the seed is printed; `--shuffle <seed>` replays it): the specs must not
+          # depend on each other.
+          npx playwright test --shuffle
 
       - uses: actions/upload-artifact@v7
         if: failure()

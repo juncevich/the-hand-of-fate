@@ -1,5 +1,44 @@
 # Dependency Updates
 
+## 2026-10-21 — all dependencies, majors in scope
+
+Checked against the npm registry (`npm view <pkg> time`), per the user's request with majors in scope. Only stable releases at least two weeks old (published on or before 2026-10-07) — the lockfile pins exactly those (installed as `pkg@x.y.z`, so `^` ranges don't pull in newer ones).
+
+### react-router `7.18.4 → 8.4.0` (major)
+- 8.0 removes `react-router-dom` (already not used here), the `future.v8_*` flags (none set), `hasErrorBoundary` on routes, makes the packages ESM-only and raises the minimum to React `19.2.7` / Node `22.22.0` (we run 19.3 / 26). Nothing in declarative mode (`BrowserRouter`, `Routes`, hooks, `MemoryRouter` in tests) changed. 8.1–8.4: route metadata in instrumentations, granular internal contexts (fewer re-renders), `createStaticRouter({ branches })` deprecated — none used. `8.5.0` is too young
+
+### msw `2.15.0` → removed
+- Not imported anywhere (tests mock API modules with `vi.mock`, `dev:mock` uses `mock-plugin.ts`); upgrading it to 3.x would only have added an unused dependency with a postinstall script. Its removal exposed that `@types/node` (needed by `vite.config.ts`/`mock-plugin.ts`) had only arrived transitively through msw → now an explicit devDependency
+
+### @types/node `26.6.4` (new, explicit)
+- Matches the Node 26 runtime (`.nvmrc`)
+
+### @tanstack/react-query + react-query-devtools `5.103.2 → 5.104.1`
+- 5.103.3: codemods packaging fix; 5.104.0: packages built with Vite 8; 5.104.1: query-core dependency bump only
+
+### vite `8.3.1 → 8.3.3`
+- 8.3.2: CSS preload with `renderBuiltUrl` queries, lazy-chunk sourcemaps in bundled dev, percent-encoded `srcset`, `build.rolldownOptions.output.minify` merging, watcher errors no longer crash the server; 8.3.3: `fs.serve` check for `?vite-wasm-instance`, `transformIndexHtml` filename without queries
+- Adopted: the config's relative imports now carry their `.ts` extension (`./mock-plugin.ts`, `./src/login/messages_ru.ts`, `./src/api/generated/schema.ts`), which Vite asks for ahead of `configLoader: 'native'` becoming the default. The native loader itself can't be used yet: `keycloakify/vite-plugin` is published as a directory import, which Node's ESM resolver rejects
+
+### vitest `5.0.2 → 5.0.3`, @vitejs/plugin-react `6.1.1 → 6.1.2`
+- vitest: `repeats` result isolation, no retry of expectedly failing `test.fails`, project-scoped cache keys; plugin-react: HMR for compound components, `compiler.logDiagnostics`, no fast refresh for non-JSX files with the compiler on
+
+### eslint `10.11.0 → 10.12.0`, typescript-eslint `8.70.1 → 8.71.1`
+- eslint: astral letters in `new-cap` and others, several false-positive fixes; typescript-eslint 8.71.0 adds `no-unsafe-enum-assignment` (not enabled — the codebase has no enums), 8.71.1 rule fixes. Lint output unchanged
+
+### radix-ui `1.6.7 → 1.7.0`, lucide-react `1.48.0 → 1.52.0`, jsdom `30.1.1 → 30.1.2`
+- radix-ui minor; lucide: new icons, `@types/react` as optional peer, escaped attribute values in `buildLucideSvg` (1.50); jsdom patch
+
+### Transitive security fixes (`npm audit fix`)
+- `follow-redirects` `1.16.0 → 1.16.1` (via axios; two high advisories about credential headers on cross-origin redirects — GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c) and `brace-expansion` (DoS, GHSA-6j4f-fj2g-mc7p); `npm audit` now reports 0 vulnerabilities
+
+### Docker image `nginx:1.27.4-alpine → 1.31.6-alpine`
+- Same tag as the gateway (see `infra/DEPENDENCY_UPDATES.md`)
+
+Checked and left unchanged (already latest or newer ones too young): `@tailwindcss/vite`/`tailwindcss` `4.3.3`, `@testing-library/*`, `@types/react(-dom)` `19.3.0`, `@typescript/native` `7.0.2`, `typescript` (6.0 API alias) `6.0.2`, `axios` `1.20.0`, `class-variance-authority`, `clsx`, `date-fns` `4.4.0`, `eslint-plugin-react-hooks` `7.1.1`, `keycloakify` `11.16.1` (11.16.2+ too young), `oidc-client-ts` `3.5.0`, `openapi-typescript` `7.13.0`, `react`/`react-dom` `19.3.0` (19.3.1 too young), `tailwind-merge`, `zustand`, `@testing-library/user-event` `14.6.7` (14.6.8 too young).
+
+Verified: `npm run lint`, `npm test` (173 tests), `npm run build`, `npm run check:api`, `npm run build-keycloak-theme` (in the `fate-keycloak` image); the stack on minikube with Playwright 13/13.
+
 ## 2026-09-26 — Node.js 26
 
 ### Node.js `22 → 26`

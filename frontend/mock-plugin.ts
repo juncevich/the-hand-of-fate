@@ -1,7 +1,7 @@
 import type { Logger, Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { randomBytes, randomUUID } from 'node:crypto'
-import type { components } from './src/api/generated/schema'
+import type { components } from './src/api/generated/schema.ts'
 
 // In-memory stand-in for the REST API (`npm run dev:mock`). Response bodies are typed with the
 // schema generated from api/openapi.yaml, so `tsc -b` flags this file when the contract changes.

@@ -3,7 +3,7 @@ name: hand-of-fate-infra
 services:
 
   postgres:
-    image: postgres:17.4-alpine
+    image: postgres:17.11-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: fate
@@ -20,7 +20,7 @@ services:
       retries: 5
 
   mailpit:
-    image: axllent/mailpit:v1.31.2
+    image: axllent/mailpit:v1.31.4
     ports:
       - "1025:1025"   # SMTP
       - "8025:8025"   # Web UI
@@ -47,7 +47,7 @@ services:
   # http://localhost:3000/auth/realms/fate. Admin console directly: http://localhost:8180/auth/admin
   # (admin / admin). The realm is (re)applied by `keycloak-config` on every `up`.
   keycloak-db-init:
-    image: postgres:17.4-alpine
+    image: postgres:17.11-alpine
     entrypoint: ["/bin/sh", "/scripts/create-database.sh"]
     environment:
       PGHOST: postgres

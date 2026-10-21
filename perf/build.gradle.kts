@@ -1,7 +1,7 @@
 plugins {
     kotlin("jvm") version "2.4.20"
-    id("io.gatling.gradle") version "3.15.1.3"
-    id("com.diffplug.spotless") version "8.10.2"
+    id("io.gatling.gradle") version "3.16.0"
+    id("com.diffplug.spotless") version "8.10.3"
     id("dev.detekt") version "2.0.0-alpha.6"
 }
 
@@ -16,7 +16,7 @@ kotlin {
 }
 
 dependencies {
-    gatling("io.gatling.highcharts:gatling-charts-highcharts:3.15.1")
+    gatling("io.gatling.highcharts:gatling-charts-highcharts:3.16.0")
 }
 
 gatling {

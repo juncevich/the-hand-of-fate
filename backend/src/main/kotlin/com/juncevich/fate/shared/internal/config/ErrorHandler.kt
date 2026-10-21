@@ -122,7 +122,7 @@ class ErrorHandler : ResponseEntityExceptionHandler() {
 
 private fun springErrorCode(status: HttpStatusCode): ErrorCode =
     when {
-        status.value() == HttpStatus.PAYLOAD_TOO_LARGE.value() -> ErrorCode.PAYLOAD_TOO_LARGE
+        status.value() == HttpStatus.CONTENT_TOO_LARGE.value() -> ErrorCode.PAYLOAD_TOO_LARGE
         status.is5xxServerError -> ErrorCode.INTERNAL_ERROR
         else -> ErrorCode.REQUEST_INVALID
     }

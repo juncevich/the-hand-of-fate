@@ -2,12 +2,6 @@ config:
   validation: true
   warningsAsErrors: false
 
-naming:
-  FunctionNaming:
-    # Allow PascalCase factory functions (e.g. `LongFeeder(...)`), a common Kotlin idiom
-    # for functions that construct/return a type-like value.
-    functionPattern: '[a-zA-Z][a-zA-Z0-9]*'
-
 style:
   MagicNumber:
     active: false             # Load parameters (user counts, durations, thresholds) are inherently numeric literals

@@ -14,7 +14,7 @@ import java.security.MessageDigest
 @Component
 @GlobalServerInterceptor
 class SharedSecretAuthInterceptor(
-    @Value("\${grpc.shared-secret}") private val sharedSecret: String,
+    @param:Value("\${grpc.shared-secret}") private val sharedSecret: String,
 ) : ServerInterceptor {
     private val log = LoggerFactory.getLogger(javaClass)
 

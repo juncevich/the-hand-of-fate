@@ -22,6 +22,8 @@ storage:
     local:
       path: /var/tempo/blocks
 
-compactor:
+# Tempo 3 has no compactor: compaction and retention run in the backend scheduler and worker,
+# both part of the single binary (no Kafka needed in this mode).
+backend_worker:
   compaction:
     block_retention: 72h

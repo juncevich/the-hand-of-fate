@@ -18,13 +18,13 @@ import java.util.UUID
 @EntityListeners(AuditingEntityListener::class)
 class VoteJpaEntity(
     @Id
-    val id: UUID = uuidV7(),
+    var id: UUID = uuidV7(),
     @Column(nullable = false, length = 255)
     var title: String,
     @Column(columnDefinition = "TEXT")
     var description: String? = null,
     @Column(name = "creator_id", nullable = false)
-    val creatorId: UUID,
+    var creatorId: UUID,
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType::class)
     @Column(nullable = false, length = 20)
@@ -32,7 +32,7 @@ class VoteJpaEntity(
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType::class)
     @Column(name = "draw_target", nullable = false, updatable = false, length = 20)
-    val drawTarget: DrawTarget = DrawTarget.PARTICIPANTS,
+    var drawTarget: DrawTarget = DrawTarget.PARTICIPANTS,
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType::class)
     @Column(nullable = false, length = 20)

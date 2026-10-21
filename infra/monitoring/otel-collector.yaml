@@ -30,18 +30,20 @@ processors:
         key: deployment.environment
         value: local
 
+# Component names as of Collector 0.162 (otlp_grpc, otlp_http, prometheus_remote_write; the old
+# otlp/otlphttp/prometheusremotewrite aliases are deprecated).
 exporters:
-  prometheusremotewrite:
+  prometheus_remote_write:
     endpoint: http://mimir:9009/api/v1/push
     headers:
       X-Scope-OrgID: hand-of-fate
 
   # Loki 3 ingests OTLP natively (the contrib `loki` exporter is deprecated); resource
   # attributes such as service.name and k8s.* become index labels.
-  otlphttp/loki:
+  otlp_http/loki:
     endpoint: http://loki:3100/otlp
 
-  otlp/tempo:
+  otlp_grpc/tempo:
     endpoint: tempo:4317
     tls:
       insecure: true
@@ -51,14 +53,14 @@ service:
     traces:
       receivers:  [otlp]
       processors: [memory_limiter, resource, batch]
-      exporters:  [otlp/tempo]
+      exporters:  [otlp_grpc/tempo]
 
     metrics:
       receivers:  [otlp, prometheus/keycloak]
       processors: [memory_limiter, resource, batch]
-      exporters:  [prometheusremotewrite]
+      exporters:  [prometheus_remote_write]
 
     logs:
       receivers:  [otlp]
       processors: [memory_limiter, resource, batch]
-      exporters:  [otlphttp/loki]
+      exporters:  [otlp_http/loki]

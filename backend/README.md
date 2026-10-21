@@ -33,10 +33,10 @@ Kotlin + Spring Boot REST API and gRPC server for The Hand of Fate.
 | Kotlin             | 2.4.20   |
 | Spring Boot        | 4.1.1    |
 | Java (toolchain)   | 26       |
-| gRPC / gRPC-Kotlin | 1.84.0 / 1.5.0 |
+| gRPC / gRPC-Kotlin | 1.84.1 / 1.5.0 |
 | Protobuf           | 4.36.2   |
 | Access tokens      | Keycloak's RS256 JWTs, verified by the Spring Security OAuth2 resource server (Nimbus, JWKS) |
-| PostgreSQL driver  | 42.7.13  |
+| PostgreSQL driver  | 42.7.14  |
 | Flyway             | (managed by Spring Boot) |
 
 ## Project Structure

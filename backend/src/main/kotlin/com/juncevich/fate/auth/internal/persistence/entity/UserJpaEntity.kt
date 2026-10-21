@@ -15,7 +15,7 @@ import java.util.UUID
 @EntityListeners(AuditingEntityListener::class)
 class UserJpaEntity(
     @Id
-    val id: UUID = uuidV7(),
+    var id: UUID = uuidV7(),
     @Column(nullable = false, unique = true, length = 255)
     var email: String,
     @Column(name = "display_name", nullable = false, length = 100)

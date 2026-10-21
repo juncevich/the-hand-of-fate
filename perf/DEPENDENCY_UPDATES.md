@@ -1,5 +1,20 @@
 # Dependency Updates
 
+## 2026-10-21 — all dependencies, majors in scope
+
+Same pass as `backend` (Maven Central / Plugin Portal metadata, stable releases at least two weeks old, majors in scope — none available).
+
+### Gatling (`io.gatling.gradle` plugin `3.15.1.3 → 3.16.0`, `gatling-charts-highcharts` `3.15.1 → 3.16.0`)
+- 3.16 adds per-user mTLS from one PKCS#12 file, the HTTP `QUERY` method, `postCheck`, standalone WebSocket checks, headers for header-less CSV feeders, `setInSession`, shared queues, **built-in counters** and new EL functions (`randomString`, `randomOneOf`), plus a GraphQL SDK
+- Adopted: `VoteSimulation` numbers its votes with `counter("voteIdx").startingAt(1)` (a run-wide counter step) instead of the hand-written infinite `LongFeeder`; with it gone, the `FunctionNaming` exception in `perf/detekt.yml` (only there for that PascalCase factory) was removed
+
+### Gradle wrapper `9.8.0 → 9.8.1`, Spotless `8.10.2 → 8.10.3`
+- As in `backend` (Gradle 9.8.1: three security fixes and three regression fixes)
+
+Checked and left unchanged: Kotlin `2.4.20` (`2.4.21` too young), detekt `2.0.0-alpha.6` (newest).
+
+Verified: `spotlessCheck detekt compileGatlingKotlin`; `gatlingRun --simulation simulations.VoteSimulation` against the minikube stack — 630/630 requests OK, both assertions met (max 499 ms), the 20 votes titled `Perf Vote 1` … `Perf Vote 20`.
+
 ## 2026-09-26 — Java 26, detekt 2
 
 ### Java toolchain `21 → 26` (Temurin)

@@ -60,14 +60,15 @@ Modes: `simple` (random draw each time) or `fair` / `fair_rotation` (every parti
 | `BOT_TOKEN` | — | **yes** | Telegram bot token from @BotFather |
 | `GRPC_SERVER_ADDR` | `localhost:9090` | no | Backend gRPC address |
 | `LOG_LEVEL` | `info` | no | Log level: info, debug, warn, error |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | no | OpenTelemetry collector (OTLP/gRPC) for traces and metrics |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | no | OpenTelemetry collector (OTLP/gRPC) for traces, metrics and logs |
 | `OTEL_SDK_DISABLED` | `false` | no | `true` turns telemetry export off (e.g. native runs without a collector; export errors are only logged at debug level anyway) |
 
 ## Telemetry
 
-`internal/telemetry` exports traces and metrics as `service.name=fate-bot`:
+`internal/telemetry` exports traces, metrics and logs as `service.name=fate-bot`:
 - a `telegram /<command>` span per command (plain text messages are ignored), with every backend call as an `otelgrpc` client child span — the W3C `traceparent` goes along in the gRPC metadata, so the backend's spans join the same trace in Tempo
 - `bot.commands{command, outcome}` (outcome `ok` / `panic`) and `bot.command.duration` (seconds); in Mimir `bot_commands_total` / `bot_command_duration_seconds_*` with `job="fate-bot"`, plus `otelgrpc`'s `rpc.client.*` metrics. Unknown commands share the `unknown` label
+- every log record also as an OTLP log (zap teed through `otelzap`, from the logger's level up) — in Loki as `service_name="fate-bot"`. Export errors stay on stdout only
 
 ## Running Locally
 
@@ -108,3 +109,5 @@ No external services required — all gRPC and Telegram interactions are faked v
 | `go.uber.org/zap` | v1.28.0 | Structured logging |
 | `google.golang.org/grpc` | v1.84.0 | gRPC client |
 | `google.golang.org/protobuf` | v1.36.12 | Proto runtime |
+| `go.opentelemetry.io/otel` (+ `sdk`, `sdk/metric`, `sdk/log`, OTLP gRPC exporters) | v1.47.0 (`otlploggrpc` v0.23.0) | Traces, metrics and logs over OTLP |
+| `go.opentelemetry.io/contrib/.../otelgrpc` / `bridges/otelzap` | v0.72.0 / v0.21.0 | gRPC client telemetry / zap → OTLP logs |

@@ -23,7 +23,7 @@ RUN go mod download
 COPY bot/ .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o fate-bot ./cmd/bot
 
-FROM alpine:3.21
+FROM alpine:3.24
 RUN addgroup -S bot && adduser -S bot -G bot
 USER bot
 COPY --from=build /repo/bot/fate-bot /bot

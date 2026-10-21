@@ -1,5 +1,11 @@
 # Dependency Updates
 
+## 2026-10-21
+
+Re-checked every module via the Go module proxy, majors in scope (same pass as `bot`). No changes — already latest: `github.com/google/uuid` `v1.6.0`, `go.uber.org/zap` `v1.28.0`, tool `github.com/oapi-codegen/oapi-codegen/v2` `v2.8.0`. `go` directive `1.27.1` kept (1.27.2/1.27.3 younger than two weeks).
+
+`go vet`, `go test ./...`, staticcheck pass; all four scenarios pass against the updated minikube stack (`infra/k8s/e2e.sh`).
+
 ## 2026-09-25
 
 Re-checked every module in `go.mod` via the Go module proxy, per the user's request to check and update with majors in scope (same audit pass as `bot`). No changes — everything already at the latest stable release: `github.com/google/uuid` `v1.6.0`, `go.uber.org/zap` `v1.28.0`, `github.com/stretchr/testify` `v1.12.1`, `go.uber.org/multierr` `v1.11.0`, `go.yaml.in/yaml/v3` `v3.0.5`. `go` directive `1.27.1` confirmed still the newest stable release on go.dev.

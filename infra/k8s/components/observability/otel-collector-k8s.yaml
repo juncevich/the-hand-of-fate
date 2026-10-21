@@ -9,11 +9,15 @@ extensions:
     create_directory: true
 
 receivers:
-  filelog:
+  file_log:
     # /var/log/pods/<namespace>_<pod>_<uid>/<container>/<n>.log; with the docker runtime
     # these are symlinks into /var/lib/docker/containers (both mounted read-only).
     include: [/var/log/pods/hand-of-fate_*/*/*.log]
-    exclude: [/var/log/pods/hand-of-fate_otel-collector-*/*/*.log]
+    # The collector's own output, and the bot's: it sends its logs over OTLP (bot/internal/telemetry),
+    # so tailing its stdout too would store every line twice.
+    exclude:
+      - /var/log/pods/hand-of-fate_otel-collector-*/*/*.log
+      - /var/log/pods/hand-of-fate_bot-*/*/*.log
     start_at: beginning
     storage: file_storage/filelog
     include_file_path: true
@@ -34,6 +38,6 @@ service:
   extensions: [file_storage/filelog]
   pipelines:
     logs:
-      receivers:  [otlp, filelog]
+      receivers:  [otlp, file_log]
       processors: [memory_limiter, resource, resource/service-name, batch]
-      exporters:  [otlphttp/loki]
+      exporters:  [otlp_http/loki]

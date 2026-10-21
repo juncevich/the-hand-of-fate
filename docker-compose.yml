@@ -4,7 +4,7 @@ services:
 
   # ── Database ───────────────────────────────────────────────────────────────
   postgres:
-    image: postgres:17.4-alpine
+    image: postgres:17.11-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: fate
@@ -89,7 +89,7 @@ services:
 
   # ── Nginx reverse proxy ────────────────────────────────────────────────────
   nginx:
-    image: nginx:1.27.4-alpine
+    image: nginx:1.31.6-alpine
     restart: unless-stopped
     ports:
       - "80:80"
@@ -105,7 +105,7 @@ services:
   # Behind the gateway on /auth: issuer http://localhost/auth/realms/fate, admin console
   # http://localhost/auth/admin (admin / admin). The realm is (re)applied by `keycloak-config`.
   keycloak-db-init:
-    image: postgres:17.4-alpine
+    image: postgres:17.11-alpine
     entrypoint: ["/bin/sh", "/scripts/create-database.sh"]
     environment:
       PGHOST: postgres
@@ -194,7 +194,7 @@ services:
 
   # ── Mail (local dev only) ──────────────────────────────────────────────────
   mailpit:
-    image: axllent/mailpit:v1.31.2
+    image: axllent/mailpit:v1.31.4
     ports:
       - "1025:1025"   # SMTP
       - "8025:8025"   # Web UI
@@ -218,7 +218,7 @@ services:
 
   # ── Observability ─────────────────────────────────────────────────────────
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.123.0
+    image: otel/opentelemetry-collector-contrib:0.162.0
     restart: unless-stopped
     command: ["--config=/etc/otel/config.yaml"]
     volumes:
@@ -232,7 +232,7 @@ services:
       - tempo
 
   loki:
-    image: grafana/loki:3.4.2
+    image: grafana/loki:3.7.8
     restart: unless-stopped
     command: -config.file=/etc/loki/config.yaml
     volumes:
@@ -242,7 +242,7 @@ services:
       - "3100:3100"
 
   mimir:
-    image: grafana/mimir:2.15.0
+    image: grafana/mimir:3.2.2
     restart: unless-stopped
     command: ["--config.file=/etc/mimir/config.yaml"]
     volumes:
@@ -252,7 +252,7 @@ services:
       - "9009:9009"
 
   tempo:
-    image: grafana/tempo:2.9.0
+    image: grafana/tempo:3.1.0
     restart: unless-stopped
     command: ["-config.file=/etc/tempo/config.yaml"]
     volumes:
@@ -262,7 +262,7 @@ services:
       - "3200:3200"   # HTTP API (Grafana datasource)
 
   grafana:
-    image: grafana/grafana:11.6.0
+    image: grafana/grafana:13.2.3
     restart: unless-stopped
     ports:
       - "3001:3000"

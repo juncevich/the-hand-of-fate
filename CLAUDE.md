@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 backend/     Kotlin 2.4.20 + Spring Boot 4.1.1 on Java 26, PostgreSQL, gRPC server
 frontend/    React 19 + TypeScript 7 + Vite 8 + Tailwind CSS 4 + shadcn/ui
 bot/         Go 1.27.1 Telegram bot, gRPC client to backend
-perf/        Gatling 3.13.5 + Kotlin load/smoke tests
+perf/        Gatling 3.16.0 + Kotlin load/smoke tests
 simulation/  Go 1.27.1 user-behaviour simulator (functional end-to-end flows)
 e2e/         Playwright browser tests against a running stack (minikube gateway by default)
 proto/       Shared protobuf definitions (proto/fate/v1/fate.proto)
@@ -79,7 +79,7 @@ make k8s-dev-down                    # `tilt down` — removes the workloads, ke
   - bot: host `go build` (GOOS=linux) → `.tilt-build/bot/fate-bot` → `bot/Dockerfile.dev`; only when `BOT_TOKEN` is set
   - keycloak: `fate-keycloak` from `infra/keycloak/Dockerfile`, built at start and then only on demand (manual trigger in the Tilt UI) — it bundles the whole SPA
   - `rustfs-data`, `loki-data`, `mimir-data`, `tempo-data`, `grafana-data` PVCs carry `tilt.dev/down-policy: keep`; Postgres' StatefulSet volume is never deleted by Tilt
-- **Monitoring** — `infra/k8s/components/observability/` (a kustomize Component included by `overlays/local`; drop it from `components:` to run without): OTel Collector DaemonSet, Loki, Mimir, Tempo, Grafana (with the provisioned dashboards), all on the `infra/monitoring/*` configs. The collector additionally gets `otel-collector-k8s.yaml` (second `--config`, merged): a `filelog` receiver tails `/var/log/pods/hand-of-fate_*` (with the docker runtime those are symlinks into `/var/lib/docker/containers`), so every pod's stdout lands in Loki with `service_name` = container name (`backend`, `nginx` for the gateway, …) and `k8s_*` labels. `start_at: beginning` + `file_storage` offsets on a hostPath: startup logs are kept, collector restarts don't duplicate. The backend's OTLP metrics go to Mimir via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`
+- **Monitoring** — `infra/k8s/components/observability/` (a kustomize Component included by `overlays/local`; drop it from `components:` to run without): OTel Collector DaemonSet, Loki, Mimir, Tempo, Grafana (with the provisioned dashboards), all on the `infra/monitoring/*` configs. The collector additionally gets `otel-collector-k8s.yaml` (second `--config`, merged): a `file_log` receiver tails `/var/log/pods/hand-of-fate_*` (except the collector's own and the bot's, which sends its logs over OTLP) (with the docker runtime those are symlinks into `/var/lib/docker/containers`), so every pod's stdout lands in Loki with `service_name` = container name (`backend`, `nginx` for the gateway, …) and `k8s_*` labels. `start_at: beginning` + `file_storage` offsets on a hostPath: startup logs are kept, collector restarts don't duplicate. The backend's OTLP metrics go to Mimir via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`
 - Host access goes through NodePorts published by `minikube start --ports` (fixed at cluster creation — `--delete` and recreate after changing them). The 30xxx ports don't clash with docker-compose, so both setups can run at once:
   - App (gateway): http://localhost:30080 · Keycloak admin: http://localhost:30080/auth/admin/ · Mailpit: http://localhost:30025 · RustFS console: http://localhost:30901/rustfs/console/ · Postgres: `localhost:30432` · Grafana: http://localhost:30300 (admin/admin)
   - `k8s-start.sh` warns when the node doesn't publish a port from `HOST_PORTS` (cluster created before the port was added)
@@ -173,6 +173,7 @@ E2E_BASE_URL=http://localhost:3000 E2E_MAILPIT_URL=http://localhost:8025 make e2
 - Nothing is started by the tests: deploy first (`K8S_OVERLAY=e2e ./k8s-start.sh` — its overlay raises the gateway's per-IP limit on Keycloak's forms and adds `mock-oidc` (mock-oauth2-server), Keycloak's identity provider `e2e-mock` for the social sign-in test, reached by the browser through the gateway's `/mock-oidc/`; `overlays/e2e/prepare.sh` writes the gateway config to `.e2e-build/nginx.conf`). Against `dev-start.sh` the social test fails: there is no mock provider
 - Specs in `e2e/tests/`: `auth` (sign-up on Keycloak's form with the password set after the mailed link, silent restore on reload, password reset), `account` (unsubscribe, deletion — the Keycloak user goes too, password change via `kc_action`, logout everywhere, email preferences, avatar), `social` (sign-in through the mock provider), `votes` (FAIR_ROTATION rounds, options vote, history paging); `e2e/support/` registers fresh users on Keycloak's pages and follows the links Keycloak mails via Mailpit; `apiAs()` (`support/api.ts`) gets a token from Keycloak's `fate-test` client (direct grant) in the separate `request` context for setup that would be slow through the UI (e.g. 21 draws). One worker — the tests share the stack's rate limits and mailbox
 - `npm run typecheck` (TS 6 alias, like the frontend's ESLint side); failure traces/screenshots land in `e2e/test-results/`
+- CI runs `npx playwright test --shuffle` (random order, seed printed; replay with `--shuffle <seed>`), so specs must not depend on each other's state
 
 ### Performance Tests (Gatling)
 ```bash
@@ -201,8 +202,10 @@ cd perf
 | `google.golang.org/grpc`           | v1.84.0  | gRPC client   |
 | `google.golang.org/genproto/googleapis/rpc` | (pseudo-version, via grpc) | `errdetails.ErrorInfo` |
 | `google.golang.org/protobuf`       | v1.36.12 | Proto runtime |
-| `go.opentelemetry.io/otel` (+ `sdk`, `sdk/metric`, `otlptracegrpc`, `otlpmetricgrpc`) | v1.46.0 | Traces + metrics over OTLP/gRPC |
-| `go.opentelemetry.io/contrib/.../grpc/otelgrpc` | v0.71.0 | gRPC client spans/metrics, `traceparent` propagation |
+| `go.opentelemetry.io/otel` (+ `sdk`, `sdk/metric`, `sdk/log`, `otlptracegrpc`, `otlpmetricgrpc`) | v1.47.0 | Traces, metrics and logs over OTLP/gRPC |
+| `go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc` | v0.23.0 | OTLP log exporter |
+| `go.opentelemetry.io/contrib/.../grpc/otelgrpc` | v0.72.0 | gRPC client spans/metrics, `traceparent` propagation |
+| `go.opentelemetry.io/contrib/bridges/otelzap` | v0.21.0 | zap → OTLP logs |
 
 ### Telegram Bot Commands
 | Command                                                 | Description                                                                                                                       |
@@ -372,7 +375,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 
 ### Observability
 - Backend: `spring-boot-starter-opentelemetry` (Micrometer OTLP registry + OTel tracing bridge) → OTLP → OTel Collector; endpoint from `OTEL_EXPORTER_OTLP_ENDPOINT`. Log lines carry `[<traceId>-<spanId>]`
-- Bot: `bot/internal/telemetry` (OTel Go SDK) → OTLP/gRPC → collector as `service.name=fate-bot`; a span per Telegram command with `otelgrpc` client child spans whose `traceparent` continues the trace in the backend; metrics `bot_commands_total{command,outcome}`, `bot_command_duration_seconds_*`. `OTEL_SDK_DISABLED=true` turns export off (see bot/README.md)
+- Bot: `bot/internal/telemetry` (OTel Go SDK) → OTLP/gRPC → collector as `service.name=fate-bot`: traces, metrics and logs (zap teed to stdout and, through `otelzap`, to OTLP logs → Loki; in minikube the bot's pod is excluded from `file_log`, so its lines aren't stored twice); a span per Telegram command with `otelgrpc` client child spans whose `traceparent` continues the trace in the backend; metrics `bot_commands_total{command,outcome}`, `bot_command_duration_seconds_*`. `OTEL_SDK_DISABLED=true` turns export off (see bot/README.md)
 - OTel Collector (`infra/monitoring/otel-collector.yaml`): metrics → Mimir, traces → Tempo (`infra/monitoring/tempo.yaml`, single binary, local storage, 72 h retention), logs → Loki (OTLP to Loki's native `/otlp` endpoint). In minikube the collector also ships all pod logs (see Option 3)
 - Keycloak: the collector scrapes its management port (`prometheus/keycloak` receiver, `keycloak:9000`, job `keycloak`) — HTTP, JVM and `keycloak_user_events_total{event,error,realm}` (sign-ins, registrations, failures; `KC_EVENT_METRICS_USER_ENABLED`); traces go to Tempo over OTLP (`KC_TRACING_ENABLED`); the overview dashboard has a Keycloak row
 - Metric names in Mimir (OTLP → Prometheus naming, `job="hand-of-fate-backend"`): `http_server_requests_milliseconds_*` (uri/method/status), `vote_created_total{mode}`, `vote_draw_performed_total{mode}`, `notification_failed_total{type}` / `notification_dead_total{type}` (created on the first failure), `jvm_*`, `hikaricp_*`, `process_cpu_usage`

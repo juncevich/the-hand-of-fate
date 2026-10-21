@@ -1,6 +1,6 @@
 # Thin image for the Tilt loop (make k8s-dev): the static linux binary is cross-compiled on
 # the host and copied in. The build context is .tilt-build/bot. Production image: Dockerfile.
-FROM alpine:3.21
+FROM alpine:3.24
 
 RUN addgroup -S bot && adduser -S bot -G bot
 USER bot

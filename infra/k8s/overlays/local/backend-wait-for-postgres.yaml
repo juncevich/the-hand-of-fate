@@ -9,5 +9,5 @@ spec:
     spec:
       initContainers:
         - name: wait-for-postgres
-          image: postgres:17.4-alpine
+          image: postgres:17.11-alpine
           command: ["sh", "-c", "until pg_isready -h postgres -p 5432 -q; do sleep 2; done"]

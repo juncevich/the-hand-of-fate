@@ -1,6 +1,6 @@
 # perf — Load & Performance Tests
 
-Gatling 3.13.5 + Kotlin. Standalone Gradle project targeting the backend REST API.
+Gatling 3.16.0 + Kotlin. Standalone Gradle project targeting the backend REST API.
 
 ## Structure
 

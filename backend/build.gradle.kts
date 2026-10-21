@@ -7,7 +7,7 @@ plugins {
     id("org.springframework.boot")             version "4.1.1"
     id("io.spring.dependency-management")      version "1.1.7"
     id("com.google.protobuf")                  version "0.10.0"
-    id("com.diffplug.spotless")                version "8.10.2"
+    id("com.diffplug.spotless")                version "8.10.3"
     id("dev.detekt")                           version "2.0.0-alpha.6"
     jacoco
 }
@@ -37,12 +37,12 @@ repositories {
     mavenCentral()
 }
 
-val grpcVersion          = "1.84.0"
+val grpcVersion          = "1.84.1"
 val grpcKotlinVersion    = "1.5.0"
 val protobufVersion      = "4.36.2"
 val coroutinesVersion    = "1.11.0"
 val modulithVersion      = "2.1.1"
-val awsSdkVersion        = "2.46.7"
+val awsSdkVersion        = "2.55.12"
 
 // The Spring Boot BOM pins older gRPC / protobuf releases; override its version
 // properties so the runtime matches the protoc / protoc-gen-grpc-java used for codegen.
@@ -82,7 +82,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:$coroutinesVersion")
 
     // ── Database ─────────────────────────────────────────────────────────────
-    runtimeOnly("org.postgresql:postgresql:42.7.13")
+    runtimeOnly("org.postgresql:postgresql:42.7.14")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
     // ── Object storage (S3 API) ─────────────────────────────────────────────

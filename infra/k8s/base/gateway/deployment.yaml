@@ -20,11 +20,11 @@ spec:
       # happens while CoreDNS is still coming up (e.g. after `minikube start` resumes a node).
       initContainers:
         - name: wait-for-dns
-          image: nginx:1.27.4-alpine
+          image: nginx:1.31.6-alpine
           command: ["sh", "-c", "until getent hosts backend && getent hosts frontend && getent hosts keycloak; do sleep 1; done"]
       containers:
         - name: nginx
-          image: nginx:1.27.4-alpine
+          image: nginx:1.31.6-alpine
           ports:
             - name: http
               containerPort: 80

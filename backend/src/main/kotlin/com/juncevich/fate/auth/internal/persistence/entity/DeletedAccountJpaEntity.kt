@@ -9,9 +9,9 @@ import java.util.UUID
 class DeletedAccountJpaEntity(
     @Id
     @Column(name = "user_id")
-    val userId: UUID,
+    var userId: UUID,
     @Column(name = "deleted_at", nullable = false, updatable = false)
-    val deletedAt: Instant,
+    var deletedAt: Instant,
     @Column(name = "identity_deleted_at")
     var identityDeletedAt: Instant? = null,
 )
