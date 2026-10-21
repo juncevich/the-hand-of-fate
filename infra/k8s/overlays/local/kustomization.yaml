@@ -30,6 +30,8 @@ images:
     newTag: dev
   - name: fate-bot
     newTag: dev
+  - name: fate-keycloak
+    newTag: dev
 
 configMapGenerator:
   - name: backend-config

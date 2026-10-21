@@ -1,6 +1,6 @@
 # План: Keycloak как сервер авторизации
 
-Статус: **этап 5 — в работе** (этапы 0–4 готовы; осталось: прод и release-checklist) · создан 2026-10-20
+Статус: **этапы 0–6 готовы**; прод отложен · создан 2026-10-20
 
 Как вести файл:
 - Пункт отмечается `[x]` в том же коммите, где сделана работа. Сделано частично — пункт остаётся `[ ]`, а в «Журнал» пишется, что уже готово.
@@ -34,7 +34,7 @@
 
 ## Открытые вопросы
 
-- [ ] Тема страниц входа. Рекомендация: стандартная тема Keycloak с русской локалью на старте, Keycloakify — отдельным этапом 6. Решить до этапа 6.
+- [x] Тема страниц входа. Решено (2026-10-21): сразу своя тема на Keycloakify в стиле SPA — стандартная выбивается из приложения.
 - [x] Версия Keycloak и JDK для systemd-деплоя. Решено: Keycloak 26.8.0, работает на JDK 21 (он и в образе). На сервере ставим Temurin 21 рядом с Java 26 и в юните Keycloak указываем `JAVA_HOME` (этап 5).
 
 ## Этап 0. Подготовка
@@ -133,15 +133,31 @@
   - security scheme `oauth2` authorizationCode, Swagger через `fate-swagger`;
   - `make openapi`;
   - удалённые `/auth/*` записать в `api/accepted-breaking-changes.txt`.
-- [ ] Прод: Keycloak как systemd-юнит в `server-setup.yml` (`kc.sh build`, `proxy-headers=xforwarded`, HTTPS, location `/auth/` в nginx), секреты в deploy-workflows.
 - [x] CLAUDE.md: Auth Flow, Key Environment Variables, команды, миграции, Testing, Observability (Keycloak в коллекторе и дашборде), демо-пароль `admin123` (README, `backend/README.md`, `perf/README.md`, `k8s-start.sh`, Tiltfile).
-- [ ] Skill `release-checklist` проходит полностью.
+- [x] Skill `release-checklist` проходит полностью.
 
-## Этап 6. Тема страниц входа (после решения открытого вопроса)
+## Этап 6. Тема страниц входа и писем Keycloak
 
-- [ ] Keycloakify-тема в стиле SPA (тёмная/светлая, Tailwind): login, register, reset, verify email.
-- [ ] Русские шаблоны писем Keycloak в стиле `EmailService`.
-- [ ] Сборка jar темы в CI и подключение в compose, k8s и прод.
+Решения этапа:
+- Keycloakify 11 внутри `frontend/` (`src/login/`), не отдельным пакетом: тема берёт компоненты SPA (`Button`, `Input`, раскладку `AuthLayout`), токены Tailwind и `themeStore`. `main.tsx` рисует страницу Keycloak при `window.kcContext`, иначе SPA; обе ветки грузятся лениво.
+- Keycloak на том же origin, поэтому тема читает тот же `localStorage['fate-theme']`: страницы входа в той же теме, что и приложение.
+- Jar собирается в своём образе Keycloak (`infra/keycloak/Dockerfile`: `keycloakify build` → `providers/`); compose, k8s и Tilt берут его вместо `quay.io/keycloak/keycloak`.
+
+- [x] Каркас: `keycloakify` (11.16.1), плагин Vite, `src/login/` (`KcContext`, `i18n`, `KcPage`, свой `Template` в стиле `AuthLayout`: логотип, переключатель темы и языка, сообщения), `npm run build-keycloak-theme` → jar.
+- [x] Превью страниц в `npm run dev` на моковом `kcContext` (`?kcPage=login.ftl`), тесты Vitest на ключевые страницы.
+- [x] Страницы: страницы Keycloakify с нашим `Template` и картой классов Tailwind (`classes.ts`) вместо PatternFly; своя — только «Страница устарела» (`pages/LoginPageExpired.tsx`). Русские тексты, которых нет у Keycloak, — `messages_ru.ts`.
+- [x] Русские шаблоны писем Keycloak в стиле `EmailService` (подтверждение, сброс, действия по ссылке, привязка соцсети), тема писем `fate` (`frontend/src/email/`).
+- [x] Образ Keycloak с темой: compose (`docker-compose*.yml`), k8s (`k8s-start.sh`, Tilt), `check.sh`; realm: `loginTheme`/`emailTheme` = `$(env:KC_THEME:-fate)`. `KeycloakSmokeIntegrationTest` остаётся на голом образе с `KC_THEME=keycloak`.
+- [x] CI: jar темы в `frontend.yml` (артефакт `keycloak-theme`); образ собирает `e2e.yml` через `k8s-start.sh`. simulation читает форму из `kcContext`, селекторы e2e не поменялись.
+- [x] Проверка в браузере на minikube: вход (ошибка, ru/en, обе темы), регистрация, сброс, подтверждение email, новый пароль, письмо; `e2e.sh` и Playwright 13/13 зелёные.
+
+## Отложено: прод (окружения нет)
+
+Сделать, когда появится сервер. До этого ручные `server-setup.yml` и `deploy-*.yml` с кодом не сходятся: бэкенд вне `dev` не стартует без `KEYCLOAK_URL`, `KEYCLOAK_PUBLIC_URL` и `KEYCLOAK_CLIENT_SECRET` (`SecretsValidator`), а nginx сервера не знает `/auth/` и держит лишний `limit_req` на `/api/v1/auth/`.
+
+- [ ] Keycloak как systemd-юнит в `server-setup.yml`: Temurin 21 рядом с Java 26 (`JAVA_HOME` в юните), `kc.sh build`, `proxy-headers=xforwarded`, база `keycloak` в том же Postgres, применение realm (keycloak-config-cli).
+- [ ] nginx в `server-setup.yml`: location `/auth/` как в `infra/nginx/nginx.conf` (свои заголовки, лимит на `login-actions/`), `location = /oidc/silent.html`; убрать `limit_req` на `/api/v1/auth/`.
+- [ ] Секреты в deploy-workflows: `KEYCLOAK_URL`, `KEYCLOAK_PUBLIC_URL`, `KEYCLOAK_CLIENT_SECRET`, SMTP Keycloak, `OAUTH_*`; описать их в CLAUDE.md (Required GitHub Secrets).
 
 ## Журнал
 
@@ -187,3 +203,12 @@
   - OpenAPI: к `bearerAuth` добавлена альтернатива `keycloak` (oauth2 authorization code). Адреса — из `app.keycloak.public-url`, поэтому `FakeKeycloak.PUBLIC_URL` теперь dev-значение `http://localhost:3000/auth`: оно попадает в закоммиченный `api/openapi.yaml`. В dev-профиле Swagger UI настроен на клиент `fate-swagger` с PKCE. Удалённые эндпоинты записаны в `api/accepted-breaking-changes.txt` (старую запись про `register` 201 заменил: эндпоинта больше нет).
   - Проверено: backend `check` (259 unit + 105 интеграционных, покрытие 98,4% строк / 86,6% ветвей), bot (`go test`, staticcheck, `buf lint`/`breaking` против main), simulation, frontend (lint, 169 тестов, `tsc -b`), `infra/k8s/check.sh`, `oasdiff breaking` с исключениями. На minikube (`K8S_OVERLAY=e2e ./k8s-start.sh` поверх вчерашней базы): V26 применилась к данным V25 без ошибок, `infra/k8s/e2e.sh` зелёный (simulation 4/4, письма, метрики/логи/трассы бэкенда и Keycloak), Playwright 13/13, в логах бэкенда ошибок нет. Также прошли `vite build`, typecheck e2e, perf (spotless, detekt, компиляция), staticcheck simulation. `npm run check:api` до коммита показывает diff — ожидаемо, он сравнивает с индексом git.
   - Осталось: `server-setup.yml` всё ещё ставит nginx с `limit_req` на `/api/v1/auth/` и без Keycloak — это пункт «Прод». В `backend/openapi.yaml` лежит старая, никем не используемая копия спецификации (с `/auth/register`) — не трогал.
+- 2026-10-21 — этап 5 закрыт. Пункт «Прод» вынесен в раздел «Отложено»: окружения нет, а ручные workflow до этого с кодом не сходятся (описано там же).
+- 2026-10-21 — этап 6. Находки и решения:
+  - Своих страниц почти нет: страницы Keycloakify знают все поля `kcContext`, id и обработку ошибок, а внешний вид задают наш `Template` и карта `classes` (классы Tailwind вместо PatternFly, `doUseDefaultCss=false`). Своя страница — там, где разметка не ложится в дизайн (`login-page-expired`).
+  - Русский набор сообщений Keycloak неполный (221 ключ из 470): «Or sign in with», «Register», ошибки валидации были на английском. Переводы — `messages_ru.ts`; Keycloakify требует тот же ключ во всех языках, поэтому английские оригиналы в `messages_en.ts`. В серверные `messages_ru.properties` Keycloakify свои переводы не кладёт (только для SPA-тем) — их дописывает `postBuild` плагина.
+  - `keycloakify build` берёт готовый `dist/`, сам Vite не запускает: скрипт — `npm run build && keycloakify build`.
+  - Страница Keycloakify — оболочка, форма рисуется в браузере, поэтому simulation больше не находит `<form action>` в HTML. `internal/keycloak.Browser` читает `url.loginAction`/`registrationAction`, `message.summary` и ошибки полей из встроенного `kcContext`; фейковый Keycloak (`keycloaktest`) отдаёт страницы в том же виде.
+  - `kcSanitize` вырезает `style` из HTML сообщений, поэтому оформление писем — в `email/html/template.ftl`, а из сообщений приходит только текст.
+  - `infra/k8s/e2e.sh` писал «not the e2e overlay» на e2e-оверлее: `grep -q` под `pipefail` завершался раньше `kubectl`, и SIGPIPE ронял конвейер. Исправлено.
+  - Тег `quay.io/keycloak/keycloak` теперь в `infra/keycloak/Dockerfile` и в `KeycloakSmokeIntegrationTest`; `check.sh` сверяет их.

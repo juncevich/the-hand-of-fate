@@ -73,7 +73,7 @@ for dashboard in "$mon"/grafana/provisioning/dashboards/*.json; do
   echo "    $(basename "$dashboard") ok"
 done
 
-step "Image versions: docker-compose ↔ k8s"
+step "Image versions: docker-compose ↔ k8s ↔ Keycloak image"
 # The same third-party image is pinned in docker-compose*.yml and in the manifests; a bump on
 # one side only would make the two setups (and the config validation above) diverge.
 python3 - "$OUT/local.yaml" docker-compose.yml docker-compose.infra.yml <<'PY'
@@ -111,6 +111,13 @@ if errors:
     sys.exit(1)
 print(f"    {len(shared)} shared images in sync")
 PY
+
+# Keycloak runs as fate-keycloak (its image plus the login theme); the backend's smoke test starts
+# the same Keycloak version from Testcontainers.
+kc_image="$(sed -n 's/^FROM \(quay.io\/keycloak\/keycloak:[^ ]*\).*/\1/p' infra/keycloak/Dockerfile)"
+grep -q "\"$kc_image\"" backend/src/integrationTest/kotlin/com/juncevich/fate/auth/KeycloakSmokeIntegrationTest.kt \
+  || { echo "    MISMATCH infra/keycloak/Dockerfile ($kc_image) vs KeycloakSmokeIntegrationTest" >&2; exit 1; }
+echo "    $kc_image: Dockerfile = KeycloakSmokeIntegrationTest"
 
 step "Gateway nginx config ($(image_of nginx))"
 for conf in infra/nginx/nginx.conf .tilt-build/nginx.conf .e2e-build/nginx.conf; do

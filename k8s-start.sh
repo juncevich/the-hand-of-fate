@@ -5,7 +5,7 @@
 #
 #   ./k8s-start.sh                       build everything and deploy
 #   ./k8s-start.sh --skip-build          redeploy manifests only (reuse built images)
-#   ./k8s-start.sh --only backend,bot    rebuild + restart just these (backend|frontend|bot)
+#   ./k8s-start.sh --only backend,bot    rebuild + restart just these (backend|frontend|bot|keycloak)
 #   ./k8s-start.sh --cluster-only        only create/resume the cluster (used by make k8s-dev)
 #   K8S_OVERLAY=e2e ./k8s-start.sh       deploy another overlay built on `local` (CI uses e2e)
 set -euo pipefail
@@ -17,7 +17,7 @@ OVERLAY="$ROOT/infra/k8s/overlays/$OVERLAY_NAME"
 [[ -f "$OVERLAY/kustomization.yaml" ]] || { echo "Unknown overlay: $OVERLAY_NAME" >&2; exit 2; }
 PROFILE=hand-of-fate
 NAMESPACE=hand-of-fate
-APPS=(backend frontend bot)
+APPS=(backend frontend bot keycloak)
 # nodePorts from external-services.yaml: gateway, postgres, mailpit UI, rustfs console
 HOST_PORTS=(30080 30432 30025 30901 30300)   # + grafana
 
@@ -40,7 +40,7 @@ done
 if [[ -n "$ONLY" ]]; then
   IFS=',' read -r -a APPS <<<"$ONLY"
   for app in "${APPS[@]}"; do
-    [[ " backend frontend bot " == *" $app "* ]] || { echo "Unknown app: $app" >&2; exit 2; }
+    [[ " backend frontend bot keycloak " == *" $app "* ]] || { echo "Unknown app: $app" >&2; exit 2; }
   done
 fi
 
@@ -57,7 +57,7 @@ docker info &>/dev/null || { echo "ERROR: Docker is not running" >&2; exit 1; }
 BOT_TOKEN="$(sed -n 's/^BOT_TOKEN=//p' "$LOCAL_OVERLAY/.secrets.env")"
 # Without a token the bot is scaled to 0 below, so don't spend a build on it (unless asked).
 if [[ -z "$BOT_TOKEN" && -z "$ONLY" ]]; then
-  APPS=(backend frontend)
+  APPS=(backend frontend keycloak)
 fi
 
 # ── Cluster ─────────────────────────────────────────────────────────────────
@@ -107,6 +107,8 @@ if "$BUILD"; then
       backend)  docker buildx build --load -t fate-backend:dev  -f "$ROOT/backend/Dockerfile" "$ROOT" ;;
       frontend) docker buildx build --load -t fate-frontend:dev "$ROOT/frontend" ;;
       bot)      docker buildx build --load -t fate-bot:dev      -f "$ROOT/bot/Dockerfile" "$ROOT" ;;
+      # Keycloak with the login theme built from the frontend (src/login/)
+      keycloak) docker buildx build --load -t fate-keycloak:dev -f "$ROOT/infra/keycloak/Dockerfile" "$ROOT/frontend" ;;
     esac
     echo "==> Loading fate-$app:dev into minikube..."
     docker save "fate-$app:dev" | minikube -p "$PROFILE" ssh --native-ssh=false -- docker load >/dev/null

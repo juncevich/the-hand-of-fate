@@ -61,7 +61,11 @@ services:
         condition: service_healthy
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8.0
+    # quay.io/keycloak/keycloak:26.8.0 + the login theme built from frontend/src/login/
+    image: fate-keycloak:dev
+    build:
+      context: ./frontend
+      dockerfile: ../infra/keycloak/Dockerfile
     restart: unless-stopped
     command: ["start-dev"]
     environment:

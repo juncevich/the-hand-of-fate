@@ -1,0 +1,46 @@
+/* Bits of Keycloakify's pages that carry no class of ours (src/login/classes.ts). */
+
+/* Not every page puts its form groups in a spaced container */
+.kc-page form > div + div {
+  margin-top: 1rem;
+}
+
+.kc-page a:not([class]) {
+  color: var(--color-fate-gold);
+  text-decoration: none;
+}
+.kc-page a:not([class]):hover {
+  text-decoration: underline;
+}
+
+.kc-page .required {
+  color: var(--color-fate-gold);
+  margin-right: 0.15rem;
+}
+
+/* "Or sign in with" above the social login buttons */
+.kc-page .kc-social hr {
+  border: 0;
+  border-top: 1px solid var(--color-fate-border);
+  margin: 0.25rem 0 0.75rem;
+}
+.kc-page .kc-social h2 {
+  font-size: 0.75rem;
+  text-align: center;
+  color: var(--color-fate-muted);
+}
+
+/* Password visibility toggle: lucide's eye / eye-off as masks, so they take the text color. */
+.kc-page .kc-icon {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  background-color: currentColor;
+  mask: var(--kc-icon) no-repeat center / contain;
+}
+.kc-page .kc-icon-eye {
+  --kc-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+}
+.kc-page .kc-icon-eye-off {
+  --kc-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49'/%3E%3Cpath d='M14.084 14.158a3 3 0 0 1-4.242-4.242'/%3E%3Cpath d='M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143'/%3E%3Cpath d='m2 2 20 20'/%3E%3C/svg%3E");
+}

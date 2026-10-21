@@ -162,6 +162,8 @@ class KeycloakSmokeIntegrationTest
                     .withEnv("KC_APP_URL", "http://localhost:3000")
                     .withEnv("KC_BACKEND_CLIENT_SECRET", BACKEND_SECRET)
                     .withEnv("KC_DEV_CLIENTS_ENABLED", "true")
+                    // The plain image has no `fate` theme (that is the fate-keycloak image)
+                    .withEnv("KC_THEME", "keycloak")
                     .withStartupCheckStrategy(OneShotStartupCheckStrategy().withTimeout(Duration.ofMinutes(3)))
                     .start()
             }

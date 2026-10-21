@@ -23,7 +23,8 @@ spec:
     spec:
       containers:
         - name: keycloak
-          image: quay.io/keycloak/keycloak:26.8.0
+          # quay.io/keycloak/keycloak + the login theme (infra/keycloak/Dockerfile)
+          image: fate-keycloak
           args: ["start"]
           ports:
             - name: http

@@ -50,10 +50,22 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # Keycloakify packs the login theme jar with Maven (preinstalled on the runner)
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
       - run: cd frontend && npm ci
-      - run: cd frontend && npm run build
+      # The SPA build plus Keycloak's login/email theme (dist_keycloak/fate-keycloak-theme.jar)
+      - run: cd frontend && npm run build-keycloak-theme
 
       - uses: actions/upload-artifact@v7
         with:
           name: frontend-dist
           path: frontend/dist/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: keycloak-theme
+          path: frontend/dist_keycloak/fate-keycloak-theme.jar

@@ -45,7 +45,7 @@ make dev-local                # same as dev-start.sh
 make infra                    # start only postgres + mailpit + rustfs + keycloak
 make infra-down               # stop infrastructure
 ```
-- `docker-compose.infra.yml` — lightweight compose file with only postgres, mailpit, rustfs and Keycloak (used by `dev-start.sh`)
+- `docker-compose.infra.yml` — lightweight compose file with only postgres, mailpit, rustfs and Keycloak (used by `dev-start.sh`). Keycloak is the `fate-keycloak:dev` image with the login theme, built from `frontend/` on first `up`; after changing the theme: `docker compose -f docker-compose.infra.yml up -d --build keycloak`
 - `dev-start.sh` handles stale process cleanup, colored log output per service, conditional bot startup (skipped if `BOT_TOKEN` unset)
 
 - Frontend:  http://localhost:3000
@@ -69,7 +69,7 @@ make k8s-dev                         # hot-reload loop: k8s-start.sh --cluster-o
 make k8s-dev-down                    # `tilt down` — removes the workloads, keeps the Postgres/RustFS volumes
 ```
 - Manifests: `infra/k8s/base/` (backend, frontend, bot, Keycloak + the `keycloak-config` Job, nginx `gateway` that reuses `infra/nginx/nginx.conf`) + `infra/k8s/overlays/local/` (Postgres StatefulSet, Keycloak's database and dev realm, RustFS, Mailpit, dev config/secrets, NodePort services). Build with `kubectl kustomize --load-restrictor LoadRestrictionsNone infra/k8s/overlays/local` — the base reads the nginx config from outside its directory
-- Images are built by the host Docker (`buildx build --load`, cache shared with docker-compose) as `fate-*:dev` and copied into the node's Docker daemon (`docker save | minikube ssh -- docker load`; `minikube image load` kept the old image of an existing tag) — never pushed; the tag doesn't change, so the script `rollout restart`s rebuilt apps
+- Images are built by the host Docker (`buildx build --load`, cache shared with docker-compose) as `fate-*:dev` — `fate-keycloak` too (Keycloak + the login theme, `infra/keycloak/Dockerfile`, build context `frontend/`) and copied into the node's Docker daemon (`docker save | minikube ssh -- docker load`; `minikube image load` kept the old image of an existing tag) — never pushed; the tag doesn't change, so the script `rollout restart`s rebuilt apps
 - `overlays/local/write-secrets.sh` (called by `k8s-start.sh` and the Tiltfile) writes `overlays/local/.secrets.env` (gitignored) from `.env`: `GRPC_SHARED_SECRET`, `BOT_TOKEN`; without a token the bot is scaled to 0 (Tilt doesn't deploy it). It also writes `.oauth.env` (`OAUTH_<GOOGLE|GITHUB|YANDEX>_CLIENT_ID/SECRET`, social login)
 - **Keycloak** (`infra/keycloak/`): realm `fate` is code — `realm/fate.yaml` (+ `realm-dev/fate-dev.yaml`, the demo user, dev/e2e only), applied idempotently by keycloak-config-cli (`apply-config.sh`; compose service / k8s Job `keycloak-config`, which `k8s-start.sh` deletes and recreates on every run). A social login provider is enabled only when its `OAUTH_*_CLIENT_ID` is set. Its database `keycloak` lives in the same Postgres (`create-database.sh`, idempotent). The gateway proxies `/auth/` with its own headers (Keycloak sends CSP/X-Frame-Options itself) and a per-IP limit on POSTs; metrics (`keycloak_user_events_total`) are scraped by the collector, traces go to Tempo
 - The cluster runs the **docker** container runtime (`--container-runtime=docker`) so Tilt builds straight into the node's daemon; `k8s-start.sh` warns about an older containerd cluster — recreate it with `./k8s-stop.sh --delete`
@@ -77,6 +77,7 @@ make k8s-dev-down                    # `tilt down` — removes the workloads, ke
   - frontend: Vite dev server (`frontend/Dockerfile.dev`), `frontend/` synced live, HMR over the gateway (nginx proxies the WebSocket upgrade). `package*.json` / `vite.config.ts` changes rebuild the image. The tilt overlay drops the gateway CSP (React Refresh injects an inline script) via `.tilt-build/nginx.conf`, which the Tiltfile generates — build that overlay only through Tilt
   - backend: `backend-jar` local resource (`./gradlew bootJar`) → `.tilt-build/backend/app.jar` → thin `backend/Dockerfile.dev` → pod restart (~30 s from save to ready). Swagger via Tilt port-forward: http://localhost:18080/swagger-ui.html
   - bot: host `go build` (GOOS=linux) → `.tilt-build/bot/fate-bot` → `bot/Dockerfile.dev`; only when `BOT_TOKEN` is set
+  - keycloak: `fate-keycloak` from `infra/keycloak/Dockerfile`, built at start and then only on demand (manual trigger in the Tilt UI) — it bundles the whole SPA
   - `rustfs-data`, `loki-data`, `mimir-data`, `tempo-data`, `grafana-data` PVCs carry `tilt.dev/down-policy: keep`; Postgres' StatefulSet volume is never deleted by Tilt
 - **Monitoring** — `infra/k8s/components/observability/` (a kustomize Component included by `overlays/local`; drop it from `components:` to run without): OTel Collector DaemonSet, Loki, Mimir, Tempo, Grafana (with the provisioned dashboards), all on the `infra/monitoring/*` configs. The collector additionally gets `otel-collector-k8s.yaml` (second `--config`, merged): a `filelog` receiver tails `/var/log/pods/hand-of-fate_*` (with the docker runtime those are symlinks into `/var/lib/docker/containers`), so every pod's stdout lands in Loki with `service_name` = container name (`backend`, `nginx` for the gateway, …) and `k8s_*` labels. `start_at: beginning` + `file_storage` offsets on a hostPath: startup logs are kept, collector restarts don't duplicate. The backend's OTLP metrics go to Mimir via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`
 - Host access goes through NodePorts published by `minikube start --ports` (fixed at cluster creation — `--delete` and recreate after changing them). The 30xxx ports don't clash with docker-compose, so both setups can run at once:
@@ -109,6 +110,7 @@ cd frontend
 npm install
 npm run dev          # dev server on :3000 (proxies /api → :8080)
 npm run dev:mock     # dev server with mock API (no backend, no Keycloak; "Войти" signs in as demo@example.com)
+npm run build-keycloak-theme  # SPA build + Keycloak's login/email theme jar (dist_keycloak/fate-keycloak-theme.jar; needs Maven + JDK)
 npm test             # run vitest once
 npm run test:watch   # vitest in watch mode
 npm run lint         # ESLint check
@@ -159,7 +161,7 @@ go run ./cmd/simulate -url http://localhost:30080 -app http://localhost:30080 -m
 go build -o fate-sim ./cmd/simulate            # build binary
 ```
 - Scenarios: `session` (auth lifecycle), `simple` (options-based vote), `fair` (FAIR_ROTATION + round tracking), `options` (dynamic option add/remove)
-- Each run signs up fresh random users on Keycloak's own pages (`internal/keycloak.Browser`: client `fate-spa`, Authorization Code + PKCE, `-app` is the SPA origin serving Keycloak under `/auth`) and confirms them through the verification email Keycloak sends, read from Mailpit (`internal/mailbox`); no fixtures or seed data required. Unit tests use the fake Keycloak in `internal/keycloak/keycloaktest`
+- Each run signs up fresh random users on Keycloak's own pages (`internal/keycloak.Browser`: client `fate-spa`, Authorization Code + PKCE, `-app` is the SPA origin serving Keycloak under `/auth`; it reads the form's action and errors from the theme's embedded `kcContext`) and confirms them through the verification email Keycloak sends, read from Mailpit (`internal/mailbox`); no fixtures or seed data required. Unit tests use the fake Keycloak in `internal/keycloak/keycloaktest`
 - Exits with code 1 and prints `FAIL <scenario>: <error>` on the first failure
 
 ### Browser tests (Playwright)
@@ -225,6 +227,7 @@ The bot answers only in private chats and identifies the user by `message.From.I
 - What the backend still does with the account itself (`AccountController`, `/api/v1/auth`): `logout-all` ends every Keycloak session through the Admin API (`KeycloakAdminClient`, service account `fate-backend`); `delete-account` (no body) needs a sign-in ≤ 5 min ago, else `403 REAUTHENTICATION_REQUIRED`, and `IdentityDeletionWorker` deletes the Keycloak user after the commit (retried). Profile: `GET /api/v1/users/me`
 - Integration tests mint Keycloak tokens with `FakeKeycloak` (`keycloakToken(...)`, `signUp(...)` in `AbstractApiIntegrationTest`); `KeycloakSmokeIntegrationTest` runs a real Keycloak configured from `infra/keycloak/`
 - `ExpiredTokenPurger` deletes expired Telegram link tokens hourly (`app.auth.token-purge-delay-ms`)
+- **Keycloak's pages are the app's** (`frontend/src/login/`, Keycloakify 11): the same Vite build renders them when Keycloak sets `window.kcContext` (`src/main.tsx`). `KcPage` uses Keycloakify's pages with our `Template` (the `AuthLayout` look, ru/en and theme switches) and `classes` (Tailwind of `Input`/`Button`) instead of PatternFly; own pages in `src/login/pages/`. Same origin, so the theme follows the app's `localStorage['fate-theme']` (`public/keycloak-theme/login/early-color-scheme.js` avoids a flash). Keycloak's Russian messages are incomplete: `messages_ru.ts` (+ `messages_en.ts` originals) fills them in, and `postBuild` in `vite.config.ts` appends them to the jar's `messages_ru.properties` for server-rendered messages. Emails: native theme `src/email/` (`template.ftl` styled like `EmailService`, texts in `messages/*.properties`). Realm `loginTheme`/`emailTheme` = `$(env:KC_THEME:-fate)`. Preview without Keycloak: `npm run dev` → `/?kcPage=login.ftl` (mocks in `src/login/mocks.ts`). Keep the form field ids (`#username`, `#password`, `#email`, `#firstName`, `#lastName`, `#password-new`, `#password-confirm`): Playwright uses them; the simulation reads `kcContext` from the page (`internal/keycloak.Browser`)
 - **Frontend signs in through Keycloak only** (`frontend/src/auth/`): `session.ts` is the interface (`restore`, `signIn`, `completeSignIn`, `renew`, `signOut`, `accountUrl`), `keycloak.ts` implements it with `oidc-client-ts` (client `fate-spa`, Authorization Code + PKCE, no refresh token: tokens in memory via `InMemoryWebStorage`, renewed by `prompt=none` in a hidden iframe on the static page `oidc/silent.html` — a second Vite entry, framable by the gateway's `location = /oidc/silent.html`), `mock.ts` stands in under `dev:mock` (`POST /api/v1/mock/sign-in`). `/login` is a start page whose buttons go to Keycloak (`prompt=create` for registration); Keycloak returns to `/oidc/callback` (`OidcCallbackPage`), the profile comes from `GET /api/v1/users/me`. Settings: password via `kc_action=UPDATE_PASSWORD`, linked accounts/sessions on Keycloak's account page, deletion re-authenticates with `prompt=login` on `REAUTHENTICATION_REQUIRED`
 - On app mount, `session.restore()` picks up a Keycloak session silently (not on `/oidc/callback`); failure leaves the user signed out
 - On 401, the Axios interceptor renews once through `session.renew()` (concurrent callers share it), stores the new token and retries each protected request once; when renewal fails the session is cleared
@@ -444,7 +447,7 @@ Services run directly on Ubuntu via systemd (no Docker). Nginx serves the fronte
 ### CI workflows (backend.yml / frontend.yml / bot.yml / perf.yml / simulation.yml / api.yml / k8s.yml)
 Each project has its own workflow file, triggered on PR and push to `main` via path filters.
 - `backend.yml`: `backend-test` (spotless + detekt + `./gradlew check`, uploads the JaCoCo report as artifact `backend-coverage`) → `backend-build` (artifact: `backend-jar`)
-- `frontend.yml`: `frontend-test` (`npm run lint` + `npm run test`) → `frontend-build` (artifact: `frontend-dist`)
+- `frontend.yml`: `frontend-test` (`npm run lint` + `npm run test`) → `frontend-build` (`npm run build-keycloak-theme`; artifacts: `frontend-dist`, `keycloak-theme`)
 - `bot.yml`: `bot-test` (buf lint/breaking + gofmt + go vet + staticcheck + go test) → `build-bot` (artifact: `bot-binary`, built on `main` only)
 - `perf.yml`: `perf-check` — spotless + detekt + `compileGatlingKotlin`. Lint/compile only; `gatlingRun` is a load test against a live backend and is run manually, not gated in CI.
 - `simulation.yml`: `simulation-test` — generated-models check + gofmt + go vet + staticcheck + go test + build. The scenarios themselves (`go run ./cmd/simulate`) need a running backend and are not run in CI.
@@ -457,6 +460,8 @@ Each project has its own workflow file, triggered on PR and push to `main` via p
 Each component has its own deploy workflow, normally triggered by its CI workflow completing and via `workflow_dispatch`.
 
 > **Currently disabled:** there is no target environment, so the `workflow_run` trigger is commented out in all three deploy workflows — they run only on manual `workflow_dispatch`. Uncomment the trigger to re-enable auto-deploy.
+>
+> **Out of date since Keycloak:** `server-setup.yml` installs no Keycloak and the deploy workflows don't pass `KEYCLOAK_*`, so the backend would refuse to start there (`SecretsValidator`). Deferred until there is a server — see «Отложено: прод» in docs/plans/keycloak-auth.md.
 
 **`gate` job** — checks if the triggering CI workflow succeeded; on `workflow_dispatch` finds the latest successful CI run. Skips deploy (`ready=false`) if not.
 
@@ -478,7 +483,7 @@ One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first depl
 4. Installs PostgreSQL 17, creates `fate` DB user and `fate` database
 5. Creates `fate` system user and `/opt/hand-of-fate/{backend,frontend,bot}/` directories
 6. Registers `fate-backend` and `fate-bot` systemd units with `EnvironmentFile=/opt/hand-of-fate/.env`
-7. Writes Nginx site config: SPA routing (`/`), API proxy (`/api/`), per-IP `limit_req` on `/api/v1/auth/` (legacy; Keycloak in production is still to do, docs/plans/keycloak-auth.md stage 5), security headers (CSP, HSTS, X-Frame-Options, nosniff, Referrer-Policy), static asset caching. **Swagger/OpenAPI is not proxied in prod** (also disabled server-side unless `SPRINGDOC_ENABLED=true`).
+7. Writes Nginx site config: SPA routing (`/`), API proxy (`/api/`), per-IP `limit_req` on `/api/v1/auth/` (legacy), security headers (CSP, HSTS, X-Frame-Options, nosniff, Referrer-Policy), static asset caching. **Swagger/OpenAPI is not proxied in prod** (also disabled server-side unless `SPRINGDOC_ENABLED=true`).
 8. **TLS**: if `domain` + `email` inputs are provided, installs certbot and runs `certbot --nginx --redirect` (Let's Encrypt cert + 80→443 redirect). Without them it serves HTTP only and warns that the `Secure` refresh cookie will be dropped — provide a domain or terminate TLS upstream for a real deployment.
 9. **Backups**: registers a `fate-db-backup.timer` (daily) running `/opt/hand-of-fate/scripts/backup-db.sh`, which `pg_dump`s the `fate` database to `/opt/hand-of-fate/backups/` (gzip) and prunes dumps older than 7 days. Local-disk only — copy `backups/` to offsite/object storage for real disaster recovery.
 

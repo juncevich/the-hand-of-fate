@@ -93,7 +93,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	case realm + "/login-actions/registration":
 		s.register(w, r)
 	case realm + "/login-actions/action-token":
-		s.page(w, "Обновление пароля", realm+"/login-actions/required-action", "")
+		s.page(w, "login-update-password.ftl", realm+"/login-actions/required-action", "")
 	case realm + "/login-actions/required-action":
 		s.setPassword(w, r)
 	case realm + "/login-actions/authenticate":
@@ -130,9 +130,9 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request) {
 	s.flows[id] = flow
 	http.SetCookie(w, &http.Cookie{Name: "AUTH_SESSION", Value: id, Path: "/"})
 	if q.Get("prompt") == "create" {
-		s.page(w, "Регистрация", realm+"/login-actions/registration", "")
+		s.page(w, "register.ftl", realm+"/login-actions/registration", "")
 	} else {
-		s.page(w, "Вход", realm+"/login-actions/authenticate", "")
+		s.page(w, "login.ftl", realm+"/login-actions/authenticate", "")
 	}
 }
 
@@ -140,20 +140,20 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	flow, id, ok := s.flow(r)
 	email := r.PostFormValue("email")
 	if !ok || email == "" || s.users[email] != nil {
-		s.page(w, "Регистрация", realm+"/login-actions/registration", "Email already exists.")
+		s.page(w, "register.ftl", realm+"/login-actions/registration", "Email already exists.")
 		return
 	}
 	s.users[email] = &user{email: email, name: r.PostFormValue("firstName") + " " + r.PostFormValue("lastName")}
 	flow.email = email
 	s.flows[id] = flow
 	s.mails[email] = s.URL + realm + "/login-actions/action-token?key=" + id
-	s.page(w, "Подтверждение адреса E-mail", "", "")
+	s.page(w, "login-verify-email.ftl", "", "")
 }
 
 func (s *Server) setPassword(w http.ResponseWriter, r *http.Request) {
 	flow, _, ok := s.flow(r)
 	if !ok || r.PostFormValue("password-new") == "" || r.PostFormValue("password-new") != r.PostFormValue("password-confirm") {
-		s.page(w, "Обновление пароля", realm+"/login-actions/required-action", "Passwords don't match.")
+		s.page(w, "login-update-password.ftl", realm+"/login-actions/required-action", "Passwords don't match.")
 		return
 	}
 	s.users[flow.email].password = r.PostFormValue("password-new")
@@ -164,7 +164,7 @@ func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) {
 	flow, _, ok := s.flow(r)
 	u := s.users[r.PostFormValue("username")]
 	if !ok || u == nil || u.password == "" || u.password != r.PostFormValue("password") {
-		s.page(w, "Вход", realm+"/login-actions/authenticate", "Invalid username or password.")
+		s.page(w, "login.ftl", realm+"/login-actions/authenticate", "Invalid username or password.")
 		return
 	}
 	flow.email = u.email
@@ -216,14 +216,32 @@ func (s *Server) flow(r *http.Request) (pending, string, bool) {
 	return flow, c.Value, ok
 }
 
-func (s *Server) page(w http.ResponseWriter, title, action, problem string) {
+// page answers like a page of the Keycloakify theme: an HTML shell with `kcContext`, whose form
+// posts to registrationAction on the registration page and to loginAction elsewhere; a rejected
+// form carries the problem as the page message and as a field error.
+func (s *Server) page(w http.ResponseWriter, pageID, action, problem string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	body := "<html><head><title>" + title + "</title></head><body>"
-	if problem != "" {
-		body += `<span id="input-error" class="pf-m-danger">` + problem + "</span>"
-	}
+	target := ""
 	if action != "" {
-		body += `<form id="kc-form" method="post" action="` + s.URL + action + `?session_code=x&amp;tab_id=y"><input name="x"/></form>`
+		target = s.URL + action + "?session_code=x&tab_id=y"
 	}
-	_, _ = w.Write([]byte(body + "</body></html>"))
+	key := "loginAction"
+	if pageID == "register.ftl" {
+		key = "registrationAction"
+	}
+	urls, _ := json.Marshal(map[string]string{key: target})
+	ctx := `{
+    "url": ` + string(urls) + `,`
+	if problem != "" {
+		summary, _ := json.Marshal(problem)
+		ctx += `
+    "message": { "type": "error", "summary": ` + string(summary) + ` },
+    "messagesPerField": { "get": function (fieldName) { if(fieldName === 'email'){ return '` + strings.ReplaceAll(problem, "'", `\'`) + `'; } return ''; } },`
+	}
+	body := `<html><head><title>The Hand of Fate</title></head><body><div id="root"></div><script>
+const kcContext = ` + ctx + `
+};
+kcContext.pageId = "` + pageID + `";
+</script></body></html>`
+	_, _ = w.Write([]byte(body))
 }

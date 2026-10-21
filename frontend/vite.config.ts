@@ -1,8 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { keycloakify } from 'keycloakify/vite-plugin'
+import { appendFileSync } from 'node:fs'
 import path from 'node:path'
 import { mockApiPlugin } from './mock-plugin'
+import { messagesRu } from './src/login/messages_ru'
 
 export default defineConfig(({ mode }) => {
   const isMock = mode === 'mock'
@@ -11,6 +14,18 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
+      // Keycloak's login pages (src/login/) are built from this app: `npm run build-keycloak-theme`
+      // packs them into a theme jar for Keycloak 26 (docs/plans/keycloak-auth.md, stage 6).
+      keycloakify({
+        themeName: 'fate',
+        accountThemeImplementation: 'none',
+        keycloakVersionTargets: { '22-to-25': false, 'all-other-versions': 'fate-keycloak-theme.jar' },
+        // Keycloak renders some messages itself (field errors, the page message): give its bundle
+        // the Russian texts it lacks. Runs in the theme's resources dir, before the jar is packed.
+        postBuild: async () => {
+          appendFileSync('theme/fate/login/messages/messages_ru.properties', toProperties(messagesRu))
+        },
+      }),
       ...(isMock ? [mockApiPlugin()] : []),
     ],
     build: {
@@ -56,3 +71,12 @@ export default defineConfig(({ mode }) => {
     },
   }
 })
+
+/** `key=value` lines of a Java properties file, non-ASCII escaped as Keycloak's own bundles are. */
+function toProperties(messages: Record<string, string>): string {
+  const escape = (text: string) =>
+    text.replace(/[^\x20-\x7e]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)
+  return `\n${Object.entries(messages)
+    .map(([key, value]) => `${key}=${escape(value)}`)
+    .join('\n')}\n`
+}

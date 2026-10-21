@@ -33,7 +33,8 @@ eventually() {
   return 1
 }
 
-if ! kc get configmap -o yaml | grep -q 'KC_E2E_IDP_INTERNAL_URL'; then
+# Not grep -q: it would exit early and fail the pipe (pipefail) with kubectl's SIGPIPE.
+if ! kc get configmap -o yaml | grep 'KC_E2E_IDP_INTERNAL_URL' >/dev/null; then
   echo "WARNING: not the e2e overlay — the gateway's per-IP limits on sign-in forms may fail the" >&2
   echo "         browser tests. Deploy with: K8S_OVERLAY=e2e ./k8s-start.sh --skip-build" >&2
 fi

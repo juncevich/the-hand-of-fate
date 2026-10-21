@@ -8,6 +8,7 @@
 #   KC_BACKEND_CLIENT_SECRET secret of the `fate-backend` service account (Admin API)
 #   KC_DEV_CLIENTS_ENABLED   true only in dev/e2e: `fate-test` (direct grant) and `fate-swagger`
 #   KC_SMTP_*                outgoing mail (verification, password reset)
+#   KC_THEME                 login and email theme, `fate` unless the image lacks it (default: fate)
 #   OAUTH_<P>_ENABLED        computed by apply-config.sh: true when OAUTH_<P>_CLIENT_ID is set
 #   KC_E2E_IDP_*             e2e overlay only: the mock OIDC provider of the browser tests
 realm: fate
@@ -29,6 +30,12 @@ passwordPolicy: length(8) and maxLength(100) and notEmail
 internationalizationEnabled: true
 supportedLocales: [ru, en]
 defaultLocale: ru
+
+# Pages and emails in the app's look (frontend/src/login/ and src/email/, packed into the
+# fate-keycloak image). KC_THEME falls back to Keycloak's own theme where the image lacks ours
+# (KeycloakSmokeIntegrationTest).
+loginTheme: $(env:KC_THEME:-fate)
+emailTheme: $(env:KC_THEME:-fate)
 
 # Per-account lockout, as LoginThrottle did: 10 failures within 15 min → growing waits.
 bruteForceProtected: true

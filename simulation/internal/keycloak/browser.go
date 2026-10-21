@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -86,7 +85,7 @@ func (b *Browser) Register(email, firstName, lastName, password string, mail Mai
 		return Tokens{}, fmt.Errorf("registration form: %w", err)
 	}
 	// A rejected form comes back with its errors; an accepted one asks to confirm the email.
-	if fieldError.MatchString(page.body) {
+	if page.fieldError() != "" {
 		return Tokens{}, fmt.Errorf("registration form: %s", page.problem())
 	}
 	link, err := mail.Link(email, ActionTokenPath)
@@ -152,27 +151,52 @@ func (b *Browser) SignOut(idToken string) error {
 type page struct {
 	status      int
 	body        string
-	form        string // the action of the page's form
+	form        string // where the page's form posts
 	location    string // set when Keycloak sent the browser back to the app
 	code        string // authorization code in that redirect
 	callbackErr string // OAuth error in that redirect
 }
 
+// Keycloak's pages come from the app's Keycloakify theme (frontend/src/login/): the HTML is a
+// shell, the form is rendered in the browser from `kcContext`, a JS object in the page. Its
+// string values are JSON strings; field errors live in the body of `messagesPerField.get`.
 var (
-	formAction = regexp.MustCompile(`<form[^>]*\saction="([^"]+)"`)
+	pageID = regexp.MustCompile(`kcContext\.pageId = "([^"]+)"`)
+	// The form of the registration page posts to registrationAction, every other one to loginAction.
+	loginAction        = regexp.MustCompile(`"loginAction":\s*("(?:[^"\\]|\\.)*")`)
+	registrationAction = regexp.MustCompile(`"registrationAction":\s*("(?:[^"\\]|\\.)*")`)
+	// The page's message, errors and notices alike — to explain an unexpected page.
+	messageSummary = regexp.MustCompile(`"summary":\s*("(?:[^"\\]|\\.)*")`)
 	// A form field Keycloak rejected (a taken email, a weak password…).
-	fieldError = regexp.MustCompile(`id="input-error`)
-	// Any message on the page, errors and notices alike — to explain an unexpected page.
-	errorText = regexp.MustCompile(`(?s)(?:id="input-error[^"]*"|class="[^"]*(?:kc-feedback-text|pf-m-danger|alert-error)[^"]*")[^>]*>\s*([^<]+?)\s*<`)
-	titleText = regexp.MustCompile(`(?s)<title>\s*([^<]+?)\s*</title>`)
+	fieldError = regexp.MustCompile(`\{ return '((?:[^'\\]|\\.)+)'; \}`)
 )
 
-func (p page) problem() string {
-	if m := errorText.FindStringSubmatch(p.body); m != nil {
-		return html.UnescapeString(m[1])
+// jsonString decodes a quoted JSON string from kcContext; "" if it is not one.
+func jsonString(quoted string) string {
+	var s string
+	if json.Unmarshal([]byte(quoted), &s) != nil {
+		return ""
 	}
-	if m := titleText.FindStringSubmatch(p.body); m != nil {
-		return fmt.Sprintf("HTTP %d, page %q", p.status, html.UnescapeString(m[1]))
+	return s
+}
+
+// fieldError is the first field Keycloak rejected on the page, "" when none.
+func (p page) fieldError() string {
+	if m := fieldError.FindStringSubmatch(p.body); m != nil {
+		return strings.ReplaceAll(m[1], `\'`, "'")
+	}
+	return ""
+}
+
+func (p page) problem() string {
+	if m := messageSummary.FindStringSubmatch(p.body); m != nil {
+		return jsonString(m[1])
+	}
+	if e := p.fieldError(); e != "" {
+		return e
+	}
+	if m := pageID.FindStringSubmatch(p.body); m != nil {
+		return fmt.Sprintf("HTTP %d, page %s", p.status, m[1])
 	}
 	return fmt.Sprintf("HTTP %d", p.status)
 }
@@ -191,8 +215,12 @@ func (b *Browser) read(resp *http.Response) (page, error) {
 			p.callbackErr = target.Query().Get("error")
 		}
 	}
-	if m := formAction.FindStringSubmatch(p.body); m != nil {
-		p.form = html.UnescapeString(m[1])
+	action := loginAction
+	if m := pageID.FindStringSubmatch(p.body); m != nil && m[1] == "register.ftl" {
+		action = registrationAction
+	}
+	if m := action.FindStringSubmatch(p.body); m != nil {
+		p.form = jsonString(m[1])
 	}
 	return p, nil
 }

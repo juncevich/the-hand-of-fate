@@ -100,9 +100,14 @@ k8s_resource(
     links=[link('http://localhost:30901/rustfs/console/', 'RustFS console')],
     labels=['infra'],
 )
+# Keycloak with the login theme built from frontend/ (infra/keycloak/Dockerfile). It bundles the
+# whole SPA, so it is built once and then rebuilt only from the Tilt UI; work on the theme itself
+# in the Vite preview (`npm run dev`, /?kcPage=login.ftl).
+docker_build('fate-keycloak', 'frontend', dockerfile='infra/keycloak/Dockerfile')
 k8s_resource(
     'keycloak',
     resource_deps=['postgres'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
     links=[link('http://localhost:30080/auth/admin/', 'Keycloak admin (admin / admin)')],
     labels=['auth'],
 )
