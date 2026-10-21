@@ -54,7 +54,7 @@ make infra-down               # stop infrastructure
 - Mailpit:   http://localhost:8025
 - RustFS:    http://localhost:9001 (S3 console, `rustfsadmin`/`rustfsadmin`; S3 API on :9000)
 - Grafana:   http://localhost:3001  (admin/admin; dashboard "Hand of Fate — Overview", Mimir/Loki/Tempo)
-- Keycloak:  admin console http://localhost:8180/auth/admin (admin/admin); realm `fate` is served on the SPA origin (`/auth/` — Vite proxy, or the gateway in the full compose at http://localhost/auth). Being introduced as the authorization server — see `docs/adr/0001-keycloak-authorization-server.md` and the checklist `docs/plans/keycloak-auth.md`
+- Keycloak:  admin console http://localhost:8180/auth/admin (admin/admin); realm `fate` is served on the SPA origin (`/auth/` — Vite proxy, or the gateway in the full compose at http://localhost/auth). The authorization server: `docs/adr/0001-keycloak-authorization-server.md`; the migration's history and the deferred production setup are in `docs/plans/keycloak-auth.md`
 
 **Option 3 — everything in local Kubernetes (minikube):**
 ```bash
