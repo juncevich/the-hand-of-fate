@@ -105,16 +105,6 @@ class EmailServiceTest {
         assertTrue("<a href=\"https://evil\"" !in html)
     }
 
-    @Test
-    fun `account emails carry their link`() {
-        val verification = sentHtml { sendEmailVerification("a@test.com", "<Ann>", "http://localhost/verify-email?token=t") }
-        val reset = sentHtml { sendPasswordReset("a@test.com", "Ann", "http://localhost/reset-password?token=r") }
-
-        assertTrue("http://localhost/verify-email?token=t" in verification)
-        assertTrue("&lt;Ann&gt;" in verification)
-        assertTrue("http://localhost/reset-password?token=r" in reset)
-    }
-
     private fun sentMessage(send: EmailService.() -> Unit): MimeMessage {
         val mailSender = mockk<JavaMailSender>()
         val sent = slot<MimeMessage>()
@@ -133,12 +123,5 @@ class EmailServiceTest {
         assertEquals("List-Unsubscribe=One-Click", message.getHeader("List-Unsubscribe-Post").single())
         val html = sentHtml { sendVoteInvitation("a@test.com", "Vote", "Eve", "http://app/votes/1", links) }
         assertTrue("http://app/unsubscribe?email=a&sig=s" in html, html)
-    }
-
-    @Test
-    fun `account emails carry no unsubscribe header`() {
-        val message = sentMessage { sendPasswordReset("a@test.com", "Ann", "http://app/reset-password?token=r") }
-
-        assertEquals(null, message.getHeader("List-Unsubscribe"))
     }
 }

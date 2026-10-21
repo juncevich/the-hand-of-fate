@@ -67,7 +67,7 @@ class VoteServiceTest {
     private fun makeUser(
         id: UUID = UUID.randomUUID(),
         email: String = "user@test.com",
-    ) = User(id = id, email = email, passwordHash = "hash", displayName = "Test User")
+    ) = User(id = id, email = email, displayName = "Test User")
 
     private fun makeVote(
         id: UUID = UUID.randomUUID(),

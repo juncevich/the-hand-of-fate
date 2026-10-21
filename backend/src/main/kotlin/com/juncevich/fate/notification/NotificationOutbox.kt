@@ -28,7 +28,5 @@ class NotificationOutbox(
             when (this) {
                 is InvitationPayload -> NotificationType.INVITATION
                 is DrawResultPayload -> NotificationType.DRAW_RESULT
-                is EmailVerificationPayload -> NotificationType.EMAIL_VERIFICATION
-                is PasswordResetPayload -> NotificationType.PASSWORD_RESET
             }
 }

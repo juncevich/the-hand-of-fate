@@ -59,10 +59,10 @@ infra/
 
 | Component    | Language / Runtime | Key Libraries                              |
 |--------------|--------------------|--------------------------------------------|
-| `backend/`   | Kotlin 2.4.20      | Spring Boot 4.1.1, gRPC 1.84, JJWT 0.13   |
+| `backend/`   | Kotlin 2.4.20      | Spring Boot 4.1.1, gRPC 1.84, Keycloak 26.8|
 | `frontend/`  | TypeScript 7.0.2   | React 19.3, Vite 8, TanStack Query 5       |
 | `bot/`       | Go 1.27.1          | grpc 1.84, zap 1.28, viper 1.21            |
-| DB           | PostgreSQL         | Flyway migrations (V1–V8)                  |
+| DB           | PostgreSQL         | Flyway migrations (V1–V26)                 |
 | Observability| —                  | OpenTelemetry, Mimir, Loki, Grafana        |
 
 ## Quick Start
@@ -80,7 +80,7 @@ docker compose up -d
 | Mailpit   | http://localhost:8025                 |
 | Grafana   | http://localhost:3001  (admin/admin)  |
 
-**Demo user** (seeded automatically): `admin@admin.com` / `admin`
+**Demo user** (Keycloak dev realm): `admin@admin.com` / `admin123`
 
 ## Development
 

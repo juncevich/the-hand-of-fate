@@ -2,10 +2,8 @@ package com.juncevich.fate.notification.internal
 
 import com.juncevich.fate.notification.DrawResultPayload
 import com.juncevich.fate.notification.EmailPreferences
-import com.juncevich.fate.notification.EmailVerificationPayload
 import com.juncevich.fate.notification.InvitationPayload
 import com.juncevich.fate.notification.NOTIFICATION_PAYLOAD_VERSION
-import com.juncevich.fate.notification.PasswordResetPayload
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -45,18 +43,6 @@ class NotificationAdapterTest {
             "http://localhost:3000/api/v1/notifications/unsubscribe/one-click?email=p%2B1%40test.com&sig=$sig",
             links.captured.oneClick
         )
-    }
-
-    @Test
-    fun `account emails link to the SPA pages with the token url-encoded`() {
-        every { emailService.sendEmailVerification(any(), any(), any()) } returns Unit
-        every { emailService.sendPasswordReset(any(), any(), any()) } returns Unit
-
-        adapter.send(EmailVerificationPayload("a@test.com", "Ann", "a+b/c"))
-        adapter.send(PasswordResetPayload("a@test.com", "Ann", "xyz"))
-
-        verify { emailService.sendEmailVerification("a@test.com", "Ann", "http://localhost:3000/verify-email?token=a%2Bb%2Fc") }
-        verify { emailService.sendPasswordReset("a@test.com", "Ann", "http://localhost:3000/reset-password?token=xyz") }
     }
 
     @Test

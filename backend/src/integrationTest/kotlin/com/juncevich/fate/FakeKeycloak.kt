@@ -24,8 +24,11 @@ import java.util.UUID
  * access tokens shaped like Keycloak's (checked against a real Keycloak in KeycloakSmokeIntegrationTest).
  */
 object FakeKeycloak {
-    /** The issuer browsers would see; the backend reaches this server at [url]. */
-    const val PUBLIC_URL = "http://keycloak.test/auth"
+    /**
+     * The issuer browsers would see; the backend reaches this server at [url]. The dev default
+     * (dev-start.sh), since it also lands in the committed api/openapi.yaml as Keycloak's address.
+     */
+    const val PUBLIC_URL = "http://localhost:3000/auth"
     const val ISSUER = "$PUBLIC_URL/realms/fate"
     private const val SERVICE_TOKEN = "service-account-token"
 

@@ -75,7 +75,7 @@ docker_build(
 k8s_resource('frontend', labels=['frontend'])
 k8s_resource(
     'gateway',
-    links=[link('http://localhost:30080', 'App (admin@admin.com / admin)')],
+    links=[link('http://localhost:30080', 'App (admin@admin.com / admin123)')],
     labels=['frontend'],
 )
 

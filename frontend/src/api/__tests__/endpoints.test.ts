@@ -23,7 +23,7 @@ describe('API modules', () => {
   describe('authApi', () => {
     it('deleteAccount posts without a password: the backend checks the sign-in time', async () => {
       await authApi.deleteAccount()
-      expect(apiClient.post).toHaveBeenCalledWith('/auth/delete-account', {})
+      expect(apiClient.post).toHaveBeenCalledWith('/auth/delete-account')
     })
 
     it('logoutAll posts to the logout-all endpoint', async () => {

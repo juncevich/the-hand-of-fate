@@ -38,7 +38,7 @@ class EmailBudgetIntegrationTest
 
         @Test
         fun `invitations beyond the budget are rejected with 429 and leave no trace`() {
-            val token = registerAndGetToken(email("budget-owner"))
+            val token = signUp(email("budget-owner"))
             val invited = List(3) { email("invited") }
             val voteId =
                 parse(
@@ -65,7 +65,7 @@ class EmailBudgetIntegrationTest
 
         @Test
         fun `draws over the budget succeed without result emails`() {
-            val token = registerAndGetToken(email("drawer"))
+            val token = signUp(email("drawer"))
             val invited = email("invited")
             val voteId =
                 parse(

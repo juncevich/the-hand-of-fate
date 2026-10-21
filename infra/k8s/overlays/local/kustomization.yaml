@@ -74,7 +74,6 @@ secretGenerator:
     literals:
       - DB_USERNAME=fate
       - DB_PASSWORD=fate
-      - JWT_ACCESS_SECRET=dev-secret-key-at-least-256-bits-long-for-testing-purposes-only
       - KEYCLOAK_CLIENT_SECRET=dev-keycloak-backend-secret
   - name: postgres-secrets
     literals:

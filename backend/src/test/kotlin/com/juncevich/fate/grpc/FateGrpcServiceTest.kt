@@ -707,7 +707,6 @@ class FateGrpcServiceTest {
     private fun user(telegramId: Long): User =
         User(
             email = "owner@example.com",
-            passwordHash = "hash",
             displayName = "Owner",
             telegramId = telegramId
         )

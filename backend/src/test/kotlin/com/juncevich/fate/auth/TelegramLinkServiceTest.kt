@@ -23,7 +23,6 @@ class TelegramLinkServiceTest {
         User(
             id = id,
             email = "user@test.com",
-            passwordHash = "hash",
             displayName = "Test User"
         )
 

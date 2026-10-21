@@ -163,7 +163,7 @@ done
 
 cat <<EOF
 
-  App       → http://localhost:30080      (admin@admin.com / admin)
+  App       → http://localhost:30080      (admin@admin.com / admin123)
   Mailpit   → http://localhost:30025
   RustFS    → http://localhost:30901/rustfs/console/  (rustfsadmin / rustfsadmin)
   Postgres  → localhost:30432             (fate / fate, db fate)

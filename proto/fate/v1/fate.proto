@@ -217,7 +217,8 @@ enum DrawTarget {
 }
 
 // Machine-readable reason of an error: ErrorInfo.reason (without the prefix) and the error_code of
-// mutating responses. Mirrors the backend's com.juncevich.fate.shared.ErrorCode; never renumber.
+// mutating responses. Mirrors the backend's com.juncevich.fate.shared.ErrorCode; never renumber or remove
+// (a value out of use is marked deprecated).
 enum ErrorCode {
   ERROR_CODE_UNSPECIFIED = 0;
   ERROR_CODE_VALIDATION_FAILED = 1;
@@ -229,14 +230,14 @@ enum ErrorCode {
   ERROR_CODE_ALREADY_EXISTS = 7;
   ERROR_CODE_INTERNAL_ERROR = 8;
   ERROR_CODE_INVALID_EMAIL = 9;
-  ERROR_CODE_INVALID_CREDENTIALS = 10;
-  ERROR_CODE_EMAIL_ALREADY_REGISTERED = 11;
-  ERROR_CODE_EMAIL_NOT_VERIFIED = 12;
-  ERROR_CODE_WRONG_PASSWORD = 13;
-  ERROR_CODE_LOGIN_THROTTLED = 14;
+  ERROR_CODE_INVALID_CREDENTIALS = 10 [deprecated = true];
+  ERROR_CODE_EMAIL_ALREADY_REGISTERED = 11 [deprecated = true];
+  ERROR_CODE_EMAIL_NOT_VERIFIED = 12 [deprecated = true];
+  ERROR_CODE_WRONG_PASSWORD = 13 [deprecated = true];
+  ERROR_CODE_LOGIN_THROTTLED = 14 [deprecated = true];
   ERROR_CODE_INVALID_TOKEN = 15;
-  ERROR_CODE_TOKEN_EXPIRED = 16;
-  ERROR_CODE_REFRESH_TOKEN_REQUIRED = 17;
+  ERROR_CODE_TOKEN_EXPIRED = 16 [deprecated = true];
+  ERROR_CODE_REFRESH_TOKEN_REQUIRED = 17 [deprecated = true];
   ERROR_CODE_USER_NOT_FOUND = 18;
   ERROR_CODE_EMAIL_LIMIT_REACHED = 19;
   ERROR_CODE_AVATAR_INVALID = 20;

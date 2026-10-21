@@ -14,8 +14,6 @@ interface UserRepositoryPort {
 
     fun findAllByIdIn(ids: Collection<UUID>): List<User>
 
-    fun existsByEmail(email: String): Boolean
-
     fun save(user: User): User
 
     /** Gives the account the id [to]; references follow it. False when [from] does not exist. */

@@ -9,18 +9,25 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 func TestEveryErrorCodeHasAText(t *testing.T) {
 	for value, name := range fatev1.ErrorCode_name {
 		code := fatev1.ErrorCode(value)
-		if code == fatev1.ErrorCode_ERROR_CODE_UNSPECIFIED {
+		if code == fatev1.ErrorCode_ERROR_CODE_UNSPECIFIED || isDeprecated(code) {
 			continue
 		}
 		if strings.TrimSpace(errorTexts[code]) == "" {
 			t.Errorf("no Russian text for %s", name)
 		}
 	}
+}
+
+// isDeprecated reports a value marked [deprecated = true] in the proto: the backend no longer sends it.
+func isDeprecated(code fatev1.ErrorCode) bool {
+	opts, _ := code.Descriptor().Values().ByNumber(code.Number()).Options().(*descriptorpb.EnumValueOptions)
+	return opts.GetDeprecated()
 }
 
 func statusWithReason(c codes.Code, reason string) error {

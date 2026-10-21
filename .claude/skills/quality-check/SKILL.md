@@ -47,7 +47,7 @@ go test ./...
 
 ## Cross-cutting checks worth calling out
 
-- **Secrets/config hygiene**: grep for hardcoded secrets or dev-default values (`JWT_ACCESS_SECRET`, `GRPC_SHARED_SECRET`) accidentally used outside `dev`/`test` profile guards.
+- **Secrets/config hygiene**: grep for hardcoded secrets or dev-default values (`GRPC_SHARED_SECRET`, `UNSUBSCRIBE_SECRET`, `KEYCLOAK_CLIENT_SECRET`) accidentally used outside `dev`/`test` profile guards.
 - **Test coverage gaps**: for backend, confirm new services/controllers have corresponding MockK/standaloneSetup tests (see `backend-module-scaffold` skill for the expected pattern) rather than running a coverage tool that isn't configured in this repo.
 - **Dependency staleness**: not part of this skill — use the `update-dependencies` skill instead.
 

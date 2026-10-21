@@ -87,61 +87,11 @@ class EmailService(
         )
     }
 
-    @Retryable(
-        includes = [MailException::class],
-        maxRetries = 2,
-        delayString = "\${app.mail.retry.delay-ms:1000}",
-        multiplier = 2.0
-    )
-    fun sendEmailVerification(
-        to: String,
-        displayName: String,
-        link: String,
-    ) {
-        send(
-            to = to,
-            subject = "✦ Confirm your email for The Hand of Fate",
-            html =
-                actionHtml(
-                    heading = "Welcome, ${escape(displayName)}!",
-                    text = "Confirm this address to finish creating your account. The link is valid for 24 hours.",
-                    link = link,
-                    button = "Confirm email",
-                    footer = "If you didn't sign up, just ignore this email."
-                )
-        )
-    }
-
-    @Retryable(
-        includes = [MailException::class],
-        maxRetries = 2,
-        delayString = "\${app.mail.retry.delay-ms:1000}",
-        multiplier = 2.0
-    )
-    fun sendPasswordReset(
-        to: String,
-        displayName: String,
-        link: String,
-    ) {
-        send(
-            to = to,
-            subject = "✦ Reset your password for The Hand of Fate",
-            html =
-                actionHtml(
-                    heading = "Hello, ${escape(displayName)}",
-                    text = "Someone asked to reset the password of this account. The link is valid for 30 minutes.",
-                    link = link,
-                    button = "Choose a new password",
-                    footer = "If it wasn't you, ignore this email — your password stays the same."
-                )
-        )
-    }
-
     private fun send(
         to: String,
         subject: String,
         html: String,
-        unsubscribe: UnsubscribeLinks? = null,
+        unsubscribe: UnsubscribeLinks,
     ) {
         val message = mailSender.createMimeMessage()
         MimeMessageHelper(message, true, "UTF-8").apply {
@@ -150,11 +100,9 @@ class EmailService(
             setSubject(subject)
             setText(html, true)
         }
-        unsubscribe?.let {
-            // RFC 8058 one-click unsubscribe: mail clients POST to the URL without opening a page.
-            message.setHeader("List-Unsubscribe", "<${it.oneClick}>")
-            message.setHeader("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
-        }
+        // RFC 8058 one-click unsubscribe: mail clients POST to the URL without opening a page.
+        message.setHeader("List-Unsubscribe", "<${unsubscribe.oneClick}>")
+        message.setHeader("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
         sendPermits.acquire()
         try {
             mailSender.send(message)
@@ -214,26 +162,6 @@ class EmailService(
         </body></html>
         """.trimIndent()
     )
-
-    private fun actionHtml(
-        heading: String,
-        text: String,
-        link: String,
-        button: String,
-        footer: String,
-    ) = """
-        <!DOCTYPE html>
-        <html><body style="font-family:sans-serif;background:#0d0d1a;color:#f0f0f0;padding:24px">
-        <h2 style="color:#f59e0b">✦ The Hand of Fate</h2>
-        <h3 style="color:#fff">$heading</h3>
-        <p>$text</p>
-        <a href="$link" style="display:inline-block;background:#f59e0b;color:#000;padding:12px 24px;
-            border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px">
-          $button
-        </a>
-        <p style="color:#a0a0b0;margin-top:24px">$footer</p>
-        </body></html>
-        """.trimIndent()
 
     private fun escape(value: String) =
         value

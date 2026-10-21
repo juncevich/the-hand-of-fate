@@ -1,14 +1,11 @@
 package com.juncevich.fate.auth.internal.persistence.adapter
 
 import com.juncevich.fate.auth.User
-import com.juncevich.fate.auth.internal.domain.RefreshToken
 import com.juncevich.fate.auth.internal.domain.TelegramLinkToken
-import com.juncevich.fate.auth.internal.persistence.jpa.RefreshTokenJpaRepository
 import com.juncevich.fate.auth.internal.persistence.jpa.TelegramLinkTokenJpaRepository
 import com.juncevich.fate.auth.internal.persistence.jpa.UserJpaRepository
 import com.juncevich.fate.auth.internal.persistence.mapper.toDomain
 import com.juncevich.fate.auth.internal.persistence.mapper.toJpaEntity
-import com.juncevich.fate.auth.internal.port.RefreshTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.TelegramLinkTokenRepositoryPort
 import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import org.springframework.stereotype.Component
@@ -31,8 +28,6 @@ class UserPersistenceAdapter(
     override fun findAllByIdIn(ids: Collection<UUID>): List<User> =
         userJpaRepository.findAllById(ids).map { it.toDomain() }
 
-    override fun existsByEmail(email: String): Boolean = userJpaRepository.existsByEmail(email)
-
     override fun save(user: User): User = userJpaRepository.save(user.toJpaEntity()).toDomain()
 
     override fun changeId(
@@ -44,9 +39,7 @@ class UserPersistenceAdapter(
         userJpaRepository.insertIfAbsent(
             id = user.id,
             email = user.email,
-            passwordHash = user.passwordHash,
             displayName = user.displayName,
-            emailVerifiedAt = user.emailVerifiedAt,
             createdAt = user.createdAt
         ) > 0
 
@@ -55,41 +48,6 @@ class UserPersistenceAdapter(
         // The row must be gone before the transaction's other work (and its FK cascades) is checked.
         userJpaRepository.flush()
     }
-}
-
-@Component
-class RefreshTokenPersistenceAdapter(
-    private val userJpaRepository: UserJpaRepository,
-    private val refreshTokenJpaRepository: RefreshTokenJpaRepository,
-) : RefreshTokenRepositoryPort {
-    override fun findByTokenHash(tokenHash: String): RefreshToken? =
-        refreshTokenJpaRepository.findByTokenHash(tokenHash)?.toDomain()
-
-    override fun save(token: RefreshToken): RefreshToken {
-        val userEntity = userJpaRepository.getReferenceById(token.user.id)
-        return refreshTokenJpaRepository.save(token.toJpaEntity(userEntity)).toDomain()
-    }
-
-    override fun revoke(
-        token: RefreshToken,
-        at: Instant,
-    ) {
-        refreshTokenJpaRepository.revoke(token.id, at)
-    }
-
-    override fun delete(token: RefreshToken) {
-        refreshTokenJpaRepository.deleteById(token.id)
-    }
-
-    override fun deleteFamily(familyId: UUID) {
-        refreshTokenJpaRepository.deleteAllByFamilyId(familyId)
-    }
-
-    override fun deleteAllByUserId(userId: UUID) {
-        refreshTokenJpaRepository.deleteAllByUserId(userId)
-    }
-
-    override fun deleteExpired(now: Instant): Int = refreshTokenJpaRepository.deleteExpired(now)
 }
 
 @Component

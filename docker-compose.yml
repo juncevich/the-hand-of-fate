@@ -36,13 +36,9 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/fate
       DB_USERNAME: fate
       DB_PASSWORD: fate
-      JWT_ACCESS_SECRET: dev-secret-key-at-least-256-bits-long-for-testing-purposes-only
-      JWT_ACCESS_TTL_MINUTES: 15
-      JWT_REFRESH_TTL_DAYS: 30
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
       FRONTEND_URL: http://localhost:3000
-      REFRESH_COOKIE_SECURE: "false"
       # gRPC is reached by the bot across the Docker bridge network, so bind to
       # all interfaces here (the shared secret still authenticates callers).
       GRPC_BIND_ADDRESS: 0.0.0.0

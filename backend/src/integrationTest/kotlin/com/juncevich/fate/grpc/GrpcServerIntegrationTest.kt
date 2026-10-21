@@ -96,7 +96,7 @@ class GrpcServerIntegrationTest : AbstractApiIntegrationTest() {
 
     @Test
     fun `linked telegram user can create, draw and list votes over gRPC`() {
-        val accessToken = registerAndGetToken("grpc-${UUID.randomUUID()}@test.com")
+        val accessToken = signUp("grpc-${UUID.randomUUID()}@test.com")
         val linkToken =
             parse(
                 mockMvc

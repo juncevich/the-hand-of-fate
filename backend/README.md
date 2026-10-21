@@ -35,7 +35,7 @@ Kotlin + Spring Boot REST API and gRPC server for The Hand of Fate.
 | Java (toolchain)   | 26       |
 | gRPC / gRPC-Kotlin | 1.84.0 / 1.5.0 |
 | Protobuf           | 4.36.2   |
-| JWT                | Spring Security OAuth2 resource server (Nimbus) |
+| Access tokens      | Keycloak's RS256 JWTs, verified by the Spring Security OAuth2 resource server (Nimbus, JWKS) |
 | PostgreSQL driver  | 42.7.13  |
 | Flyway             | (managed by Spring Boot) |
 
@@ -44,18 +44,16 @@ Kotlin + Spring Boot REST API and gRPC server for The Hand of Fate.
 ```
 src/main/kotlin/com/juncevich/fate/
 ├── config/
-│   ├── JwtProperties.kt        JWT TTL + secret config
 │   └── SecurityConfig.kt       Spring Security — public vs protected routes
 ├── security/
-│   ├── JwtTokenProvider.kt     Token generation and validation
-│   └── JwtAuthFilter.kt        Reads Bearer token from each request
+│   └── KeycloakTokens.kt       Keycloak token validation (JWKS, aud, email_verified) and conversion
 ├── web/
-│   ├── auth/                   /api/v1/auth — register + email verification, login, refresh, logout, passwords
+│   ├── auth/                   /api/v1/auth — logout everywhere, account deletion (sign-in itself is Keycloak's)
 │   ├── vote/                   /api/v1/votes — CRUD, draw, history, options
 │   ├── telegram/               /api/v1/telegram — link token generation
 │   └── common/                 ErrorHandler — maps exceptions to RFC 7807 responses
 ├── service/
-│   ├── AuthService.kt          Registration, login, token refresh/revocation
+│   ├── KeycloakUserProvisioner.kt  Creates the users row on a Keycloak user's first request
 │   ├── VoteService.kt          Vote CRUD, addOption / removeOption
 │   ├── DrawService.kt          SIMPLE / FAIR_ROTATION draw logic for participants and options
 │   ├── NotificationWorker.kt   Outbox polling, retries with backoff, dead-letter handling
@@ -64,7 +62,7 @@ src/main/kotlin/com/juncevich/fate/
 ├── domain/
 │   ├── user/                   User entity + repository
 │   ├── vote/                   Vote, VoteParticipant, VoteOption, DrawHistory entities + repos
-│   └── auth/                   RefreshToken, TelegramLinkToken entities + repos
+│   └── auth/                   TelegramLinkToken, DeletedAccount entities + repos
 └── grpc/
     └── FateGrpcService.kt      gRPC implementation — delegates to service layer
 src/main/resources/
@@ -76,20 +74,13 @@ src/main/resources/
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/auth/register` | Register; 202, mails a verification link (no session yet) |
-| `POST` | `/api/v1/auth/verify-email` | Confirm the address with the mailed token and sign in |
-| `POST` | `/api/v1/auth/resend-verification` | Mail a new verification link (always 202) |
-| `POST` | `/api/v1/auth/forgot-password` | Mail a password reset link (always 202) |
-| `POST` | `/api/v1/auth/reset-password` | Set a new password with the mailed token; ends every session |
-| `POST` | `/api/v1/auth/change-password` | Change the password (authenticated); ends the other sessions |
-| `POST` | `/api/v1/auth/login` | Login, returns access + refresh tokens (403 `EMAIL_NOT_VERIFIED` until confirmed) |
-| `POST` | `/api/v1/auth/delete-account` | Delete the account (password required) and the votes it created |
+| `GET`  | `/api/v1/users/me` | Profile of the signed-in account (created on the first request with a Keycloak token) |
+| `POST` | `/api/v1/auth/logout-all` | End every Keycloak session of the account |
+| `POST` | `/api/v1/auth/delete-account` | Delete the account and the votes it created (needs a sign-in within 5 minutes) |
 | `GET`/`PUT` | `/api/v1/users/me/email-preferences` | Notification emails on/off for the account's address |
 | `POST` | `/api/v1/notifications/unsubscribe` | Opt an address out with the signed link from an email (public) |
 | `POST` | `/api/v1/notifications/unsubscribe/one-click` | RFC 8058 one-click unsubscribe for mail clients (public) |
 | `GET`  | `/api/v1/votes/stats` | `createdCount` — votes the user created |
-| `POST` | `/api/v1/auth/refresh` | Refresh access token |
-| `POST` | `/api/v1/auth/logout` | Revoke refresh token |
 | `GET`  | `/api/v1/votes` | List own votes (paginated) |
 | `POST` | `/api/v1/votes` | Create a vote |
 | `GET`  | `/api/v1/votes/{id}` | Vote details |
@@ -125,7 +116,7 @@ Start both (plus Mailpit) with `make infra` from the repo root — the store is 
 ./gradlew bootRun
 ```
 
-**Demo user** (V7 migration): `admin@admin.com` / `admin`
+**Demo user** (Keycloak dev realm, `infra/keycloak/realm-dev/`): `admin@admin.com` / `admin123`. Sign-in needs Keycloak — `make infra` starts it on :8180, served to the SPA under `:3000/auth`.
 
 ## Build Commands
 
@@ -162,6 +153,8 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 | V22 | `draw_history.seed` / `candidates` — draw audit record |
 | V23 | `users.email_verified_at` + `email_tokens` — email verification and password reset |
 | V24 | `email_suppressions` — addresses that unsubscribed from notification emails |
+| V25 | `ON UPDATE CASCADE` on FKs to `users(id)` + `deleted_accounts` — Keycloak account takeover and deletion |
+| V26 | Drops the app's own login: `refresh_tokens`, `email_tokens`, `users.password_hash`, `users.email_verified_at` |
 
 ## Environment Variables
 
@@ -170,9 +163,9 @@ Flyway runs automatically on startup. Files in `src/main/resources/db/migration/
 | `DB_URL` | `jdbc:postgresql://localhost:5432/fate` | JDBC URL |
 | `DB_USERNAME` | — | PostgreSQL user |
 | `DB_PASSWORD` | — | PostgreSQL password |
-| `JWT_ACCESS_SECRET` | (dev default) | Must be ≥256-bit in production |
-| `JWT_ACCESS_TTL_MINUTES` | `15` | Access token lifetime |
-| `JWT_REFRESH_TTL_DAYS` | `30` | Refresh token lifetime |
+| `KEYCLOAK_URL` | `http://localhost:8180/auth` | Where the backend reaches Keycloak (JWKS, Admin API) |
+| `KEYCLOAK_PUBLIC_URL` | `http://localhost:3000/auth` | Keycloak's public base URL; accepted tokens have `iss` = `<this>/realms/fate` |
+| `KEYCLOAK_CLIENT_SECRET` | (dev default) | Secret of the `fate-backend` service account; checked outside `dev`/`test` |
 | `MAIL_HOST` | `localhost` | SMTP host (Mailpit in dev) |
 | `MAIL_PORT` | `1025` | SMTP port |
 | `FRONTEND_URL` | `http://localhost:3000` | CORS origin and email links |
@@ -210,7 +203,7 @@ commit-reveal scheme.
 
 ### Consistency and notification delivery
 
-All vote mutations acquire the same PostgreSQL row lock. Refresh and Telegram link tokens are locked before consumption. Email addresses are normalized in the service layer before lookup, deduplication and persistence. The vote module uses immutable `UserProfile` values without credential fields.
+All vote mutations acquire the same PostgreSQL row lock. Telegram link tokens are locked before consumption. Email addresses are normalized in the service layer before lookup, deduplication and persistence. The vote module uses immutable `UserProfile` values without credential fields.
 
 Migration V11 adds `notification_outbox` (V14 adds the `failed_at` dead-letter state). Vote events are recorded in the vote transaction, with one job per recipient. Payloads are dedicated versioned DTOs (`InvitationPayload`, `DrawResultPayload`, `NOTIFICATION_PAYLOAD_VERSION`), not the domain events, so refactoring an event does not break queued jobs; an unreadable or unsupported-version payload is marked failed immediately. `NotificationWorker` polls every second, claims at most `batch-size` jobs, and performs SMTP delivery outside DB transactions. A claimed job is leased (`lease`, default 2 minutes) so a crashed worker's job is recovered. The worker is designed for a single backend instance: under heavy SMTP retries a batch can outlive the lease, and a second instance would re-claim and send duplicates. SMTP connection/read/write timeouts are 5/10/10 seconds.
 

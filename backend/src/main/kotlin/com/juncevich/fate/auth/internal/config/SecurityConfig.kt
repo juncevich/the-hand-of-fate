@@ -1,7 +1,6 @@
 package com.juncevich.fate.auth.internal.config
 
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.convert.converter.Converter
@@ -12,12 +11,9 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
-import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver
-import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.web.cors.CorsConfiguration
@@ -28,7 +24,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 @EnableWebSecurity
 @EnableMethodSecurity
 class SecurityConfig(
-    private val rateLimitFilter: RateLimitFilter,
     private val accessTokenAuthenticationConverter: Converter<Jwt, AbstractAuthenticationToken>,
     @param:Value("\${app.frontend-url}") private val frontendUrl: String,
 ) {
@@ -40,13 +35,6 @@ class SecurityConfig(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
                 auth
-                    .requestMatchers(
-                        "/api/v1/auth/logout-all",
-                        "/api/v1/auth/change-password",
-                        "/api/v1/auth/delete-account"
-                    ).authenticated()
-                    .requestMatchers("/api/v1/auth/**")
-                    .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/users/*/avatar")
                     .permitAll()
                     .requestMatchers(
@@ -73,29 +61,18 @@ class SecurityConfig(
             }.exceptionHandling {
                 // Return 401 for unauthenticated requests to protected endpoints
                 it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-            }.addFilterBefore(rateLimitFilter, BearerTokenAuthenticationFilter::class.java)
-            .build()
+            }.build()
 
     /**
-     * The SPA attaches its (possibly expired) access token to every call, including the
-     * public login/register/refresh/logout endpoints. Ignore it there so a stale token can
-     * never turn those into 401s; everywhere else an invalid token is rejected.
+     * The public unsubscribe endpoints ignore a bearer token, so a stale one can never turn them
+     * into 401s; everywhere else an invalid token is rejected.
      */
     private fun bearerTokenResolver(): BearerTokenResolver {
         val delegate = DefaultBearerTokenResolver()
         return BearerTokenResolver { request ->
-            if (PUBLIC_AUTH_PATHS.any { request.requestURI == it }) null else delegate.resolve(request)
+            if (UNSUBSCRIBE_PATHS.any { request.requestURI == it }) null else delegate.resolve(request)
         }
     }
-
-    @Bean
-    fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
-
-    // Prevent the servlet container from auto-registering the filter for every
-    // request; it must only run inside the security chain (auth paths only).
-    @Bean
-    fun rateLimitFilterRegistration(filter: RateLimitFilter): FilterRegistrationBean<RateLimitFilter> =
-        FilterRegistrationBean(filter).apply { isEnabled = false }
 
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
@@ -104,7 +81,6 @@ class SecurityConfig(
                 allowedOrigins = listOf(frontendUrl)
                 allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                 allowedHeaders = listOf("*")
-                allowCredentials = true
                 maxAge = 3600L
             }
         return UrlBasedCorsConfigurationSource().apply {
@@ -113,16 +89,8 @@ class SecurityConfig(
     }
 
     private companion object {
-        val PUBLIC_AUTH_PATHS =
+        val UNSUBSCRIBE_PATHS =
             listOf(
-                "/api/v1/auth/login",
-                "/api/v1/auth/register",
-                "/api/v1/auth/refresh",
-                "/api/v1/auth/logout",
-                "/api/v1/auth/verify-email",
-                "/api/v1/auth/resend-verification",
-                "/api/v1/auth/forgot-password",
-                "/api/v1/auth/reset-password",
                 "/api/v1/notifications/unsubscribe",
                 "/api/v1/notifications/unsubscribe/one-click"
             )

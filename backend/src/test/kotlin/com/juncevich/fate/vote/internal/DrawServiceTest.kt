@@ -45,7 +45,7 @@ class DrawServiceTest {
         every { meterRegistry.counter(any<String>(), *anyVararg<String>()) } returns counter
     }
 
-    private fun makeUser(email: String = "creator@test.com") = User(email = email, passwordHash = "hash", displayName = "Test User")
+    private fun makeUser(email: String = "creator@test.com") = User(email = email, displayName = "Test User")
 
     private fun makeVote(
         mode: VoteMode = VoteMode.SIMPLE,

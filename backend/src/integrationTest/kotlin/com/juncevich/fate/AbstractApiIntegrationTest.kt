@@ -3,14 +3,13 @@ package com.juncevich.fate
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.context.WebApplicationContext
 import org.testcontainers.containers.GenericContainer
@@ -91,73 +90,19 @@ abstract class AbstractApiIntegrationTest {
 
     // ── Auth helpers ─────────────────────────────────────────────────────────
 
-    /** Registers, confirms the address with the mailed token and returns the session's access token. */
-    protected fun registerAndGetToken(
+    /**
+     * Signs [email] up as Keycloak would and makes the first request, which creates the account;
+     * returns the access token.
+     */
+    protected fun signUp(
         email: String,
-        password: String = "password123",
         displayName: String = "Test User",
     ): String {
+        val token = keycloakToken(email, name = displayName)
         mockMvc
-            .post("/api/v1/auth/register") {
-                contentType = MediaType.APPLICATION_JSON
-                content =
-                    """{"email":"$email","password":"$password","displayName":"$displayName"}"""
-            }.andExpect { status { isAccepted() } }
-        return verifyEmail(mailedToken(email, "EMAIL_VERIFICATION"))
-    }
-
-    /** Follows a verification link: returns the access token of the session it starts. */
-    protected fun verifyEmail(token: String): String {
-        val result =
-            mockMvc
-                .post("/api/v1/auth/verify-email") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content = """{"token":"$token"}"""
-                }.andExpect { status { isOk() } }
-                .andReturn()
-        return objectMapper.readTree(result.response.contentAsString)["accessToken"].asString()
-    }
-
-    /**
-     * The raw token of the latest [type] email queued for [email] — what the recipient would find
-     * in the link. Tests run with outbox delivery off, so the job is still there.
-     */
-    protected fun mailedToken(
-        email: String,
-        type: String,
-    ): String =
-        checkNotNull(
-            jdbcTemplate.queryForObject(
-                """
-                SELECT payload::jsonb ->> 'token' FROM notification_outbox
-                WHERE event_type = ? AND payload::jsonb ->> 'recipientEmail' = ?
-                ORDER BY created_at DESC, id DESC LIMIT 1
-                """,
-                String::class.java,
-                type,
-                email
-            )
-        )
-
-    protected fun loginAndGetTokens(
-        email: String,
-        password: String = "password123",
-    ): Pair<String, String> {
-        val result =
-            mockMvc
-                .post("/api/v1/auth/login") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content = """{"email":"$email","password":"$password"}"""
-                }.andReturn()
-        val accessToken = objectMapper.readTree(result.response.contentAsString)["accessToken"].asString()
-        val setCookie = result.response.getHeader("Set-Cookie").orEmpty()
-        val refreshToken =
-            Regex("fate_refresh_token=([^;]+)")
-                .find(setCookie)
-                ?.groupValues
-                ?.get(1)
-                .orEmpty()
-        return accessToken to refreshToken
+            .get("/api/v1/users/me") { header("Authorization", "Bearer $token") }
+            .andExpect { status { isOk() } }
+        return token
     }
 
     /**
@@ -168,9 +113,10 @@ abstract class AbstractApiIntegrationTest {
         email: String,
         userId: UUID = UUID.randomUUID(),
         authTime: Instant? = Instant.now(),
+        name: String = "Kate Keycloak",
     ): String {
         FakeKeycloak.users += userId
-        return FakeKeycloak.token(userId, email, authTime = authTime)
+        return FakeKeycloak.token(userId, email, name = name, authTime = authTime)
     }
 
     protected fun parse(json: String): JsonNode = objectMapper.readTree(json)

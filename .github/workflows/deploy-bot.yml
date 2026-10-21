@@ -70,7 +70,6 @@ jobs:
       DB_URL:            ${{ secrets.DB_URL }}
       DB_USERNAME:       ${{ secrets.DB_USERNAME }}
       DB_PASSWORD:       ${{ secrets.DB_PASSWORD }}
-      JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
       MAIL_HOST:         ${{ secrets.MAIL_HOST }}
       MAIL_PORT:         ${{ secrets.MAIL_PORT }}
       MAIL_USERNAME:     ${{ secrets.MAIL_USERNAME }}
@@ -127,7 +126,6 @@ jobs:
             printf "DB_URL='%s'\n"            "$(escape "$DB_URL")"
             printf "DB_USERNAME='%s'\n"       "$(escape "$DB_USERNAME")"
             printf "DB_PASSWORD='%s'\n"       "$(escape "$DB_PASSWORD")"
-            printf "JWT_ACCESS_SECRET='%s'\n" "$(escape "$JWT_ACCESS_SECRET")"
             printf "MAIL_HOST='%s'\n"         "$(escape "$MAIL_HOST")"
             printf "MAIL_PORT='%s'\n"         "$(escape "$MAIL_PORT")"
             printf "MAIL_USERNAME='%s'\n"     "$(escape "$MAIL_USERNAME")"

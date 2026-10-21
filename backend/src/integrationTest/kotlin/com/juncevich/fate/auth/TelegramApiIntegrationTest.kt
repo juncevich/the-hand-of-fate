@@ -11,7 +11,7 @@ import java.util.UUID
 class TelegramApiIntegrationTest : AbstractApiIntegrationTest() {
     @Test
     fun `GET telegram link-token - authenticated - returns token and expiresAt`() {
-        val token = registerAndGetToken("tg-${UUID.randomUUID()}@test.com")
+        val token = signUp("tg-${UUID.randomUUID()}@test.com")
 
         val result =
             mockMvc
@@ -36,7 +36,7 @@ class TelegramApiIntegrationTest : AbstractApiIntegrationTest() {
 
     @Test
     fun `DELETE telegram unlink - no linked account - returns 409`() {
-        val token = registerAndGetToken("tg-unlink-${UUID.randomUUID()}@test.com")
+        val token = signUp("tg-unlink-${UUID.randomUUID()}@test.com")
 
         // Unlinking without a linked Telegram account is a conflict
         mockMvc
@@ -52,7 +52,7 @@ class TelegramApiIntegrationTest : AbstractApiIntegrationTest() {
 
     @Test
     fun `GET telegram link-token - generates distinct token on each call`() {
-        val token = registerAndGetToken("tg-distinct-${UUID.randomUUID()}@test.com")
+        val token = signUp("tg-distinct-${UUID.randomUUID()}@test.com")
 
         val result1 =
             mockMvc

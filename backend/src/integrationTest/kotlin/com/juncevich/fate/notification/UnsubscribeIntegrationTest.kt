@@ -19,7 +19,7 @@ class UnsubscribeIntegrationTest
         @Test
         fun `a signed link unsubscribes without signing in, and the account can opt back in`() {
             val email = "unsub-${UUID.randomUUID()}@test.com"
-            val token = registerAndGetToken(email)
+            val token = signUp(email)
             preferencesOf(token).andExpect { jsonPath("$.notificationsEnabled") { value(true) } }
 
             mockMvc

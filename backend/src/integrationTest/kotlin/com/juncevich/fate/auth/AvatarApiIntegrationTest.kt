@@ -10,7 +10,6 @@ import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.multipart
-import org.springframework.test.web.servlet.post
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -32,9 +31,9 @@ class AvatarApiIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     @Test
-    fun `avatar lifecycle - upload, public download, cache validation, login payload, delete`() {
+    fun `avatar lifecycle - upload, public download, cache validation, profile, delete`() {
         val email = "avatar-${UUID.randomUUID()}@test.com"
-        val token = registerAndGetToken(email)
+        val token = signUp(email)
 
         val avatarUrl =
             upload(token)
@@ -60,10 +59,8 @@ class AvatarApiIntegrationTest : AbstractApiIntegrationTest() {
         mockMvc.get(avatarUrl) { header("If-None-Match", etag) }.andExpect { status { isNotModified() } }
 
         mockMvc
-            .post("/api/v1/auth/login") {
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"email":"$email","password":"password123"}"""
-            }.andExpect { jsonPath("$.avatarUrl") { value(avatarUrl) } }
+            .get("/api/v1/users/me") { header("Authorization", "Bearer $token") }
+            .andExpect { jsonPath("$.avatarUrl") { value(avatarUrl) } }
 
         mockMvc
             .delete("/api/v1/users/me/avatar") { header("Authorization", "Bearer $token") }
@@ -73,14 +70,11 @@ class AvatarApiIntegrationTest : AbstractApiIntegrationTest() {
 
     @Test
     fun `new users have no avatar`() {
-        val email = "fresh-${UUID.randomUUID()}@test.com"
-        registerAndGetToken(email)
+        val token = signUp("fresh-${UUID.randomUUID()}@test.com")
         val result =
             mockMvc
-                .post("/api/v1/auth/login") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content = """{"email":"$email","password":"password123"}"""
-                }.andExpect { status { isOk() } }
+                .get("/api/v1/users/me") { header("Authorization", "Bearer $token") }
+                .andExpect { status { isOk() } }
                 .andReturn()
         val body = parse(result.response.contentAsString)
         val userId = body.text("userId")
@@ -91,7 +85,7 @@ class AvatarApiIntegrationTest : AbstractApiIntegrationTest() {
 
     @Test
     fun `rejects non-image uploads`() {
-        val token = registerAndGetToken("avatar-bad-${UUID.randomUUID()}@test.com")
+        val token = signUp("avatar-bad-${UUID.randomUUID()}@test.com")
 
         upload(token, MockMultipartFile("file", "x.svg", "image/svg+xml", "<svg/>".toByteArray()))
             .andExpect {

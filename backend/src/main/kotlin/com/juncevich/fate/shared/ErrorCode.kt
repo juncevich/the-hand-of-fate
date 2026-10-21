@@ -5,8 +5,11 @@ package com.juncevich.fate.shared
  * the `ErrorInfo.reason` / `error_code` of gRPC answers. Clients show their own wording per code
  * (the frontend's and the bot's dictionaries must cover every value), so the English `title`
  * is only a fallback. The proto `ErrorCode` enum mirrors this one (`ERROR_CODE_` + name) —
- * `ErrorMappingContractTest` keeps them in sync. Never rename or reuse a value.
+ * `ErrorMappingContractTest` keeps them in sync. Never rename or reuse a value: one that goes out of
+ * use is deprecated here and in the proto, never removed.
  */
+private const val LEGACY_LOGIN = "Answered only by the app's own login, replaced by Keycloak"
+
 enum class ErrorCode {
     // ── Generic ──────────────────────────────────────────────────────────────
     VALIDATION_FAILED,
@@ -20,13 +23,27 @@ enum class ErrorCode {
 
     // ── Accounts ─────────────────────────────────────────────────────────────
     INVALID_EMAIL,
+
+    @Deprecated(LEGACY_LOGIN)
     INVALID_CREDENTIALS,
+
+    @Deprecated(LEGACY_LOGIN)
     EMAIL_ALREADY_REGISTERED,
+
+    @Deprecated(LEGACY_LOGIN)
     EMAIL_NOT_VERIFIED,
+
+    @Deprecated(LEGACY_LOGIN)
     WRONG_PASSWORD,
+
+    @Deprecated(LEGACY_LOGIN)
     LOGIN_THROTTLED,
     INVALID_TOKEN,
+
+    @Deprecated(LEGACY_LOGIN)
     TOKEN_EXPIRED,
+
+    @Deprecated(LEGACY_LOGIN)
     REFRESH_TOKEN_REQUIRED,
     USER_NOT_FOUND,
     EMAIL_LIMIT_REACHED,

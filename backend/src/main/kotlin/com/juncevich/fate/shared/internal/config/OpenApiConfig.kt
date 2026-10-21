@@ -17,21 +17,29 @@ import io.swagger.v3.oas.models.media.ObjectSchema
 import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.media.StringSchema
 import io.swagger.v3.oas.models.responses.ApiResponse
+import io.swagger.v3.oas.models.security.OAuthFlow
+import io.swagger.v3.oas.models.security.OAuthFlows
+import io.swagger.v3.oas.models.security.Scopes
 import io.swagger.v3.oas.models.security.SecurityRequirement
 import io.swagger.v3.oas.models.security.SecurityScheme
 import io.swagger.v3.oas.models.servers.Server
 import org.springdoc.core.customizers.OpenApiCustomizer
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import kotlin.reflect.full.primaryConstructor
 
 /**
  * Shapes the springdoc-generated spec that is committed as `api/openapi.yaml` (see
- * `OpenApiSpecIntegrationTest`): metadata, bearer auth as the default security, and a shared
+ * `OpenApiSpecIntegrationTest`): metadata, Keycloak's tokens as the default security, and a shared
  * `ProblemDetail` error body. Only served when `springdoc.api-docs.enabled` is on.
  */
 @Configuration
-class OpenApiConfig {
+class OpenApiConfig(
+    // Where browsers reach Keycloak (shared can't see auth's KeycloakProperties).
+    @param:Value("\${app.keycloak.public-url}") private val keycloakPublicUrl: String,
+    @param:Value("\${app.keycloak.realm}") private val keycloakRealm: String,
+) {
     @Bean
     fun openApi(): OpenAPI =
         OpenAPI()
@@ -55,10 +63,27 @@ class OpenApiConfig {
                             .type(SecurityScheme.Type.HTTP)
                             .scheme("bearer")
                             .bearerFormat("JWT")
-                            .description("Access token returned by login/register/refresh")
-                    ).addSchemas(OpenApiDocs.PROBLEM_SCHEMA, problemSchema())
+                            .description("Access token issued by Keycloak (realm `fate`, audience `fate-api`)")
+                    ).addSecuritySchemes(OpenApiDocs.KEYCLOAK, keycloakScheme())
+                    .addSchemas(OpenApiDocs.PROBLEM_SCHEMA, problemSchema())
                     .addSchemas(ERROR_CODE_SCHEMA, errorCodeSchema())
             ).addSecurityItem(SecurityRequirement().addList(OpenApiDocs.BEARER))
+            .addSecurityItem(SecurityRequirement().addList(OpenApiDocs.KEYCLOAK))
+
+    private fun keycloakScheme(): SecurityScheme {
+        val endpoint = "$keycloakPublicUrl/realms/$keycloakRealm/protocol/openid-connect"
+        return SecurityScheme()
+            .type(SecurityScheme.Type.OAUTH2)
+            .description("Sign in through Keycloak; Swagger UI uses the dev-only client `fate-swagger` with PKCE")
+            .flows(
+                OAuthFlows().authorizationCode(
+                    OAuthFlow()
+                        .authorizationUrl("$endpoint/auth")
+                        .tokenUrl("$endpoint/token")
+                        .scopes(Scopes().addString("openid", "Sign in"))
+                )
+            )
+    }
 
     /**
      * Adds the error responses every operation shares (`401` where an access token is required,
@@ -70,7 +95,8 @@ class OpenApiConfig {
     fun errorResponsesCustomizer(): OpenApiCustomizer =
         OpenApiCustomizer { openApi ->
             val requiresToken = { security: List<SecurityRequirement>? ->
-                security == null || security.any { it.containsKey(OpenApiDocs.BEARER) }
+                security == null ||
+                    security.any { it.containsKey(OpenApiDocs.BEARER) || it.containsKey(OpenApiDocs.KEYCLOAK) }
             }
             openApi.paths.orEmpty().values.flatMap { it.readOperations() }.forEach { operation ->
                 operation.responses

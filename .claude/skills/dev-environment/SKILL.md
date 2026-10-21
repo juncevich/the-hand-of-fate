@@ -62,13 +62,11 @@ K8S_OVERLAY=e2e ./k8s-start.sh && make k8s-e2e   # end-to-end checks, what CI's 
 | Tilt UI | http://localhost:10350 |
 | Swagger | Tilt: http://localhost:18080/swagger-ui.html; otherwise `kubectl --context hand-of-fate -n hand-of-fate port-forward svc/backend 18080:8080` |
 
-Manifests: `infra/k8s/base` (apps + nginx gateway) → `overlays/local` (Postgres, RustFS, Mailpit, Keycloak DB + dev realm, monitoring component, NodePorts) → `overlays/tilt` (Vite dev server, no CSP) / `overlays/e2e` (raised auth rate limit). Secrets come from `.env` via `overlays/local/write-secrets.sh` (`.secrets.env`, and `.oauth.env` for social login).
+Manifests: `infra/k8s/base` (apps + nginx gateway) → `overlays/local` (Postgres, RustFS, Mailpit, Keycloak DB + dev realm, monitoring component, NodePorts) → `overlays/tilt` (Vite dev server, no CSP) / `overlays/e2e` (raised gateway limit on Keycloak's forms, mock OIDC provider). Secrets come from `.env` via `overlays/local/write-secrets.sh` (`.secrets.env`, and `.oauth.env` for social login).
 
 ## Default demo user (dev/test only)
 
-`admin@admin.com` / `admin` — seeded by V7 migration, gated by the `seedDemoUser` Flyway placeholder (`dev`/`test` profiles only, never production). This is the app's own (legacy) login.
-
-In Keycloak (realm `fate`, `infra/keycloak/realm-dev/`) the same address has the password `admin123` — the realm's policy needs 8+ characters. The legacy login goes away with the Keycloak migration (docs/plans/keycloak-auth.md).
+`admin@admin.com` / `admin123` — a user of Keycloak's dev realm (`infra/keycloak/realm-dev/`; the realm's policy needs 8+ characters). The app has no login of its own: its `users` row is created on the first request with a Keycloak token.
 
 ## Diagnosing the Docker setups
 
@@ -78,7 +76,7 @@ In Keycloak (realm `fate`, `infra/keycloak/realm-dev/`) the same address has the
    lsof -nP -iTCP:8080 -sTCP:LISTEN
    ```
    `dev-start.sh` is supposed to handle stale process cleanup itself — if it still fails, kill the stale PID manually and retry.
-2. **Backend won't boot** — check `SPRING_PROFILES_ACTIVE=dev` is set (native run via `dev-start.sh` sets this); without it, `SecretsValidator` (`@Profile("!dev & !test")`) will abort startup if `JWT_ACCESS_SECRET` / `GRPC_SHARED_SECRET` are missing/short/default.
+2. **Backend won't boot** — check `SPRING_PROFILES_ACTIVE=dev` is set (native run via `dev-start.sh` sets this); without it, `SecretsValidator` (`@Profile("!dev & !test")`) will abort startup if `GRPC_SHARED_SECRET` / `UNSUBSCRIBE_SECRET` / `KEYCLOAK_CLIENT_SECRET` are missing/short/default.
 3. **Bot doesn't start** — confirm `BOT_TOKEN` is set in `.env`; `dev-start.sh` silently skips the bot otherwise. Without a collector, set `OTEL_SDK_DISABLED=true` to skip telemetry export (its errors are debug-level only anyway).
 4. **Frontend can't reach backend** — `npm run dev` proxies `/api` → `:8080`; confirm backend is actually up on 8080, not still starting.
 5. **Keycloak** — `docker compose -f docker-compose.infra.yml logs keycloak keycloak-config`. `keycloak-config` exits 0 when the realm was applied; rerun it after editing `infra/keycloak/realm*/` with `docker compose -f docker-compose.infra.yml up keycloak-config`. In minikube: `kubectl --context hand-of-fate -n hand-of-fate logs job/keycloak-config` (k8s-start.sh recreates the Job on every run).

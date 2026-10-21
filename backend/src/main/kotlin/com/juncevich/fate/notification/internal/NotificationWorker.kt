@@ -1,11 +1,9 @@
 package com.juncevich.fate.notification.internal
 
 import com.juncevich.fate.notification.DrawResultPayload
-import com.juncevich.fate.notification.EmailVerificationPayload
 import com.juncevich.fate.notification.InvitationPayload
 import com.juncevich.fate.notification.NOTIFICATION_PAYLOAD_VERSION
 import com.juncevich.fate.notification.NotificationPayload
-import com.juncevich.fate.notification.PasswordResetPayload
 import com.juncevich.fate.notification.internal.port.EmailSuppressionPort
 import com.juncevich.fate.notification.internal.port.NotificationJob
 import com.juncevich.fate.notification.internal.port.NotificationOutboxPort
@@ -63,7 +61,7 @@ class NotificationWorker(
                 giveUp(job, ex)
                 return
             }
-        if (payload.isOptOutable && suppressions.isSuppressed(payload.recipientEmail)) {
+        if (suppressions.isSuppressed(payload.recipientEmail)) {
             // Checked at delivery rather than when queued, so unsubscribing also stops queued emails.
             meterRegistry.counter("notification.suppressed", "reason", "unsubscribed").increment()
             outbox.complete(job)
@@ -89,17 +87,6 @@ class NotificationWorker(
                     NotificationType.DRAW_RESULT -> {
                         json.readValue(job.payload, DrawResultPayload::class.java)
                     }
-
-                    NotificationType.EMAIL_VERIFICATION -> {
-                        json.readValue(
-                            job.payload,
-                            EmailVerificationPayload::class.java
-                        )
-                    }
-
-                    NotificationType.PASSWORD_RESET -> {
-                        json.readValue(job.payload, PasswordResetPayload::class.java)
-                    }
                 }
             } catch (ex: JacksonException) {
                 throw UnreadablePayloadException("Unreadable ${job.type} payload: ${ex.originalMessage}", ex)
@@ -114,8 +101,6 @@ class NotificationWorker(
         when (payload) {
             is InvitationPayload -> delivery.send(payload)
             is DrawResultPayload -> delivery.send(payload)
-            is EmailVerificationPayload -> delivery.send(payload)
-            is PasswordResetPayload -> delivery.send(payload)
         }
     }
 
@@ -149,21 +134,11 @@ class NotificationWorker(
         outbox.fail(job, ex.message ?: "Delivery failed")
     }
 
-    /** Notification emails can be unsubscribed from; account emails (verification, reset) cannot. */
-    private val NotificationPayload.isOptOutable: Boolean
-        get() =
-            when (this) {
-                is InvitationPayload, is DrawResultPayload -> true
-                is EmailVerificationPayload, is PasswordResetPayload -> false
-            }
-
     private val NotificationType.metricTag: String
         get() =
             when (this) {
                 NotificationType.INVITATION -> "invitation"
                 NotificationType.DRAW_RESULT -> "draw-result"
-                NotificationType.EMAIL_VERIFICATION -> "email-verification"
-                NotificationType.PASSWORD_RESET -> "password-reset"
             }
 }
 

@@ -2,9 +2,7 @@ package com.juncevich.fate.notification.internal
 
 import com.juncevich.fate.notification.DrawResultPayload
 import com.juncevich.fate.notification.EmailPreferences
-import com.juncevich.fate.notification.EmailVerificationPayload
 import com.juncevich.fate.notification.InvitationPayload
-import com.juncevich.fate.notification.PasswordResetPayload
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
@@ -40,22 +38,6 @@ class NotificationAdapter(
             round = payload.round,
             voteUrl = voteUrl(payload.voteId),
             unsubscribe = unsubscribeLinks(payload.recipientEmail)
-        )
-    }
-
-    fun send(payload: EmailVerificationPayload) {
-        emailService.sendEmailVerification(
-            to = payload.recipientEmail,
-            displayName = payload.displayName,
-            link = "$frontendUrl/verify-email?token=${encode(payload.token)}"
-        )
-    }
-
-    fun send(payload: PasswordResetPayload) {
-        emailService.sendPasswordReset(
-            to = payload.recipientEmail,
-            displayName = payload.displayName,
-            link = "$frontendUrl/reset-password?token=${encode(payload.token)}"
         )
     }
 

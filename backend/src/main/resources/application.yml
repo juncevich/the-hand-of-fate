@@ -37,8 +37,8 @@ spring:
     baseline-on-migrate: false
     locations: classpath:db/migration
     placeholders:
-      # Prod-safe default: the demo user (admin@admin.com) is NOT seeded.
-      # Enabled only under the dev/test profiles.
+      # Read by V7, which seeded a demo user for the app's own login. Keycloak creates accounts
+      # now, so it stays off everywhere; it can't go: Flyway fails on an unresolved placeholder.
       seedDemoUser: "false"
 
   grpc:
@@ -70,7 +70,7 @@ spring:
 server:
   port: 8080
   shutdown: graceful
-  # Tomcat's RemoteIpValve: request.remoteAddr (used by RateLimitFilter) and the scheme come from
+  # Tomcat's RemoteIpValve: request.remoteAddr and the scheme come from
   # X-Forwarded-For/-Proto only when the direct peer is a trusted proxy. Trusted by default are
   # loopback and private ranges (nginx on the same host, docker/k8s networks); a client hitting
   # the backend directly cannot spoof its address. Override with
@@ -121,18 +121,10 @@ springdoc:
     enabled: ${SPRINGDOC_ENABLED:false}
     path: /swagger-ui.html
 
-jwt:
-  access-secret: ${JWT_ACCESS_SECRET:changeme-dev-secret-key-256-bits-long-xxxxxxxxxxxx}
-  access-ttl-minutes: ${JWT_ACCESS_TTL_MINUTES:15}
-  refresh-ttl-days: ${JWT_REFRESH_TTL_DAYS:30}
-  # A rotated refresh token stays usable this long (concurrent refreshes, e.g. two tabs);
-  # replaying it later is treated as theft and ends the whole session.
-  refresh-reuse-grace-seconds: ${JWT_REFRESH_REUSE_GRACE_SECONDS:30}
-
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
-  # Keycloak, the authorization server (docs/adr/0001, see KeycloakProperties). Its access tokens
-  # are accepted next to the app's own until those are removed. Defaults match dev-start.sh:
+  # Keycloak, the authorization server (docs/adr/0001, see KeycloakProperties): the API accepts
+  # only its access tokens. Defaults match dev-start.sh:
   # Keycloak on :8180, the SPA (and so the token issuer) on :3000/auth via Vite's proxy.
   keycloak:
     url: ${KEYCLOAK_URL:http://localhost:8180/auth}
@@ -164,7 +156,6 @@ app:
     # Signs the unsubscribe link of every notification email (HMAC-SHA256 of the recipient).
     # Changing it invalidates the links in emails already sent.
     unsubscribe-secret: ${UNSUBSCRIBE_SECRET:changeme-dev-unsubscribe-secret}
-  refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
   # S3-compatible object storage for avatars (see StorageProperties). Disabled unless
   # configured: avatar endpoints then answer 409 and users simply have no avatar.
   storage:

@@ -17,7 +17,8 @@ const errorDomain = "fate.v1"
 const telegramNotLinkedText = "Telegram аккаунт не привязан.\n\n" +
 	"Получите токен в настройках приложения и выполните /link <токен> в личных сообщениях"
 
-// errorTexts must cover every fatev1.ErrorCode (TestEveryErrorCodeHasAText).
+// errorTexts must cover every fatev1.ErrorCode the backend still sends — deprecated ones are left out
+// (TestEveryErrorCodeHasAText).
 var errorTexts = map[fatev1.ErrorCode]string{
 	fatev1.ErrorCode_ERROR_CODE_VALIDATION_FAILED:       "Некорректные данные команды.",
 	fatev1.ErrorCode_ERROR_CODE_REQUEST_INVALID:         "Некорректный запрос.",
@@ -29,14 +30,7 @@ var errorTexts = map[fatev1.ErrorCode]string{
 	fatev1.ErrorCode_ERROR_CODE_INTERNAL_ERROR:          "Ошибка сервера. Попробуйте позже.",
 
 	fatev1.ErrorCode_ERROR_CODE_INVALID_EMAIL:             "Некорректный email.",
-	fatev1.ErrorCode_ERROR_CODE_INVALID_CREDENTIALS:       "Неверный email или пароль.",
-	fatev1.ErrorCode_ERROR_CODE_EMAIL_ALREADY_REGISTERED:  "Этот email уже зарегистрирован.",
-	fatev1.ErrorCode_ERROR_CODE_EMAIL_NOT_VERIFIED:        "Сначала подтвердите адрес почты.",
-	fatev1.ErrorCode_ERROR_CODE_WRONG_PASSWORD:            "Неверный пароль.",
-	fatev1.ErrorCode_ERROR_CODE_LOGIN_THROTTLED:           "Слишком много неудачных попыток, попробуйте позже.",
 	fatev1.ErrorCode_ERROR_CODE_INVALID_TOKEN:             "Ссылка недействительна или уже использована.",
-	fatev1.ErrorCode_ERROR_CODE_TOKEN_EXPIRED:             "Срок действия ссылки истёк.",
-	fatev1.ErrorCode_ERROR_CODE_REFRESH_TOKEN_REQUIRED:    "Сессия истекла.",
 	fatev1.ErrorCode_ERROR_CODE_USER_NOT_FOUND:            "Пользователь не найден.",
 	fatev1.ErrorCode_ERROR_CODE_EMAIL_LIMIT_REACHED:       "Достигнут суточный лимит писем. Попробуйте позже или пригласите меньше участников.",
 	fatev1.ErrorCode_ERROR_CODE_REAUTHENTICATION_REQUIRED: "Для подтверждения войдите в приложение ещё раз.",

@@ -23,7 +23,7 @@ class UserQueryServiceTest {
 
     @Test
     fun `bulk profile lookup exports only public identity fields`() {
-        val user = User(email = "user@test.com", passwordHash = "secret hash", displayName = "User", telegramId = 42)
+        val user = User(email = "user@test.com", displayName = "User", telegramId = 42)
         every { repository.findAllByIdIn(listOf(user.id)) } returns listOf(user)
         every { repository.findAllByEmailIn(listOf(user.email)) } returns listOf(user)
         val profile = UserProfile(user.id, user.email, user.displayName)

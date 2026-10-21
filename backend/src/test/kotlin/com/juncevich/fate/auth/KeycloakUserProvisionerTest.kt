@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.time.Instant
 import java.util.UUID
 
 class KeycloakUserProvisionerTest {
@@ -22,13 +21,7 @@ class KeycloakUserProvisionerTest {
 
     private val identity = KeycloakIdentity(UUID.randomUUID(), "kate@test.com", "Kate")
 
-    private fun account(verified: Boolean) =
-        User(
-            email = identity.email,
-            passwordHash = "hash",
-            displayName = "Old",
-            emailVerifiedAt = if (verified) Instant.now() else null
-        )
+    private fun account() = User(email = identity.email, displayName = "Old")
 
     private fun inserted(identity: KeycloakIdentity): User {
         every { users.findById(identity.id) } returns null
@@ -42,7 +35,7 @@ class KeycloakUserProvisionerTest {
 
     @Test
     fun `a known account needs nothing`() {
-        every { users.findById(identity.id) } returns account(verified = true)
+        every { users.findById(identity.id) } returns account()
 
         assertTrue(provisioner.ensureProvisioned(identity))
 
@@ -61,8 +54,8 @@ class KeycloakUserProvisionerTest {
     }
 
     @Test
-    fun `a confirmed account with the same email is taken over`() {
-        val existing = account(verified = true)
+    fun `an account with the same email is taken over`() {
+        val existing = account()
         every { users.findById(identity.id) } returns null
         every { deletedAccounts.isDeleted(identity.id) } returns false
         every { users.findByEmail(identity.email) } returns existing
@@ -74,29 +67,12 @@ class KeycloakUserProvisionerTest {
     }
 
     @Test
-    fun `an unconfirmed account with the same email is replaced`() {
-        val existing = account(verified = false)
-        every { users.findById(identity.id) } returns null
-        every { deletedAccounts.isDeleted(identity.id) } returns false
-        every { users.findByEmail(identity.email) } returns existing
-        every { users.insertIfAbsent(any()) } returns true
-
-        assertTrue(provisioner.ensureProvisioned(identity))
-
-        verify { users.delete(existing.id) }
-        verify { users.insertIfAbsent(match { it.id == identity.id && it.passwordHash == KeycloakUserProvisioner.NO_PASSWORD }) }
-        verify(exactly = 0) { users.changeId(any(), any()) }
-    }
-
-    @Test
-    fun `a new account is verified, has no password and is named after the token`() {
+    fun `a new account is named after the token`() {
         val user = inserted(identity)
 
         assertEquals(identity.id, user.id)
         assertEquals("kate@test.com", user.email)
         assertEquals("Kate", user.displayName)
-        assertEquals(KeycloakUserProvisioner.NO_PASSWORD, user.passwordHash)
-        assertTrue(user.emailVerifiedAt != null)
     }
 
     @Test

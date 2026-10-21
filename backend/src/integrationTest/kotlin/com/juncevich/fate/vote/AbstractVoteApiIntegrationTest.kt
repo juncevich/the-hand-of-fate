@@ -13,7 +13,7 @@ import java.util.UUID
 abstract class AbstractVoteApiIntegrationTest : AbstractApiIntegrationTest() {
     protected fun createUser(): Pair<String, String> {
         val email = "vote-user-${UUID.randomUUID()}@test.com"
-        val token = registerAndGetToken(email)
+        val token = signUp(email)
         return token to email
     }
 

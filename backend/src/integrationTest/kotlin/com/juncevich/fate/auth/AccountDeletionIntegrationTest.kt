@@ -39,8 +39,8 @@ class AccountDeletionIntegrationTest : AbstractApiIntegrationTest() {
     fun `deleting an account removes its votes and data and anonymizes it in other votes`() {
         val annEmail = email("ann")
         val bobEmail = email("bob")
-        val ann = registerAndGetToken(annEmail)
-        val bob = registerAndGetToken(bobEmail)
+        val ann = signUp(annEmail)
+        val bob = signUp(bobEmail)
 
         val annsVote = createVote(ann, listOf(bobEmail))
         // Bob's vote where Ann is the only participant left, so she wins its draw.
@@ -52,17 +52,8 @@ class AccountDeletionIntegrationTest : AbstractApiIntegrationTest() {
         assertTrue(count("SELECT count(*) FROM notification_outbox WHERE payload::jsonb ->> 'recipientEmail' = ?", annEmail) > 0)
 
         mockMvc
-            .post("/api/v1/auth/delete-account") {
-                header("Authorization", "Bearer $ann")
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"password":"wrong-password"}"""
-            }.andExpect { jsonPath("$.code") { value("WRONG_PASSWORD") } }
-        mockMvc
-            .post("/api/v1/auth/delete-account") {
-                header("Authorization", "Bearer $ann")
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"password":"password123"}"""
-            }.andExpect { status { isNoContent() } }
+            .post("/api/v1/auth/delete-account") { header("Authorization", "Bearer $ann") }
+            .andExpect { status { isNoContent() } }
 
         assertEquals(0, count("SELECT count(*) FROM users WHERE email = ?", annEmail))
         assertEquals(0, count("SELECT count(*) FROM votes WHERE id = ?::uuid", annsVote))
@@ -76,16 +67,13 @@ class AccountDeletionIntegrationTest : AbstractApiIntegrationTest() {
             jsonPath("$.content[0].winnerDisplayName") { value("Deleted user") }
             jsonPath("$.content[0].winnerEmail") { value(null as Any?) }
         }
-        mockMvc
-            .post("/api/v1/auth/login") {
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"email":"$annEmail","password":"password123"}"""
-            }.andExpect { status { isUnauthorized() } }
+        // Her token, still valid for minutes, doesn't bring the account back.
+        mockMvc.get("/api/v1/users/me") { header("Authorization", "Bearer $ann") }.andExpect { status { isUnauthorized() } }
     }
 
     @Test
     fun `the stats tell how many votes deleting the account would delete`() {
-        val token = registerAndGetToken(email("stats"))
+        val token = signUp(email("stats"))
         createVote(token, emptyList())
         createVote(token, emptyList())
 

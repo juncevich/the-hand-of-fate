@@ -11,8 +11,9 @@ servers:
 - url: /
 security:
 - bearerAuth: []
+- keycloak: []
 tags:
-- description: "Registration, login and refresh-token session"
+- description: Sessions and deletion of the signed-in account
   name: Auth
 - description: User avatar images
   name: Avatars
@@ -23,51 +24,16 @@ tags:
 - description: "Votes, their participants/options and draws"
   name: Votes
 paths:
-  /api/v1/auth/change-password:
-    post:
-      description: Ends every other session; the caller gets a fresh one. 400 with
-        code WRONG_PASSWORD on a wrong current password.
-      operationId: changePassword
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ChangePasswordRequest"
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResponse"
-          description: Changed; the new refresh token is set as a cookie
-        "401":
-          description: Missing or invalid access token
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Error described by a problem detail
-      summary: Change the password
-      tags:
-      - Auth
   /api/v1/auth/delete-account:
     post:
-      description: "Confirmed by the password (400 with code WRONG_PASSWORD if wrong)\
-        \ or, without one, by a sign-in within the last minutes (403 with code REAUTHENTICATION_REQUIRED\
-        \ otherwise). Deletes the votes the user created; in other votes the user\
-        \ stops being a participant and past wins are anonymized."
+      description: Needs a sign-in within the last minutes (403 with code REAUTHENTICATION_REQUIRED
+        otherwise). Deletes the votes the user created; in other votes the user stops
+        being a participant and past wins are anonymized. The Keycloak user is deleted
+        too.
       operationId: deleteAccount
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DeleteAccountRequest"
-        required: true
       responses:
         "204":
-          description: Deleted; the refresh cookie is cleared
+          description: No Content
         "401":
           description: Missing or invalid access token
         default:
@@ -79,99 +45,14 @@ paths:
       summary: Delete the account and everything it created
       tags:
       - Auth
-  /api/v1/auth/forgot-password:
-    post:
-      description: "Sent only to a registered address, at most once a minute; the\
-        \ link is valid for 30 minutes."
-      operationId: forgotPassword
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EmailRequest"
-        required: true
-      responses:
-        "202":
-          description: Accepted
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Error described by a problem detail
-      security: []
-      summary: Mail a password reset link
-      tags:
-      - Auth
-  /api/v1/auth/login:
-    post:
-      description: "Answers 429 after too many requests from this client or failed\
-        \ attempts for this account, and 403 with code EMAIL_NOT_VERIFIED for a correct\
-        \ password on an unconfirmed address."
-      operationId: login
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LoginRequest"
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResponse"
-          description: Logged in; the refresh token is set as a cookie
-        "429":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Too many attempts from this client
-          headers:
-            Retry-After:
-              description: Seconds to wait
-              schema:
-                type: integer
-              style: simple
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Error described by a problem detail
-      security: []
-      summary: Log in and start a session
-      tags:
-      - Auth
-  /api/v1/auth/logout:
-    post:
-      operationId: logout
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RefreshRequest"
-      responses:
-        "204":
-          description: Logged out
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Error described by a problem detail
-      security:
-      - refreshCookie: []
-      summary: Revoke the current refresh token and clear the cookie
-      tags:
-      - Auth
   /api/v1/auth/logout-all:
     post:
+      description: Keycloak issues no new tokens to them; access tokens already issued
+        live until they expire.
       operationId: logoutAll
       responses:
         "204":
-          description: Logged out everywhere
+          description: No Content
         "401":
           description: Missing or invalid access token
         default:
@@ -180,161 +61,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProblemDetail"
           description: Error described by a problem detail
-      summary: Revoke every refresh token of the current user
-      tags:
-      - Auth
-  /api/v1/auth/refresh:
-    post:
-      description: "The refresh token is read from the body if present, otherwise\
-        \ from the cookie."
-      operationId: refresh
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RefreshRequest"
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResponse"
-          description: Refreshed; the rotated refresh token is set as a cookie
-        "429":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Too many attempts from this client
-          headers:
-            Retry-After:
-              description: Seconds to wait
-              schema:
-                type: integer
-              style: simple
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Error described by a problem detail
-      security:
-      - refreshCookie: []
-      summary: Rotate the refresh token and issue a new access token
-      tags:
-      - Auth
-  /api/v1/auth/register:
-    post:
-      description: "No session is started: the account can sign in once the link from\
-        \ the email is followed."
-      operationId: register
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegisterRequest"
-        required: true
-      responses:
-        "202":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RegistrationResponse"
-          description: Registered; a verification link was mailed
-        "429":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Too many attempts from this client
-          headers:
-            Retry-After:
-              description: Seconds to wait
-              schema:
-                type: integer
-              style: simple
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Error described by a problem detail
-      security: []
-      summary: Create an account and mail a verification link
-      tags:
-      - Auth
-  /api/v1/auth/resend-verification:
-    post:
-      description: "Sent only to a registered, unconfirmed address, at most once a\
-        \ minute."
-      operationId: resendVerification
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EmailRequest"
-        required: true
-      responses:
-        "202":
-          description: Accepted
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Error described by a problem detail
-      security: []
-      summary: Mail a new verification link
-      tags:
-      - Auth
-  /api/v1/auth/reset-password:
-    post:
-      description: Ends every session. 400 with code INVALID_TOKEN or TOKEN_EXPIRED
-        for an unusable link.
-      operationId: resetPassword
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ResetPasswordRequest"
-        required: true
-      responses:
-        "204":
-          description: Password changed
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Error described by a problem detail
-      security: []
-      summary: Set a new password with the mailed token
-      tags:
-      - Auth
-  /api/v1/auth/verify-email:
-    post:
-      operationId: verifyEmail
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/VerifyEmailRequest"
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResponse"
-          description: Verified and signed in; the refresh token is set as a cookie
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: Error described by a problem detail
-      security: []
-      summary: Confirm the email address with the mailed token and sign in
+      summary: End every session of the current user
       tags:
       - Auth
   /api/v1/notifications/unsubscribe:
@@ -1081,26 +808,6 @@ components:
           minLength: 1
       required:
       - email
-    AuthResponse:
-      type: object
-      properties:
-        accessToken:
-          type: string
-        avatarUrl:
-          type: string
-          nullable: true
-        displayName:
-          type: string
-        email:
-          type: string
-        userId:
-          type: string
-      required:
-      - accessToken
-      - avatarUrl
-      - displayName
-      - email
-      - userId
     AvatarResponse:
       type: object
       properties:
@@ -1108,19 +815,6 @@ components:
           type: string
       required:
       - avatarUrl
-    ChangePasswordRequest:
-      type: object
-      properties:
-        currentPassword:
-          type: string
-          minLength: 1
-        newPassword:
-          type: string
-          maxLength: 100
-          minLength: 8
-      required:
-      - currentPassword
-      - newPassword
     CreateVoteWebRequest:
       type: object
       properties:
@@ -1155,12 +849,6 @@ components:
           minLength: 0
       required:
       - title
-    DeleteAccountRequest:
-      type: object
-      properties:
-        password:
-          type: string
-          nullable: true
     DrawHistoryDto:
       type: object
       properties:
@@ -1226,15 +914,6 @@ components:
           type: boolean
       required:
       - notificationsEnabled
-    EmailRequest:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-          minLength: 1
-      required:
-      - email
     ErrorCode:
       type: string
       description: Machine-readable reason of the error. Clients show their own wording
@@ -1296,19 +975,6 @@ components:
       required:
       - expiresAt
       - token
-    LoginRequest:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-          minLength: 1
-        password:
-          type: string
-          minLength: 1
-      required:
-      - email
-      - password
     PageResponseDrawHistoryDto:
       type: object
       properties:
@@ -1425,38 +1091,6 @@ components:
       - displayName
       - email
       - userId
-    RefreshRequest:
-      type: object
-      properties:
-        refreshToken:
-          type: string
-          nullable: true
-    RegisterRequest:
-      type: object
-      properties:
-        displayName:
-          type: string
-          maxLength: 100
-          minLength: 0
-        email:
-          type: string
-          format: email
-          minLength: 1
-        password:
-          type: string
-          maxLength: 100
-          minLength: 8
-      required:
-      - displayName
-      - email
-      - password
-    RegistrationResponse:
-      type: object
-      properties:
-        email:
-          type: string
-      required:
-      - email
     ReorderOptionsRequest:
       type: object
       properties:
@@ -1469,19 +1103,6 @@ components:
           minItems: 0
       required:
       - optionIds
-    ResetPasswordRequest:
-      type: object
-      properties:
-        newPassword:
-          type: string
-          maxLength: 100
-          minLength: 8
-        token:
-          type: string
-          minLength: 1
-      required:
-      - newPassword
-      - token
     UnsubscribeRequest:
       type: object
       properties:
@@ -1494,14 +1115,6 @@ components:
       required:
       - email
       - signature
-    VerifyEmailRequest:
-      type: object
-      properties:
-        token:
-          type: string
-          minLength: 1
-      required:
-      - token
     VoteDetailDto:
       type: object
       properties:
@@ -1618,11 +1231,16 @@ components:
   securitySchemes:
     bearerAuth:
       bearerFormat: JWT
-      description: Access token returned by login/register/refresh
+      description: "Access token issued by Keycloak (realm `fate`, audience `fate-api`)"
       scheme: bearer
       type: http
-    refreshCookie:
-      description: httpOnly refresh token set by login/register/refresh
-      in: cookie
-      name: fate_refresh_token
-      type: apiKey
+    keycloak:
+      description: Sign in through Keycloak; Swagger UI uses the dev-only client `fate-swagger`
+        with PKCE
+      flows:
+        authorizationCode:
+          authorizationUrl: http://localhost:3000/auth/realms/fate/protocol/openid-connect/auth
+          scopes:
+            openid: Sign in
+          tokenUrl: http://localhost:3000/auth/realms/fate/protocol/openid-connect/token
+      type: oauth2

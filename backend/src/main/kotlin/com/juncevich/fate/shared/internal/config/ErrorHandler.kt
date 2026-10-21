@@ -16,7 +16,6 @@ import org.springframework.http.HttpStatusCode
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import org.springframework.orm.ObjectOptimisticLockingFailureException
-import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.core.AuthenticationException
 import org.springframework.validation.FieldError
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -74,10 +73,9 @@ class ErrorHandler : ResponseEntityExceptionHandler() {
     @ExceptionHandler(AuthenticationException::class)
     fun handleAuthentication(ex: AuthenticationException): ResponseEntity<ProblemDetail> {
         log.warn("Unauthorized: {}", ex.message)
-        val code = if (ex is BadCredentialsException) ErrorCode.INVALID_CREDENTIALS else ErrorCode.UNAUTHORIZED
         return ResponseEntity
             .status(HttpStatus.UNAUTHORIZED)
-            .body(problem(HttpStatus.UNAUTHORIZED, ex.message ?: "Unauthorized", code))
+            .body(problem(HttpStatus.UNAUTHORIZED, ex.message ?: "Unauthorized", ErrorCode.UNAUTHORIZED))
     }
 
     @ExceptionHandler(FateException::class)

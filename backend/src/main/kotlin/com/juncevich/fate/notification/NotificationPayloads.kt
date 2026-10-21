@@ -26,22 +26,6 @@ data class InvitationPayload(
     override val version: Int = NOTIFICATION_PAYLOAD_VERSION,
 ) : NotificationPayload
 
-/** Link to confirm [recipientEmail]; [token] is the raw one-time token (only its hash is stored). */
-data class EmailVerificationPayload(
-    override val recipientEmail: String,
-    val displayName: String,
-    val token: String,
-    override val version: Int = NOTIFICATION_PAYLOAD_VERSION,
-) : NotificationPayload
-
-/** Link to choose a new password; [token] is the raw one-time token (only its hash is stored). */
-data class PasswordResetPayload(
-    override val recipientEmail: String,
-    val displayName: String,
-    val token: String,
-    override val version: Int = NOTIFICATION_PAYLOAD_VERSION,
-) : NotificationPayload
-
 data class DrawResultPayload(
     val voteId: UUID,
     val voteTitle: String,

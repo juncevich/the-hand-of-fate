@@ -66,7 +66,7 @@ class MeControllerTest {
     fun `returns the caller's profile with a versioned avatar url`() {
         val avatarAt = Instant.ofEpochMilli(1_700_000_000_000)
         every { users.findById(userId) } returns
-            User(id = userId, email = "ann@test.com", passwordHash = "x", displayName = "Ann", avatarUpdatedAt = avatarAt)
+            User(id = userId, email = "ann@test.com", displayName = "Ann", avatarUpdatedAt = avatarAt)
 
         mockMvc.get("/api/v1/users/me").andExpect {
             status { isOk() }

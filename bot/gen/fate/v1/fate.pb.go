@@ -173,27 +173,35 @@ func (DrawTarget) EnumDescriptor() ([]byte, []int) {
 }
 
 // Machine-readable reason of an error: ErrorInfo.reason (without the prefix) and the error_code of
-// mutating responses. Mirrors the backend's com.juncevich.fate.shared.ErrorCode; never renumber.
+// mutating responses. Mirrors the backend's com.juncevich.fate.shared.ErrorCode; never renumber or remove
+// (a value out of use is marked deprecated).
 type ErrorCode int32
 
 const (
-	ErrorCode_ERROR_CODE_UNSPECIFIED                 ErrorCode = 0
-	ErrorCode_ERROR_CODE_VALIDATION_FAILED           ErrorCode = 1
-	ErrorCode_ERROR_CODE_REQUEST_INVALID             ErrorCode = 2
-	ErrorCode_ERROR_CODE_PAYLOAD_TOO_LARGE           ErrorCode = 3
-	ErrorCode_ERROR_CODE_UNAUTHORIZED                ErrorCode = 4
-	ErrorCode_ERROR_CODE_RATE_LIMITED                ErrorCode = 5
-	ErrorCode_ERROR_CODE_CONCURRENT_MODIFICATION     ErrorCode = 6
-	ErrorCode_ERROR_CODE_ALREADY_EXISTS              ErrorCode = 7
-	ErrorCode_ERROR_CODE_INTERNAL_ERROR              ErrorCode = 8
-	ErrorCode_ERROR_CODE_INVALID_EMAIL               ErrorCode = 9
-	ErrorCode_ERROR_CODE_INVALID_CREDENTIALS         ErrorCode = 10
-	ErrorCode_ERROR_CODE_EMAIL_ALREADY_REGISTERED    ErrorCode = 11
-	ErrorCode_ERROR_CODE_EMAIL_NOT_VERIFIED          ErrorCode = 12
-	ErrorCode_ERROR_CODE_WRONG_PASSWORD              ErrorCode = 13
-	ErrorCode_ERROR_CODE_LOGIN_THROTTLED             ErrorCode = 14
-	ErrorCode_ERROR_CODE_INVALID_TOKEN               ErrorCode = 15
-	ErrorCode_ERROR_CODE_TOKEN_EXPIRED               ErrorCode = 16
+	ErrorCode_ERROR_CODE_UNSPECIFIED             ErrorCode = 0
+	ErrorCode_ERROR_CODE_VALIDATION_FAILED       ErrorCode = 1
+	ErrorCode_ERROR_CODE_REQUEST_INVALID         ErrorCode = 2
+	ErrorCode_ERROR_CODE_PAYLOAD_TOO_LARGE       ErrorCode = 3
+	ErrorCode_ERROR_CODE_UNAUTHORIZED            ErrorCode = 4
+	ErrorCode_ERROR_CODE_RATE_LIMITED            ErrorCode = 5
+	ErrorCode_ERROR_CODE_CONCURRENT_MODIFICATION ErrorCode = 6
+	ErrorCode_ERROR_CODE_ALREADY_EXISTS          ErrorCode = 7
+	ErrorCode_ERROR_CODE_INTERNAL_ERROR          ErrorCode = 8
+	ErrorCode_ERROR_CODE_INVALID_EMAIL           ErrorCode = 9
+	// Deprecated: Marked as deprecated in fate/v1/fate.proto.
+	ErrorCode_ERROR_CODE_INVALID_CREDENTIALS ErrorCode = 10
+	// Deprecated: Marked as deprecated in fate/v1/fate.proto.
+	ErrorCode_ERROR_CODE_EMAIL_ALREADY_REGISTERED ErrorCode = 11
+	// Deprecated: Marked as deprecated in fate/v1/fate.proto.
+	ErrorCode_ERROR_CODE_EMAIL_NOT_VERIFIED ErrorCode = 12
+	// Deprecated: Marked as deprecated in fate/v1/fate.proto.
+	ErrorCode_ERROR_CODE_WRONG_PASSWORD ErrorCode = 13
+	// Deprecated: Marked as deprecated in fate/v1/fate.proto.
+	ErrorCode_ERROR_CODE_LOGIN_THROTTLED ErrorCode = 14
+	ErrorCode_ERROR_CODE_INVALID_TOKEN   ErrorCode = 15
+	// Deprecated: Marked as deprecated in fate/v1/fate.proto.
+	ErrorCode_ERROR_CODE_TOKEN_EXPIRED ErrorCode = 16
+	// Deprecated: Marked as deprecated in fate/v1/fate.proto.
 	ErrorCode_ERROR_CODE_REFRESH_TOKEN_REQUIRED      ErrorCode = 17
 	ErrorCode_ERROR_CODE_USER_NOT_FOUND              ErrorCode = 18
 	ErrorCode_ERROR_CODE_EMAIL_LIMIT_REACHED         ErrorCode = 19
@@ -1803,7 +1811,7 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"DrawTarget\x12\x1b\n" +
 	"\x17DRAW_TARGET_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18DRAW_TARGET_PARTICIPANTS\x10\x01\x12\x17\n" +
-	"\x13DRAW_TARGET_OPTIONS\x10\x02*\xb0\f\n" +
+	"\x13DRAW_TARGET_OPTIONS\x10\x02*\xcc\f\n" +
 	"\tErrorCode\x12\x1a\n" +
 	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cERROR_CODE_VALIDATION_FAILED\x10\x01\x12\x1e\n" +
@@ -1814,16 +1822,16 @@ const file_fate_v1_fate_proto_rawDesc = "" +
 	"\"ERROR_CODE_CONCURRENT_MODIFICATION\x10\x06\x12\x1d\n" +
 	"\x19ERROR_CODE_ALREADY_EXISTS\x10\a\x12\x1d\n" +
 	"\x19ERROR_CODE_INTERNAL_ERROR\x10\b\x12\x1c\n" +
-	"\x18ERROR_CODE_INVALID_EMAIL\x10\t\x12\"\n" +
+	"\x18ERROR_CODE_INVALID_EMAIL\x10\t\x12&\n" +
 	"\x1eERROR_CODE_INVALID_CREDENTIALS\x10\n" +
-	"\x12'\n" +
-	"#ERROR_CODE_EMAIL_ALREADY_REGISTERED\x10\v\x12!\n" +
-	"\x1dERROR_CODE_EMAIL_NOT_VERIFIED\x10\f\x12\x1d\n" +
-	"\x19ERROR_CODE_WRONG_PASSWORD\x10\r\x12\x1e\n" +
-	"\x1aERROR_CODE_LOGIN_THROTTLED\x10\x0e\x12\x1c\n" +
-	"\x18ERROR_CODE_INVALID_TOKEN\x10\x0f\x12\x1c\n" +
-	"\x18ERROR_CODE_TOKEN_EXPIRED\x10\x10\x12%\n" +
-	"!ERROR_CODE_REFRESH_TOKEN_REQUIRED\x10\x11\x12\x1d\n" +
+	"\x1a\x02\b\x01\x12+\n" +
+	"#ERROR_CODE_EMAIL_ALREADY_REGISTERED\x10\v\x1a\x02\b\x01\x12%\n" +
+	"\x1dERROR_CODE_EMAIL_NOT_VERIFIED\x10\f\x1a\x02\b\x01\x12!\n" +
+	"\x19ERROR_CODE_WRONG_PASSWORD\x10\r\x1a\x02\b\x01\x12\"\n" +
+	"\x1aERROR_CODE_LOGIN_THROTTLED\x10\x0e\x1a\x02\b\x01\x12\x1c\n" +
+	"\x18ERROR_CODE_INVALID_TOKEN\x10\x0f\x12 \n" +
+	"\x18ERROR_CODE_TOKEN_EXPIRED\x10\x10\x1a\x02\b\x01\x12)\n" +
+	"!ERROR_CODE_REFRESH_TOKEN_REQUIRED\x10\x11\x1a\x02\b\x01\x12\x1d\n" +
 	"\x19ERROR_CODE_USER_NOT_FOUND\x10\x12\x12\"\n" +
 	"\x1eERROR_CODE_EMAIL_LIMIT_REACHED\x10\x13\x12\x1d\n" +
 	"\x19ERROR_CODE_AVATAR_INVALID\x10\x14\x12\x1f\n" +

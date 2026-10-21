@@ -8,25 +8,28 @@ import java.util.UUID
 
 /** Every error body carries a `code` clients can translate, whoever produced it. */
 class ErrorCodesIntegrationTest : AbstractApiIntegrationTest() {
+    private val token by lazy { signUp("codes-${UUID.randomUUID()}@test.com") }
+
     @Test
     fun `bean validation reports the violated constraint per field`() {
         mockMvc
-            .post("/api/v1/auth/register") {
+            .post("/api/v1/votes") {
+                header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
-                content = """{"email":"nope","password":"short","displayName":""}"""
+                content = """{"title":"","mode":"SIMPLE","description":"${"d".repeat(2001)}"}"""
             }.andExpect {
                 status { isBadRequest() }
                 jsonPath("$.code") { value("VALIDATION_FAILED") }
-                jsonPath("$.fieldErrors.email") { value("Email") }
-                jsonPath("$.fieldErrors.password") { value("Size") }
-                jsonPath("$.fieldErrors.displayName") { value("NotBlank") }
+                jsonPath("$.fieldErrors.title") { value("NotBlank") }
+                jsonPath("$.fieldErrors.description") { value("Size") }
             }
     }
 
     @Test
     fun `spring mvc errors get a generic code`() {
         mockMvc
-            .post("/api/v1/auth/login") {
+            .post("/api/v1/votes") {
+                header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = "{not json"
             }.andExpect {
@@ -36,17 +39,11 @@ class ErrorCodesIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     @Test
-    fun `wrong credentials and domain errors carry their own codes`() {
+    fun `a rejected token and domain errors carry their own codes`() {
         mockMvc
-            .post("/api/v1/auth/login") {
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"email":"ghost-${UUID.randomUUID()}@test.com","password":"password123"}"""
-            }.andExpect {
-                status { isUnauthorized() }
-                jsonPath("$.code") { value("INVALID_CREDENTIALS") }
-            }
+            .get("/api/v1/users/me") { header("Authorization", "Bearer not-a-jwt") }
+            .andExpect { status { isUnauthorized() } }
 
-        val token = registerAndGetToken("codes-${UUID.randomUUID()}@test.com")
         mockMvc
             .get("/api/v1/votes/${UUID.randomUUID()}") { header("Authorization", "Bearer $token") }
             .andExpect {

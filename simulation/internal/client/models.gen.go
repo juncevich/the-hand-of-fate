@@ -221,21 +221,6 @@ type AddParticipantRequest struct {
 	Email string `json:"email"`
 }
 
-// AuthResponse defines model for AuthResponse.
-type AuthResponse struct {
-	AccessToken string  `json:"accessToken"`
-	AvatarURL   *string `json:"avatarUrl"`
-	DisplayName string  `json:"displayName"`
-	Email       string  `json:"email"`
-	UserID      string  `json:"userId"`
-}
-
-// ChangePasswordRequest defines model for ChangePasswordRequest.
-type ChangePasswordRequest struct {
-	CurrentPassword string `json:"currentPassword"`
-	NewPassword     string `json:"newPassword"`
-}
-
 // CreateVoteWebRequest defines model for CreateVoteWebRequest.
 type CreateVoteWebRequest struct {
 	Description       *string     `json:"description,omitempty"`
@@ -244,11 +229,6 @@ type CreateVoteWebRequest struct {
 	Options           []string    `json:"options,omitempty"`
 	ParticipantEmails []string    `json:"participantEmails,omitempty"`
 	Title             string      `json:"title"`
-}
-
-// DeleteAccountRequest defines model for DeleteAccountRequest.
-type DeleteAccountRequest struct {
-	Password *string `json:"password,omitempty"`
 }
 
 // DrawHistoryDto defines model for DrawHistoryDto.
@@ -278,11 +258,6 @@ type EmailPreferencesDto struct {
 	NotificationsEnabled bool `json:"notificationsEnabled"`
 }
 
-// EmailRequest defines model for EmailRequest.
-type EmailRequest struct {
-	Email string `json:"email"`
-}
-
 // ErrorCode Machine-readable reason of the error. Clients show their own wording per value; `title` is an English fallback.
 type ErrorCode string
 
@@ -290,12 +265,6 @@ type ErrorCode string
 type LinkTokenResponse struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 	Token     string    `json:"token"`
-}
-
-// LoginRequest defines model for LoginRequest.
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
 }
 
 // PageResponseDrawHistoryDto defines model for PageResponseDrawHistoryDto.
@@ -350,43 +319,15 @@ type ProfileResponse struct {
 	UserID      string  `json:"userId"`
 }
 
-// RefreshRequest defines model for RefreshRequest.
-type RefreshRequest struct {
-	RefreshToken *string `json:"refreshToken,omitempty"`
-}
-
-// RegisterRequest defines model for RegisterRequest.
-type RegisterRequest struct {
-	DisplayName string `json:"displayName"`
-	Email       string `json:"email"`
-	Password    string `json:"password"`
-}
-
-// RegistrationResponse defines model for RegistrationResponse.
-type RegistrationResponse struct {
-	Email string `json:"email"`
-}
-
 // ReorderOptionsRequest defines model for ReorderOptionsRequest.
 type ReorderOptionsRequest struct {
 	OptionIds []string `json:"optionIds"`
-}
-
-// ResetPasswordRequest defines model for ResetPasswordRequest.
-type ResetPasswordRequest struct {
-	NewPassword string `json:"newPassword"`
-	Token       string `json:"token"`
 }
 
 // UnsubscribeRequest defines model for UnsubscribeRequest.
 type UnsubscribeRequest struct {
 	Email     string `json:"email"`
 	Signature string `json:"signature"`
-}
-
-// VerifyEmailRequest defines model for VerifyEmailRequest.
-type VerifyEmailRequest struct {
-	Token string `json:"token"`
 }
 
 // VoteDetailDto defines model for VoteDetailDto.
@@ -471,36 +412,6 @@ type GetHistoryPageParams struct {
 	// Sort Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.
 	Sort []string `form:"sort,omitempty" json:"sort,omitempty"`
 }
-
-// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
-type ChangePasswordJSONRequestBody = ChangePasswordRequest
-
-// DeleteAccountJSONRequestBody defines body for DeleteAccount for application/json ContentType.
-type DeleteAccountJSONRequestBody = DeleteAccountRequest
-
-// ForgotPasswordJSONRequestBody defines body for ForgotPassword for application/json ContentType.
-type ForgotPasswordJSONRequestBody = EmailRequest
-
-// LoginJSONRequestBody defines body for Login for application/json ContentType.
-type LoginJSONRequestBody = LoginRequest
-
-// LogoutJSONRequestBody defines body for Logout for application/json ContentType.
-type LogoutJSONRequestBody = RefreshRequest
-
-// RefreshJSONRequestBody defines body for Refresh for application/json ContentType.
-type RefreshJSONRequestBody = RefreshRequest
-
-// RegisterJSONRequestBody defines body for Register for application/json ContentType.
-type RegisterJSONRequestBody = RegisterRequest
-
-// ResendVerificationJSONRequestBody defines body for ResendVerification for application/json ContentType.
-type ResendVerificationJSONRequestBody = EmailRequest
-
-// ResetPasswordJSONRequestBody defines body for ResetPassword for application/json ContentType.
-type ResetPasswordJSONRequestBody = ResetPasswordRequest
-
-// VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
-type VerifyEmailJSONRequestBody = VerifyEmailRequest
 
 // UnsubscribeJSONRequestBody defines body for Unsubscribe for application/json ContentType.
 type UnsubscribeJSONRequestBody = UnsubscribeRequest

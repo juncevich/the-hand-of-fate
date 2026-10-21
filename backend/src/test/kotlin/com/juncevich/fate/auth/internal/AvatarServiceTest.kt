@@ -30,7 +30,7 @@ class AvatarServiceTest {
     private val processor = mockk<AvatarImageProcessor>()
     private val service = AvatarService(users, storage, processor)
 
-    private val user = User(email = "user@test.com", passwordHash = "hash", displayName = "User")
+    private val user = User(email = "user@test.com", displayName = "User")
     private val key = "avatars/${user.id}.png"
     private val png = byteArrayOf(1, 2, 3)
 

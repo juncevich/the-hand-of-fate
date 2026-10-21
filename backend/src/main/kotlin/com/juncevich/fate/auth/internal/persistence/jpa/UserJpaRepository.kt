@@ -12,8 +12,6 @@ interface UserJpaRepository : JpaRepository<UserJpaEntity, UUID> {
 
     fun findByTelegramId(telegramId: Long): UserJpaEntity?
 
-    fun existsByEmail(email: String): Boolean
-
     fun findAllByEmailIn(emails: Collection<String>): List<UserJpaEntity>
 
     // Native: JPA cannot change an id. References follow via ON UPDATE CASCADE (V25).
@@ -28,19 +26,16 @@ interface UserJpaRepository : JpaRepository<UserJpaEntity, UUID> {
     @Modifying(clearAutomatically = true)
     @Query(
         """
-        INSERT INTO users (id, email, password_hash, display_name, email_verified_at, created_at, updated_at)
-        VALUES (:id, :email, :passwordHash, :displayName, :emailVerifiedAt, :createdAt, :createdAt)
+        INSERT INTO users (id, email, display_name, created_at, updated_at)
+        VALUES (:id, :email, :displayName, :createdAt, :createdAt)
         ON CONFLICT DO NOTHING
         """,
         nativeQuery = true
     )
-    @Suppress("LongParameterList") // one parameter per inserted column
     fun insertIfAbsent(
         id: UUID,
         email: String,
-        passwordHash: String,
         displayName: String,
-        emailVerifiedAt: Instant?,
         createdAt: Instant,
     ): Int
 }

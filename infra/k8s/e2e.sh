@@ -33,7 +33,7 @@ eventually() {
   return 1
 }
 
-if ! kc get configmap -o yaml | grep -q 'APP_RATELIMIT_CAPACITY'; then
+if ! kc get configmap -o yaml | grep -q 'KC_E2E_IDP_INTERNAL_URL'; then
   echo "WARNING: not the e2e overlay — the gateway's per-IP limits on sign-in forms may fail the" >&2
   echo "         browser tests. Deploy with: K8S_OVERLAY=e2e ./k8s-start.sh --skip-build" >&2
 fi

@@ -1,6 +1,6 @@
 # План: Keycloak как сервер авторизации
 
-Статус: **этап 5 — следующий** (этапы 0–4 готовы) · создан 2026-10-20
+Статус: **этап 5 — в работе** (этапы 0–4 готовы; осталось: прод и release-checklist) · создан 2026-10-20
 
 Как вести файл:
 - Пункт отмечается `[x]` в том же коммите, где сделана работа. Сделано частично — пункт остаётся `[ ]`, а в «Журнал» пишется, что уже готово.
@@ -30,7 +30,7 @@
    - `fate-swagger` — PKCE, только dev.
 8. **Соцсети.** First Broker Login без автоматической привязки: если аккаунт с таким email уже есть, привязка подтверждается входом в него или письмом. «Trust email» включаем только у провайдеров, которые сами подтверждают email. Яндекс подключается через generic OIDC/OAuth2 или `keycloak-russian-providers`.
 9. **Страницы входа — от Keycloak.** Своих форм поверх ROPC не делаем. Тема — см. открытый вопрос.
-10. **Без большого переключения.** На время перехода бэкенд принимает и свой HS256-токен, и токены Keycloak (`JwtIssuerAuthenticationManagerResolver`).
+10. **Без большого переключения.** На время перехода бэкенд принимал и свой HS256-токен, и токены Keycloak (свой `IssuerRoutingJwtDecoder`, этап 2). С этапа 5 — только Keycloak.
 
 ## Открытые вопросы
 
@@ -118,23 +118,23 @@
 
 ## Этап 5. Удалить старую аутентификацию
 
-- [ ] Убрать HS256-декодер и resolver двух выпускающих серверов: остаётся только Keycloak.
-- [ ] Удалить код:
+- [x] Убрать HS256-декодер и resolver двух выпускающих серверов: остаётся только Keycloak.
+- [x] Удалить код:
   - `AuthService`, `JwtTokenProvider`, `JwtConfig` (HS256), `JwtProperties`;
   - `RefreshToken*`, `EmailToken*`, `LoginThrottle`, `RateLimitFilter`, `PasswordConfirmation`;
   - `AuthController`, `AccountController`;
   - регистрацию, верификацию и сброс в `AccountService`.
-- [ ] `notification`: убрать payload'ы `EMAIL_VERIFICATION` и `PASSWORD_RESET` с их шаблонами.
-- [ ] `ExpiredTokenPurger`: оставить только Telegram-токены.
-- [ ] Миграция V26 (skill `new-migration`; V25 занята этапом 2): `DROP TABLE refresh_tokens, email_tokens`; `DROP COLUMN users.password_hash, users.email_verified_at`. Seed V7 больше ни на что не влияет: проверить, что плейсхолдер `seedDemoUser` тоже убран.
-- [ ] Устаревшие `ErrorCode` пометить deprecated, в proto сделать `reserved`, не удалять и не переиспользовать. Контрактные тесты зелёные.
-- [ ] Убрать `JWT_ACCESS_SECRET` и `JWT_*`: из конфигурации, `SecretsValidator`, `.env.example`, deploy-workflows.
-- [ ] OpenAPI:
+- [x] `notification`: убрать payload'ы `EMAIL_VERIFICATION` и `PASSWORD_RESET` с их шаблонами.
+- [x] `ExpiredTokenPurger`: оставить только Telegram-токены.
+- [x] Миграция V26 (skill `new-migration`; V25 занята этапом 2): `DROP TABLE refresh_tokens, email_tokens`; `DROP COLUMN users.password_hash, users.email_verified_at`; заодно удаляет неподтверждённые аккаунты и письма `EMAIL_VERIFICATION`/`PASSWORD_RESET` из outbox. Плейсхолдер `seedDemoUser` выключен во всех профилях, но остаётся в `application.yml`: V7 его читает, а без него Flyway падает.
+- [x] Устаревшие `ErrorCode` пометить deprecated, не удалять и не переиспользовать. Контрактные тесты зелёные. В proto вместо `reserved` — `[deprecated = true]`, см. журнал.
+- [x] Убрать `JWT_ACCESS_SECRET` и `JWT_*`: из конфигурации, `SecretsValidator`, `.env.example`, deploy-workflows.
+- [x] OpenAPI:
   - security scheme `oauth2` authorizationCode, Swagger через `fate-swagger`;
   - `make openapi`;
   - удалённые `/auth/*` записать в `api/accepted-breaking-changes.txt`.
 - [ ] Прод: Keycloak как systemd-юнит в `server-setup.yml` (`kc.sh build`, `proxy-headers=xforwarded`, HTTPS, location `/auth/` в nginx), секреты в deploy-workflows.
-- [ ] CLAUDE.md: Auth Flow, Key Environment Variables, команды, миграции, Testing, Observability (Keycloak в коллекторе и дашборде), демо-пароль `admin123` (README, `backend/README.md`, `perf/README.md`, `k8s-start.sh`, Tiltfile).
+- [x] CLAUDE.md: Auth Flow, Key Environment Variables, команды, миграции, Testing, Observability (Keycloak в коллекторе и дашборде), демо-пароль `admin123` (README, `backend/README.md`, `perf/README.md`, `k8s-start.sh`, Tiltfile).
 - [ ] Skill `release-checklist` проходит полностью.
 
 ## Этап 6. Тема страниц входа (после решения открытого вопроса)
@@ -180,3 +180,10 @@
   - Keycloak допускает http для IdP только на «локальный» адрес; `mock-oidc` в кластере резолвится в приватный ClusterIP — подходит, в compose такого хоста нет.
   - У e2e-оверлея не было `namespace:` — ресурсы самого оверлея уходили в `default`. Исправлено.
   - Имя пользователя в приложении теперь «Имя Фамилия» из Keycloak (форма регистрации требует оба поля).
+- 2026-10-21 — этап 5, всё кроме прода и release-checklist. Находки и решения:
+  - В proto устаревшие `ErrorCode` помечены `[deprecated = true]`, а не `reserved`: `buf breaking` в CI использует правила по умолчанию (FILE), и удаление значения enum ломает его даже с `reserved`. Бот не держит тексты для устаревших кодов: staticcheck (SA1019) ругается на их Go-константы. `TestEveryErrorCodeHasAText` пропускает значения с опцией `deprecated`. В Kotlin коды помечены `@Deprecated` и остались в enum, поэтому фронтенд показывает их тексты по-прежнему (они есть в union из OpenAPI).
+  - `KeycloakUserProvisioner` перенимает любую строку с тем же email, без проверки подтверждения: неподтверждённые аккаунты удалила V26, а новых без Keycloak не появится.
+  - `delete-account` больше не принимает тело (пароля нет), `logout-all` и `delete-account` остались по прежним путям `/api/v1/auth/*` — SPA менять не пришлось, кроме пустого тела запроса. `RateLimitFilter`/`LoginThrottle` удалены, лимит gateway на `/api/v1/auth/` тоже; per-IP лимит остался только на формах Keycloak.
+  - OpenAPI: к `bearerAuth` добавлена альтернатива `keycloak` (oauth2 authorization code). Адреса — из `app.keycloak.public-url`, поэтому `FakeKeycloak.PUBLIC_URL` теперь dev-значение `http://localhost:3000/auth`: оно попадает в закоммиченный `api/openapi.yaml`. В dev-профиле Swagger UI настроен на клиент `fate-swagger` с PKCE. Удалённые эндпоинты записаны в `api/accepted-breaking-changes.txt` (старую запись про `register` 201 заменил: эндпоинта больше нет).
+  - Проверено: backend `check` (259 unit + 105 интеграционных, покрытие 98,4% строк / 86,6% ветвей), bot (`go test`, staticcheck, `buf lint`/`breaking` против main), simulation, frontend (lint, 169 тестов, `tsc -b`), `infra/k8s/check.sh`, `oasdiff breaking` с исключениями. На minikube (`K8S_OVERLAY=e2e ./k8s-start.sh` поверх вчерашней базы): V26 применилась к данным V25 без ошибок, `infra/k8s/e2e.sh` зелёный (simulation 4/4, письма, метрики/логи/трассы бэкенда и Keycloak), Playwright 13/13, в логах бэкенда ошибок нет. Также прошли `vite build`, typecheck e2e, perf (spotless, detekt, компиляция), staticcheck simulation. `npm run check:api` до коммита показывает diff — ожидаемо, он сравнивает с индексом git.
+  - Осталось: `server-setup.yml` всё ещё ставит nginx с `limit_req` на `/api/v1/auth/` и без Keycloak — это пункт «Прод». В `backend/openapi.yaml` лежит старая, никем не используемая копия спецификации (с `/auth/register`) — не трогал.

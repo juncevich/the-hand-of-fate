@@ -18,8 +18,6 @@ class UserJpaEntity(
     val id: UUID = uuidV7(),
     @Column(nullable = false, unique = true, length = 255)
     var email: String,
-    @Column(name = "password_hash", nullable = false)
-    var passwordHash: String,
     @Column(name = "display_name", nullable = false, length = 100)
     var displayName: String,
     @Column(name = "telegram_id", unique = true)
@@ -28,8 +26,6 @@ class UserJpaEntity(
     var telegramName: String? = null,
     @Column(name = "avatar_updated_at")
     var avatarUpdatedAt: Instant? = null,
-    @Column(name = "email_verified_at")
-    var emailVerifiedAt: Instant? = null,
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: Instant = Instant.now(),

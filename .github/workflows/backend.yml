@@ -64,7 +64,6 @@ jobs:
           DB_URL: jdbc:postgresql://localhost:5432/fate_test
           DB_USERNAME: fate
           DB_PASSWORD: fate
-          JWT_ACCESS_SECRET: test-secret-key-256-bits-long-for-tests-xxxxxx
 
       - name: Upload coverage report
         if: success()

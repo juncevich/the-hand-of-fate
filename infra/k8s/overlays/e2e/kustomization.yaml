@@ -1,7 +1,7 @@
 # The local overlay as CI's end-to-end job deploys it (.github/workflows/e2e.yml,
-# `K8S_OVERLAY=e2e ./k8s-start.sh`). Differences: the per-IP auth rate limits — the backend's and
-# the gateway's — are raised, because the simulation and the browser tests register and log in
-# many users from one address (both limits stay on); a mock OIDC provider stands in for social
+# `K8S_OVERLAY=e2e ./k8s-start.sh`). Differences: the gateway's per-IP limit on Keycloak's sign-in
+# forms is raised, because the simulation and the browser tests register and log in many users
+# from one address (the limit stays on); a mock OIDC provider stands in for social
 # login (mock-oidc.yaml, the gateway's /mock-oidc/). The gateway config is written by prepare.sh
 # (run by k8s-start.sh and check.sh) to .e2e-build/nginx.conf.
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -18,10 +18,6 @@ configMapGenerator:
     behavior: replace
     files:
       - nginx.conf=../../../../.e2e-build/nginx.conf
-  - name: backend-config
-    behavior: merge
-    literals:
-      - APP_RATELIMIT_CAPACITY=1000
   # Keycloak's identity provider `e2e-mock`, for the social sign-in browser test.
   - name: keycloak-config
     behavior: merge

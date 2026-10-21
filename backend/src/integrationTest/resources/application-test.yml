@@ -1,11 +1,5 @@
-# Integration-test profile (Testcontainers). Keeps the demo-user seed so tests
-# that reference admin@admin.com as a FK target keep working, and disables the
-# production secret guard (SecretsValidator is @Profile("!dev & !test")).
-spring:
-  flyway:
-    placeholders:
-      seedDemoUser: "true"
-
+# Integration-test profile (Testcontainers). Disables the production secret guard
+# (SecretsValidator is @Profile("!dev & !test")).
 management:
   # No OTel collector runs next to the tests; don't try to push metrics/traces.
   otlp:
@@ -27,7 +21,3 @@ app:
     deletion-delay-ms: 3600000
   notifications:
     delivery-enabled: false
-  # Tests fire many auth requests from a single (loopback) client; the limiter
-  # would otherwise trip and turn expected 200s into 429s.
-  rate-limit:
-    enabled: false

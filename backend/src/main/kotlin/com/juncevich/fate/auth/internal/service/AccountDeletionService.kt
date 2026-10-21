@@ -21,34 +21,23 @@ import java.time.Instant
 class AccountDeletionService(
     private val users: UserRepositoryPort,
     private val outbox: NotificationOutbox,
-    private val passwordConfirmation: PasswordConfirmation,
-    private val loginThrottle: LoginThrottle,
     private val avatars: AvatarService,
     private val events: ApplicationEventPublisher,
     private val deletedAccounts: DeletedAccountRepositoryPort,
     private val keycloak: KeycloakProperties,
 ) {
     /**
-     * Deletes the account once the caller proved it is them — by its [password], or without one by
-     * a recent sign-in: its own votes, sessions, tokens and avatar go with it, other modules forget
-     * it via [AccountDeleted], queued emails to it are dropped. Its Keycloak user is deleted after
-     * the commit by [IdentityDeletionWorker].
+     * Deletes the account once the caller proved it is them by a recent sign-in: its own votes,
+     * tokens and avatar go with it, other modules forget it via [AccountDeleted], queued emails to it
+     * are dropped. Its Keycloak user is deleted after the commit by [IdentityDeletionWorker].
      */
-    fun deleteAccount(
-        caller: AuthenticatedUser,
-        password: String?,
-    ) {
+    fun deleteAccount(caller: AuthenticatedUser) {
+        requireRecentSignIn(caller)
         val user = users.findById(caller.id) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
-        if (password != null) {
-            passwordConfirmation.require(user, password)
-        } else {
-            requireRecentSignIn(caller)
-        }
         events.publishEvent(AccountDeleted(user.id, user.email))
         outbox.cancelFor(user.email)
         users.delete(user.id)
         deletedAccounts.record(user.id, Instant.now())
-        loginThrottle.reset(user.email)
         // Object storage is not transactional: only remove the avatar once the deletion is committed.
         TransactionSynchronizationManager.registerSynchronization(
             object : TransactionSynchronization {

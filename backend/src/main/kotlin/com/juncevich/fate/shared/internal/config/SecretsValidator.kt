@@ -8,14 +8,13 @@ import org.springframework.stereotype.Component
 
 /**
  * Fail-fast guard against shipping insecure defaults. Active in every profile
- * except `dev`/`test`, so a production boot aborts if the JWT signing key, the
- * gRPC shared secret, the unsubscribe-link secret or the Keycloak client secret is missing,
- * too short, or left at the checked-in dev value.
+ * except `dev`/`test`, so a production boot aborts if the gRPC shared secret, the
+ * unsubscribe-link secret or the Keycloak client secret is missing, too short, or left at the
+ * checked-in dev value.
  */
 @Component
 @Profile("!dev & !test")
 class SecretsValidator(
-    @param:Value("\${jwt.access-secret}") private val jwtAccessSecret: String,
     @param:Value("\${grpc.shared-secret}") private val grpcSharedSecret: String,
     @param:Value("\${app.notifications.unsubscribe-secret}") private val unsubscribeSecret: String,
     @param:Value("\${app.keycloak.client-secret}") private val keycloakClientSecret: String,
@@ -25,12 +24,6 @@ class SecretsValidator(
     override fun afterPropertiesSet() {
         val problems =
             buildList {
-                if (jwtAccessSecret in KNOWN_DEFAULTS) {
-                    add("JWT_ACCESS_SECRET is left at the insecure development default")
-                }
-                if (jwtAccessSecret.toByteArray().size < MIN_JWT_SECRET_BYTES) {
-                    add("JWT_ACCESS_SECRET must be at least $MIN_JWT_SECRET_BYTES bytes (256 bits)")
-                }
                 if (grpcSharedSecret in KNOWN_DEFAULTS) {
                     add("GRPC_SHARED_SECRET is left at the insecure development default")
                 }
@@ -40,8 +33,8 @@ class SecretsValidator(
                 if (unsubscribeSecret in KNOWN_DEFAULTS) {
                     add("UNSUBSCRIBE_SECRET is left at the insecure development default")
                 }
-                if (unsubscribeSecret.toByteArray().size < MIN_JWT_SECRET_BYTES) {
-                    add("UNSUBSCRIBE_SECRET must be at least $MIN_JWT_SECRET_BYTES bytes (256 bits)")
+                if (unsubscribeSecret.toByteArray().size < MIN_SECRET_BYTES) {
+                    add("UNSUBSCRIBE_SECRET must be at least $MIN_SECRET_BYTES bytes (256 bits)")
                 }
                 if (keycloakClientSecret in KNOWN_DEFAULTS) {
                     add("KEYCLOAK_CLIENT_SECRET is left at the insecure development default")
@@ -61,16 +54,14 @@ class SecretsValidator(
     }
 
     private companion object {
-        const val MIN_JWT_SECRET_BYTES = 32
+        const val MIN_SECRET_BYTES = 32
         const val MIN_SHARED_SECRET_LENGTH = 16
 
         // Defaults baked into application.yml / docker-compose for local development.
         val KNOWN_DEFAULTS =
             setOf(
-                "changeme-dev-secret-key-256-bits-long-xxxxxxxxxxxx",
                 "changeme-dev-grpc-shared-secret",
                 "changeme-dev-unsubscribe-secret",
-                "dev-secret-key-at-least-256-bits-long-for-testing-purposes-only",
                 "dev-grpc-shared-secret-for-testing-only",
                 "dev-keycloak-backend-secret"
             )

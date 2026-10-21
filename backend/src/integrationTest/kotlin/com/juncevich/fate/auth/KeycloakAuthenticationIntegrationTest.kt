@@ -3,7 +3,6 @@ package com.juncevich.fate.auth
 import com.juncevich.fate.AbstractApiIntegrationTest
 import com.juncevich.fate.FakeKeycloak
 import com.juncevich.fate.auth.internal.service.IdentityDeletionWorker
-import com.juncevich.fate.auth.internal.service.KeycloakUserProvisioner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -45,20 +44,18 @@ class KeycloakAuthenticationIntegrationTest
 
             preferences(keycloakToken(email.uppercase(), id)).andExpect { status { isOk() } }
 
-            val row = jdbcTemplate.queryForMap("SELECT email, display_name, password_hash, email_verified_at FROM users WHERE id = ?", id)
+            val row = jdbcTemplate.queryForMap("SELECT email, display_name FROM users WHERE id = ?", id)
             assertEquals(email, row["email"], "stored canonical")
             assertEquals("Kate Keycloak", row["display_name"])
-            assertEquals(KeycloakUserProvisioner.NO_PASSWORD, row["password_hash"])
-            assertTrue(row["email_verified_at"] != null)
             // Later requests find it.
             preferences(keycloakToken(email, id)).andExpect { status { isOk() } }
             assertEquals(1, count("SELECT count(*) FROM users WHERE email = ?", email))
         }
 
         @Test
-        fun `an account from before Keycloak is taken over with its data`() {
+        fun `an account with the same email under another id is taken over with its data`() {
             val email = email("legacy")
-            val legacyToken = registerAndGetToken(email)
+            val legacyToken = signUp(email)
             mockMvc
                 .post("/api/v1/votes") {
                     bearer(legacyToken)
@@ -78,25 +75,6 @@ class KeycloakAuthenticationIntegrationTest
             assertEquals(keycloakId, jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ?", UUID::class.java, email))
             // References followed the new id (ON UPDATE CASCADE).
             assertEquals(1, count("SELECT count(*) FROM votes WHERE creator_id = ?", keycloakId))
-            assertEquals(1, count("SELECT count(*) FROM refresh_tokens WHERE user_id = ?", keycloakId))
-        }
-
-        @Test
-        fun `a never confirmed account with the same email is replaced, not taken over`() {
-            val email = email("squatter")
-            mockMvc
-                .post("/api/v1/auth/register") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content = """{"email":"$email","password":"squatters-password","displayName":"Squatter"}"""
-                }.andExpect { status { isAccepted() } }
-            val keycloakId = UUID.randomUUID()
-
-            preferences(keycloakToken(email, keycloakId)).andExpect { status { isOk() } }
-
-            val row = jdbcTemplate.queryForMap("SELECT id, password_hash, display_name FROM users WHERE email = ?", email)
-            assertEquals(keycloakId, row["id"])
-            assertEquals(KeycloakUserProvisioner.NO_PASSWORD, row["password_hash"], "the squatter's password is gone")
-            assertEquals("Kate Keycloak", row["display_name"])
         }
 
         @Test
@@ -120,7 +98,7 @@ class KeycloakAuthenticationIntegrationTest
         }
 
         @Test
-        fun `deleting the account after a recent sign-in needs no password and stops its tokens`() {
+        fun `deleting the account after a recent sign-in stops its tokens`() {
             val email = email("leaving")
             val id = UUID.randomUUID()
             val token = keycloakToken(email, id)
@@ -129,8 +107,6 @@ class KeycloakAuthenticationIntegrationTest
             mockMvc
                 .post("/api/v1/auth/delete-account") {
                     bearer(token)
-                    contentType = MediaType.APPLICATION_JSON
-                    content = "{}"
                 }.andExpect { status { isNoContent() } }
 
             assertEquals(0, count("SELECT count(*) FROM users WHERE id = ?", id))
@@ -152,8 +128,6 @@ class KeycloakAuthenticationIntegrationTest
             mockMvc
                 .post("/api/v1/auth/delete-account") {
                     bearer(token)
-                    contentType = MediaType.APPLICATION_JSON
-                    content = "{}"
                 }.andExpect {
                     status { isForbidden() }
                     jsonPath("$.code") { value("REAUTHENTICATION_REQUIRED") }
@@ -168,8 +142,6 @@ class KeycloakAuthenticationIntegrationTest
             mockMvc
                 .post("/api/v1/auth/delete-account") {
                     bearer(token)
-                    contentType = MediaType.APPLICATION_JSON
-                    content = "{}"
                 }.andExpect { status { isNoContent() } }
 
             identityDeletionWorker.run()
@@ -183,15 +155,13 @@ class KeycloakAuthenticationIntegrationTest
 
         @Test
         fun `an account Keycloak never held counts as deleted there`() {
-            val email = email("legacy-leaving")
-            val legacyToken = registerAndGetToken(email)
-            val id = checkNotNull(jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ?", UUID::class.java, email))
+            val id = UUID.randomUUID()
+            val legacyToken = keycloakToken(email("legacy-leaving"), id)
+            FakeKeycloak.users -= id
 
             mockMvc
                 .post("/api/v1/auth/delete-account") {
                     bearer(legacyToken)
-                    contentType = MediaType.APPLICATION_JSON
-                    content = """{"password":"password123"}"""
                 }.andExpect { status { isNoContent() } }
             identityDeletionWorker.run()
 
@@ -207,8 +177,5 @@ class KeycloakAuthenticationIntegrationTest
             mockMvc.post("/api/v1/auth/logout-all") { bearer(token) }.andExpect { status { isNoContent() } }
 
             assertTrue("LOGOUT $id" in FakeKeycloak.adminCalls)
-            // Keycloak doesn't know accounts from before it: nothing to end there.
-            val legacyToken = registerAndGetToken(email("legacy-everywhere"))
-            mockMvc.post("/api/v1/auth/logout-all") { bearer(legacyToken) }.andExpect { status { isNoContent() } }
         }
     }

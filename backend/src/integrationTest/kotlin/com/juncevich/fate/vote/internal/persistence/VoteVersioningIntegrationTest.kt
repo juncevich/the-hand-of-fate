@@ -52,18 +52,17 @@ class VoteVersioningIntegrationTest
             }
         }
 
-        private lateinit var adminId: UUID
+        private lateinit var creatorId: UUID
 
         @BeforeEach
-        fun fetchAdminId() {
-            // V7 migration seeds admin@admin.com — use it to satisfy the creator_id FK.
-            adminId =
-                checkNotNull(
-                    jdbcTemplate.queryForObject(
-                        "SELECT id FROM users WHERE email = 'admin@admin.com'",
-                        UUID::class.java
-                    )
-                ) { "Demo user admin@admin.com must be seeded in the test profile" }
+        fun createCreator() {
+            // Any account satisfies the creator_id FK.
+            creatorId = UUID.randomUUID()
+            jdbcTemplate.update(
+                "INSERT INTO users (id, email, display_name) VALUES (?, ?, 'Creator')",
+                creatorId,
+                "creator-$creatorId@test.com"
+            )
         }
 
         private fun tx(block: () -> Unit) = TransactionTemplate(txManager).execute { block() }
@@ -136,7 +135,7 @@ class VoteVersioningIntegrationTest
             VoteJpaEntity(
                 id = id,
                 title = "test vote",
-                creatorId = adminId,
+                creatorId = creatorId,
                 mode = VoteMode.SIMPLE,
                 status = VoteStatus.PENDING
             )

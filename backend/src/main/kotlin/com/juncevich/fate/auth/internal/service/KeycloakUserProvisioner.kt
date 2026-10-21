@@ -6,7 +6,6 @@ import com.juncevich.fate.auth.internal.port.UserRepositoryPort
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.Instant
 import java.util.UUID
 
 private const val DISPLAY_NAME_MAX_LENGTH = 100
@@ -20,9 +19,9 @@ data class KeycloakIdentity(
 
 /**
  * Keeps `users` in step with Keycloak, where accounts are created (docs/adr/0001): the first request
- * with a Keycloak token creates the row, its id being the token's subject. An account from before
- * Keycloak with the same verified address is taken over instead — Keycloak verified that the caller
- * receives mail there, the same proof a password reset asks for.
+ * with a Keycloak token creates the row, its id being the token's subject. A row with the same address
+ * but another id (an account from before Keycloak, or one whose Keycloak user was replaced) is taken
+ * over instead — Keycloak verified that the caller receives mail there.
  */
 @Service
 @Transactional
@@ -37,34 +36,16 @@ class KeycloakUserProvisioner(
         if (users.findById(identity.id) != null) return true
         if (deletedAccounts.isDeleted(identity.id)) return false
         val existing = users.findByEmail(identity.email)
-        if (existing?.emailVerifiedAt != null) {
+        if (existing != null) {
             users.changeId(existing.id, identity.id)
             log.info("Account {} taken over by Keycloak user {}", existing.id, identity.id)
             return true
         }
-        // Never confirmed, so nothing was created with it — and its password may be someone else's.
-        existing?.let { users.delete(it.id) }
-        users.insertIfAbsent(
-            User(
-                id = identity.id,
-                email = identity.email,
-                passwordHash = NO_PASSWORD,
-                displayName = displayName(identity),
-                emailVerifiedAt = Instant.now()
-            )
-        )
+        users.insertIfAbsent(User(id = identity.id, email = identity.email, displayName = displayName(identity)))
         return true
     }
 
     private fun displayName(identity: KeycloakIdentity): String =
         (identity.name?.trim()?.takeIf { it.isNotEmpty() } ?: identity.email.substringBefore('@'))
             .take(DISPLAY_NAME_MAX_LENGTH)
-
-    companion object {
-        /**
-         * Password hash of accounts created through Keycloak: not a BCrypt hash, so no password
-         * matches it. The column goes away with the app's own login (docs/plans/keycloak-auth.md).
-         */
-        const val NO_PASSWORD = "!keycloak"
-    }
 }

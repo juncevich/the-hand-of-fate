@@ -2,9 +2,6 @@ package com.juncevich.fate
 
 import com.juncevich.fate.auth.TelegramLinkService
 import com.juncevich.fate.auth.UserQueryService
-import com.juncevich.fate.auth.internal.service.AccountService
-import com.juncevich.fate.auth.internal.service.AuthService
-import com.juncevich.fate.auth.internal.service.AuthTokens
 import com.juncevich.fate.auth.internal.service.ExpiredTokenPurger
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
@@ -22,7 +19,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.domain.PageRequest
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.transaction.PlatformTransactionManager
@@ -36,19 +32,24 @@ class ConsistencyIntegrationTest
     @Autowired
     constructor(
         private val votes: VoteService,
-        private val auth: AuthService,
-        private val accounts: AccountService,
         private val telegram: TelegramLinkService,
         private val users: UserQueryService,
         private val jdbc: JdbcTemplate,
         private val purger: ExpiredTokenPurger,
         private val transactions: PlatformTransactionManager,
     ) : AbstractApiIntegrationTest() {
-        private fun newUser(): AuthTokens {
+        private data class TestUser(
+            val userId: UUID,
+            val email: String,
+            val accessToken: String,
+        )
+
+        private fun newUser(): TestUser {
             val email = "${UUID.randomUUID()}@test.com"
-            accounts.register(email, "password123", "Test")
-            jdbc.update("UPDATE users SET email_verified_at = now() WHERE email = ?", email)
-            return auth.login(email, "password123")
+            val userId = UUID.randomUUID()
+            val token = keycloakToken(email, userId)
+            mockMvc.get("/api/v1/users/me") { header("Authorization", "Bearer $token") }.andExpect { status { isOk() } }
+            return TestUser(userId, email, token)
         }
 
         private fun newVote(userId: UUID) = votes.createVote(userId, CreateVoteCommand("Vote", null, VoteMode.FAIR_ROTATION, emptyList(), listOf("Winner")))
@@ -120,59 +121,13 @@ class ConsistencyIntegrationTest
         }
 
         @Test
-        fun `parallel refresh serves both requests within one session`() {
-            val tokens = newUser()
-            val (first, second) = compete({ auth.refresh(tokens.refreshToken) }, { auth.refresh(tokens.refreshToken) })
-            assertTrue(first.isSuccess)
-            assertTrue(second.isSuccess)
-            assertEquals(
-                1,
-                jdbc.queryForObject(
-                    "SELECT count(DISTINCT family_id) FROM refresh_tokens WHERE user_id = ?",
-                    Int::class.java,
-                    tokens.userId
-                )
-            )
-        }
-
-        @Test
-        fun `replaying a rotated token after the grace window revokes the session`() {
-            val tokens = newUser()
-            val rotated = auth.refresh(tokens.refreshToken)
-            jdbc.update(
-                "UPDATE refresh_tokens SET revoked_at = now() - interval '1 minute' WHERE revoked_at IS NOT NULL AND user_id = ?",
-                tokens.userId
-            )
-
-            assertThrows<BadCredentialsException> { auth.refresh(tokens.refreshToken) }
-            // The legitimate successor is gone too: the thief and the owner both have to log in again.
-            assertThrows<BadCredentialsException> { auth.refresh(rotated.refreshToken) }
-            assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM refresh_tokens WHERE user_id = ?", Int::class.java, tokens.userId))
-        }
-
-        @Test
-        fun `logout ends one session and leaves the others`() {
-            val first = newUser()
-            val email = checkNotNull(users.findById(first.userId)).email
-            val second = auth.login(email, "password123")
-            val rotated = auth.refresh(first.refreshToken)
-
-            auth.logout(rotated.refreshToken)
-
-            assertThrows<BadCredentialsException> { auth.refresh(first.refreshToken) }
-            assertTrue(runCatching { auth.refresh(second.refreshToken) }.isSuccess)
-        }
-
-        @Test
-        fun `expired tokens are purged without being presented`() {
+        fun `expired link tokens are purged without being presented`() {
             val tokens = newUser()
             telegram.generateLinkToken(tokens.userId)
-            jdbc.update("UPDATE refresh_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = ?", tokens.userId)
             jdbc.update("UPDATE telegram_link_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = ?", tokens.userId)
 
             purger.purge()
 
-            assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM refresh_tokens WHERE user_id = ?", Int::class.java, tokens.userId))
             assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM telegram_link_tokens WHERE user_id = ?", Int::class.java, tokens.userId))
         }
 
@@ -194,24 +149,12 @@ class ConsistencyIntegrationTest
         }
 
         @Test
-        fun `expired refresh and link tokens are deleted despite rejecting the request`() {
-            val tokens = newUser()
-            val userId = tokens.userId
-            jdbc.update("UPDATE refresh_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = ?", userId)
-            assertThrows<BadCredentialsException> { auth.refresh(tokens.refreshToken) }
-            assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM refresh_tokens WHERE user_id = ?", Int::class.java, userId))
-
+        fun `an expired link token is deleted despite rejecting the request`() {
+            val userId = newUser().userId
             val link = telegram.generateLinkToken(userId)
             jdbc.update("UPDATE telegram_link_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = ?", userId)
             assertThrows<BadRequestException> { telegram.linkAccount(link.token, 42, "Expired") }
             assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM telegram_link_tokens WHERE user_id = ?", Int::class.java, userId))
-        }
-
-        @Test
-        fun `normalized duplicate registration returns conflict`() {
-            val email = "${UUID.randomUUID()}@test.com"
-            accounts.register(email, "password123", "Test")
-            assertThrows<ConflictException> { accounts.register(" ${email.uppercase()} ", "password123", "Test") }
         }
 
         @Test
@@ -232,7 +175,8 @@ class ConsistencyIntegrationTest
 
         @Test
         fun `history pages retain totals and have stable order for equal timestamps`() {
-            val userId = newUser().userId
+            val user = newUser()
+            val userId = user.userId
             val vote = newVote(userId)
             repeat(3) { index ->
                 votes.draw(vote.id, userId)
@@ -250,7 +194,7 @@ class ConsistencyIntegrationTest
             assertEquals(first.content.map { it.id }, votes.getHistory(vote.id, userId, email, PageRequest.of(0, 2)).content.map { it.id })
             assertThrows<BadRequestException> { votes.getHistory(vote.id, userId, email, PageRequest.of(0, 101)) }
 
-            val token = auth.login(email, "password123").accessToken
+            val token = user.accessToken
             mockMvc
                 .get("/api/v1/votes/${vote.id}/history/page?page=1&size=2") {
                     header("Authorization", "Bearer $token")
