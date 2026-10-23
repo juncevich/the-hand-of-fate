@@ -1,9 +1,9 @@
 package com.juncevich.fate.vote
 
-import com.juncevich.fate.vote.internal.domain.DrawHistory
-import com.juncevich.fate.vote.internal.domain.Vote
-import com.juncevich.fate.vote.internal.domain.VoteOption
-import com.juncevich.fate.vote.internal.domain.VoteParticipant
+import com.juncevich.fate.vote.domain.DrawHistory
+import com.juncevich.fate.vote.domain.Vote
+import com.juncevich.fate.vote.domain.VoteOption
+import com.juncevich.fate.vote.domain.VoteParticipant
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
 import java.util.UUID

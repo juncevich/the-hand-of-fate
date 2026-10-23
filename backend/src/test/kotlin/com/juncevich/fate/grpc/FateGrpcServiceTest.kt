@@ -1,10 +1,10 @@
 package com.juncevich.fate.grpc
 
 import com.google.rpc.ErrorInfo
-import com.juncevich.fate.auth.TelegramLinkService
-import com.juncevich.fate.auth.User
-import com.juncevich.fate.auth.UserQueryService
-import com.juncevich.fate.auth.toProfile
+import com.juncevich.fate.account.TelegramLinkService
+import com.juncevich.fate.account.User
+import com.juncevich.fate.account.UserQueryService
+import com.juncevich.fate.account.toProfile
 import com.juncevich.fate.grpc.FateProto.*
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
@@ -12,7 +12,7 @@ import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.vote.*
-import com.juncevich.fate.vote.internal.domain.Vote
+import com.juncevich.fate.vote.domain.Vote
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto

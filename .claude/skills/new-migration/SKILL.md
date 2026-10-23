@@ -19,7 +19,7 @@ Adds a new Flyway migration to `backend/src/main/resources/db/migration/` follow
    - Next migration is `V{n+1}__description.sql` — snake_case description, matches existing filename style exactly.
 
 2. **Check if the change needs a domain-level companion change**, not just SQL:
-   - New/changed table → new JPA entity in `<module>/internal/persistence/entity/`, repository in `.../jpa/`, adapter in `.../adapter/`, mapper in `.../mapper/`, and a plain domain class in `.../domain/` (no JPA annotations there — hexagonal architecture, see CLAUDE.md).
+   - New/changed table → new JPA entity in `<module>/persistence/entity/`, repository in `.../jpa/`, adapter in `.../adapter/`, mapper in `.../mapper/`, and a plain domain class in `.../domain/` (no JPA annotations there — hexagonal architecture, see CLAUDE.md).
    - New enum type → mirror it in Kotlin (see how `vote_mode` / `vote_status` are handled from V2).
    - Seed/test-only data → gate behind a Flyway placeholder like `seedDemoUser` (V7 pattern): default `false`, set `true` only for `dev`/`test` profiles in the relevant `application-*.yml`. Never seed data unconditionally in a migration that runs in production.
 

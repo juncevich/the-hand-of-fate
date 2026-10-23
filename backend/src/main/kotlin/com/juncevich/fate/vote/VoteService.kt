@@ -1,6 +1,6 @@
 package com.juncevich.fate.vote
 
-import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.account.UserQueryService
 import com.juncevich.fate.notification.EmailBudget
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ErrorCode
@@ -10,16 +10,16 @@ import com.juncevich.fate.shared.ensureState
 import com.juncevich.fate.shared.ensureValid
 import com.juncevich.fate.shared.normalizeEmail
 import com.juncevich.fate.shared.requireValidTitle
-import com.juncevich.fate.vote.internal.DrawService
-import com.juncevich.fate.vote.internal.ParticipantInvited
-import com.juncevich.fate.vote.internal.VoteDrawn
-import com.juncevich.fate.vote.internal.domain.Vote
-import com.juncevich.fate.vote.internal.domain.VoteOption
-import com.juncevich.fate.vote.internal.domain.VoteParticipant
-import com.juncevich.fate.vote.internal.port.DrawHistoryRepositoryPort
-import com.juncevich.fate.vote.internal.port.ParticipantRepositoryPort
-import com.juncevich.fate.vote.internal.port.VoteOptionRepositoryPort
-import com.juncevich.fate.vote.internal.port.VoteRepositoryPort
+import com.juncevich.fate.vote.domain.DrawService
+import com.juncevich.fate.vote.domain.ParticipantInvited
+import com.juncevich.fate.vote.domain.Vote
+import com.juncevich.fate.vote.domain.VoteDrawn
+import com.juncevich.fate.vote.domain.VoteOption
+import com.juncevich.fate.vote.domain.VoteParticipant
+import com.juncevich.fate.vote.port.DrawHistoryRepositoryPort
+import com.juncevich.fate.vote.port.ParticipantRepositoryPort
+import com.juncevich.fate.vote.port.VoteOptionRepositoryPort
+import com.juncevich.fate.vote.port.VoteRepositoryPort
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher

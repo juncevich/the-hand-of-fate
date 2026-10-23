@@ -1,8 +1,7 @@
 package com.juncevich.fate.notification
 
-import com.juncevich.fate.notification.EmailBudget
-import com.juncevich.fate.notification.internal.NotificationProperties
-import com.juncevich.fate.notification.internal.port.EmailBudgetPort
+import com.juncevich.fate.notification.delivery.NotificationProperties
+import com.juncevich.fate.notification.port.EmailBudgetPort
 import com.juncevich.fate.shared.TooManyRequestsException
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every

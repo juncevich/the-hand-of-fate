@@ -1,7 +1,7 @@
 package com.juncevich.fate.grpc
 
-import com.juncevich.fate.auth.TelegramLinkService
-import com.juncevich.fate.auth.UserQueryService
+import com.juncevich.fate.account.TelegramLinkService
+import com.juncevich.fate.account.UserQueryService
 import com.juncevich.fate.vote.*
 import io.grpc.Status
 import io.grpc.StatusRuntimeException

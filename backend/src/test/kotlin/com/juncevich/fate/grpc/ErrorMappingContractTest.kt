@@ -1,13 +1,13 @@
 package com.juncevich.fate.grpc
 
 import com.google.rpc.ErrorInfo
+import com.juncevich.fate.platform.ErrorHandler
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.FateException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.shared.TooManyRequestsException
-import com.juncevich.fate.shared.internal.config.ErrorHandler
 import io.grpc.Status
 import io.grpc.protobuf.StatusProto
 import org.junit.jupiter.api.Assertions.assertEquals

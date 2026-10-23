@@ -1,9 +1,9 @@
 package com.juncevich.fate.storage
 
-import com.juncevich.fate.storage.internal.DisabledObjectStorage
-import com.juncevich.fate.storage.internal.S3ObjectStorage
-import com.juncevich.fate.storage.internal.StorageConfig
-import com.juncevich.fate.storage.internal.StorageProperties
+import com.juncevich.fate.storage.s3.DisabledObjectStorage
+import com.juncevich.fate.storage.s3.S3ObjectStorage
+import com.juncevich.fate.storage.s3.StorageConfig
+import com.juncevich.fate.storage.s3.StorageProperties
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify

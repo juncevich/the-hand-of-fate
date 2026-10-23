@@ -1,7 +1,7 @@
 package com.juncevich.fate.vote
 
 import com.juncevich.fate.AbstractApiIntegrationTest
-import com.juncevich.fate.notification.internal.EmailService
+import com.juncevich.fate.notification.delivery.EmailService
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk

@@ -42,32 +42,32 @@ Kotlin + Spring Boot REST API and gRPC server for The Hand of Fate.
 ## Project Structure
 
 ```
-src/main/kotlin/com/juncevich/fate/
-├── config/
-│   └── SecurityConfig.kt       Spring Security — public vs protected routes
-├── security/
-│   └── KeycloakTokens.kt       Keycloak token validation (JWKS, aud, email_verified) and conversion
-├── web/
-│   ├── auth/                   /api/v1/auth — logout everywhere, account deletion (sign-in itself is Keycloak's)
-│   ├── vote/                   /api/v1/votes — CRUD, draw, history, options
-│   ├── telegram/               /api/v1/telegram — link token generation
-│   └── common/                 ErrorHandler — maps exceptions to RFC 7807 responses
-├── service/
-│   ├── KeycloakUserProvisioner.kt  Creates the users row on a Keycloak user's first request
-│   ├── VoteService.kt          Vote CRUD, addOption / removeOption
-│   ├── DrawService.kt          SIMPLE / FAIR_ROTATION draw logic for participants and options
-│   ├── NotificationWorker.kt   Outbox polling, retries with backoff, dead-letter handling
-│   ├── EmailService.kt         HTML email rendering and sending
-│   └── TelegramLinkService.kt  One-time token creation and validation
-├── domain/
-│   ├── user/                   User entity + repository
-│   ├── vote/                   Vote, VoteParticipant, VoteOption, DrawHistory entities + repos
-│   └── auth/                   TelegramLinkToken, DeletedAccount entities + repos
-└── grpc/
-    └── FateGrpcService.kt      gRPC implementation — delegates to service layer
+src/main/kotlin/com/juncevich/fate/      one package per Spring Modulith module;
+│                                          its base package is the module's API, sub-packages are private
+├── account/        AuthenticatedUser, UserProfile, UserQueryService, TelegramLinkService, AccountDeleted
+│   ├── keycloak/   KeycloakAdminClient (Admin API), KeycloakProperties
+│   ├── token/      JwtConfig, KeycloakTokens — access-token validation and conversion
+│   ├── service/    provisioning, avatars, account deletion, sessions, token purge
+│   ├── port/ persistence/ domain/
+│   └── web/        /api/v1/auth, /api/v1/users/me, avatars, /api/v1/telegram
+├── vote/           VoteService, VoteStatsService, read models (VoteModels.kt), VoteMode/Status/DrawTarget
+│   ├── domain/     Vote, VoteParticipant, VoteOption, DrawHistory, DrawService, WinnerPicker, events
+│   ├── listener/   AccountDeletionListener — forgets a deleted account in other people's votes
+│   ├── notification/  NotificationRecorder — vote events → outbox jobs
+│   ├── port/ persistence/
+│   └── web/        /api/v1/votes — CRUD, draw, history, options
+├── notification/   NotificationOutbox, EmailBudget, EmailPreferences, versioned payloads
+│   ├── delivery/   NotificationWorker, NotificationAdapter, EmailService, NotificationProperties
+│   ├── port/ persistence/
+│   └── web/        /api/v1/notifications — unsubscribe
+├── storage/        ObjectStorage port
+│   └── s3/         S3 adapter, disabled fallback, configuration
+├── grpc/           FateGrpcService (bot API over account + vote), error mapping, shared-secret auth
+├── shared/         ErrorCode, FateException, validation, uuidV7 — depends on nothing
+└── platform/       application wiring: SecurityConfig, ErrorHandler, OpenApiConfig, SecretsValidator
 src/main/resources/
 ├── application.yml
-└── db/migration/               Flyway migrations V1–V8
+└── db/migration/               Flyway migrations
 ```
 
 ## REST API Endpoints
@@ -99,7 +99,7 @@ src/main/resources/
 Interactive docs: http://localhost:8080/swagger-ui.html (dev profile only).
 
 The full contract is committed as [`api/openapi.yaml`](../api/openapi.yaml) and generated from the
-controllers by springdoc (`shared/internal/config/OpenApiConfig.kt`): bearer auth by default,
+controllers by springdoc (`platform/OpenApiConfig.kt`): bearer auth by default,
 `@SecurityRequirements` (empty) on public endpoints, `ProblemDetail` as the error body, and Kotlin
 constructor parameters without a default value marked `required`. After changing an endpoint or a
 DTO, run `./gradlew openApiUpdate` (or `make openapi` from the repo root, which also regenerates the

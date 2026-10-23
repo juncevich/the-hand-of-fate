@@ -138,7 +138,7 @@ make openapi-clients    # frontend: npm run gen:api → src/api/generated/schema
 - Code-first: the controllers are the source of truth; `api/openapi.yaml` is their committed snapshot (OpenAPI 3.0 — oapi-codegen and oasdiff fully support only 3.0)
 - A deliberate breaking REST change is listed with its reason in `api/accepted-breaking-changes.txt` (passed to `oasdiff --err-ignore` by `api.yml`), together with updating every client in the repo; clear the file once on main
 - After changing a controller or a REST DTO: `make openapi` and commit the spec together with both generated clients. `OpenApiSpecIntegrationTest` (backend `check`), `npm run check:api` (frontend CI) and the simulation CI fail on a stale file
-- Spec shaping lives in `shared/internal/config/OpenApiConfig.kt`: Keycloak tokens are the default security — `bearerAuth` or the `keycloak` oauth2 scheme (authorization code + PKCE; Swagger's "Authorize" uses the dev-only client `fate-swagger`, URLs from `app.keycloak.public-url`) — public endpoints use an empty `@SecurityRequirements`, every operation gets `401` (if authenticated) and a `default` `ProblemDetail` response, and `KotlinRequiredPropertiesConverter` marks constructor params without a default value as `required` (nullable ones stay `nullable`, since Jackson writes nulls). Shared names (`bearerAuth`, `keycloak`, `ProblemDetail`) are in `shared/OpenApiDocs.kt`
+- Spec shaping lives in `platform/OpenApiConfig.kt`: Keycloak tokens are the default security — `bearerAuth` or the `keycloak` oauth2 scheme (authorization code + PKCE; Swagger's "Authorize" uses the dev-only client `fate-swagger`, URLs from `app.keycloak.public-url`) — public endpoints use an empty `@SecurityRequirements`, every operation gets `401` (if authenticated) and a `default` `ProblemDetail` response, and `KotlinRequiredPropertiesConverter` marks constructor params without a default value as `required` (nullable ones stay `nullable`, since Jackson writes nulls). Shared names (`bearerAuth`, `keycloak`, `ProblemDetail`) are in `shared/OpenApiDocs.kt`
 - Give every endpoint `@Operation(operationId = ...)` — generated clients use it — and a status via `@ResponseStatus` (or `@ApiResponse` when the method must return `ResponseEntity` for headers). Enums shared by several DTOs get `@Schema(enumAsRef = true)`
 - Frontend: `src/types/vote.ts` and `src/api/*.ts` alias `components['schemas'][...]` from the generated file; don't hand-write REST types. `openapi-typescript` declares `typescript@^5` as a peer, so an npm `overrides` entry points it at the TS 6 alias
 - Simulation: `internal/client/models.gen.go` via `oapi-codegen` (a `tool` in `simulation/go.mod`, config `internal/client/oapi-codegen.yaml`: models only, UUID/email as plain strings, int32 as `int`, nullable fields as pointers)
@@ -225,7 +225,7 @@ The bot answers only in private chats and identifies the user by `message.From.I
 ## Architecture
 
 ### Auth Flow
-- **Keycloak is the authorization server** (docs/adr/0001, checklist docs/plans/keycloak-auth.md): registration, email verification, sign-in, passwords, sessions and social login (Google/GitHub/Yandex via Identity Brokering) live in realm `fate`. The backend is a pure resource server: `JwtConfig` + `auth/internal/token/KeycloakTokens.kt` verify RS256 access tokens by JWKS (fetched from `KEYCLOAK_URL`, `iss` = `KEYCLOAK_PUBLIC_URL/realms/fate`). A token must have `aud` ∋ `fate-api`, a UUID `sub` and `email_verified=true`
+- **Keycloak is the authorization server** (docs/adr/0001, checklist docs/plans/keycloak-auth.md): registration, email verification, sign-in, passwords, sessions and social login (Google/GitHub/Yandex via Identity Brokering) live in realm `fate`. The backend is a pure resource server: `JwtConfig` + `account/token/KeycloakTokens.kt` verify RS256 access tokens by JWKS (fetched from `KEYCLOAK_URL`, `iss` = `KEYCLOAK_PUBLIC_URL/realms/fate`). A token must have `aud` ∋ `fate-api`, a UUID `sub` and `email_verified=true`
 - On first use `KeycloakUserProvisioner` creates the `users` row with id = `sub` (or takes over a row with the same email under another id, re-keying it — V25 `ON UPDATE CASCADE`); `auth_time` becomes `AuthenticatedUser.authenticatedAt`. A token of a deleted account is rejected (`deleted_accounts`, V25)
 - What the backend still does with the account itself (`AccountController`, `/api/v1/auth`): `logout-all` ends every Keycloak session through the Admin API (`KeycloakAdminClient`, service account `fate-backend`); `delete-account` (no body) needs a sign-in ≤ 5 min ago, else `403 REAUTHENTICATION_REQUIRED`, and `IdentityDeletionWorker` deletes the Keycloak user after the commit (retried). Profile: `GET /api/v1/users/me`
 - Integration tests mint Keycloak tokens with `FakeKeycloak` (`keycloakToken(...)`, `signUp(...)` in `AbstractApiIntegrationTest`); `KeycloakSmokeIntegrationTest` runs a real Keycloak configured from `infra/keycloak/`
@@ -275,31 +275,32 @@ Each vote has a `drawTarget` (`votes.draw_target`, V20), chosen at creation and 
 
 ### Backend Module Architecture (Hexagonal / Ports & Adapters)
 
-The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**. Modules are: `auth`, `vote`, `shared`, `grpc`, `storage`, `notification`. Each module has an `internal/` subtree that is private to the module.
+The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**. Modules are: `account`, `vote`, `notification`, `storage`, `grpc`, `shared`, `platform`. A module's **base package is its API; every sub-package is private to it** (Spring Modulith's default — there is no `internal/` level, and no `@NamedInterface`). `shared` is the shared kernel (error codes, exceptions, validation; depends on nothing); `platform` wires the application (`SecurityConfig`, `ErrorHandler`, `OpenApiConfig`, `SecretsValidator`) and no module may depend on it.
 
 ```
-<module>/
-  internal/
-    domain/        — domain entities (plain Kotlin classes, no JPA annotations)
-    port/          — repository/notification interfaces (ports)
-    persistence/
-      entity/      — JPA entities
-      jpa/         — Spring Data JPA repositories
-      adapter/     — JPA adapter implementations of port interfaces
-      mapper/      — domain ↔ entity mappers
-    web/           — REST controllers and DTOs
-    notification/  — durable event recording and SMTP delivery from a PostgreSQL outbox
+<module>/          — API: services other modules/adapters call, read models, events, enums
+  domain/          — domain classes (plain Kotlin, no JPA annotations)
+  port/            — repository/external-system interfaces (ports)
+  persistence/
+    entity/        — JPA entities
+    jpa/           — Spring Data JPA repositories
+    adapter/       — JPA adapter implementations of port interfaces
+    mapper/        — domain ↔ entity mappers
+  web/             — REST controllers and DTOs
+  …                — feature sub-packages where they fit (`vote/listener`, `vote/notification`, `notification/delivery`, `storage/s3`, `account/token`, `account/keycloak`)
 ```
+
+Never put an implementation class straight into a module's base package — it becomes public API.
 
 `ModularityTest` (`backend/src/test/kotlin/com/juncevich/fate/ModularityTest.kt`) verifies module boundaries are respected and generates PlantUML diagrams.
 
 ### Object Storage & Avatars
 - **Unsubscribe**: every invitation / draw-result email links to `/unsubscribe?email=…&sig=…` (HMAC-SHA256 of the address with `UNSUBSCRIBE_SECRET`, `EmailPreferences.sign`) and carries `List-Unsubscribe` + `List-Unsubscribe-Post` (RFC 8058) pointing at `POST /api/v1/notifications/unsubscribe/one-click`. The SPA page unsubscribes only on a click (link scanners prefetch URLs). Works for any address, account or not; the address goes to `email_suppressions` (V24) and `NotificationWorker` skips its notification jobs at delivery time (so queued ones too; metric `notification.suppressed{reason=unsubscribed}`, the budget uses `reason=budget`). Account emails (verification, reset) are Keycloak's. A signed-in user toggles it at `GET/PUT /api/v1/users/me/email-preferences` (Settings → «Письма»), which also undoes an unsubscribe
 - **Account deletion**: `POST /api/v1/auth/delete-account` (needs a recent Keycloak sign-in, see Auth Flow). In one transaction: `AccountDeleted` event → the vote module (`AccountDeletionListener`) removes the address from every vote's participants and anonymizes its past wins (`winner_email` NULL, name "Deleted user"; `DrawHistory.ParticipantWinner.email` is nullable for this), queued emails to the address are dropped (`NotificationOutbox.cancelFor`), the user row goes and its own votes, Telegram link tokens and budget ledger cascade, `deleted_accounts` remembers it. The avatar object is deleted after commit (best effort), the Keycloak user by `IdentityDeletionWorker`. Settings shows the number of own votes first (`GET /api/v1/votes/stats`)
-- `notification` module: all outgoing email — the outbox (`NotificationOutbox.record(payload)`, call it inside the transaction that causes the email), the worker, SMTP templates (`EmailService`; user-supplied text is HTML-escaped) and the per-user `EmailBudget`. Its public API is `NotificationOutbox`, `EmailBudget` and the versioned payloads (`NotificationPayloads.kt`); it depends only on `shared` (`ModularityTest`). `vote` records invitations/draw results from its domain events (`vote/internal/notification/NotificationRecorder`)
+- `notification` module: all outgoing email — the outbox (`NotificationOutbox.record(payload)`, call it inside the transaction that causes the email), the worker, SMTP templates (`EmailService`; user-supplied text is HTML-escaped) and the per-user `EmailBudget`. Its public API is `NotificationOutbox`, `EmailBudget` and the versioned payloads (`NotificationPayloads.kt`); it depends only on `shared` (`ModularityTest`). `vote` records invitations/draw results from its domain events (`vote/notification/NotificationRecorder`)
 - `storage` module: public port `ObjectStorage` (put/get/delete) with an S3 adapter (AWS SDK v2, `url-connection-client`). It depends only on `shared` (`ModularityTest`). Any S3-compatible store works; locally it is **RustFS** (MinIO no longer ships community Docker images)
 - `app.storage.enabled` (`S3_ENABLED`) defaults to `false` so a deployment without a bucket still boots: `DisabledObjectStorage` is wired instead and avatar uploads answer 409. The `dev` profile enables it with RustFS credentials and `create-bucket: true`; integration tests start a RustFS Testcontainer in `AbstractApiIntegrationTest`
-- Avatars (`auth/internal/service/AvatarService`): the upload is decoded with ImageIO (PNG/JPEG/GIF, ≤ 4096 px per side checked from the header before decoding), center-cropped and re-encoded as a 256×256 PNG, which also drops EXIF. One object per user (`avatars/<userId>.png`) is overwritten on change, so no orphans; `users.avatar_updated_at` (V15) is both the "has avatar" flag and the URL version
+- Avatars (`account/service/AvatarService`): the upload is decoded with ImageIO (PNG/JPEG/GIF, ≤ 4096 px per side checked from the header before decoding), center-cropped and re-encoded as a 256×256 PNG, which also drops EXIF. One object per user (`avatars/<userId>.png`) is overwritten on change, so no orphans; `users.avatar_updated_at` (V15) is both the "has avatar" flag and the URL version
 - The S3 write happens before the DB update, outside any transaction; on delete the row is cleared first and a failed object delete is only logged
 - `GET /api/v1/users/{id}/avatar` is public (an `<img src>` cannot carry the in-memory access token); `?v=` matching the current version → `Cache-Control: immutable`, otherwise `no-cache` + ETag/304. `AuthResponse.avatarUrl` carries the versioned URL; the frontend keeps it in `authStore` and renders it with `UserAvatar` (falls back to the initial)
 - Upload limits: `spring.servlet.multipart` 2 MB file / 3 MB request; nginx `client_max_body_size 3m` on `/api/`
@@ -354,7 +355,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 - **Frontend**: Vitest + `@testing-library/react` + jest-dom
 
 #### Backend Testing Patterns
-- Test files mirror the module structure: `auth/`, `vote/internal/`, `grpc/`, `shared/`
+- Test files mirror the module structure: `account/`, `vote/`, `notification/`, `grpc/`, `shared/`, `platform/`
 - `ModularityTest` verifies Spring Modulith boundaries — run it after any package restructuring
 - All service tests are pure unit tests using MockK — no Spring context needed
 - Controller tests use `MockMvcBuilders.standaloneSetup()` — Spring Boot 4.0 removed `@WebMvcTest`
@@ -513,5 +514,5 @@ One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first depl
 
 - `ConsistencyIntegrationTest` exercises concurrent token consumption and vote edits on PostgreSQL, history after winner deletion, canonical emails, uniqueness conflicts and pagination.
 - `NotificationOutboxIntegrationTest` verifies rollback, persisted payloads, lease recovery, stale acknowledgments, per-recipient retries, retry delays, dead-lettering, retention purge and bounded dispatch.
-- `ModularityTest` prohibits the vote module from depending on credential-bearing `auth.User`; use `auth.UserProfile`.
+- `ModularityTest` prohibits the vote module from depending on the mutable `account.User`; use `account.UserProfile`.
 - REST `/votes/{id}/history/page` returns a stable page response; the legacy `/history` endpoint returns at most the latest 100 entries.

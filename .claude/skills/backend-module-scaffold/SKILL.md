@@ -1,33 +1,32 @@
 ---
 name: backend-module-scaffold
-description: Use when adding a new REST endpoint, service, or persistence flow to the Kotlin/Spring Boot backend — follows this repo's hexagonal (ports & adapters) module layout and MockK/standaloneSetup test conventions so new code matches existing modules (auth, vote, shared, grpc).
+description: Use when adding a new REST endpoint, service, or persistence flow to the Kotlin/Spring Boot backend — follows this repo's hexagonal (ports & adapters) module layout and MockK/standaloneSetup test conventions so new code matches existing modules (account, vote, notification, storage, grpc, shared, platform).
 ---
 
 # backend-module-scaffold
 
 Scaffolds new backend functionality consistent with the hexagonal architecture enforced by Spring Modulith in this repo.
 
-## Layout convention (per module: `auth`, `vote`, `shared`, `grpc`)
+## Layout convention (business modules: `account`, `vote`, `notification`, `storage`)
 
 ```
-<module>/
-  internal/
-    domain/        — plain Kotlin classes, NO JPA annotations
-    port/          — repository/notification interfaces
-    persistence/
-      entity/      — JPA entities
-      jpa/         — Spring Data JPA repositories
-      adapter/     — JPA adapter implementations of port interfaces
-      mapper/      — domain ↔ entity mappers
-    web/           — REST controllers and DTOs
-    notification/  — notification adapters (e.g. email via NotificationPort)
+<module>/          — the module's API: services other modules/adapters call, read models, events, enums
+  domain/          — plain Kotlin classes, NO JPA annotations
+  port/            — repository/external-system interfaces
+  persistence/
+    entity/        — JPA entities
+    jpa/           — Spring Data JPA repositories
+    adapter/       — JPA adapter implementations of port interfaces
+    mapper/        — domain ↔ entity mappers
+  web/             — REST controllers and DTOs
+  <feature>/       — a feature sub-package where it reads better (e.g. `vote/listener`, `notification/delivery`)
 ```
 
-`internal/` is private to the module — do not reach into another module's `internal` package from outside it.
+Spring Modulith treats a module's **base package as its API and every sub-package as private** — there is no `internal/` level. Put implementation classes in a sub-package (never straight into the base package, or they become API), and never import another module's sub-packages. `shared` is the shared kernel (depends on nothing); `platform` holds application wiring (security, `ErrorHandler`, OpenAPI, secrets) and no module may depend on it.
 
 ## Steps
 
-1. **Identify the target module** (`auth`, `vote`, `shared`, `grpc`) — new functionality should live in the module that owns the domain concept, not wherever is convenient.
+1. **Identify the target module** (`account`, `vote`, `notification`, `storage`; `grpc` only for the bot's API) — new functionality should live in the module that owns the domain concept, not wherever is convenient.
 2. **Domain first**: define/extend the plain domain class in `domain/` — no persistence concerns leak in here.
 3. **Port**: define the interface in `port/` if the domain needs to talk to persistence or notifications.
 4. **Persistence**: JPA entity in `persistence/entity/`, Spring Data repo in `persistence/jpa/`, adapter implementing the port in `persistence/adapter/`, mapper in `persistence/mapper/`.

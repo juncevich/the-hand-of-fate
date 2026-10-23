@@ -1,6 +1,6 @@
 package com.juncevich.fate.notification
 
-import com.juncevich.fate.notification.internal.port.EmailSuppressionPort
+import com.juncevich.fate.notification.port.EmailSuppressionPort
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ErrorCode
 import io.mockk.every

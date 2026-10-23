@@ -115,7 +115,7 @@ PY
 # Keycloak runs as fate-keycloak (its image plus the login theme); the backend's smoke test starts
 # the same Keycloak version from Testcontainers.
 kc_image="$(sed -n 's/^FROM \(quay.io\/keycloak\/keycloak:[^ ]*\).*/\1/p' infra/keycloak/Dockerfile)"
-grep -q "\"$kc_image\"" backend/src/integrationTest/kotlin/com/juncevich/fate/auth/KeycloakSmokeIntegrationTest.kt \
+grep -q "\"$kc_image\"" backend/src/integrationTest/kotlin/com/juncevich/fate/account/KeycloakSmokeIntegrationTest.kt \
   || { echo "    MISMATCH infra/keycloak/Dockerfile ($kc_image) vs KeycloakSmokeIntegrationTest" >&2; exit 1; }
 echo "    $kc_image: Dockerfile = KeycloakSmokeIntegrationTest"
 

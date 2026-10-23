@@ -1,15 +1,15 @@
 package com.juncevich.fate
 
-import com.juncevich.fate.auth.TelegramLinkService
-import com.juncevich.fate.auth.UserQueryService
-import com.juncevich.fate.auth.internal.service.ExpiredTokenPurger
+import com.juncevich.fate.account.TelegramLinkService
+import com.juncevich.fate.account.UserQueryService
+import com.juncevich.fate.account.service.ExpiredTokenPurger
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.vote.CreateVoteCommand
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteService
-import com.juncevich.fate.vote.internal.WinnerPicker
+import com.juncevich.fate.vote.domain.WinnerPicker
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows

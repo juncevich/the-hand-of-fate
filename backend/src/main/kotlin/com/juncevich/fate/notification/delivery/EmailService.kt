@@ -1,0 +1,177 @@
+package com.juncevich.fate.notification.delivery
+
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.mail.MailException
+import org.springframework.mail.javamail.JavaMailSender
+import org.springframework.mail.javamail.MimeMessageHelper
+import org.springframework.resilience.annotation.Retryable
+import org.springframework.stereotype.Service
+import java.util.concurrent.Semaphore
+
+/** Where a notification email's recipient can opt out: the confirmation page and the RFC 8058 endpoint. */
+data class UnsubscribeLinks(
+    val page: String,
+    val oneClick: String,
+)
+
+/**
+ * Transient SMTP failures ([MailException]) are retried: 3 attempts in total, backing off
+ * 1s then 2s by default (`app.mail.retry.delay-ms` sets the initial delay).
+ *
+ * Callers run on virtual threads (bounded outbox batches and per-recipient fan-out),
+ * so the number of simultaneous SMTP sends is capped here (`app.mail.max-concurrent-sends`) to keep
+ * the mail server from throttling or rejecting us. The permit covers a single attempt only, so a
+ * sender waiting out a retry backoff doesn't block others.
+ */
+@Service
+class EmailService(
+    private val mailSender: JavaMailSender,
+    @Value("\${app.mail.from:}") fromOverride: String,
+    @Value("\${spring.mail.username:}") smtpUsername: String,
+    @Value("\${app.mail.max-concurrent-sends:4}") maxConcurrentSends: Int =
+        DEFAULT_MAX_CONCURRENT_SENDS,
+) {
+    private val sendPermits = Semaphore(maxConcurrentSends)
+
+    // An unset MAIL_USERNAME resolves to "" rather than "absent", so a placeholder default
+    // never kicks in; pick the first non-blank candidate explicitly.
+    private val from: String =
+        listOf(fromOverride, smtpUsername).firstOrNull { it.isNotBlank() } ?: DEFAULT_FROM
+
+    @Retryable(
+        includes = [MailException::class],
+        maxRetries = 2,
+        delayString = "\${app.mail.retry.delay-ms:1000}",
+        multiplier = 2.0
+    )
+    fun sendVoteInvitation(
+        to: String,
+        voteTitle: String,
+        creatorName: String,
+        voteUrl: String,
+        unsubscribe: UnsubscribeLinks,
+    ) {
+        send(
+            to = to,
+            subject = "✦ You've been invited to a vote: $voteTitle",
+            // User-supplied text goes into HTML escaped, so a vote title can't inject markup or links.
+            html = withUnsubscribeFooter(invitationHtml(escape(voteTitle), escape(creatorName), voteUrl), unsubscribe),
+            unsubscribe = unsubscribe
+        )
+    }
+
+    @Retryable(
+        includes = [MailException::class],
+        maxRetries = 2,
+        delayString = "\${app.mail.retry.delay-ms:1000}",
+        multiplier = 2.0
+    )
+    fun sendDrawResult(
+        to: String,
+        voteTitle: String,
+        winnerName: String,
+        winnerEmail: String,
+        round: Int,
+        voteUrl: String,
+        unsubscribe: UnsubscribeLinks,
+    ) {
+        send(
+            to = to,
+            subject = "✦ Vote result: $voteTitle — Winner: $winnerName",
+            html =
+                withUnsubscribeFooter(
+                    drawResultHtml(escape(voteTitle), escape(winnerName), escape(winnerEmail), round, voteUrl),
+                    unsubscribe
+                ),
+            unsubscribe = unsubscribe
+        )
+    }
+
+    private fun send(
+        to: String,
+        subject: String,
+        html: String,
+        unsubscribe: UnsubscribeLinks,
+    ) {
+        val message = mailSender.createMimeMessage()
+        MimeMessageHelper(message, true, "UTF-8").apply {
+            setFrom(from)
+            setTo(to)
+            setSubject(subject)
+            setText(html, true)
+        }
+        // RFC 8058 one-click unsubscribe: mail clients POST to the URL without opening a page.
+        message.setHeader("List-Unsubscribe", "<${unsubscribe.oneClick}>")
+        message.setHeader("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
+        sendPermits.acquire()
+        try {
+            mailSender.send(message)
+        } finally {
+            sendPermits.release()
+        }
+    }
+
+    private fun invitationHtml(
+        voteTitle: String,
+        creatorName: String,
+        voteUrl: String,
+    ) = """
+        <!DOCTYPE html>
+        <html><body style="font-family:sans-serif;background:#0d0d1a;color:#f0f0f0;padding:24px">
+        <h2 style="color:#f59e0b">✦ The Hand of Fate</h2>
+        <p><strong>$creatorName</strong> has invited you to participate in:</p>
+        <h3 style="color:#fff">$voteTitle</h3>
+        <a href="$voteUrl" style="display:inline-block;background:#f59e0b;color:#000;padding:12px 24px;
+            border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px">
+          View Vote
+        </a>
+        </body></html>
+        """.trimIndent()
+
+    private fun drawResultHtml(
+        voteTitle: String,
+        winnerName: String,
+        winnerEmail: String,
+        round: Int,
+        voteUrl: String,
+    ) = """
+        <!DOCTYPE html>
+        <html><body style="font-family:sans-serif;background:#0d0d1a;color:#f0f0f0;padding:24px">
+        <h2 style="color:#f59e0b">✦ The Hand of Fate has spoken!</h2>
+        <h3 style="color:#fff">Vote: $voteTitle</h3>
+        <p style="font-size:18px">The winner of round <strong>$round</strong> is:</p>
+        <p style="font-size:24px;color:#f59e0b;font-weight:bold">$winnerName</p>
+        <p style="color:#a0a0b0">$winnerEmail</p>
+        <a href="$voteUrl" style="display:inline-block;background:#f59e0b;color:#000;padding:12px 24px;
+            border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px">
+          View Results
+        </a>
+        </body></html>
+        """.trimIndent()
+
+    private fun withUnsubscribeFooter(
+        html: String,
+        unsubscribe: UnsubscribeLinks,
+    ) = html.replace(
+        "</body></html>",
+        """
+        <p style="color:#a0a0b0;font-size:12px;margin-top:32px">
+          You get this email because someone added your address to a vote.
+          <a href="${unsubscribe.page}" style="color:#a0a0b0">Unsubscribe</a>
+        </p>
+        </body></html>
+        """.trimIndent()
+    )
+
+    private fun escape(value: String) =
+        value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+
+    private companion object {
+        const val DEFAULT_FROM = "noreply@handoffate.app"
+        const val DEFAULT_MAX_CONCURRENT_SENDS = 4
+    }
+}
