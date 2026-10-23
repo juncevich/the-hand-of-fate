@@ -1,5 +1,10 @@
 # Dependency Updates
 
+## 2026-10-24 — added: FreeMarker
+
+Architecture review block 8: the notification emails move from HTML in Kotlin strings to a template with ru/en texts.
+- Added `org.freemarker:freemarker` (version from the Spring Boot BOM, `2.3.34`) — the template engine only, not `spring-boot-starter-freemarker`, which would also register Spring MVC's FreeMarker view resolver. The same engine renders Keycloak's email theme (`frontend/src/email/`)
+
 ## 2026-10-24 — removed: grpc-kotlin and kotlinx-coroutines
 
 Architecture review (docs/plans/architecture-review.md, block 1): every RPC body was blocking JPA on a virtual-thread coroutine dispatcher, so coroutines only added a second concurrency model. `FateGrpcService` now extends grpc-java's `FateServiceImplBase` on the virtual-thread executor of `GrpcServerConfig`.

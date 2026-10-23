@@ -58,9 +58,9 @@ class ErrorHandlerTest {
     }
 
     @Test
-    fun `handleOptimisticLocking - returns 409`() {
+    fun `optimistic locking failure returns 409`() {
         val response =
-            handler.handleOptimisticLocking(ObjectOptimisticLockingFailureException("Vote", 1L))
+            handler.handleInfrastructure(ObjectOptimisticLockingFailureException("Vote", 1L))
 
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
         assertEquals("The resource was modified concurrently, please retry", response.body?.title)
@@ -85,7 +85,7 @@ class ErrorHandlerTest {
     @Test
     fun `unique constraint violation returns conflict without database details`() {
         val ex = org.springframework.dao.DataIntegrityViolationException("SQL details", java.sql.SQLException("duplicate", "23505"))
-        val response = handler.handleDataIntegrity(ex)
+        val response = handler.handleInfrastructure(ex)
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
         assertEquals("The resource already exists", response.body?.title)
     }
@@ -93,7 +93,7 @@ class ErrorHandlerTest {
     @Test
     fun `other integrity violations remain internal errors`() {
         val ex = org.springframework.dao.DataIntegrityViolationException("SQL details", java.sql.SQLException("foreign key", "23503"))
-        val response = handler.handleDataIntegrity(ex)
+        val response = handler.handleInfrastructure(ex)
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
         assertEquals("Internal server error", response.body?.title)
     }

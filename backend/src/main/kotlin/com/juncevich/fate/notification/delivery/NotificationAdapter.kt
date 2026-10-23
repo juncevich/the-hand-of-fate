@@ -3,7 +3,7 @@ package com.juncevich.fate.notification.delivery
 import com.juncevich.fate.notification.DrawResultPayload
 import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.notification.InvitationPayload
-import org.springframework.beans.factory.annotation.Value
+import com.juncevich.fate.shared.FrontendProperties
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -17,8 +17,10 @@ import java.util.UUID
 class NotificationAdapter(
     private val emailService: EmailService,
     private val preferences: EmailPreferences,
-    @param:Value("\${app.frontend-url}") private val frontendUrl: String,
+    frontend: FrontendProperties,
 ) {
+    private val frontendUrl = frontend.frontendUrl
+
     fun send(payload: InvitationPayload) {
         emailService.sendVoteInvitation(
             to = payload.recipientEmail,

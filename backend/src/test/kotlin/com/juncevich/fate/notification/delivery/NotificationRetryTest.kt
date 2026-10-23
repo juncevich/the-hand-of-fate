@@ -5,6 +5,7 @@ import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.notification.InvitationPayload
 import com.juncevich.fate.notification.NOTIFICATION_PAYLOAD_VERSION
 import com.juncevich.fate.notification.port.EmailSuppressionPort
+import com.juncevich.fate.shared.FrontendProperties
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
@@ -14,6 +15,8 @@ import jakarta.mail.internet.MimeMessage
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.mail.autoconfigure.MailProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
@@ -46,7 +49,8 @@ class NotificationRetryTest
     ) {
         @Configuration
         @EnableResilientMethods
-        @Import(EmailService::class, NotificationAdapter::class, EmailPreferences::class)
+        @Import(EmailService::class, MailTemplates::class, NotificationAdapter::class, EmailPreferences::class)
+        @EnableConfigurationProperties(NotificationMailProperties::class, FrontendProperties::class, MailProperties::class)
         class Config {
             @Bean
             fun mailSender(): JavaMailSender = mockk(relaxed = true)

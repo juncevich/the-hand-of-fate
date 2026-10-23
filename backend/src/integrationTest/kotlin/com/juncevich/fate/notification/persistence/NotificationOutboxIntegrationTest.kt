@@ -11,6 +11,7 @@ import com.juncevich.fate.notification.port.EmailSuppressionPort
 import com.juncevich.fate.notification.port.NotificationOutboxPort
 import com.juncevich.fate.notification.port.NotificationType
 import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.FrontendProperties
 import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.vote.VoteId
 import com.juncevich.fate.vote.domain.DrawHistory
@@ -288,7 +289,7 @@ class NotificationOutboxIntegrationTest
             properties: NotificationProperties = NotificationProperties(),
         ) = NotificationWorker(
             outbox,
-            NotificationAdapter(mail, preferences, "http://localhost:3000"),
+            NotificationAdapter(mail, preferences, FrontendProperties("http://localhost:3000")),
             json,
             properties,
             SimpleMeterRegistry(),

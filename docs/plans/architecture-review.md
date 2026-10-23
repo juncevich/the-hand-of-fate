@@ -44,6 +44,16 @@
 - [x] Продление lease во время ретраев SMTP или ShedLock — только если появится второй инстанс
   - Сделано 2026-10-24: heartbeat `NotificationWorker.renewLeases` (каждые `app.notifications.lease-renewal`, 30 s) продлевает lease задач в работе через `NotificationOutboxPort.renew` (ограждение по `claim_id`); подтверждение сначала снимает задачу с продления; потерянный lease — warn + `notification.lease.lost`. ShedLock не нужен: несколько экземпляров разбирают очередь параллельно (`SKIP LOCKED`)
 
+## 8. Повторное ревью (2026-10-24)
+- [x] gRPC: логировать непредвиденные ошибки (`INTERNAL`) со стектрейсом, как REST; убрать неиспользуемый `GrpcErrors.clientStatus`
+- [x] gRPC ↔ REST: одинаковый маппинг `ObjectOptimisticLockingFailureException` (`CONCURRENT_MODIFICATION`) и нарушения уникальности (`ALREADY_EXISTS`) — один перевод на оба транспорта, покрыть контрактным тестом — `shared.asClientError()` (`ClientErrors.kt`), `ErrorHandler.handleInfrastructure`, `ErrorMappingContractTest`, `GrpcErrorsTest`
+- [x] Письма: шаблоны вместо HTML в строках `EmailService`, локализация ru/en; настройки почты и `app.frontend-url` — через `@ConfigurationProperties` вместо разрозненных `@Value`
+  - FreeMarker `mail/templates/notification.ftlh` (автоэкранирование) + `mail/messages{,_ru}.properties`, рендерер `MailTemplates`; язык `app.mail.locale` (`MAIL_LOCALE`, по умолчанию `ru`) — один на всех получателей; `NotificationMailProperties` (`app.mail`) и `shared.FrontendProperties` вместо `@Value`. Оставлен `@Value` секрета отписки в `EmailPreferences`
+- [ ] Удаление аватара после коммита — `@TransactionalEventListener(AFTER_COMMIT)` на `AccountDeleted` вместо ручной `TransactionSynchronization`; `runCatching` в `AvatarService` → `catch (Exception)`
+- [ ] `requireValidTitle` отклоняет управляющие символы (перевод строки и т. п.)
+- [ ] Собственный `AbstractAuthenticationToken` вместо `UsernamePasswordAuthenticationToken` для JWT
+- [ ] (по необходимости) кэш проверенных `sub` в `KeycloakAccessTokenConverter` — только при росте нагрузки, с учётом удаления аккаунта на других экземплярах
+
 ## Проверка в конце
 - [x] `./gradlew spotlessCheck detekt check` (покрытие ≥ 95/85)
 - [x] `make openapi` — спека и клиенты без изменений (или изменения закоммичены) — `OpenApiSpecIntegrationTest` зелёный, спека не менялась

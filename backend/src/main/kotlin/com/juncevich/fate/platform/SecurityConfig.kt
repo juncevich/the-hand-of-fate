@@ -1,6 +1,6 @@
 package com.juncevich.fate.platform
 
-import org.springframework.beans.factory.annotation.Value
+import com.juncevich.fate.shared.FrontendProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.convert.converter.Converter
@@ -25,7 +25,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 @EnableMethodSecurity
 class SecurityConfig(
     private val accessTokenAuthenticationConverter: Converter<Jwt, AbstractAuthenticationToken>,
-    @param:Value("\${app.frontend-url}") private val frontendUrl: String,
+    private val frontend: FrontendProperties,
 ) {
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain =
@@ -78,7 +78,7 @@ class SecurityConfig(
     fun corsConfigurationSource(): CorsConfigurationSource {
         val config =
             CorsConfiguration().apply {
-                allowedOrigins = listOf(frontendUrl)
+                allowedOrigins = listOf(frontend.frontendUrl)
                 allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                 allowedHeaders = listOf("*")
                 maxAge = 3600L

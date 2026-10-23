@@ -4,6 +4,7 @@ import com.juncevich.fate.notification.DrawResultPayload
 import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.notification.InvitationPayload
 import com.juncevich.fate.notification.NOTIFICATION_PAYLOAD_VERSION
+import com.juncevich.fate.shared.FrontendProperties
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -16,7 +17,7 @@ import java.util.UUID
 class NotificationAdapterTest {
     private val emailService = mockk<EmailService>()
     private val preferences = EmailPreferences(mockk(), "test-unsubscribe-secret")
-    private val adapter = NotificationAdapter(emailService, preferences, "http://localhost:3000")
+    private val adapter = NotificationAdapter(emailService, preferences, FrontendProperties("http://localhost:3000"))
     private val voteId = UUID.randomUUID()
 
     @Test

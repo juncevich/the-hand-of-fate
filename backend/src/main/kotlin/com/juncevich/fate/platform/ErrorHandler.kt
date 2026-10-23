@@ -7,15 +7,16 @@ import com.juncevich.fate.shared.FateException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.shared.TooManyRequestsException
+import com.juncevich.fate.shared.asClientError
 import com.juncevich.fate.shared.problem
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
-import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.security.core.AuthenticationException
 import org.springframework.validation.FieldError
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -23,7 +24,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.WebRequest
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
-import java.sql.SQLException
 import java.time.Instant
 
 /**
@@ -84,28 +84,10 @@ class ErrorHandler : ResponseEntityExceptionHandler() {
         return problemResponse(ex.httpStatus(), ex.message ?: ex.httpStatus().reasonPhrase, ex.code)
     }
 
-    @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
-    fun handleOptimisticLocking(ex: ObjectOptimisticLockingFailureException): ResponseEntity<ProblemDetail> {
-        log.warn("Concurrent modification: {}", ex.message)
-        return problemResponse(
-            HttpStatus.CONFLICT,
-            "The resource was modified concurrently, please retry",
-            ErrorCode.CONCURRENT_MODIFICATION
-        )
-    }
-
-    @ExceptionHandler(DataIntegrityViolationException::class)
-    fun handleDataIntegrity(ex: DataIntegrityViolationException): ResponseEntity<ProblemDetail> {
-        val uniqueViolation =
-            generateSequence<Throwable>(ex) { it.cause }
-                .filterIsInstance<SQLException>()
-                .any { it.sqlState == "23505" }
-        return if (uniqueViolation) {
-            problemResponse(HttpStatus.CONFLICT, "The resource already exists", ErrorCode.ALREADY_EXISTS)
-        } else {
-            handleGeneric(ex)
-        }
-    }
+    /** Infrastructure failures that are client errors (see [asClientError]); anything else is a 500. */
+    @ExceptionHandler(OptimisticLockingFailureException::class, DataIntegrityViolationException::class)
+    fun handleInfrastructure(ex: Exception): ResponseEntity<ProblemDetail> =
+        ex.asClientError()?.let(::handleDomain) ?: handleGeneric(ex)
 
     @ExceptionHandler(Exception::class)
     fun handleGeneric(ex: Exception): ResponseEntity<ProblemDetail> {

@@ -138,6 +138,9 @@ app:
     from: ${MAIL_FROM:}
     # Cap on simultaneous SMTP sends; outbox batches are dispatched on virtual threads
     max-concurrent-sends: ${MAIL_MAX_CONCURRENT_SENDS:4}
+    # Language of the notification emails (resources/mail/messages*.properties): ru or en.
+    # One for everyone — a recipient may have no account to take a language from.
+    locale: ${MAIL_LOCALE:ru}
   # Notification outbox delivery (see NotificationProperties). Failed jobs back off exponentially
   # from retry-base-delay up to retry-max-delay; after max-attempts they are marked failed
   # (metric notification.dead) and purged after failed-retention.

@@ -12,7 +12,10 @@ import io.grpc.Status
 import io.grpc.protobuf.StatusProto
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
+import org.springframework.orm.ObjectOptimisticLockingFailureException
+import java.sql.SQLException
 import kotlin.reflect.KClass
 import kotlin.reflect.full.primaryConstructor
 import com.juncevich.fate.shared.ErrorCode as DomainErrorCode
@@ -59,6 +62,45 @@ class ErrorMappingContractTest {
                     ?.unpack(ErrorInfo::class.java)
             assertEquals("VOTE_NOT_FOUND", info?.reason, "gRPC reason for ${type.simpleName}")
         }
+    }
+
+    @Test
+    fun `REST and gRPC report infrastructure failures that are client errors alike`() {
+        val handler = ErrorHandler()
+        val cases =
+            mapOf(
+                ObjectOptimisticLockingFailureException("Vote", 1L) to DomainErrorCode.CONCURRENT_MODIFICATION,
+                DataIntegrityViolationException("SQL details", SQLException("duplicate", "23505")) to DomainErrorCode.ALREADY_EXISTS
+            )
+        cases.forEach { (ex, code) ->
+            val rest = handler.handleInfrastructure(ex)
+            assertEquals(HttpStatus.CONFLICT, rest.statusCode, "REST status for ${ex.javaClass.simpleName}")
+            assertEquals(code, rest.body?.properties?.get("code"))
+
+            val grpc = GrpcErrors.toStatusException(ex)
+            assertEquals(Status.Code.FAILED_PRECONDITION, grpc.status.code, "gRPC status for ${ex.javaClass.simpleName}")
+            assertEquals(rest.body?.title, grpc.status.description)
+            assertEquals(
+                code.name,
+                StatusProto
+                    .fromThrowable(grpc)
+                    ?.detailsList
+                    ?.single()
+                    ?.unpack(ErrorInfo::class.java)
+                    ?.reason
+            )
+
+            val failed = grpcMutation(failure = { message, protoCode -> message to protoCode }) { throw ex }
+            assertEquals(rest.body?.title to code.toProto(), failed, "gRPC mutation result for ${ex.javaClass.simpleName}")
+        }
+    }
+
+    @Test
+    fun `any other integrity violation is internal on both transports`() {
+        val ex = DataIntegrityViolationException("SQL details", SQLException("foreign key", "23503"))
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, ErrorHandler().handleInfrastructure(ex).statusCode)
+        assertEquals(Status.Code.INTERNAL, GrpcErrors.toStatusException(ex).status.code)
     }
 
     @Test

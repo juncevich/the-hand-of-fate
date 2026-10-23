@@ -9,6 +9,7 @@ import jakarta.mail.internet.MimeMessage
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.boot.mail.autoconfigure.MailProperties
 import org.springframework.mail.javamail.JavaMailSender
 import java.util.Properties
 import java.util.concurrent.CountDownLatch
@@ -17,6 +18,16 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 class EmailServiceTest {
+    private fun emailService(
+        mailSender: JavaMailSender,
+        from: String = "",
+        smtpUsername: String = "",
+        maxConcurrentSends: Int = 4,
+    ): EmailService {
+        val properties = NotificationMailProperties(from = from, maxConcurrentSends = maxConcurrentSends)
+        return EmailService(mailSender, MailTemplates(properties), properties, MailProperties().apply { username = smtpUsername })
+    }
+
     private fun sentFrom(
         fromOverride: String,
         smtpUsername: String,
@@ -26,7 +37,7 @@ class EmailServiceTest {
         every { mailSender.createMimeMessage() } answers { MimeMessage(Session.getInstance(Properties())) }
         every { mailSender.send(capture(sent)) } returns Unit
 
-        EmailService(mailSender, fromOverride, smtpUsername)
+        emailService(mailSender, fromOverride, smtpUsername)
             .sendVoteInvitation("p@test.com", "Vote", "Creator", "http://localhost/votes/1", UnsubscribeLinks("http://localhost/unsubscribe", "http://localhost/one-click"))
 
         verify(exactly = 1) { mailSender.send(any<MimeMessage>()) }
@@ -65,7 +76,7 @@ class EmailServiceTest {
             release.await(5, TimeUnit.SECONDS)
             inFlight.decrementAndGet()
         }
-        val service = EmailService(mailSender, "", "", maxConcurrentSends = 2)
+        val service = emailService(mailSender, maxConcurrentSends = 2)
 
         Executors.newVirtualThreadPerTaskExecutor().use { executor ->
             repeat(6) { i ->
@@ -86,7 +97,7 @@ class EmailServiceTest {
         val sent = slot<MimeMessage>()
         every { mailSender.createMimeMessage() } answers { MimeMessage(Session.getInstance(Properties())) }
         every { mailSender.send(capture(sent)) } returns Unit
-        EmailService(mailSender, "", "").send()
+        emailService(mailSender).send()
         val multipart = sent.captured.content as jakarta.mail.Multipart
         return generateSequence(multipart.getBodyPart(0)) { part ->
             (part.content as? jakarta.mail.Multipart)?.getBodyPart(0)
@@ -110,7 +121,7 @@ class EmailServiceTest {
         val sent = slot<MimeMessage>()
         every { mailSender.createMimeMessage() } answers { MimeMessage(Session.getInstance(Properties())) }
         every { mailSender.send(capture(sent)) } returns Unit
-        EmailService(mailSender, "", "").send()
+        emailService(mailSender).send()
         return sent.captured
     }
 
@@ -122,6 +133,7 @@ class EmailServiceTest {
         assertEquals("<http://app/api/one-click?email=a&sig=s>", message.getHeader("List-Unsubscribe").single())
         assertEquals("List-Unsubscribe=One-Click", message.getHeader("List-Unsubscribe-Post").single())
         val html = sentHtml { sendVoteInvitation("a@test.com", "Vote", "Eve", "http://app/votes/1", links) }
-        assertTrue("http://app/unsubscribe?email=a&sig=s" in html, html)
+        // Escaped in the attribute like every value; the browser decodes &amp; back to &.
+        assertTrue("href=\"http://app/unsubscribe?email=a&amp;sig=s\"" in html, html)
     }
 }

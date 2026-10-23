@@ -1,5 +1,5 @@
 <#--
-  Layout of every HTML email, styled like the app's own (backend EmailService): dark page, gold
+  Layout of every HTML email, styled like the app's own (backend resources/mail/templates/notification.ftlh): dark page, gold
   heading and button. Our templates pass the parts; the base theme's ones pass nested HTML.
   Values are escaped by FreeMarker, so user-supplied text (a name) can't inject markup.
 -->

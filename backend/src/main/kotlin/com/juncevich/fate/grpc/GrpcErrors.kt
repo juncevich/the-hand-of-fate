@@ -7,10 +7,12 @@ import com.juncevich.fate.shared.FateException
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.shared.TooManyRequestsException
+import com.juncevich.fate.shared.asClientError
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 import io.grpc.stub.StreamObserver
+import org.slf4j.LoggerFactory
 import com.google.protobuf.Any as ProtoAny
 import com.juncevich.fate.shared.ErrorCode as DomainErrorCode
 
@@ -21,16 +23,20 @@ import com.juncevich.fate.shared.ErrorCode as DomainErrorCode
 internal object GrpcErrors {
     const val ERROR_DOMAIN = "fate.v1"
 
-    /** Status for a client error, or `null` when [ex] is unexpected and must be reported as `INTERNAL`. */
-    fun clientStatus(ex: Throwable): Status? = (ex as? FateException)?.grpcStatus()
+    private val log = LoggerFactory.getLogger(GrpcErrors::class.java)
 
     /** Converts any failure into the exception a read RPC should throw. */
-    fun toStatusException(ex: Throwable): StatusRuntimeException =
-        when (ex) {
-            is StatusRuntimeException -> ex
-            is FateException -> status(ex.grpcStatus().code, ex.code, ex.message.orEmpty())
-            else -> internal()
-        }
+    fun toStatusException(ex: Throwable): StatusRuntimeException {
+        if (ex is StatusRuntimeException) return ex
+        val client = ex.asClientError() ?: return unexpected(ex)
+        return status(client.grpcStatus().code, client.code, client.message.orEmpty())
+    }
+
+    /** A bug: logged with its stack trace (as `ErrorHandler` does for REST), reported as a generic `INTERNAL`. */
+    fun unexpected(ex: Throwable): StatusRuntimeException {
+        log.error("Unexpected error in a gRPC call", ex)
+        return internal()
+    }
 
     /** An expected failure: [code] with an `ErrorInfo` whose reason is [reason] (see fate.proto). */
     fun status(
@@ -118,10 +124,9 @@ internal inline fun <T> grpcMutation(
         block()
     } catch (ex: StatusRuntimeException) {
         throw ex
-    } catch (ex: FateException) {
-        failure(ex.message.orEmpty(), ex.code.toProto())
-    } catch (_: Exception) {
-        throw GrpcErrors.internal()
+    } catch (ex: Exception) {
+        val client = ex.asClientError() ?: throw GrpcErrors.unexpected(ex)
+        failure(client.message.orEmpty(), client.code.toProto())
     }
 
 /** The proto mirror of a domain code (`ERROR_CODE_` + name; `ErrorMappingContractTest` keeps them in sync). */
