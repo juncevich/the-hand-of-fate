@@ -182,12 +182,12 @@ class FateGrpcService(
             DrawVoteResponse
                 .newBuilder()
                 .setSuccess(true)
-                .setWinnerEmail(result.winnerEmail.orEmpty())
-                .setWinnerDisplayName(result.winnerDisplayName.orEmpty())
-                .setWinnerOptionTitle(result.winnerOptionTitle.orEmpty())
+                .setWinnerEmail(result.winner.email)
+                .setWinnerDisplayName(result.winner.displayName)
+                .setWinnerOptionTitle(result.winner.optionTitle)
                 .setRound(result.round)
                 .setNewRoundStarted(result.newRoundStarted)
-                .setMessage("✦ The Hand of Fate has chosen: ${result.winnerLabel}")
+                .setMessage("✦ The Hand of Fate has chosen: ${result.winner.label}")
                 .build()
         }
     }
@@ -274,12 +274,17 @@ class FateGrpcService(
     private fun DrawHistoryView.toDrawResultInfo(): DrawResultInfo =
         DrawResultInfo
             .newBuilder()
-            .setWinnerEmail(winnerEmail.orEmpty())
-            .setWinnerDisplayName(winnerDisplayName.orEmpty())
-            .setWinnerOptionTitle(winnerOptionTitle.orEmpty())
+            .setWinnerEmail(winner.email)
+            .setWinnerDisplayName(winner.displayName)
+            .setWinnerOptionTitle(winner.optionTitle)
             .setRound(round)
             .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(drawnAt))
             .build()
+
+    // proto3 strings have no null: the fields of the other kind of winner are empty.
+    private val Winner.email get() = (this as? Winner.Participant)?.email.orEmpty()
+    private val Winner.displayName get() = (this as? Winner.Participant)?.displayName.orEmpty()
+    private val Winner.optionTitle get() = (this as? Winner.Option)?.title.orEmpty()
 
     private fun linkedUser(telegramId: Long) =
         userQueryService.findByTelegramId(telegramId)

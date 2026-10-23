@@ -59,9 +59,7 @@ data class ParticipantView(
 
 data class DrawHistoryView(
     val id: UUID,
-    val winnerEmail: String?,
-    val winnerDisplayName: String?,
-    val winnerOptionTitle: String?,
+    val winner: Winner,
     val round: Int,
     val drawnAt: Instant,
 )

@@ -258,50 +258,14 @@ private fun Vote.toDetailView(
     createdAt = createdAt
 )
 
-private fun DrawHistory.toView() =
-    when (this) {
-        is DrawHistory.ParticipantWinner -> {
-            DrawHistoryView(
-                id = id,
-                winnerEmail = email,
-                winnerDisplayName = displayName,
-                winnerOptionTitle = null,
-                round = round,
-                drawnAt = drawnAt
-            )
+private val DrawHistory.winner: Winner
+    get() =
+        when (this) {
+            is DrawHistory.ParticipantWinner -> Winner.Participant(email, displayName)
+            is DrawHistory.OptionWinner -> Winner.Option(optionTitle)
         }
 
-        is DrawHistory.OptionWinner -> {
-            DrawHistoryView(
-                id = id,
-                winnerEmail = null,
-                winnerDisplayName = null,
-                winnerOptionTitle = optionTitle,
-                round = round,
-                drawnAt = drawnAt
-            )
-        }
-    }
+private fun DrawHistory.toView() = DrawHistoryView(id = id, winner = winner, round = round, drawnAt = drawnAt)
 
 private fun DrawOutcome.toResult() =
-    when (val entry = entry) {
-        is DrawHistory.ParticipantWinner -> {
-            DrawResult(
-                winnerEmail = entry.email,
-                winnerDisplayName = entry.displayName,
-                winnerOptionTitle = null,
-                round = entry.round,
-                newRoundStarted = newRoundStarted
-            )
-        }
-
-        is DrawHistory.OptionWinner -> {
-            DrawResult(
-                winnerEmail = null,
-                winnerDisplayName = null,
-                winnerOptionTitle = entry.optionTitle,
-                round = entry.round,
-                newRoundStarted = newRoundStarted
-            )
-        }
-    }
+    DrawResult(winner = entry.winner, round = entry.round, newRoundStarted = newRoundStarted)

@@ -271,7 +271,7 @@ Each vote has a `drawTarget` (`votes.draw_target`, V20), chosen at creation and 
 - When a client omits it (REST `drawTarget`, gRPC `DRAW_TARGET_UNSPECIFIED`, the bot's `/newvote`), it is inferred: OPTIONS if options are given, else PARTICIPANTS — so older clients keep working
 - Options are created with the vote or managed via REST (`POST /{id}/options`, `DELETE /{id}/options/{optionId}`, `PUT /{id}/options/order` with every option id in the new order). Positions are `0..n-1`, unique per vote (`DEFERRABLE INITIALLY DEFERRED`, V21, so a reorder can swap them); a new option goes after the highest position
 
-`DrawHistory` (domain) is a sealed interface with two subtypes, `ParticipantWinner` and `OptionWinner`; its row stores the winner as either `winnerEmail` / `winnerDisplayName` (for participants) or `winnerOption` / `winnerOptionTitle` (for options — denormalized title for resilience to deletion).
+`DrawHistory` (domain) is a sealed interface with two subtypes, `ParticipantWinner` and `OptionWinner`; its row stores the winner as either `winnerEmail` / `winnerDisplayName` (for participants) or `winnerOption` / `winnerOptionTitle` (for options — denormalized title for resilience to deletion). The module API reports a winner as the sealed `Winner` (`Participant(email?, displayName?)` / `Option(title)`, with `label`) in `DrawResult` and `DrawHistoryView`; only the wire formats — REST DTOs, proto, the draw-result email payload — flatten it into `winnerEmail` / `winnerDisplayName` / `winnerOptionTitle`.
 
 ### Backend Module Architecture (Hexagonal / Ports & Adapters)
 

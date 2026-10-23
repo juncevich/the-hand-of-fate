@@ -187,7 +187,7 @@ class VoteServiceTest {
 
         assertFalse(view.isCreator)
         assertEquals(listOf(creator.email, "p@test.com"), view.participants.map { it.email })
-        assertEquals("Pat", view.lastResult?.winnerDisplayName)
+        assertEquals(Winner.Participant("p@test.com", "Pat"), view.lastResult?.winner)
     }
 
     @Test
@@ -219,9 +219,7 @@ class VoteServiceTest {
             listOf(DrawHistory.OptionWinner(voteId = vote.id, optionId = UUID.randomUUID(), optionTitle = "Pizza", round = 2), null)
 
         val result = service.getLastResult(vote.id, UUID.randomUUID(), "p@test.com")
-        assertEquals("Pizza", result?.winnerOptionTitle)
-        assertNull(result?.winnerEmail)
-        assertNull(result?.winnerDisplayName)
+        assertEquals(Winner.Option("Pizza"), result?.winner)
         assertEquals(2, result?.round)
 
         assertNull(service.getLastResult(vote.id, creator.id, creator.email))
@@ -247,7 +245,7 @@ class VoteServiceTest {
         every { history.findPage(vote.id, PageRequest.of(0, 100)) } returns
             PageImpl(listOf(DrawHistory.OptionWinner(voteId = vote.id, optionId = null, optionTitle = "Gone", round = 1)))
 
-        assertEquals(listOf("Gone"), service.getHistory(vote.id, creator.id, creator.email).map { it.winnerOptionTitle })
+        assertEquals(listOf(Winner.Option("Gone")), service.getHistory(vote.id, creator.id, creator.email).map { it.winner })
     }
 
     // ── changes ──────────────────────────────────────────────────────────────────
@@ -353,7 +351,7 @@ class VoteServiceTest {
 
         val result = service.draw(vote.id, creator.id)
 
-        assertEquals("winner@test.com", result.winnerEmail)
+        assertEquals(Winner.Participant("winner@test.com", null), result.winner)
         assertEquals("winner@test.com", (recorded.captured as DrawHistory.ParticipantWinner).email)
         assertFalse(result.newRoundStarted)
         verify { votes.save(match { it.status == VoteStatus.DRAWN }) }
@@ -376,9 +374,7 @@ class VoteServiceTest {
 
         val result = service.draw(vote.id, creator.id)
 
-        assertEquals("Pizza", result.winnerOptionTitle)
-        assertNull(result.winnerEmail)
-        assertNull(result.winnerDisplayName)
+        assertEquals(Winner.Option("Pizza"), result.winner)
         assertEquals(1, result.round)
         verify { history.findByRound(vote.id, 1) }
         verify { history.save(match { it is DrawHistory.OptionWinner && it.optionTitle == "Pizza" }) }

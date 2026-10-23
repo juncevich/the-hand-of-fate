@@ -109,9 +109,7 @@ class FateGrpcServiceTest {
                 listOf(
                     DrawHistoryView(
                         id = UUID.randomUUID(),
-                        winnerEmail = "friend@example.com",
-                        winnerDisplayName = "Friend",
-                        winnerOptionTitle = null,
+                        winner = Winner.Participant("friend@example.com", "Friend"),
                         round = 2,
                         drawnAt = Instant.parse("2026-04-25T00:00:00Z")
                     )
@@ -432,9 +430,7 @@ class FateGrpcServiceTest {
             every { userQueryService.findByTelegramId(42) } returns user
             every { voteService.draw(voteId, user.id) } returns
                 DrawResult(
-                    winnerEmail = "friend@example.com",
-                    winnerDisplayName = "Friend",
-                    winnerOptionTitle = null,
+                    winner = Winner.Participant("friend@example.com", "Friend"),
                     round = 3,
                     newRoundStarted = true
                 )
@@ -695,9 +691,7 @@ class FateGrpcServiceTest {
         optionTitle: String? = null,
     ) = DrawHistoryView(
         id = UUID.randomUUID(),
-        winnerEmail = email,
-        winnerDisplayName = displayName,
-        winnerOptionTitle = optionTitle,
+        winner = if (optionTitle != null) Winner.Option(optionTitle) else Winner.Participant(email, displayName),
         round = 1,
         drawnAt = Instant.parse("2026-04-25T00:00:00Z")
     )

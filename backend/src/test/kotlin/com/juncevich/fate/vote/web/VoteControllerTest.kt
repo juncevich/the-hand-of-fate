@@ -140,9 +140,7 @@ class VoteControllerTest {
     fun `POST draw - returns draw result`() {
         every { voteService.draw(voteId, userId) } returns
             DrawResult(
-                winnerEmail = "winner@test.com",
-                winnerDisplayName = "Winner",
-                winnerOptionTitle = null,
+                winner = Winner.Participant("winner@test.com", "Winner"),
                 round = 1,
                 newRoundStarted = false
             )

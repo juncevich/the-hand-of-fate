@@ -3,6 +3,7 @@ package com.juncevich.fate.vote.notification
 import com.juncevich.fate.notification.DrawResultPayload
 import com.juncevich.fate.notification.InvitationPayload
 import com.juncevich.fate.notification.NotificationOutbox
+import com.juncevich.fate.vote.Winner
 import com.juncevich.fate.vote.domain.ParticipantInvited
 import com.juncevich.fate.vote.domain.VoteDrawn
 import org.springframework.context.event.EventListener
@@ -28,7 +29,8 @@ class NotificationRecorder(
     @EventListener
     fun on(event: VoteDrawn) {
         val result = event.result
-        val winnerName = (result.winnerOptionTitle ?: result.winnerDisplayName ?: result.winnerEmail).orEmpty()
+        val winnerName = result.winner.label
+        val winnerEmail = (result.winner as? Winner.Participant)?.email
         event.participantEmails.distinct().forEach { email ->
             outbox.record(
                 DrawResultPayload(
@@ -36,7 +38,7 @@ class NotificationRecorder(
                     voteTitle = event.voteTitle,
                     recipientEmail = email,
                     winnerName = winnerName,
-                    winnerEmail = result.winnerEmail,
+                    winnerEmail = winnerEmail,
                     round = result.round
                 )
             )

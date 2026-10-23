@@ -9,6 +9,7 @@ import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.vote.CreateVoteCommand
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteService
+import com.juncevich.fate.vote.Winner
 import com.juncevich.fate.vote.domain.WinnerPicker
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -63,9 +64,9 @@ class ConsistencyIntegrationTest
             votes.removeOption(vote.id, userId, vote.options.single().id)
             val email = checkNotNull(users.findById(userId)).email
 
-            assertEquals("Winner", votes.getVote(vote.id, userId, email).lastResult?.winnerOptionTitle)
-            assertEquals("Winner", votes.getHistory(vote.id, userId, email).single().winnerOptionTitle)
-            assertEquals("Winner", votes.getLastResult(vote.id, userId, email)?.winnerOptionTitle)
+            assertEquals(Winner.Option("Winner"), votes.getVote(vote.id, userId, email).lastResult?.winner)
+            assertEquals(Winner.Option("Winner"), votes.getHistory(vote.id, userId, email).single().winner)
+            assertEquals(Winner.Option("Winner"), votes.getLastResult(vote.id, userId, email)?.winner)
         }
 
         @ParameterizedTest
@@ -114,10 +115,10 @@ class ConsistencyIntegrationTest
                 )
             assertEquals(vote.options.map { it.id.toString() }.sorted(), candidates)
             assertEquals(winnerId, candidates[WinnerPicker.index(seed, candidates.size)])
-            assertEquals(vote.options.single { it.id.toString() == winnerId }.title, result.winnerOptionTitle)
+            assertEquals(Winner.Option(vote.options.single { it.id.toString() == winnerId }.title), result.winner)
             // The TEXT[] column also maps back when the entity is read through JPA.
             val email = checkNotNull(users.findById(userId)).email
-            assertEquals(result.winnerOptionTitle, votes.getHistory(vote.id, userId, email).single().winnerOptionTitle)
+            assertEquals(result.winner, votes.getHistory(vote.id, userId, email).single().winner)
         }
 
         @Test
@@ -250,7 +251,7 @@ class ConsistencyIntegrationTest
             jdbc.execute(migration)
             val detail = votes.getVote(vote.id, participant.userId, email)
             assertEquals(1, detail.participants.count { it.email == email })
-            assertEquals(email, detail.lastResult?.winnerEmail)
+            assertEquals(email, (detail.lastResult?.winner as? Winner.Participant)?.email)
         }
 
         /** Holds the first transaction open until PostgreSQL confirms the competing writer is blocked. */

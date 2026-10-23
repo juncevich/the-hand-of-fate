@@ -10,6 +10,7 @@ import com.juncevich.fate.vote.VoteLimits
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
 import com.juncevich.fate.vote.VoteSummaryView
+import com.juncevich.fate.vote.Winner
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
@@ -140,23 +141,22 @@ fun VoteDetailView.toDto() =
         createdAt = createdAt
     )
 
+// The REST contract keeps the winner flat: the fields of the other kind of winner are null.
 fun DrawHistoryView.toDto() =
     DrawHistoryDto(
         id = id,
-        winnerEmail = winnerEmail,
-        winnerDisplayName = winnerDisplayName,
-        winnerOptionTitle = winnerOptionTitle,
+        winnerEmail = (winner as? Winner.Participant)?.email,
+        winnerDisplayName = (winner as? Winner.Participant)?.displayName,
+        winnerOptionTitle = (winner as? Winner.Option)?.title,
         round = round,
         drawnAt = drawnAt
     )
 
-// Mapped field by field rather than returned as is: DrawResult.winnerLabel is a computed
-// property for the bot's reply, and Jackson would serialize it into the REST response.
 fun DrawResult.toResponse() =
     DrawResultResponse(
-        winnerEmail = winnerEmail,
-        winnerDisplayName = winnerDisplayName,
-        winnerOptionTitle = winnerOptionTitle,
+        winnerEmail = (winner as? Winner.Participant)?.email,
+        winnerDisplayName = (winner as? Winner.Participant)?.displayName,
+        winnerOptionTitle = (winner as? Winner.Option)?.title,
         round = round,
         newRoundStarted = newRoundStarted
     )

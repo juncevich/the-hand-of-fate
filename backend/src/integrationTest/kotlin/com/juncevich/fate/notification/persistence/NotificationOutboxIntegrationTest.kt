@@ -11,6 +11,7 @@ import com.juncevich.fate.notification.port.EmailSuppressionPort
 import com.juncevich.fate.notification.port.NotificationOutboxPort
 import com.juncevich.fate.notification.port.NotificationType
 import com.juncevich.fate.vote.DrawResult
+import com.juncevich.fate.vote.Winner
 import com.juncevich.fate.vote.domain.ParticipantInvited
 import com.juncevich.fate.vote.domain.VoteDrawn
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
@@ -101,7 +102,7 @@ class NotificationOutboxIntegrationTest
 
         @Test
         fun `draw creates one independently recoverable job per distinct recipient`() {
-            val draw = VoteDrawn(UUID.randomUUID(), "Vote", DrawResult(null, null, "Winner", 1, false), listOf("a@test.com", "b@test.com", "a@test.com"))
+            val draw = VoteDrawn(UUID.randomUUID(), "Vote", DrawResult(Winner.Option("Winner"), 1, false), listOf("a@test.com", "b@test.com", "a@test.com"))
             TransactionTemplate(transactions).executeWithoutResult { events.publishEvent(draw) }
             val jobs = listOf(checkNotNull(claim()), checkNotNull(claim()))
             assertEquals(
@@ -164,7 +165,7 @@ class NotificationOutboxIntegrationTest
         @Test
         fun `worker deserializes and delivers draw results`() {
             val mail = mockk<EmailService>(relaxed = true)
-            events.publishEvent(VoteDrawn(UUID.randomUUID(), "Vote", DrawResult(null, null, "Winner", 3, false), listOf("a@test.com")))
+            events.publishEvent(VoteDrawn(UUID.randomUUID(), "Vote", DrawResult(Winner.Option("Winner"), 3, false), listOf("a@test.com")))
             worker(mail).poll()
             verify(exactly = 1) { mail.sendDrawResult("a@test.com", "Vote", "Winner", "", 3, any(), any()) }
             assertEquals(0, rowCount())
