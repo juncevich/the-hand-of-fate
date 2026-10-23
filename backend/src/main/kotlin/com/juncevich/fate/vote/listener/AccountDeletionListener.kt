@@ -1,7 +1,8 @@
 package com.juncevich.fate.vote.listener
 
 import com.juncevich.fate.account.AccountDeleted
-import com.juncevich.fate.vote.port.AccountCleanupPort
+import com.juncevich.fate.vote.domain.DrawHistoryRepository
+import com.juncevich.fate.vote.domain.VoteRepository
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 
@@ -14,11 +15,12 @@ const val DELETED_USER_NAME = "Deleted user"
  */
 @Component
 class AccountDeletionListener(
-    private val cleanup: AccountCleanupPort,
+    private val votes: VoteRepository,
+    private val history: DrawHistoryRepository,
 ) {
     @EventListener
     fun on(event: AccountDeleted) {
-        cleanup.removeParticipant(event.email)
-        cleanup.anonymizeWins(event.email, DELETED_USER_NAME)
+        votes.removeParticipantEverywhere(event.email)
+        history.anonymizeWins(event.email, DELETED_USER_NAME)
     }
 }

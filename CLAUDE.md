@@ -93,7 +93,7 @@ make k8s-dev-down                    # `tilt down` — removes the workloads, ke
 cd backend
 ./gradlew bootRun                # run locally (needs postgres on :5432)
 ./gradlew test                   # all tests
-./gradlew test --tests "*.DrawServiceTest"  # single test class
+./gradlew test --tests "*.VoteTest"  # single test class
 ./gradlew jacocoTestReport       # unit + integration coverage → build/reports/jacoco/test/html/index.html (also run by `check`)
 ./gradlew jacocoTestCoverageVerification  # fails below 95% lines / 85% branches (also run by `check`)
 ./gradlew generateProto          # regenerate gRPC stubs from proto/
@@ -271,7 +271,7 @@ Each vote has a `drawTarget` (`votes.draw_target`, V20), chosen at creation and 
 - When a client omits it (REST `drawTarget`, gRPC `DRAW_TARGET_UNSPECIFIED`, the bot's `/newvote`), it is inferred: OPTIONS if options are given, else PARTICIPANTS — so older clients keep working
 - Options are created with the vote or managed via REST (`POST /{id}/options`, `DELETE /{id}/options/{optionId}`, `PUT /{id}/options/order` with every option id in the new order). Positions are `0..n-1`, unique per vote (`DEFERRABLE INITIALLY DEFERRED`, V21, so a reorder can swap them); a new option goes after the highest position
 
-`DrawWinner` is a sealed class with two subtypes: `Participant` and `Option`. `DrawHistory` stores the winner as either `winnerEmail` / `winnerDisplayName` (for participants) or `winnerOption` / `winnerOptionTitle` (for options — denormalized title for resilience to deletion).
+`DrawHistory` (domain) is a sealed interface with two subtypes, `ParticipantWinner` and `OptionWinner`; its row stores the winner as either `winnerEmail` / `winnerDisplayName` (for participants) or `winnerOption` / `winnerOptionTitle` (for options — denormalized title for resilience to deletion).
 
 ### Backend Module Architecture (Hexagonal / Ports & Adapters)
 
@@ -279,7 +279,7 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 
 ```
 <module>/          — API: services other modules/adapters call, read models, events, enums
-  domain/          — domain classes (plain Kotlin, no JPA annotations)
+  domain/          — domain classes (plain Kotlin, no JPA annotations); the `vote` module keeps its ports here too
   port/            — repository/external-system interfaces (ports)
   persistence/
     entity/        — JPA entities
@@ -291,6 +291,8 @@ The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**
 ```
 
 Never put an implementation class straight into a module's base package — it becomes public API.
+
+`vote` is the reference for a module with real domain rules: `domain/Vote.kt` is the **aggregate** (the vote with its `Participant`s and `VoteOption`s) and checks every rule itself — creator-only changes, PENDING-only composition, limits, the draw target, FAIR_ROTATION rounds (`Vote.draw`). Its ports are one per aggregate, in `domain/VoteRepository.kt`: `VoteRepository` (`find` / `findForUpdate` / `save` the whole aggregate, plus list/bulk queries) and `DrawHistoryRepository` (the append-only draw log, not part of the aggregate). `persistence/` holds the JPA entities with their Spring Data repository per file (`VoteJpa.kt`, `DrawHistoryJpa.kt`) and the adapters (`VoteRepositoryAdapter` writes the domain state onto the managed entity and lets dirty checking / orphan removal produce the SQL; new rows go through `persist`, since `save()` would merge an assigned-id entity with an extra SELECT). `VoteService` only orchestrates: lock → aggregate method → `save` → email budget, events, metrics. Domain rules are tested in `VoteTest` without mocks; `VoteServiceTest` covers the orchestration.
 
 `ModularityTest` (`backend/src/test/kotlin/com/juncevich/fate/ModularityTest.kt`) verifies module boundaries are respected and generates PlantUML diagrams.
 
@@ -314,8 +316,8 @@ Never put an implementation class straight into a module's base package — it b
 - Don't expose an `Executor`/`ExecutorService` bean: Spring Boot would back off from its virtual-thread `applicationTaskExecutor` used by `@Async`
 
 ### Key Backend Services
-- **DrawService**: core draw logic with SIMPLE / FAIR_ROTATION branching for both participants and options, by the vote's `drawTarget`. The winner comes from `WinnerPicker`: a fresh `SecureRandom` 32-byte seed per draw, candidates in canonical order (participant emails / option ids, sorted), index = SHA-256(seed ‖ counter) with rejection sampling (no modulo bias). Seed and candidates are stored in `draw_history.seed` / `candidates` (V22, not exposed by the API), so `candidates[WinnerPicker.index(seed, size)]` reproduces any recorded winner. `WinnerPickerTest` pins golden values — never change the algorithm. This proves reproducibility, not that the server didn't choose the seed (that would need commit-reveal)
-- **VoteService**: CRUD for votes including creating `VoteOption` entities from request; `addOption()` / `removeOption()` for post-creation management; all vote mutations acquire the same pessimistic row lock; `@Version` additionally guards stale saves
+- **Draws** (`Vote.draw`): SIMPLE / FAIR_ROTATION for both participants and options, by the vote's `drawTarget`; FAIR_ROTATION reads only the current round's entries (`DrawHistoryRepository.findByRound`). The winner comes from `WinnerPicker`: a fresh `SecureRandom` 32-byte seed per draw, candidates in canonical order (participant emails / option ids, sorted), index = SHA-256(seed ‖ counter) with rejection sampling (no modulo bias). Seed and candidates are stored in `draw_history.seed` / `candidates` (V22, not exposed by the API), so `candidates[WinnerPicker.index(seed, size)]` reproduces any recorded winner. `WinnerPickerTest` pins golden values — never change the algorithm. This proves reproducibility, not that the server didn't choose the seed (that would need commit-reveal)
+- **VoteService**: the vote use cases over the `Vote` aggregate; all vote mutations load it with the same pessimistic row lock (`findForUpdate`); `VoteRepositoryAdapter.save` additionally rejects a copy whose `version` is stale (`ObjectOptimisticLockingFailureException` → 409 `CONCURRENT_MODIFICATION`). A duplicate option title is a 409 `ALREADY_EXISTS` from the aggregate (the `(vote_id, title)` constraint stays as a backstop)
 - **Notifications** (module `notification`): `NotificationRecorder` (vote) persists one outbox job per recipient inside the vote transaction. Payloads are versioned DTOs (`NotificationPayloads.kt`), not the domain events. `NotificationWorker` claims jobs with `SKIP LOCKED`, delivers outside DB transactions, retries with exponential backoff and marks jobs failed after `app.notifications.max-attempts` (metric `notification.dead`), purging them after `failed-retention` (see `NotificationProperties`, backend/README.md). `NotificationAdapter` handles SMTP delivery and propagates failures to the worker.
 - **Email budget**: `EmailBudget` caps the emails one user's actions trigger (invitations + draw-result recipients) to `app.notifications.email-budget-per-user` (`EMAIL_BUDGET_PER_USER`, 200) per rolling `email-budget-window` (24 h), recorded in the append-only `email_budget_ledger` (V17) under a per-user advisory lock — deleting a vote or participant frees nothing. Invitations beyond it are rejected (`TooManyRequestsException`, 429 / `RESOURCE_EXHAUSTED`, the whole create/add rolls back); a draw beyond it still happens, only its result emails are dropped (metric `notification.suppressed`). Entries past the window are purged hourly
 - **EmailService**: sends styled HTML emails (dark theme) for vote invitations and draw results (account emails are Keycloak's)

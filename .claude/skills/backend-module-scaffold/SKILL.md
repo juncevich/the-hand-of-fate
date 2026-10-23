@@ -31,7 +31,7 @@ Spring Modulith treats a module's **base package as its API and every sub-packag
 3. **Port**: define the interface in `port/` if the domain needs to talk to persistence or notifications.
 4. **Persistence**: JPA entity in `persistence/entity/`, Spring Data repo in `persistence/jpa/`, adapter implementing the port in `persistence/adapter/`, mapper in `persistence/mapper/`.
 5. **Web**: controller + request/response DTOs in `web/`. Follow existing controllers for auth patterns (`@AuthenticationPrincipal`, pagination via `Pageable`).
-6. **Service**: orchestrates domain + ports; look at `DrawService` / `VoteService` for the level of logic expected here (e.g. SIMPLE vs FAIR_ROTATION branching lives in the service, not the controller).
+6. **Service**: orchestrates only — load the aggregate (under its lock for a change), call its method, save it, then do what lies outside it (email budget, events, metrics). Business rules belong to the aggregate, as in `vote/domain/Vote.kt` (e.g. SIMPLE vs FAIR_ROTATION branching is `Vote.draw`); `VoteService` shows the expected thinness. Prefer one repository port per aggregate (`vote/domain/VoteRepository.kt`) over one per table, and test rules on the aggregate without mocks (`VoteTest`).
 7. **Optimistic locking**: if the entity can be concurrently mutated (like `Vote`), add `@Version` and handle `OptimisticLockException` appropriately.
 8. **Metrics**: if this is a notable business event, add a Micrometer counter following the `vote.created{mode}` / `vote.draw.performed{mode,round}` naming pattern.
 

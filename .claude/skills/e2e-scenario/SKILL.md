@@ -41,7 +41,7 @@ go build -o fate-sim ./cmd/simulate
 - Because each run registers fresh random users, failures are almost always either:
   1. A real regression in the corresponding backend flow (auth, draw, vote CRUD) — check backend logs for the same time window.
   2. A backend that isn't actually up / reachable at the target `-url` — verify with `curl <url>/actuator/health` or similar before assuming a functional bug.
-- For `fair` scenario failures specifically, check `DrawService`'s round-tracking logic (`draw_history` + `currentRound`) — this is the most complex draw path and most likely target of a real bug.
+- For `fair` scenario failures specifically, check the round-tracking logic in `Vote.draw` (`vote/domain/Vote.kt`: `draw_history` of the current round + `currentRound`) — this is the most complex draw path and most likely target of a real bug.
 
 ## When to use this vs. backend unit tests
 

@@ -10,13 +10,12 @@ Kotlin + Spring Boot REST API and gRPC server for The Hand of Fate.
   ┌─────────────────────────────────────────┐
   │            Spring Boot App              │
   │                                         │
-  │  web/auth/      /api/v1/auth/*          │
-  │  web/vote/      /api/v1/votes/*         │
-  │  web/telegram/  /api/v1/telegram/*      │
-  │  grpc/          FateGrpcService         │
+  │  account/   /api/v1/auth, users, tg     │
+  │  vote/      /api/v1/votes  (Vote agg.)  │
+  │  notification/  outbox  EmailService    │
+  │  grpc/      FateGrpcService (bot)       │
   │                                         │
-  │  service/   AuthService  VoteService    │
-  │             DrawService  EmailService   │
+  │  platform/  security, errors, OpenAPI   │
   └──────────────────┬──────────────────────┘
                      │ JPA / Flyway
                      ▼
@@ -50,11 +49,12 @@ src/main/kotlin/com/juncevich/fate/      one package per Spring Modulith module;
 │   ├── service/    provisioning, avatars, account deletion, sessions, token purge
 │   ├── port/ persistence/ domain/
 │   └── web/        /api/v1/auth, /api/v1/users/me, avatars, /api/v1/telegram
-├── vote/           VoteService, VoteStatsService, read models (VoteModels.kt), VoteMode/Status/DrawTarget
-│   ├── domain/     Vote, VoteParticipant, VoteOption, DrawHistory, DrawService, WinnerPicker, events
+├── vote/           VoteService (use cases), VoteStatsService, read models (VoteModels.kt), VoteMode/Status/DrawTarget
+│   ├── domain/     Vote aggregate (+ Participant, VoteOption; every vote rule, the draw), DrawHistory,
+│   │               WinnerPicker, events, ports VoteRepository / DrawHistoryRepository
+│   ├── persistence/  JPA entities + Spring Data (VoteJpa.kt, DrawHistoryJpa.kt) and the port adapters
 │   ├── listener/   AccountDeletionListener — forgets a deleted account in other people's votes
 │   ├── notification/  NotificationRecorder — vote events → outbox jobs
-│   ├── port/ persistence/
 │   └── web/        /api/v1/votes — CRUD, draw, history, options
 ├── notification/   NotificationOutbox, EmailBudget, EmailPreferences, versioned payloads
 │   ├── delivery/   NotificationWorker, NotificationAdapter, EmailService, NotificationProperties
@@ -123,7 +123,7 @@ Start both (plus Mailpit) with `make infra` from the repo root — the store is 
 ```bash
 ./gradlew bootJar                           # fat JAR → build/libs/
 ./gradlew test                              # all unit tests
-./gradlew test --tests "*.DrawServiceTest"  # single class
+./gradlew test --tests "*.VoteTest"  # single class
 ./gradlew generateProto                     # regenerate gRPC stubs from proto/
 ./gradlew openApiUpdate                     # rewrite ../api/openapi.yaml from the controllers (Docker)
 ```

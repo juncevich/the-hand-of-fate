@@ -4,7 +4,6 @@ import com.google.rpc.ErrorInfo
 import com.juncevich.fate.account.TelegramLinkService
 import com.juncevich.fate.account.User
 import com.juncevich.fate.account.UserQueryService
-import com.juncevich.fate.account.toProfile
 import com.juncevich.fate.grpc.FateProto.*
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
@@ -12,7 +11,6 @@ import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.vote.*
-import com.juncevich.fate.vote.domain.Vote
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
@@ -106,7 +104,7 @@ class FateGrpcServiceTest {
     fun `getVoteHistory returns backend history for accessible vote`() =
         runBlocking {
             val user = user(telegramId = 42)
-            val vote = vote(creator = user)
+            val voteId = UUID.randomUUID()
             val history =
                 listOf(
                     DrawHistoryView(
@@ -120,7 +118,7 @@ class FateGrpcServiceTest {
                 )
 
             every { userQueryService.findByTelegramId(42) } returns user
-            every { voteService.getHistory(vote.id, user.id, user.email, any()) } returns
+            every { voteService.getHistory(voteId, user.id, user.email, any()) } returns
                 org.springframework.data.domain
                     .PageImpl(history)
 
@@ -129,7 +127,7 @@ class FateGrpcServiceTest {
                     GetVoteHistoryRequest
                         .newBuilder()
                         .setTelegramId(42)
-                        .setVoteId(vote.id.toString())
+                        .setVoteId(voteId.toString())
                         .build()
                 )
 
@@ -709,12 +707,5 @@ class FateGrpcServiceTest {
             email = "owner@example.com",
             displayName = "Owner",
             telegramId = telegramId
-        )
-
-    private fun vote(creator: User): Vote =
-        Vote(
-            title = "Lunch",
-            creator = creator.toProfile(),
-            mode = DomainVoteMode.SIMPLE
         )
 }

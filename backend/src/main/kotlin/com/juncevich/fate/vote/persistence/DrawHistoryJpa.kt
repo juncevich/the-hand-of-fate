@@ -1,9 +1,14 @@
-package com.juncevich.fate.vote.persistence.entity
+package com.juncevich.fate.vote.persistence
 
 import com.juncevich.fate.shared.uuidV7
 import jakarta.persistence.*
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
 import java.time.Instant
 import java.util.UUID
 
@@ -41,3 +46,27 @@ class DrawAuditColumns(
     @Column(name = "candidates", columnDefinition = "TEXT[]", updatable = false)
     var candidates: List<String>,
 )
+
+interface DrawHistoryJpaRepository : JpaRepository<DrawHistoryJpaEntity, UUID> {
+    fun findAllByVoteIdOrderByDrawnAtDescIdDesc(
+        voteId: UUID,
+        pageable: Pageable,
+    ): Page<DrawHistoryJpaEntity>
+
+    fun findTopByVoteIdOrderByDrawnAtDescIdDesc(voteId: UUID): DrawHistoryJpaEntity?
+
+    fun findAllByVoteIdAndRound(
+        voteId: UUID,
+        round: Int,
+    ): List<DrawHistoryJpaEntity>
+
+    @Modifying(flushAutomatically = true)
+    @Query(
+        "UPDATE DrawHistoryJpaEntity h SET h.winnerEmail = NULL, h.winnerDisplayName = :displayName " +
+            "WHERE h.winnerEmail = :email"
+    )
+    fun anonymizeWins(
+        email: String,
+        displayName: String,
+    )
+}

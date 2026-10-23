@@ -1,9 +1,10 @@
 package com.juncevich.fate.vote.persistence
 
+import com.juncevich.fate.vote.DrawTarget
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
-import com.juncevich.fate.vote.persistence.entity.VoteJpaEntity
-import com.juncevich.fate.vote.persistence.jpa.VoteJpaRepository
+import com.juncevich.fate.vote.domain.Vote
+import com.juncevich.fate.vote.domain.VoteRepository
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -34,6 +35,7 @@ class VoteVersioningIntegrationTest
     @Autowired
     constructor(
         private val voteJpaRepository: VoteJpaRepository,
+        private val voteRepository: VoteRepository,
         private val jdbcTemplate: JdbcTemplate,
         private val em: EntityManager,
         private val txManager: PlatformTransactionManager,
@@ -67,13 +69,16 @@ class VoteVersioningIntegrationTest
 
         private fun tx(block: () -> Unit) = TransactionTemplate(txManager).execute { block() }
 
+        // Lazy child collections are read while mapping, so loads need a transaction, as in VoteService.
+        private fun load(id: UUID): Vote? = TransactionTemplate(txManager).execute { voteRepository.find(id) }
+
         // ── Schema ────────────────────────────────────────────────────────────────
 
         @Test
         @Transactional
         fun `V9 migration creates version column and Hibernate validates schema on startup`() {
             // If this test runs at all: Flyway V9 applied and ddl-auto=validate accepted the schema.
-            val saved = voteJpaRepository.saveAndFlush(newVote())
+            val saved = persist(newVote())
             assertEquals(0, saved.version)
         }
 
@@ -82,7 +87,7 @@ class VoteVersioningIntegrationTest
         @Test
         @Transactional
         fun `version starts at 0 and increments after each modification`() {
-            val v0 = voteJpaRepository.saveAndFlush(newVote())
+            val v0 = persist(newVote())
             assertEquals(0, v0.version)
 
             em.clear()
@@ -97,7 +102,7 @@ class VoteVersioningIntegrationTest
             val id = UUID.randomUUID()
 
             // Commit initial row so other transactions see it
-            tx { voteJpaRepository.saveAndFlush(newVote(id)) }
+            tx { persist(newVote(id)) }
 
             // First writer saves — version 0 → 1
             tx {
@@ -120,7 +125,7 @@ class VoteVersioningIntegrationTest
         @Test
         fun `findByIdWithPessimisticLock returns vote and acquires row-level lock`() {
             val id = UUID.randomUUID()
-            tx { voteJpaRepository.saveAndFlush(newVote(id)) }
+            tx { persist(newVote(id)) }
 
             tx {
                 val locked = voteJpaRepository.findByIdWithPessimisticLock(id)
@@ -129,7 +134,101 @@ class VoteVersioningIntegrationTest
             }
         }
 
+        // ── Aggregate adapter ─────────────────────────────────────────────────────
+
+        @Test
+        fun `a saved vote round-trips with its participants and options`() {
+            val vote = newAggregate(listOf("p@test.com"), listOf("A", "B"))
+            tx { voteRepository.save(vote) }
+
+            val loaded = checkNotNull(load(vote.id))
+            assertEquals(listOf("creator-$creatorId@test.com", "p@test.com"), loaded.participants.map { it.email })
+            assertEquals(listOf("A", "B"), loaded.options.map { it.title })
+            assertEquals(vote.participants.map { it.id }, loaded.participants.map { it.id })
+            assertEquals(DrawTarget.OPTIONS, loaded.drawTarget)
+            assertEquals(0, loaded.version)
+        }
+
+        @Test
+        fun `saving a changed vote adds, updates and removes child rows`() {
+            val vote = newAggregate(listOf("p@test.com", "q@test.com"), listOf("A", "B", "C"))
+            tx { voteRepository.save(vote) }
+
+            tx {
+                val locked = checkNotNull(voteRepository.findForUpdate(vote.id))
+                val (a, b, c) = locked.options
+                locked.removeParticipant(creatorId, "q@test.com")
+                locked.invite(creatorId, "r@test.com") { "Ray" }
+                locked.removeOption(creatorId, b.id)
+                // Swaps positions within the transaction: (vote_id, position) is only checked at commit.
+                locked.reorderOptions(creatorId, listOf(c.id, a.id))
+                locked.addOption(creatorId, "D")
+                voteRepository.save(locked)
+            }
+
+            val loaded = checkNotNull(load(vote.id))
+            assertEquals(
+                setOf("creator-$creatorId@test.com", "p@test.com", "r@test.com"),
+                loaded.participants.map { it.email }.toSet()
+            )
+            assertEquals("Ray", loaded.participants.single { it.email == "r@test.com" }.displayName)
+            assertEquals(listOf("C" to 0, "A" to 1, "D" to 2), loaded.options.map { it.title to it.position })
+            // Child rows are owned by the inverse side: changing them leaves the vote row and its version alone.
+            assertEquals(0, loaded.version)
+            assertEquals(3, jdbcTemplate.queryForObject("SELECT count(*) FROM vote_options WHERE vote_id = ?", Int::class.java, vote.id))
+        }
+
+        @Test
+        fun `a save from a stale copy of the vote is rejected`() {
+            val vote = newAggregate(emptyList(), listOf("A"))
+            tx { voteRepository.save(vote) }
+            val stale = checkNotNull(load(vote.id))
+
+            // Another writer changes the vote row in between, which bumps its version.
+            tx {
+                val current = checkNotNull(voteRepository.findForUpdate(vote.id))
+                current.close(creatorId)
+                voteRepository.save(current)
+            }
+
+            stale.addOption(creatorId, "B")
+            assertThrows<ObjectOptimisticLockingFailureException> { tx { voteRepository.save(stale) } }
+            assertEquals(listOf("A"), checkNotNull(load(vote.id)).options.map { it.title })
+        }
+
+        @Test
+        fun `deleting a vote removes its children in one statement`() {
+            val vote = newAggregate(listOf("p@test.com"), listOf("A"))
+            tx { voteRepository.save(vote) }
+
+            tx { voteRepository.delete(vote.id) }
+
+            assertEquals(null, load(vote.id))
+            assertEquals(0, jdbcTemplate.queryForObject("SELECT count(*) FROM vote_participants WHERE vote_id = ?", Int::class.java, vote.id))
+        }
+
         // ── Helpers ───────────────────────────────────────────────────────────────
+
+        private fun newAggregate(
+            invited: List<String>,
+            options: List<String>,
+        ) = Vote.create(
+            creatorId = creatorId,
+            creatorEmail = "creator-$creatorId@test.com",
+            title = "aggregate",
+            description = null,
+            mode = VoteMode.SIMPLE,
+            drawTarget = null,
+            participantEmails = invited,
+            optionTitles = options
+        ) { emptyMap() }
+
+        // persist, as VoteRepositoryAdapter inserts: merging a new entity (saveAndFlush) inserts and then updates it.
+        private fun persist(vote: VoteJpaEntity): VoteJpaEntity =
+            vote.also {
+                em.persist(it)
+                em.flush()
+            }
 
         private fun newVote(id: UUID = UUID.randomUUID()) =
             VoteJpaEntity(

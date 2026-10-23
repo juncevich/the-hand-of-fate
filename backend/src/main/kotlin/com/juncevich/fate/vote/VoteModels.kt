@@ -1,9 +1,5 @@
 package com.juncevich.fate.vote
 
-import com.juncevich.fate.vote.domain.DrawHistory
-import com.juncevich.fate.vote.domain.Vote
-import com.juncevich.fate.vote.domain.VoteOption
-import com.juncevich.fate.vote.domain.VoteParticipant
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
 import java.util.UUID
@@ -84,64 +80,3 @@ data class VoteDetailView(
     val isCreator: Boolean,
     val createdAt: Instant,
 )
-
-// ── Domain → view mappings ──────────────────────────────────────────────────────
-
-fun Vote.toSummaryView(
-    participantCount: Long,
-    isCreator: Boolean,
-) = VoteSummaryView(
-    id = id,
-    title = title,
-    mode = mode,
-    status = status,
-    currentRound = currentRound,
-    participantCount = participantCount,
-    isCreator = isCreator,
-    createdAt = createdAt
-)
-
-fun Vote.toDetailView(
-    participants: List<VoteParticipant>,
-    options: List<VoteOption>,
-    lastResult: DrawHistory?,
-    requesterId: UUID? = null,
-) = VoteDetailView(
-    id = id,
-    title = title,
-    description = description,
-    mode = mode,
-    drawTarget = drawTarget,
-    status = status,
-    currentRound = currentRound,
-    participants = participants.map { ParticipantView(it.email, it.displayName) },
-    options = options.map { VoteOptionView(it.id, it.title) },
-    lastResult = lastResult?.toView(),
-    isCreator = requesterId != null && creator.id == requesterId,
-    createdAt = createdAt
-)
-
-fun DrawHistory.toView() =
-    when (this) {
-        is DrawHistory.ParticipantWinner -> {
-            DrawHistoryView(
-                id = id,
-                winnerEmail = email,
-                winnerDisplayName = displayName,
-                winnerOptionTitle = null,
-                round = round,
-                drawnAt = drawnAt
-            )
-        }
-
-        is DrawHistory.OptionWinner -> {
-            DrawHistoryView(
-                id = id,
-                winnerEmail = null,
-                winnerDisplayName = null,
-                winnerOptionTitle = optionTitle,
-                round = round,
-                drawnAt = drawnAt
-            )
-        }
-    }

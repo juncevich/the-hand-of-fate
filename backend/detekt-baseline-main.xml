@@ -3,6 +3,6 @@
   <ManuallySuppressedIssues/>
   <CurrentIssues>
     <ID>LongParameterList:Vote.kt:Vote</ID>
-    <ID>LongParameterList:VoteJpaEntity.kt:VoteJpaEntity</ID>
+    <ID>LongParameterList:VoteJpa.kt:VoteJpaEntity</ID>
   </CurrentIssues>
 </SmellBaseline>

@@ -1,8 +1,7 @@
 package com.juncevich.fate.vote
 
-import com.juncevich.fate.account.User
+import com.juncevich.fate.account.UserProfile
 import com.juncevich.fate.account.UserQueryService
-import com.juncevich.fate.account.toProfile
 import com.juncevich.fate.notification.EmailBudget
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
@@ -11,713 +10,419 @@ import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.shared.TooManyRequestsException
 import com.juncevich.fate.vote.domain.DrawHistory
-import com.juncevich.fate.vote.domain.DrawService
+import com.juncevich.fate.vote.domain.DrawHistoryRepository
+import com.juncevich.fate.vote.domain.Participant
 import com.juncevich.fate.vote.domain.ParticipantInvited
 import com.juncevich.fate.vote.domain.Vote
 import com.juncevich.fate.vote.domain.VoteDrawn
 import com.juncevich.fate.vote.domain.VoteOption
-import com.juncevich.fate.vote.domain.VoteParticipant
-import com.juncevich.fate.vote.port.DrawHistoryRepositoryPort
-import com.juncevich.fate.vote.port.ParticipantCount
-import com.juncevich.fate.vote.port.ParticipantRepositoryPort
-import com.juncevich.fate.vote.port.VoteOptionRepositoryPort
-import com.juncevich.fate.vote.port.VoteRepositoryPort
-import io.micrometer.core.instrument.Counter
-import io.micrometer.core.instrument.MeterRegistry
-import io.mockk.*
+import com.juncevich.fate.vote.domain.VoteRepository
+import com.juncevich.fate.vote.domain.VoteSummary
+import com.juncevich.fate.vote.domain.WinnerPicker
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.data.domain.PageImpl
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
+import java.time.Instant
 import java.util.UUID
 
 class VoteServiceTest {
-    private val voteRepositoryPort = mockk<VoteRepositoryPort>()
-    private val participantRepositoryPort = mockk<ParticipantRepositoryPort>()
-    private val voteOptionRepositoryPort = mockk<VoteOptionRepositoryPort>()
-    private val drawHistoryRepositoryPort = mockk<DrawHistoryRepositoryPort>()
+    private val votes = mockk<VoteRepository>(relaxed = true)
+    private val history = mockk<DrawHistoryRepository>(relaxed = true)
     private val userQueryService = mockk<UserQueryService>()
-    private val drawService = mockk<DrawService>()
     private val events = mockk<ApplicationEventPublisher>(relaxed = true)
-    private val meterRegistry = mockk<MeterRegistry>()
-    private val counter = mockk<Counter>(relaxed = true)
+    private val meterRegistry = SimpleMeterRegistry()
     private val emailBudget = mockk<EmailBudget>(relaxed = true)
 
-    private val voteService =
-        VoteService(
-            voteRepositoryPort,
-            participantRepositoryPort,
-            voteOptionRepositoryPort,
-            drawHistoryRepositoryPort,
-            userQueryService,
-            drawService,
-            events,
-            meterRegistry,
-            emailBudget
-        )
+    private val service =
+        VoteService(votes, history, userQueryService, WinnerPicker(), events, meterRegistry, emailBudget)
+
+    private val creator = UserProfile(UUID.randomUUID(), "creator@test.com", "Creator")
 
     @BeforeEach
     fun setUp() {
-        every { meterRegistry.counter(any<String>(), *anyVararg<String>()) } returns counter
+        every { userQueryService.findProfileById(creator.id) } returns creator
+        every { userQueryService.findProfilesByEmailIn(any()) } returns listOf(creator)
+        every { userQueryService.findProfileByEmail(any()) } returns null
         every { emailBudget.tryReserve(any(), any()) } returns true
     }
 
-    private fun makeUser(
-        id: UUID = UUID.randomUUID(),
-        email: String = "user@test.com",
-    ) = User(id = id, email = email, displayName = "Test User")
+    @AfterEach
+    fun tearDown() = meterRegistry.close()
 
-    private fun makeVote(
-        id: UUID = UUID.randomUUID(),
-        creator: User,
+    private fun stored(
+        drawTarget: DrawTarget = DrawTarget.PARTICIPANTS,
         mode: VoteMode = VoteMode.SIMPLE,
         status: VoteStatus = VoteStatus.PENDING,
-        drawTarget: DrawTarget = DrawTarget.PARTICIPANTS,
-    ) = Vote(id = id, title = "Test Vote", creator = creator.toProfile(), mode = mode, drawTarget = drawTarget)
-        .also { it.status = status }
-
-    @Test
-    fun `createVote - creates vote, participants, options and sends invitations`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
-        val participant = VoteParticipant(voteId = vote.id, email = creator.email)
-
-        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
-        every { voteRepositoryPort.save(any()) } returns vote
-        every { userQueryService.findProfilesByEmailIn(any()) } returns listOf(creator.toProfile())
-        every { participantRepositoryPort.saveAll(any<List<VoteParticipant>>()) } returns listOf(participant)
-        every { voteOptionRepositoryPort.saveAll(any<List<VoteOption>>()) } answers { firstArg() }
-
-        val request =
-            CreateVoteCommand(
+        participants: List<String> = listOf(creator.email),
+        options: List<String> = emptyList(),
+    ): Vote {
+        val vote =
+            Vote(
+                id = UUID.randomUUID(),
                 title = "Vote",
                 description = null,
-                mode = VoteMode.SIMPLE,
-                participantEmails = listOf("p@test.com"),
-                options = listOf("Option A", "Option B")
+                creatorId = creator.id,
+                mode = mode,
+                drawTarget = drawTarget,
+                status = status,
+                currentRound = 1,
+                createdAt = Instant.now(),
+                version = 0,
+                participants = participants.map { Participant(it) },
+                options = options.mapIndexed { position, title -> VoteOption(title, position) }
+            )
+        every { votes.find(vote.id) } returns vote
+        every { votes.findForUpdate(vote.id) } returns vote
+        return vote
+    }
+
+    // ── createVote ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun `createVote stores the vote, reserves and sends one invitation per invitee`() {
+        val saved = slot<Vote>()
+        every { votes.save(capture(saved)) } returns Unit
+
+        val view =
+            service.createVote(
+                creator.id,
+                CreateVoteCommand(title = "Vote", participantEmails = listOf("p@test.com", creator.email), options = listOf("A", "B"))
             )
 
-        voteService.createVote(creator.id, request)
-
-        verify { participantRepositoryPort.saveAll(any<List<VoteParticipant>>()) }
-        verify { voteOptionRepositoryPort.saveAll(any<List<VoteOption>>()) }
-        verify(exactly = 1) {
-            events.publishEvent(ParticipantInvited(vote.id, vote.title, creator.displayName, "p@test.com"))
-        }
-        verify(exactly = 0) { events.publishEvent(match<ParticipantInvited> { it.recipientEmail == creator.email }) }
+        assertEquals(listOf(creator.email, "p@test.com"), saved.captured.participants.map { it.email })
+        assertEquals(
+            "Creator",
+            saved.captured.participants
+                .first()
+                .displayName
+        )
+        assertEquals(listOf("A", "B"), view.options.map { it.title })
+        assertEquals(DrawTarget.OPTIONS, view.drawTarget)
+        assertTrue(view.isCreator)
+        assertNull(view.lastResult)
         verify(exactly = 1) { emailBudget.reserveOrThrow(creator.id, 1) }
+        verify(exactly = 1) { events.publishEvent(ParticipantInvited(view.id, "Vote", "Creator", "p@test.com")) }
+        verify(exactly = 1) { events.publishEvent(any<Any>()) }
+        assertEquals(
+            1.0,
+            meterRegistry
+                .get("vote.created")
+                .tag("mode", "SIMPLE")
+                .counter()
+                .count()
+        )
     }
 
     @Test
-    fun `createVote - over the email budget - saves nothing and sends no invitations`() {
-        val creator = makeUser()
-        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
+    fun `createVote over the email budget stores nothing and sends no invitations`() {
         every { emailBudget.reserveOrThrow(creator.id, 2) } throws TooManyRequestsException("Email limit reached", ErrorCode.EMAIL_LIMIT_REACHED)
 
         assertThrows<TooManyRequestsException> {
-            voteService.createVote(
-                creator.id,
-                CreateVoteCommand(
-                    title = "Vote",
-                    description = null,
-                    mode = VoteMode.SIMPLE,
-                    participantEmails = listOf("a@test.com", "b@test.com", creator.email),
-                    options = null
-                )
-            )
+            service.createVote(creator.id, CreateVoteCommand(title = "Vote", participantEmails = listOf("a@test.com", "b@test.com", creator.email)))
         }
 
-        verify(exactly = 0) { voteRepositoryPort.save(any()) }
+        verify(exactly = 0) { votes.save(any()) }
         verify(exactly = 0) { events.publishEvent(any<Any>()) }
     }
 
     @Test
-    fun `createVote - rejects malformed participant email`() {
-        val creator = makeUser()
-        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
-
-        val request =
-            CreateVoteCommand(
-                title = "Vote",
-                description = null,
-                mode = VoteMode.SIMPLE,
-                participantEmails = listOf("not-an-email"),
-                options = null
-            )
-
-        assertThrows<BadRequestException> { voteService.createVote(creator.id, request) }
-        verify(exactly = 0) { voteRepositoryPort.save(any()) }
-    }
-
-    @Test
-    fun `getVote - throws when requester has no access`() {
-        val creator = makeUser()
-        val requester = makeUser(email = "other@test.com")
-        val vote = makeVote(creator = creator)
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requester.email) } returns false
-
-        assertThrows<ForbiddenException> {
-            voteService.getVote(vote.id, requester.id, requester.email)
+    fun `createVote rejected by the vote's rules stores nothing`() {
+        assertThrows<BadRequestException> {
+            service.createVote(creator.id, CreateVoteCommand(title = "Vote", participantEmails = listOf("not-an-email")))
         }
-    }
-
-    @Test
-    fun `getHistory - throws when requester has no access`() {
-        val creator = makeUser()
-        val requester = makeUser(email = "other@test.com")
-        val vote = makeVote(creator = creator)
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requester.email) } returns false
-
-        assertThrows<ForbiddenException> {
-            voteService.getHistory(vote.id, requester.id, requester.email)
+        assertThrows<BadRequestException> {
+            service.createVote(creator.id, CreateVoteCommand(title = "Vote", options = listOf("A"), drawTarget = DrawTarget.PARTICIPANTS))
         }
+        verify(exactly = 0) { votes.save(any()) }
+        verify(exactly = 0) { emailBudget.reserveOrThrow(any(), any()) }
     }
 
     @Test
-    fun `getLastResult - returns latest option winner for a participant`() {
-        val creator = makeUser()
-        val participant = makeUser(email = "p@test.com")
-        val vote = makeVote(creator = creator)
-        val last = DrawHistory.OptionWinner(voteId = vote.id, optionId = UUID.randomUUID(), optionTitle = "Pizza", round = 2)
+    fun `createVote for an unknown user fails`() {
+        val unknown = UUID.randomUUID()
+        every { userQueryService.findProfileById(unknown) } returns null
 
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, participant.email) } returns true
-        every { drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDescIdDesc(vote.id) } returns last
+        assertEquals(
+            ErrorCode.USER_NOT_FOUND,
+            assertThrows<NotFoundException> { service.createVote(unknown, CreateVoteCommand(title = "Vote")) }.code
+        )
+    }
 
-        val result = voteService.getLastResult(vote.id, participant.id, participant.email)
+    // ── reads ────────────────────────────────────────────────────────────────────
 
+    @Test
+    fun `listVotes maps summaries and marks the requester's own votes`() {
+        val pageable = PageRequest.of(0, 20)
+        val own = summary(creator.id)
+        val foreign = summary(UUID.randomUUID())
+        every { votes.findSummaries(creator.id, creator.email, pageable) } returns PageImpl(listOf(own, foreign), pageable, 2)
+
+        val page = service.listVotes(creator.id, creator.email, pageable)
+
+        assertEquals(listOf(true, false), page.content.map { it.isCreator })
+        assertEquals(3L, page.content.first().participantCount)
+        assertEquals(2, page.totalElements)
+    }
+
+    @Test
+    fun `getVote shows a participant the vote with its last result`() {
+        val vote = stored(participants = listOf(creator.email, "p@test.com"))
+        every { history.findLatest(vote.id) } returns DrawHistory.ParticipantWinner(voteId = vote.id, email = "p@test.com", displayName = "Pat", round = 1)
+
+        val view = service.getVote(vote.id, UUID.randomUUID(), "p@test.com")
+
+        assertFalse(view.isCreator)
+        assertEquals(listOf(creator.email, "p@test.com"), view.participants.map { it.email })
+        assertEquals("Pat", view.lastResult?.winnerDisplayName)
+    }
+
+    @Test
+    fun `reads refuse a requester who is neither creator nor participant`() {
+        val vote = stored()
+        val stranger = UUID.randomUUID()
+
+        assertThrows<ForbiddenException> { service.getVote(vote.id, stranger, "other@test.com") }
+        assertThrows<ForbiddenException> { service.getHistory(vote.id, stranger, "other@test.com") }
+        assertThrows<ForbiddenException> { service.getLastResult(vote.id, stranger, "other@test.com") }
+    }
+
+    @Test
+    fun `reads of an unknown vote fail with VOTE_NOT_FOUND`() {
+        val id = UUID.randomUUID()
+        every { votes.find(id) } returns null
+
+        listOf<() -> Unit>(
+            { service.getVote(id, creator.id, creator.email) },
+            { service.getHistory(id, creator.id, creator.email) },
+            { service.getLastResult(id, creator.id, creator.email) }
+        ).forEach { assertEquals(ErrorCode.VOTE_NOT_FOUND, assertThrows<NotFoundException>(it).code) }
+    }
+
+    @Test
+    fun `getLastResult returns the latest option winner, or null before any draw`() {
+        val vote = stored(DrawTarget.OPTIONS, participants = listOf(creator.email, "p@test.com"))
+        every { history.findLatest(vote.id) } returnsMany
+            listOf(DrawHistory.OptionWinner(voteId = vote.id, optionId = UUID.randomUUID(), optionTitle = "Pizza", round = 2), null)
+
+        val result = service.getLastResult(vote.id, UUID.randomUUID(), "p@test.com")
         assertEquals("Pizza", result?.winnerOptionTitle)
         assertNull(result?.winnerEmail)
         assertNull(result?.winnerDisplayName)
         assertEquals(2, result?.round)
+
+        assertNull(service.getLastResult(vote.id, creator.id, creator.email))
     }
 
     @Test
-    fun `getLastResult - returns null when vote has not been drawn`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
+    fun `history pages are bounded to 100 entries`() {
+        val vote = stored()
+        every { history.findPage(vote.id, PageRequest.of(1, 100)) } returns PageImpl(emptyList(), PageRequest.of(1, 100), 100)
 
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { drawHistoryRepositoryPort.findTopByVoteIdOrderByDrawnAtDescIdDesc(vote.id) } returns null
-
-        assertNull(voteService.getLastResult(vote.id, creator.id, creator.email))
-    }
-
-    @Test
-    fun `getLastResult - throws when requester has no access`() {
-        val creator = makeUser()
-        val requester = makeUser(email = "other@test.com")
-        val vote = makeVote(creator = creator)
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, requester.email) } returns false
-
-        assertThrows<ForbiddenException> { voteService.getLastResult(vote.id, requester.id, requester.email) }
-    }
-
-    @Test
-    fun `getLastResult - throws when vote does not exist`() {
-        val id = UUID.randomUUID()
-        every { voteRepositoryPort.findById(id) } returns null
-        every { voteRepositoryPort.findByIdForUpdate(id) } returns null
-
-        assertThrows<NotFoundException> { voteService.getLastResult(id, UUID.randomUUID(), "x@test.com") }
-    }
-
-    @Test
-    fun `draw - throws when vote does not exist`() {
-        val id = UUID.randomUUID()
-        every { voteRepositoryPort.findByIdForUpdate(id) } returns null
-
-        assertThrows<NotFoundException> { voteService.draw(id, UUID.randomUUID()) }
-    }
-
-    @Test
-    fun `addParticipant - throws when requester is not the creator`() {
-        val creator = makeUser()
-        val otherUser = makeUser()
-        val vote = makeVote(creator = creator)
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-
-        assertThrows<ForbiddenException> {
-            voteService.addParticipant(vote.id, otherUser.id, "new@test.com")
+        assertEquals(100, service.getHistory(vote.id, creator.id, creator.email, PageRequest.of(1, 100)).totalElements)
+        listOf(PageRequest.of(0, 101), Pageable.unpaged()).forEach { pageable ->
+            assertEquals(
+                ErrorCode.PAGE_INVALID,
+                assertThrows<BadRequestException> { service.getHistory(vote.id, creator.id, creator.email, pageable) }.code
+            )
         }
     }
 
     @Test
-    fun `addParticipant - throws when vote is not PENDING`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator, status = VoteStatus.DRAWN)
+    fun `the legacy history returns the first page of at most 100 entries`() {
+        val vote = stored()
+        every { history.findPage(vote.id, PageRequest.of(0, 100)) } returns
+            PageImpl(listOf(DrawHistory.OptionWinner(voteId = vote.id, optionId = null, optionTitle = "Gone", round = 1)))
 
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-
-        assertThrows<ConflictException> {
-            voteService.addParticipant(vote.id, creator.id, "new@test.com")
-        }
+        assertEquals(listOf("Gone"), service.getHistory(vote.id, creator.id, creator.email).map { it.winnerOptionTitle })
     }
 
-    @Test
-    fun `addParticipant - throws when participant already exists`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, "dup@test.com") } returns true
-
-        assertThrows<ConflictException> {
-            voteService.addParticipant(vote.id, creator.id, "dup@test.com")
-        }
-    }
+    // ── changes ──────────────────────────────────────────────────────────────────
 
     @Test
-    fun `addParticipant - saves participant and sends invitation`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
-        val participant = VoteParticipant(voteId = vote.id, email = "new@test.com")
+    fun `addParticipant stores the participant and sends the invitation`() {
+        val vote = stored()
+        every { userQueryService.findProfileByEmail("new@test.com") } returns UserProfile(UUID.randomUUID(), "new@test.com", "Newton")
 
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, "new@test.com") } returns false
-        every { participantRepositoryPort.countByVoteIds(listOf(vote.id)) } returns
-            listOf(ParticipantCount(vote.id, 1))
-        every { userQueryService.findProfileByEmail("new@test.com") } returns null
-        every { participantRepositoryPort.save(any()) } returns participant
+        service.addParticipant(vote.id, creator.id, "New@test.com")
 
-        voteService.addParticipant(vote.id, creator.id, "new@test.com")
-
-        verify { participantRepositoryPort.save(any()) }
-        verify(exactly = 1) {
-            events.publishEvent(ParticipantInvited(vote.id, vote.title, creator.displayName, "new@test.com"))
-        }
+        verify { votes.save(match { v -> v.participants.any { it.email == "new@test.com" && it.displayName == "Newton" } }) }
         verify(exactly = 1) { emailBudget.reserveOrThrow(creator.id, 1) }
+        verify(exactly = 1) { events.publishEvent(ParticipantInvited(vote.id, vote.title, "Creator", "new@test.com")) }
     }
 
     @Test
-    fun `addParticipant - over the email budget - adds nobody`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, "new@test.com") } returns false
-        every { participantRepositoryPort.countByVoteIds(listOf(vote.id)) } returns
-            listOf(ParticipantCount(vote.id, 1))
+    fun `addParticipant over the email budget adds nobody`() {
+        val vote = stored()
         every { emailBudget.reserveOrThrow(creator.id, 1) } throws TooManyRequestsException("Email limit reached", ErrorCode.EMAIL_LIMIT_REACHED)
 
-        assertThrows<TooManyRequestsException> { voteService.addParticipant(vote.id, creator.id, "new@test.com") }
+        assertThrows<TooManyRequestsException> { service.addParticipant(vote.id, creator.id, "new@test.com") }
 
-        verify(exactly = 0) { participantRepositoryPort.save(any()) }
+        verify(exactly = 0) { votes.save(any()) }
         verify(exactly = 0) { events.publishEvent(any<Any>()) }
     }
 
     @Test
-    fun `removeParticipant - throws when requester is not the creator`() {
-        val creator = makeUser()
-        val other = makeUser()
-        val vote = makeVote(creator = creator)
+    fun `a change the vote refuses is neither stored nor announced`() {
+        val vote = stored(status = VoteStatus.DRAWN)
 
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
+        assertThrows<ForbiddenException> { service.addParticipant(vote.id, UUID.randomUUID(), "new@test.com") }
+        assertThrows<ConflictException> { service.addParticipant(vote.id, creator.id, "new@test.com") }
+        assertThrows<ConflictException> { service.removeParticipant(vote.id, creator.id, creator.email) }
 
-        assertThrows<ForbiddenException> {
-            voteService.removeParticipant(vote.id, other.id, "p@test.com")
-        }
+        verify(exactly = 0) { votes.save(any()) }
+        verify(exactly = 0) { emailBudget.reserveOrThrow(any(), any()) }
+        verify(exactly = 0) { events.publishEvent(any<Any>()) }
     }
 
     @Test
-    fun `removeParticipant - throws when vote is not PENDING`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator, status = VoteStatus.CLOSED)
+    fun `composition changes are applied to the locked vote and stored`() {
+        val vote = stored(DrawTarget.OPTIONS, participants = listOf(creator.email, "p@test.com"), options = listOf("A", "B"))
+        val (a, b) = vote.options
 
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
+        service.removeParticipant(vote.id, creator.id, "p@test.com")
+        service.addOption(vote.id, creator.id, " C ")
+        service.reorderOptions(vote.id, creator.id, listOf(b.id, a.id, vote.options.last().id))
+        service.removeOption(vote.id, creator.id, a.id)
 
-        assertThrows<ConflictException> {
-            voteService.removeParticipant(vote.id, creator.id, "p@test.com")
-        }
+        assertEquals(listOf(creator.email), vote.participants.map { it.email })
+        assertEquals(listOf("B", "C"), vote.options.map { it.title })
+        verify(exactly = 4) { votes.findForUpdate(vote.id) }
+        verify(exactly = 4) { votes.save(vote) }
+        verify(exactly = 0) { votes.find(any()) }
     }
 
     @Test
-    fun `removeParticipant - deletes participant`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
+    fun `changes to an unknown vote fail with VOTE_NOT_FOUND`() {
+        val id = UUID.randomUUID()
+        every { votes.findForUpdate(id) } returns null
 
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { participantRepositoryPort.deleteByVoteIdAndEmail(vote.id, "p@test.com") } just Runs
-
-        voteService.removeParticipant(vote.id, creator.id, "p@test.com")
-
-        verify { participantRepositoryPort.deleteByVoteIdAndEmail(vote.id, "p@test.com") }
+        listOf<() -> Unit>(
+            { service.addParticipant(id, creator.id, "new@test.com") },
+            { service.addOption(id, creator.id, "A") },
+            { service.draw(id, creator.id) },
+            { service.reopen(id, creator.id) },
+            { service.closeVote(id, creator.id) },
+            { service.deleteVote(id, creator.id) }
+        ).forEach { assertEquals(ErrorCode.VOTE_NOT_FOUND, assertThrows<NotFoundException>(it).code) }
     }
 
     @Test
-    fun `draw - throws when requester is not the creator`() {
-        val creator = makeUser()
-        val other = makeUser()
-        val vote = makeVote(creator = creator)
+    fun `reopen and close change the status and store it`() {
+        val vote = stored(status = VoteStatus.DRAWN)
 
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
+        service.reopen(vote.id, creator.id)
+        assertEquals(VoteStatus.PENDING, vote.status)
+        service.closeVote(vote.id, creator.id)
+        assertEquals(VoteStatus.CLOSED, vote.status)
 
-        assertThrows<ForbiddenException> {
-            voteService.draw(vote.id, other.id)
-        }
+        verify(exactly = 2) { votes.save(vote) }
     }
 
     @Test
-    fun `draw - delegates to DrawService and notifies participants`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
-        val drawResult = DrawResult("winner@test.com", "Winner", null, 1, false)
-        val participant = VoteParticipant(voteId = vote.id, email = "winner@test.com")
+    fun `only the creator deletes a vote`() {
+        val vote = stored()
 
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { drawService.draw(vote) } returns drawResult
-        every { participantRepositoryPort.findAllByVoteId(vote.id) } returns listOf(participant)
+        assertThrows<ForbiddenException> { service.deleteVote(vote.id, UUID.randomUUID()) }
+        verify(exactly = 0) { votes.delete(any()) }
 
-        val result = voteService.draw(vote.id, creator.id)
+        service.deleteVote(vote.id, creator.id)
+        verify(exactly = 1) { votes.delete(vote.id) }
+    }
 
-        assertEquals(drawResult.winnerEmail, result.winnerEmail)
-        verify { drawService.draw(vote) }
-        verify(exactly = 1) {
-            events.publishEvent(VoteDrawn(vote.id, vote.title, drawResult, listOf("winner@test.com")))
-        }
+    // ── draw ─────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `draw records the entry, stores the vote, counts it and notifies every participant`() {
+        val vote = stored(participants = listOf("winner@test.com"))
+        val recorded = slot<DrawHistory>()
+        every { history.save(capture(recorded)) } returns Unit
+
+        val result = service.draw(vote.id, creator.id)
+
+        assertEquals("winner@test.com", result.winnerEmail)
+        assertEquals("winner@test.com", (recorded.captured as DrawHistory.ParticipantWinner).email)
+        assertFalse(result.newRoundStarted)
+        verify { votes.save(match { it.status == VoteStatus.DRAWN }) }
         verify(exactly = 1) { emailBudget.tryReserve(creator.id, 1) }
+        verify(exactly = 1) { events.publishEvent(VoteDrawn(vote.id, vote.title, result, listOf("winner@test.com"))) }
+        assertEquals(
+            1.0,
+            meterRegistry
+                .get("vote.draw.performed")
+                .tag("mode", "SIMPLE")
+                .counter()
+                .count()
+        )
     }
 
     @Test
-    fun `draw - over the email budget - still draws but sends no result emails`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
-        val drawResult = DrawResult("winner@test.com", "Winner", null, 1, false)
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { drawService.draw(vote) } returns drawResult
-        every { participantRepositoryPort.findAllByVoteId(vote.id) } returns
-            listOf(
-                VoteParticipant(voteId = vote.id, email = "winner@test.com"),
-                VoteParticipant(voteId = vote.id, email = creator.email)
-            )
+    fun `draw of an option reports the option and reads the round's history for fair rotation`() {
+        val vote = stored(DrawTarget.OPTIONS, VoteMode.FAIR_ROTATION, options = listOf("Pizza"))
+        every { history.findByRound(vote.id, 1) } returns emptyList()
+
+        val result = service.draw(vote.id, creator.id)
+
+        assertEquals("Pizza", result.winnerOptionTitle)
+        assertNull(result.winnerEmail)
+        assertNull(result.winnerDisplayName)
+        assertEquals(1, result.round)
+        verify { history.findByRound(vote.id, 1) }
+        verify { history.save(match { it is DrawHistory.OptionWinner && it.optionTitle == "Pizza" }) }
+    }
+
+    @Test
+    fun `draw over the email budget still draws but sends no result emails`() {
+        val vote = stored(participants = listOf("winner@test.com", creator.email))
         every { emailBudget.tryReserve(creator.id, 2) } returns false
 
-        assertEquals(drawResult, voteService.draw(vote.id, creator.id))
+        service.draw(vote.id, creator.id)
 
+        verify { history.save(any()) }
         verify(exactly = 0) { events.publishEvent(any<VoteDrawn>()) }
     }
 
     @Test
-    fun `closeVote - throws when requester is not the creator`() {
-        val creator = makeUser()
-        val other = makeUser()
-        val vote = makeVote(creator = creator)
+    fun `a refused draw records nothing`() {
+        val vote = stored(status = VoteStatus.DRAWN)
 
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
+        assertThrows<ConflictException> { service.draw(vote.id, creator.id) }
 
-        assertThrows<ForbiddenException> { voteService.closeVote(vote.id, other.id) }
-    }
-
-    @Test
-    fun `closeVote - sets status to CLOSED`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { voteRepositoryPort.save(any()) } returns vote
-
-        voteService.closeVote(vote.id, creator.id)
-
-        assertEquals(VoteStatus.CLOSED, vote.status)
-        verify { voteRepositoryPort.save(vote) }
-    }
-
-    @Test
-    fun `closeVote - throws when vote is already closed`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator, status = VoteStatus.CLOSED)
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-
-        assertThrows<ConflictException> { voteService.closeVote(vote.id, creator.id) }
-    }
-
-    @Test
-    fun `deleteVote - throws when requester is not the creator`() {
-        val creator = makeUser()
-        val other = makeUser()
-        val vote = makeVote(creator = creator)
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-
-        assertThrows<ForbiddenException> { voteService.deleteVote(vote.id, other.id) }
-    }
-
-    @Test
-    fun `deleteVote - deletes the vote`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { voteRepositoryPort.delete(vote) } just Runs
-
-        voteService.deleteVote(vote.id, creator.id)
-
-        verify { voteRepositoryPort.delete(vote) }
-    }
-
-    @Test
-    fun `reopen - throws when requester is not the creator`() {
-        val creator = makeUser()
-        val other = makeUser()
-        val vote = makeVote(creator = creator, status = VoteStatus.DRAWN)
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-
-        assertThrows<ForbiddenException> { voteService.reopen(vote.id, other.id) }
-    }
-
-    @Test
-    fun `reopen - delegates to DrawService`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator, status = VoteStatus.DRAWN)
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { drawService.reopen(vote) } just Runs
-
-        voteService.reopen(vote.id, creator.id)
-
-        verify { drawService.reopen(vote) }
-    }
-
-    @Test
-    fun `removeOption - deletes only option belonging to vote`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
-        val optionId = UUID.randomUUID()
-
-        every { voteRepositoryPort.findById(vote.id) } returns vote
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { voteOptionRepositoryPort.deleteByVoteIdAndId(vote.id, optionId) } just Runs
-
-        voteService.removeOption(vote.id, creator.id, optionId)
-
-        verify { voteOptionRepositoryPort.deleteByVoteIdAndId(vote.id, optionId) }
-    }
-
-    @Test
-    fun `createVote - rejects a description over the limit`() {
-        val creator = makeUser()
-        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
-        val request =
-            CreateVoteCommand(title = "Vote", description = "x".repeat(VoteLimits.MAX_DESCRIPTION_LENGTH + 1))
-
-        assertThrows<BadRequestException> { voteService.createVote(creator.id, request) }
-        verify(exactly = 0) { voteRepositoryPort.save(any()) }
-    }
-
-    @Test
-    fun `createVote - rejects more participants than the limit, the creator included`() {
-        val creator = makeUser()
-        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
-        // Exactly the limit of invitees, plus the creator, exceeds the limit.
-        val request =
-            CreateVoteCommand(
-                title = "Vote",
-                participantEmails = List(VoteLimits.MAX_PARTICIPANTS) { "p$it@test.com" }
-            )
-
-        assertThrows<BadRequestException> { voteService.createVote(creator.id, request) }
-        verify(exactly = 0) { voteRepositoryPort.save(any()) }
-    }
-
-    @Test
-    fun `createVote - rejects an oversized participant list before normalizing it`() {
-        val creator = makeUser()
-        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
-        val request =
-            CreateVoteCommand(title = "Vote", participantEmails = List(VoteLimits.MAX_PARTICIPANTS + 1) { "not-an-email" })
-
-        val ex = assertThrows<BadRequestException> { voteService.createVote(creator.id, request) }
-        assertEquals("A vote can have at most ${VoteLimits.MAX_PARTICIPANTS} participants", ex.message)
-    }
-
-    @Test
-    fun `createVote - rejects more options than the limit`() {
-        val creator = makeUser()
-        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
-        val request = CreateVoteCommand(title = "Vote", options = List(VoteLimits.MAX_OPTIONS + 1) { "Option $it" })
-
-        assertThrows<BadRequestException> { voteService.createVote(creator.id, request) }
-        verify(exactly = 0) { voteRepositoryPort.save(any()) }
-    }
-
-    @Test
-    fun `addParticipant - rejects when the vote is full`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { participantRepositoryPort.existsByVoteIdAndEmail(vote.id, "new@test.com") } returns false
-        every { participantRepositoryPort.countByVoteIds(listOf(vote.id)) } returns
-            listOf(ParticipantCount(vote.id, VoteLimits.MAX_PARTICIPANTS.toLong()))
-
-        assertThrows<BadRequestException> { voteService.addParticipant(vote.id, creator.id, "new@test.com") }
-        verify(exactly = 0) { participantRepositoryPort.save(any()) }
+        verify(exactly = 0) { history.save(any()) }
+        verify(exactly = 0) { votes.save(any()) }
         verify(exactly = 0) { events.publishEvent(any<Any>()) }
     }
 
     @Test
-    fun `addOption - saves a trimmed option`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator, drawTarget = DrawTarget.OPTIONS)
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns emptyList()
-        every { voteOptionRepositoryPort.save(any()) } answers { firstArg() }
-
-        voteService.addOption(vote.id, creator.id, "  Option  ")
-
-        verify { voteOptionRepositoryPort.save(match { it.title == "Option" && it.voteId == vote.id }) }
-    }
-
-    @Test
-    fun `addOption - appends after the highest position, even with gaps left by removals`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator, drawTarget = DrawTarget.OPTIONS)
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns
-            listOf(VoteOption(voteId = vote.id, title = "A", position = 0), VoteOption(voteId = vote.id, title = "C", position = 2))
-        every { voteOptionRepositoryPort.save(any()) } answers { firstArg() }
-
-        voteService.addOption(vote.id, creator.id, "D")
-
-        verify { voteOptionRepositoryPort.save(match { it.position == 3 }) }
-    }
-
-    private fun optionsVoteWith(
-        creator: User,
-        status: VoteStatus = VoteStatus.PENDING,
-    ): Pair<Vote, List<VoteOption>> {
-        val vote = makeVote(creator = creator, status = status, drawTarget = DrawTarget.OPTIONS)
-        val options = List(3) { VoteOption(voteId = vote.id, title = "Option $it", position = it) }
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns options
-        every { voteOptionRepositoryPort.updatePositions(vote.id, any()) } returns Unit
-        return vote to options
-    }
-
-    @Test
-    fun `reorderOptions - stores the new order`() {
-        val creator = makeUser()
-        val (vote, options) = optionsVoteWith(creator)
-        val newOrder = options.map { it.id }.reversed()
-
-        voteService.reorderOptions(vote.id, creator.id, newOrder)
-
-        verify { voteOptionRepositoryPort.updatePositions(vote.id, newOrder) }
-    }
-
-    @Test
-    fun `reorderOptions - rejects an order that is not a permutation of the options`() {
-        val creator = makeUser()
-        val (vote, options) = optionsVoteWith(creator)
-        val ids = options.map { it.id }
-
-        listOf(ids.drop(1), ids + ids[0], ids.drop(1) + UUID.randomUUID()).forEach { order ->
-            assertThrows<BadRequestException> { voteService.reorderOptions(vote.id, creator.id, order) }
+    fun `the draw metric does not create a time series per round`() {
+        val vote = stored(DrawTarget.PARTICIPANTS, VoteMode.FAIR_ROTATION, participants = listOf("a@test.com"))
+        every { history.findByRound(vote.id, any()) } answers {
+            listOf(DrawHistory.ParticipantWinner(voteId = vote.id, email = "a@test.com", round = secondArg()))
         }
-        verify(exactly = 0) { voteOptionRepositoryPort.updatePositions(any(), any()) }
-    }
 
-    @Test
-    fun `reorderOptions - only the creator may reorder, and only while pending`() {
-        val creator = makeUser()
-        val (vote, options) = optionsVoteWith(creator)
-        assertThrows<ForbiddenException> { voteService.reorderOptions(vote.id, UUID.randomUUID(), options.map { it.id }) }
-
-        val (drawn, drawnOptions) = optionsVoteWith(creator, VoteStatus.DRAWN)
-        assertThrows<ConflictException> { voteService.reorderOptions(drawn.id, creator.id, drawnOptions.map { it.id }) }
-    }
-
-    @Test
-    fun `addOption - rejects when the vote already has the maximum number of options`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator, drawTarget = DrawTarget.OPTIONS)
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-        every { voteOptionRepositoryPort.findAllByVoteIdOrderedByPosition(vote.id) } returns
-            List(VoteLimits.MAX_OPTIONS) { VoteOption(voteId = vote.id, title = "Option $it", position = it) }
-
-        assertThrows<BadRequestException> { voteService.addOption(vote.id, creator.id, "One more") }
-        verify(exactly = 0) { voteOptionRepositoryPort.save(any()) }
-    }
-
-    @Test
-    fun `addOption - rejects options on a vote that draws from participants`() {
-        val creator = makeUser()
-        val vote = makeVote(creator = creator)
-        every { voteRepositoryPort.findByIdForUpdate(vote.id) } returns vote
-
-        assertThrows<ConflictException> { voteService.addOption(vote.id, creator.id, "Pizza") }
-        verify(exactly = 0) { voteOptionRepositoryPort.save(any()) }
-    }
-
-    private fun stubCreate(creator: User) {
-        every { userQueryService.findProfileById(creator.id) } returns creator.toProfile()
-        every { voteRepositoryPort.save(any()) } answers { firstArg() }
-        every { userQueryService.findProfilesByEmailIn(any()) } returns listOf(creator.toProfile())
-        every { participantRepositoryPort.saveAll(any<List<VoteParticipant>>()) } answers { firstArg() }
-        every { voteOptionRepositoryPort.saveAll(any<List<VoteOption>>()) } answers { firstArg() }
-    }
-
-    private fun command(
-        options: List<String>?,
-        drawTarget: DrawTarget?,
-    ) = CreateVoteCommand(title = "Vote", options = options, drawTarget = drawTarget)
-
-    @Test
-    fun `createVote - infers the draw target from the options when none is given`() {
-        val creator = makeUser()
-        stubCreate(creator)
-
-        assertEquals(DrawTarget.OPTIONS, voteService.createVote(creator.id, command(listOf("A"), null)).drawTarget)
-        assertEquals(DrawTarget.PARTICIPANTS, voteService.createVote(creator.id, command(null, null)).drawTarget)
-    }
-
-    @Test
-    fun `createVote - an options vote may start without options`() {
-        val creator = makeUser()
-        stubCreate(creator)
-
-        val vote = voteService.createVote(creator.id, command(emptyList(), DrawTarget.OPTIONS))
-
-        assertEquals(DrawTarget.OPTIONS, vote.drawTarget)
-        verify { voteRepositoryPort.save(match { it.drawTarget == DrawTarget.OPTIONS }) }
-    }
-
-    @Test
-    fun `createVote - rejects options on a vote that draws from participants`() {
-        val creator = makeUser()
-        stubCreate(creator)
-
-        assertThrows<BadRequestException> {
-            voteService.createVote(creator.id, command(listOf("A"), DrawTarget.PARTICIPANTS))
+        repeat(3) {
+            service.draw(vote.id, creator.id)
+            vote.reopen(creator.id)
         }
-        verify(exactly = 0) { voteRepositoryPort.save(any()) }
+
+        assertEquals(4, vote.currentRound)
+        val counter = meterRegistry.get("vote.draw.performed").counter()
+        assertEquals(3.0, counter.count())
+        assertNull(counter.id.getTag("round"))
     }
+
+    private fun summary(creatorId: UUID) = VoteSummary(UUID.randomUUID(), "Vote", creatorId, VoteMode.SIMPLE, VoteStatus.PENDING, 1, 3, Instant.now())
 }
