@@ -1,8 +1,8 @@
-package com.juncevich.fate.account.service
+package com.juncevich.fate.account.keycloak
 
 import com.juncevich.fate.account.User
-import com.juncevich.fate.account.port.DeletedAccountRepositoryPort
-import com.juncevich.fate.account.port.UserRepositoryPort
+import com.juncevich.fate.account.domain.DeletedAccountRepository
+import com.juncevich.fate.account.domain.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -26,8 +26,8 @@ data class KeycloakIdentity(
 @Service
 @Transactional
 class KeycloakUserProvisioner(
-    private val users: UserRepositoryPort,
-    private val deletedAccounts: DeletedAccountRepositoryPort,
+    private val users: UserRepository,
+    private val deletedAccounts: DeletedAccountRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 

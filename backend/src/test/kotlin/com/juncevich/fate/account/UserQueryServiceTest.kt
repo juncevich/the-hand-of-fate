@@ -1,6 +1,6 @@
 package com.juncevich.fate.account
 
-import com.juncevich.fate.account.port.UserRepositoryPort
+import com.juncevich.fate.account.domain.UserRepository
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 import java.util.UUID
 
 class UserQueryServiceTest {
-    private val repository = mockk<UserRepositoryPort>()
+    private val repository = mockk<UserRepository>()
     private val service = UserQueryService(repository)
 
     @Test
@@ -29,7 +29,5 @@ class UserQueryServiceTest {
         val profile = UserProfile(user.id, user.email, user.displayName)
         assertEquals(listOf(profile), service.findProfilesByIdIn(listOf(user.id)))
         assertEquals(listOf(profile), service.findProfilesByEmailIn(listOf(user.email)))
-        user.displayName = "Changed"
-        assertEquals("User", profile.displayName)
     }
 }

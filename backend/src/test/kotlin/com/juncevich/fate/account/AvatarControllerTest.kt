@@ -1,8 +1,8 @@
 package com.juncevich.fate.account
 
-import com.juncevich.fate.account.service.Avatar
-import com.juncevich.fate.account.service.AvatarService
-import com.juncevich.fate.account.service.InvalidAvatarException
+import com.juncevich.fate.account.avatar.Avatar
+import com.juncevich.fate.account.avatar.AvatarService
+import com.juncevich.fate.account.avatar.InvalidAvatarException
 import com.juncevich.fate.account.web.AvatarController
 import com.juncevich.fate.platform.ErrorHandler
 import com.juncevich.fate.shared.ErrorCode

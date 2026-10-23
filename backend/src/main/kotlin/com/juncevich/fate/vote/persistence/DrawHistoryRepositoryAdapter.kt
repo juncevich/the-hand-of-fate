@@ -7,9 +7,13 @@ import jakarta.persistence.EntityManager
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
+// Transactional like Spring Data's own repositories: inside a service transaction it joins it; called
+// without one (AvatarService keeps storage I/O out of transactions) it still loads, writes and flushes.
 @Component
+@Transactional
 class DrawHistoryRepositoryAdapter(
     private val history: DrawHistoryJpaRepository,
     private val em: EntityManager,

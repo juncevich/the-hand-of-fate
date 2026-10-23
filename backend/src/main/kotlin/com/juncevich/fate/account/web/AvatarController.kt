@@ -1,7 +1,7 @@
 package com.juncevich.fate.account.web
 
 import com.juncevich.fate.account.AuthenticatedUser
-import com.juncevich.fate.account.service.AvatarService
+import com.juncevich.fate.account.avatar.AvatarService
 import com.juncevich.fate.shared.OpenApiDocs
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter

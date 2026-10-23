@@ -1,14 +1,14 @@
 package com.juncevich.fate.account
 
-import com.juncevich.fate.account.port.TelegramLinkTokenRepositoryPort
-import com.juncevich.fate.account.service.ExpiredTokenPurger
+import com.juncevich.fate.account.domain.TelegramLinkTokenRepository
+import com.juncevich.fate.account.telegram.ExpiredTokenPurger
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.Test
 
 class ExpiredTokenPurgerTest {
-    private val linkTokens = mockk<TelegramLinkTokenRepositoryPort>()
+    private val linkTokens = mockk<TelegramLinkTokenRepository>()
     private val purger = ExpiredTokenPurger(linkTokens)
 
     @Test

@@ -1,7 +1,7 @@
 package com.juncevich.fate.account
 
 import com.juncevich.fate.AbstractApiIntegrationTest
-import com.juncevich.fate.account.service.IdentityDeletionWorker
+import com.juncevich.fate.account.deletion.IdentityDeletionWorker
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired

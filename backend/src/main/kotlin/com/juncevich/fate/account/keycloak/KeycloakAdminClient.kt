@@ -1,7 +1,7 @@
 package com.juncevich.fate.account.keycloak
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.juncevich.fate.account.port.IdentityAdminPort
+import com.juncevich.fate.account.domain.IdentityAdmin
 import io.micrometer.observation.ObservationRegistry
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -29,7 +29,7 @@ private val TOKEN_EXPIRY_MARGIN: Duration = Duration.ofSeconds(30)
 class KeycloakAdminClient(
     private val props: KeycloakProperties,
     observationRegistry: ObservationRegistry,
-) : IdentityAdminPort {
+) : IdentityAdmin {
     private val http =
         RestClient
             .builder()

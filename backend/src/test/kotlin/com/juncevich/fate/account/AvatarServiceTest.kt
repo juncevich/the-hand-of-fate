@@ -1,8 +1,8 @@
 package com.juncevich.fate.account
 
-import com.juncevich.fate.account.port.UserRepositoryPort
-import com.juncevich.fate.account.service.AvatarImageProcessor
-import com.juncevich.fate.account.service.AvatarService
+import com.juncevich.fate.account.avatar.AvatarImageProcessor
+import com.juncevich.fate.account.avatar.AvatarService
+import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.storage.ObjectStorage
 import com.juncevich.fate.storage.StorageUnavailableException
@@ -16,7 +16,6 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -24,7 +23,7 @@ import org.junit.jupiter.api.assertThrows
 import java.time.Instant
 
 class AvatarServiceTest {
-    private val users = mockk<UserRepositoryPort>()
+    private val users = mockk<UserRepository>()
     private val storage = mockk<ObjectStorage>()
     private val processor = mockk<AvatarImageProcessor>()
     private val service = AvatarService(users, storage, processor)
@@ -37,15 +36,17 @@ class AvatarServiceTest {
     fun setUp() {
         every { storage.isEnabled } returns true
         every { users.findById(user.id) } returns user
-        every { users.save(any()) } answers { firstArg() }
+        every { users.update(any()) } just runs
     }
+
+    private fun withAvatar(replacedAt: Instant) = user.withAvatar(replacedAt).also { every { users.findById(user.id) } returns it }
 
     @Test
     fun `upload stores the processed image before pointing the user at it`() {
         every { processor.toAvatarPng(any()) } returns png
         every { storage.put(key, png, "image/png") } just runs
         val saved = slot<User>()
-        every { users.save(capture(saved)) } answers { firstArg() }
+        every { users.update(capture(saved)) } just runs
 
         val url = service.upload(user.id, byteArrayOf(9))
 
@@ -53,7 +54,7 @@ class AvatarServiceTest {
         assertEquals("/api/v1/users/${user.id}/avatar?v=$version", url)
         verifyOrder {
             storage.put(key, png, "image/png")
-            users.save(any())
+            users.update(any())
         }
     }
 
@@ -64,7 +65,7 @@ class AvatarServiceTest {
         assertThrows<IllegalArgumentException> { service.upload(user.id, byteArrayOf(9)) }
 
         verify(exactly = 0) { storage.put(any(), any(), any()) }
-        verify(exactly = 0) { users.save(any()) }
+        verify(exactly = 0) { users.update(any()) }
     }
 
     @Test
@@ -84,40 +85,38 @@ class AvatarServiceTest {
 
     @Test
     fun `delete clears the avatar and removes the object`() {
-        user.avatarUpdatedAt = Instant.now()
+        withAvatar(Instant.now())
         every { storage.delete(key) } just runs
 
         service.delete(user.id)
 
-        assertNull(user.avatarUpdatedAt)
         verifyOrder {
-            users.save(user)
+            users.update(match { it.id == user.id && it.avatarUpdatedAt == null })
             storage.delete(key)
         }
     }
 
     @Test
     fun `delete succeeds even if the object cannot be removed`() {
-        user.avatarUpdatedAt = Instant.now()
+        withAvatar(Instant.now())
         every { storage.delete(key) } throws IllegalStateException("store down")
 
         service.delete(user.id)
 
-        assertNull(user.avatarUpdatedAt)
-        verify { users.save(user) }
+        verify { users.update(match { it.avatarUpdatedAt == null }) }
     }
 
     @Test
     fun `delete is a no-op without an avatar`() {
         service.delete(user.id)
 
-        verify(exactly = 0) { users.save(any()) }
+        verify(exactly = 0) { users.update(any()) }
         verify(exactly = 0) { storage.delete(any()) }
     }
 
     @Test
     fun `load returns the stored image with its version`() {
-        user.avatarUpdatedAt = Instant.ofEpochMilli(42)
+        withAvatar(Instant.ofEpochMilli(42))
         every { storage.get(key) } returns StoredObject(png, "image/png")
 
         val avatar = service.load(user.id)
@@ -131,7 +130,7 @@ class AvatarServiceTest {
     fun `load reports a missing avatar as not found`() {
         assertTrue(assertThrows<NotFoundException> { service.load(user.id) }.message == "Avatar not found")
 
-        user.avatarUpdatedAt = Instant.now()
+        withAvatar(Instant.now())
         every { storage.get(key) } returns null
         assertThrows<NotFoundException> { service.load(user.id) }
 

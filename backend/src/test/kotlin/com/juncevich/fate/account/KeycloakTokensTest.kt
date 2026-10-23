@@ -1,8 +1,8 @@
 package com.juncevich.fate.account
 
-import com.juncevich.fate.account.service.KeycloakIdentity
-import com.juncevich.fate.account.service.KeycloakUserProvisioner
-import com.juncevich.fate.account.token.KeycloakAccessTokenConverter
+import com.juncevich.fate.account.keycloak.KeycloakAccessTokenConverter
+import com.juncevich.fate.account.keycloak.KeycloakIdentity
+import com.juncevich.fate.account.keycloak.KeycloakUserProvisioner
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals

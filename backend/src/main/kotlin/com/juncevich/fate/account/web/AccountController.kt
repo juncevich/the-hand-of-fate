@@ -1,8 +1,8 @@
 package com.juncevich.fate.account.web
 
 import com.juncevich.fate.account.AuthenticatedUser
-import com.juncevich.fate.account.service.AccountDeletionService
-import com.juncevich.fate.account.service.SessionService
+import com.juncevich.fate.account.deletion.AccountDeletionService
+import com.juncevich.fate.account.keycloak.SessionService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.HttpStatus

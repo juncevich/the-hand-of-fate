@@ -1,4 +1,4 @@
-package com.juncevich.fate.account.service
+package com.juncevich.fate.account.avatar
 
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ErrorCode

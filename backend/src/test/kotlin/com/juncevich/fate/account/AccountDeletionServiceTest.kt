@@ -1,10 +1,10 @@
 package com.juncevich.fate.account
 
+import com.juncevich.fate.account.avatar.AvatarService
+import com.juncevich.fate.account.deletion.AccountDeletionService
+import com.juncevich.fate.account.domain.DeletedAccountRepository
+import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.account.keycloak.KeycloakProperties
-import com.juncevich.fate.account.port.DeletedAccountRepositoryPort
-import com.juncevich.fate.account.port.UserRepositoryPort
-import com.juncevich.fate.account.service.AccountDeletionService
-import com.juncevich.fate.account.service.AvatarService
 import com.juncevich.fate.notification.NotificationOutbox
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
@@ -22,11 +22,11 @@ import java.time.Duration
 import java.time.Instant
 
 class AccountDeletionServiceTest {
-    private val users = mockk<UserRepositoryPort>()
+    private val users = mockk<UserRepository>()
     private val outbox = mockk<NotificationOutbox>()
     private val avatars = mockk<AvatarService>(relaxed = true)
     private val events = mockk<ApplicationEventPublisher>(relaxed = true)
-    private val deletedAccounts = mockk<DeletedAccountRepositoryPort>(relaxed = true)
+    private val deletedAccounts = mockk<DeletedAccountRepository>(relaxed = true)
     private val keycloak =
         KeycloakProperties(
             url = "http://keycloak",

@@ -1,10 +1,11 @@
-package com.juncevich.fate.account.service
+package com.juncevich.fate.account.deletion
 
 import com.juncevich.fate.account.AccountDeleted
 import com.juncevich.fate.account.AuthenticatedUser
+import com.juncevich.fate.account.avatar.AvatarService
+import com.juncevich.fate.account.domain.DeletedAccountRepository
+import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.account.keycloak.KeycloakProperties
-import com.juncevich.fate.account.port.DeletedAccountRepositoryPort
-import com.juncevich.fate.account.port.UserRepositoryPort
 import com.juncevich.fate.notification.NotificationOutbox
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
@@ -19,11 +20,11 @@ import java.time.Instant
 @Service
 @Transactional
 class AccountDeletionService(
-    private val users: UserRepositoryPort,
+    private val users: UserRepository,
     private val outbox: NotificationOutbox,
     private val avatars: AvatarService,
     private val events: ApplicationEventPublisher,
-    private val deletedAccounts: DeletedAccountRepositoryPort,
+    private val deletedAccounts: DeletedAccountRepository,
     private val keycloak: KeycloakProperties,
 ) {
     /**

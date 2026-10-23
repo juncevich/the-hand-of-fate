@@ -1,8 +1,8 @@
 package com.juncevich.fate.account
 
 import com.juncevich.fate.account.domain.TelegramLinkToken
-import com.juncevich.fate.account.port.TelegramLinkTokenRepositoryPort
-import com.juncevich.fate.account.port.UserRepositoryPort
+import com.juncevich.fate.account.domain.TelegramLinkTokenRepository
+import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
@@ -23,25 +23,17 @@ data class GeneratedLinkToken(
 @Service
 @Transactional
 class TelegramLinkService(
-    private val linkTokenRepositoryPort: TelegramLinkTokenRepositoryPort,
-    private val userRepositoryPort: UserRepositoryPort,
+    private val linkTokens: TelegramLinkTokenRepository,
+    private val userRepository: UserRepository,
 ) {
     fun generateLinkToken(userId: UUID): GeneratedLinkToken {
-        linkTokenRepositoryPort.deleteAllByUserId(userId)
+        linkTokens.deleteAllByUserId(userId)
 
         val token = UUID.randomUUID().toString().replace("-", "")
-        val user =
-            userRepositoryPort.findById(userId)
-                ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
+        userRepository.findById(userId) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
         val expiresAt = Instant.now().plusSeconds(LINK_TOKEN_TTL_SECONDS)
 
-        linkTokenRepositoryPort.save(
-            TelegramLinkToken(
-                user = user,
-                token = token,
-                expiresAt = expiresAt
-            )
-        )
+        linkTokens.insert(TelegramLinkToken(userId = userId, token = token, expiresAt = expiresAt))
         return GeneratedLinkToken(token = token, expiresAt = expiresAt)
     }
 
@@ -56,51 +48,48 @@ class TelegramLinkService(
             "Telegram account can only be linked from a private chat"
         }
         val linkToken =
-            linkTokenRepositoryPort.findByToken(token)
+            linkTokens.findByToken(token)
                 ?: throw NotFoundException("Invalid or expired link token", ErrorCode.TELEGRAM_LINK_TOKEN_INVALID)
 
         if (linkToken.isExpired) {
-            linkTokenRepositoryPort.delete(linkToken)
+            linkTokens.delete(linkToken)
             throw BadRequestException(
                 "Link token has expired. Please generate a new one from the app.",
                 ErrorCode.TELEGRAM_LINK_TOKEN_EXPIRED
             )
         }
 
-        userRepositoryPort.findByTelegramId(telegramId)?.let { existing ->
-            ensureState(existing.id == linkToken.user.id, ErrorCode.TELEGRAM_ALREADY_LINKED) {
+        userRepository.findByTelegramId(telegramId)?.let { existing ->
+            ensureState(existing.id == linkToken.userId, ErrorCode.TELEGRAM_ALREADY_LINKED) {
                 "This Telegram account is already linked to another user"
             }
         }
 
-        val user = linkToken.user
-        user.telegramId = telegramId
-        user.telegramName = telegramName
-        val savedUser = userRepositoryPort.save(user)
+        // The token's account always exists: its row cascades the token away (telegram_link_tokens.user_id).
+        val user =
+            checkNotNull(userRepository.findById(linkToken.userId)) { "User ${linkToken.userId} not found" }
+                .linkTelegram(telegramId, telegramName)
+        userRepository.update(user)
 
-        linkTokenRepositoryPort.delete(linkToken)
-        return savedUser
+        linkTokens.delete(linkToken)
+        return user
     }
 
     fun unlinkAccount(telegramId: Long) {
         val user =
-            userRepositoryPort.findByTelegramId(telegramId)
+            userRepository.findByTelegramId(telegramId)
                 ?: throw NotFoundException("Telegram account not linked to any user", ErrorCode.TELEGRAM_NOT_LINKED)
-        user.telegramId = null
-        user.telegramName = null
-        userRepositoryPort.save(user)
+        userRepository.update(user.unlinkTelegram())
     }
 
     fun unlinkByUserId(userId: UUID) {
         val user =
-            userRepositoryPort.findById(userId)
+            userRepository.findById(userId)
                 ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
         ensureState(
-            user.telegramId != null,
+            user.isTelegramLinked,
             ErrorCode.TELEGRAM_NOT_LINKED
         ) { "No Telegram account is linked to this user" }
-        user.telegramId = null
-        user.telegramName = null
-        userRepositoryPort.save(user)
+        userRepository.update(user.unlinkTelegram())
     }
 }

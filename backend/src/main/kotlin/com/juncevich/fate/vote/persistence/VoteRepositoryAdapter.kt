@@ -10,14 +10,19 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 /**
  * Stores a [Vote] as its row plus child rows. A save writes the domain state onto the managed
  * entity — loaded earlier in the same transaction, so no extra query — and lets dirty checking,
  * cascading and orphan removal turn the differences into SQL.
+ *
+ * Transactional like Spring Data's own repositories: inside a service transaction it joins it;
+ * called without one it still loads the lazy children, writes and flushes.
  */
 @Component
+@Transactional
 class VoteRepositoryAdapter(
     private val votes: VoteJpaRepository,
     private val em: EntityManager,

@@ -1,7 +1,7 @@
-package com.juncevich.fate.account.service
+package com.juncevich.fate.account.avatar
 
 import com.juncevich.fate.account.User
-import com.juncevich.fate.account.port.UserRepositoryPort
+import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.storage.ObjectStorage
@@ -28,7 +28,7 @@ fun User.avatarUrl(): String? = avatarUpdatedAt?.let { "/api/v1/users/$id/avatar
  */
 @Service
 class AvatarService(
-    private val userRepositoryPort: UserRepositoryPort,
+    private val userRepository: UserRepository,
     private val objectStorage: ObjectStorage,
     private val imageProcessor: AvatarImageProcessor,
 ) {
@@ -42,16 +42,16 @@ class AvatarService(
         if (!objectStorage.isEnabled) throw StorageUnavailableException()
         val user = findUser(userId)
         objectStorage.put(avatarKey(userId), imageProcessor.toAvatarPng(upload), PNG)
-        user.avatarUpdatedAt = Instant.now()
-        return checkNotNull(userRepositoryPort.save(user).avatarUrl())
+        val updated = user.withAvatar(Instant.now())
+        userRepository.update(updated)
+        return checkNotNull(updated.avatarUrl())
     }
 
     fun delete(userId: UUID) {
         if (!objectStorage.isEnabled) throw StorageUnavailableException()
         val user = findUser(userId)
         if (user.avatarUpdatedAt == null) return
-        user.avatarUpdatedAt = null
-        userRepositoryPort.save(user)
+        userRepository.update(user.withAvatar(null))
         // The row no longer references the object; a failed delete only leaves an unreachable
         // file that the next upload overwrites, so it must not fail the request.
         runCatching { objectStorage.delete(avatarKey(userId)) }
@@ -79,7 +79,7 @@ class AvatarService(
     }
 
     private fun findUser(userId: UUID): User =
-        userRepositoryPort.findById(userId) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
+        userRepository.findById(userId) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
 
     private fun avatarKey(userId: UUID) = "avatars/$userId.png"
 

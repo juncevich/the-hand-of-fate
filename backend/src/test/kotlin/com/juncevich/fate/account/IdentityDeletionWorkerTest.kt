@@ -1,9 +1,9 @@
 package com.juncevich.fate.account
 
+import com.juncevich.fate.account.deletion.IdentityDeletionWorker
+import com.juncevich.fate.account.domain.DeletedAccountRepository
+import com.juncevich.fate.account.domain.IdentityAdmin
 import com.juncevich.fate.account.keycloak.KeycloakProperties
-import com.juncevich.fate.account.port.DeletedAccountRepositoryPort
-import com.juncevich.fate.account.port.IdentityAdminPort
-import com.juncevich.fate.account.service.IdentityDeletionWorker
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -13,8 +13,8 @@ import java.time.Instant
 import java.util.UUID
 
 class IdentityDeletionWorkerTest {
-    private val deletedAccounts = mockk<DeletedAccountRepositoryPort>(relaxed = true)
-    private val identityAdmin = mockk<IdentityAdminPort>()
+    private val deletedAccounts = mockk<DeletedAccountRepository>(relaxed = true)
+    private val identityAdmin = mockk<IdentityAdmin>()
     private val props =
         KeycloakProperties(
             url = "http://keycloak",

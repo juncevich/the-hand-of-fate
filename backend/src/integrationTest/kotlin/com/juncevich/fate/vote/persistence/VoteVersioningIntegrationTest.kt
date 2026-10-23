@@ -69,9 +69,6 @@ class VoteVersioningIntegrationTest
 
         private fun tx(block: () -> Unit) = TransactionTemplate(txManager).execute { block() }
 
-        // Lazy child collections are read while mapping, so loads need a transaction, as in VoteService.
-        private fun load(id: UUID): Vote? = TransactionTemplate(txManager).execute { voteRepository.find(id) }
-
         // ── Schema ────────────────────────────────────────────────────────────────
 
         @Test
@@ -141,7 +138,7 @@ class VoteVersioningIntegrationTest
             val vote = newAggregate(listOf("p@test.com"), listOf("A", "B"))
             tx { voteRepository.save(vote) }
 
-            val loaded = checkNotNull(load(vote.id))
+            val loaded = checkNotNull(voteRepository.find(vote.id))
             assertEquals(listOf("creator-$creatorId@test.com", "p@test.com"), loaded.participants.map { it.email })
             assertEquals(listOf("A", "B"), loaded.options.map { it.title })
             assertEquals(vote.participants.map { it.id }, loaded.participants.map { it.id })
@@ -166,7 +163,7 @@ class VoteVersioningIntegrationTest
                 voteRepository.save(locked)
             }
 
-            val loaded = checkNotNull(load(vote.id))
+            val loaded = checkNotNull(voteRepository.find(vote.id))
             assertEquals(
                 setOf("creator-$creatorId@test.com", "p@test.com", "r@test.com"),
                 loaded.participants.map { it.email }.toSet()
@@ -182,7 +179,7 @@ class VoteVersioningIntegrationTest
         fun `a save from a stale copy of the vote is rejected`() {
             val vote = newAggregate(emptyList(), listOf("A"))
             tx { voteRepository.save(vote) }
-            val stale = checkNotNull(load(vote.id))
+            val stale = checkNotNull(voteRepository.find(vote.id))
 
             // Another writer changes the vote row in between, which bumps its version.
             tx {
@@ -193,7 +190,7 @@ class VoteVersioningIntegrationTest
 
             stale.addOption(creatorId, "B")
             assertThrows<ObjectOptimisticLockingFailureException> { tx { voteRepository.save(stale) } }
-            assertEquals(listOf("A"), checkNotNull(load(vote.id)).options.map { it.title })
+            assertEquals(listOf("A"), checkNotNull(voteRepository.find(vote.id)).options.map { it.title })
         }
 
         @Test
@@ -203,7 +200,7 @@ class VoteVersioningIntegrationTest
 
             tx { voteRepository.delete(vote.id) }
 
-            assertEquals(null, load(vote.id))
+            assertEquals(null, voteRepository.find(vote.id))
             assertEquals(0, jdbcTemplate.queryForObject("SELECT count(*) FROM vote_participants WHERE vote_id = ?", Int::class.java, vote.id))
         }
 

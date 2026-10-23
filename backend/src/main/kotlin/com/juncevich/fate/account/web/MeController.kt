@@ -2,7 +2,7 @@ package com.juncevich.fate.account.web
 
 import com.juncevich.fate.account.AuthenticatedUser
 import com.juncevich.fate.account.UserQueryService
-import com.juncevich.fate.account.service.avatarUrl
+import com.juncevich.fate.account.avatar.avatarUrl
 import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException

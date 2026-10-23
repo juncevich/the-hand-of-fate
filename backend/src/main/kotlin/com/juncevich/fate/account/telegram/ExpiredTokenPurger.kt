@@ -1,6 +1,6 @@
-package com.juncevich.fate.account.service
+package com.juncevich.fate.account.telegram
 
-import com.juncevich.fate.account.port.TelegramLinkTokenRepositoryPort
+import com.juncevich.fate.account.domain.TelegramLinkTokenRepository
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -10,7 +10,7 @@ import java.time.Instant
 /** Expired Telegram link tokens are otherwise deleted only when someone presents them, so unused ones would pile up forever. */
 @Component
 class ExpiredTokenPurger(
-    private val linkTokens: TelegramLinkTokenRepositoryPort,
+    private val linkTokens: TelegramLinkTokenRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 

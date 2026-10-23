@@ -2,7 +2,7 @@ package com.juncevich.fate
 
 import com.juncevich.fate.account.TelegramLinkService
 import com.juncevich.fate.account.UserQueryService
-import com.juncevich.fate.account.service.ExpiredTokenPurger
+import com.juncevich.fate.account.telegram.ExpiredTokenPurger
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.NotFoundException

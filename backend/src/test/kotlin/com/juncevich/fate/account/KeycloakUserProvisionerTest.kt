@@ -1,9 +1,9 @@
 package com.juncevich.fate.account
 
-import com.juncevich.fate.account.port.DeletedAccountRepositoryPort
-import com.juncevich.fate.account.port.UserRepositoryPort
-import com.juncevich.fate.account.service.KeycloakIdentity
-import com.juncevich.fate.account.service.KeycloakUserProvisioner
+import com.juncevich.fate.account.domain.DeletedAccountRepository
+import com.juncevich.fate.account.domain.UserRepository
+import com.juncevich.fate.account.keycloak.KeycloakIdentity
+import com.juncevich.fate.account.keycloak.KeycloakUserProvisioner
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -15,8 +15,8 @@ import org.junit.jupiter.api.Test
 import java.util.UUID
 
 class KeycloakUserProvisionerTest {
-    private val users = mockk<UserRepositoryPort>(relaxed = true)
-    private val deletedAccounts = mockk<DeletedAccountRepositoryPort>()
+    private val users = mockk<UserRepository>(relaxed = true)
+    private val deletedAccounts = mockk<DeletedAccountRepository>()
     private val provisioner = KeycloakUserProvisioner(users, deletedAccounts)
 
     private val identity = KeycloakIdentity(UUID.randomUUID(), "kate@test.com", "Kate")

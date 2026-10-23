@@ -1,12 +1,12 @@
-package com.juncevich.fate.account.service
+package com.juncevich.fate.account.keycloak
 
-import com.juncevich.fate.account.port.IdentityAdminPort
+import com.juncevich.fate.account.domain.IdentityAdmin
 import org.springframework.stereotype.Service
 import java.util.UUID
 
 @Service
 class SessionService(
-    private val identityAdmin: IdentityAdminPort,
+    private val identityAdmin: IdentityAdmin,
 ) {
     /** Ends the user's sessions in Keycloak; access tokens already issued live until they expire. */
     fun logoutEverywhere(userId: UUID) = identityAdmin.logoutUser(userId)

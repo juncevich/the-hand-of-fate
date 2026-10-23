@@ -1,9 +1,6 @@
-package com.juncevich.fate.account.token
+package com.juncevich.fate.account.keycloak
 
 import com.juncevich.fate.account.AuthenticatedUser
-import com.juncevich.fate.account.keycloak.KeycloakProperties
-import com.juncevich.fate.account.service.KeycloakIdentity
-import com.juncevich.fate.account.service.KeycloakUserProvisioner
 import com.juncevich.fate.shared.canonicalEmail
 import org.springframework.core.convert.converter.Converter
 import org.springframework.http.client.SimpleClientHttpRequestFactory

@@ -1,8 +1,8 @@
-package com.juncevich.fate.account.service
+package com.juncevich.fate.account.deletion
 
+import com.juncevich.fate.account.domain.DeletedAccountRepository
+import com.juncevich.fate.account.domain.IdentityAdmin
 import com.juncevich.fate.account.keycloak.KeycloakProperties
-import com.juncevich.fate.account.port.DeletedAccountRepositoryPort
-import com.juncevich.fate.account.port.IdentityAdminPort
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -18,8 +18,8 @@ private const val BATCH_SIZE = 20
  */
 @Component
 class IdentityDeletionWorker(
-    private val deletedAccounts: DeletedAccountRepositoryPort,
-    private val identityAdmin: IdentityAdminPort,
+    private val deletedAccounts: DeletedAccountRepository,
+    private val identityAdmin: IdentityAdmin,
     private val props: KeycloakProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)

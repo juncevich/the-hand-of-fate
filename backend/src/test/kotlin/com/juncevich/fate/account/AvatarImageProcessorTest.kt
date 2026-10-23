@@ -1,7 +1,7 @@
 package com.juncevich.fate.account
 
-import com.juncevich.fate.account.service.AvatarImageProcessor
-import com.juncevich.fate.account.service.InvalidAvatarException
+import com.juncevich.fate.account.avatar.AvatarImageProcessor
+import com.juncevich.fate.account.avatar.InvalidAvatarException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows

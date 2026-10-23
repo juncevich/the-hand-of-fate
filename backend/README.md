@@ -43,11 +43,13 @@ Kotlin + Spring Boot REST API and gRPC server for The Hand of Fate.
 ```
 src/main/kotlin/com/juncevich/fate/      one package per Spring Modulith module;
 │                                          its base package is the module's API, sub-packages are private
-├── account/        AuthenticatedUser, UserProfile, UserQueryService, TelegramLinkService, AccountDeleted
-│   ├── keycloak/   KeycloakAdminClient (Admin API), KeycloakProperties
-│   ├── token/      JwtConfig, KeycloakTokens — access-token validation and conversion
-│   ├── service/    provisioning, avatars, account deletion, sessions, token purge
-│   ├── port/ persistence/ domain/
+├── account/        User (immutable), AuthenticatedUser, UserProfile, UserQueryService, TelegramLinkService, AccountDeleted
+│   ├── domain/     ports UserRepository / DeletedAccountRepository / IdentityAdmin, TelegramLinkToken + its repository
+│   ├── keycloak/   token validation (JwtConfig, KeycloakTokens), first-request provisioning, sessions, Admin API client
+│   ├── avatar/     AvatarService, AvatarImageProcessor
+│   ├── deletion/   AccountDeletionService, IdentityDeletionWorker
+│   ├── telegram/   ExpiredTokenPurger
+│   ├── persistence/  JPA entities + Spring Data (UserJpa.kt, …) and the port adapters
 │   └── web/        /api/v1/auth, /api/v1/users/me, avatars, /api/v1/telegram
 ├── vote/           VoteService (use cases), VoteStatsService, read models (VoteModels.kt), VoteMode/Status/DrawTarget
 │   ├── domain/     Vote aggregate (+ Participant, VoteOption; every vote rule, the draw), DrawHistory,

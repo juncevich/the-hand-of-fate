@@ -1,7 +1,5 @@
-package com.juncevich.fate.account.token
+package com.juncevich.fate.account.keycloak
 
-import com.juncevich.fate.account.keycloak.KeycloakProperties
-import com.juncevich.fate.account.service.KeycloakUserProvisioner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.convert.converter.Converter
