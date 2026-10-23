@@ -101,8 +101,6 @@ class NotificationOutboxIntegrationTest
             recipients.map(Email::of)
         )
 
-        private fun recordInvitation() = publish(invitation)
-
         @Test
         fun `notification rolls back with the vote transaction`() {
             TransactionTemplate(transactions).executeWithoutResult { status ->
@@ -114,7 +112,7 @@ class NotificationOutboxIntegrationTest
 
         @Test
         fun `committed invitation is persisted and can be consumed after recorder returns`() {
-            recordInvitation()
+            publish(invitation)
             val job = checkNotNull(claim())
             assertEquals(NotificationType.INVITATION, job.type)
             assertEquals(1, job.attempts)
@@ -144,7 +142,7 @@ class NotificationOutboxIntegrationTest
 
         @Test
         fun `expired lease is recovered and a stale worker cannot acknowledge or reschedule it`() {
-            recordInvitation()
+            publish(invitation)
             val original = checkNotNull(claim())
             makeAvailable()
             val recovered = checkNotNull(claim())
@@ -161,8 +159,30 @@ class NotificationOutboxIntegrationTest
         }
 
         @Test
+        fun `a renewed lease keeps the job from other workers, and only the current claim can renew it`() {
+            publish(invitation)
+            val first = checkNotNull(claim())
+            makeAvailable()
+            assertTrue(outbox.renew(first, lease))
+            assertNull(claim(), "A renewed job is not claimed again")
+
+            makeAvailable()
+            val second = checkNotNull(claim())
+            assertFalse(outbox.renew(first, lease), "A claim that lost its lease cannot renew it")
+            assertTrue(outbox.renew(second, lease))
+
+            outbox.complete(second)
+            assertFalse(outbox.renew(second, lease), "A completed job has no lease left")
+
+            publish(invitation)
+            val failed = checkNotNull(claim())
+            outbox.fail(failed, "Gave up")
+            assertFalse(outbox.renew(failed, lease), "A failed job is never claimed again, so not renewed either")
+        }
+
+        @Test
         fun `parallel workers claim different jobs`() {
-            repeat(2) { recordInvitation() }
+            repeat(2) { publish(invitation) }
             Executors.newFixedThreadPool(2).use { executor ->
                 val tasks = List(2) { executor.submit<java.util.UUID> { checkNotNull(claim()).id } }
                 assertEquals(2, tasks.map { it.get(5, TimeUnit.SECONDS) }.toSet().size)
@@ -173,7 +193,7 @@ class NotificationOutboxIntegrationTest
         fun `failed delivery is retained and retried later without affecting another recipient`() {
             val mail = mockk<EmailService>(relaxed = true)
             every { mail.sendVoteInvitation("recipient@test.com", any(), any(), any(), any()) } throws IllegalStateException("SMTP down")
-            recordInvitation()
+            publish(invitation)
             publish(invitation.copy(recipientEmail = Email.of("good@test.com")))
             val worker = worker(mail)
             worker.poll()
@@ -199,7 +219,7 @@ class NotificationOutboxIntegrationTest
 
         @Test
         fun `retry reschedules the job after the given delay`() {
-            recordInvitation()
+            publish(invitation)
             val job = checkNotNull(claim())
             outbox.retry(job, "x".repeat(2000), Duration.ofMinutes(30))
             val delaySeconds =
@@ -215,7 +235,7 @@ class NotificationOutboxIntegrationTest
 
         @Test
         fun `failed jobs are kept for investigation, never claimed again and purged after retention`() {
-            recordInvitation()
+            publish(invitation)
             outbox.fail(checkNotNull(claim()), "SMTP down")
             makeAvailable()
             assertNull(claim())
@@ -230,7 +250,7 @@ class NotificationOutboxIntegrationTest
         fun `worker gives up after the configured number of attempts`() {
             val mail = mockk<EmailService>(relaxed = true)
             every { mail.sendVoteInvitation(any(), any(), any(), any(), any()) } throws IllegalStateException("SMTP down")
-            recordInvitation()
+            publish(invitation)
             val worker = worker(mail, NotificationProperties(maxAttempts = 2))
             worker.poll()
             makeAvailable()
@@ -253,7 +273,7 @@ class NotificationOutboxIntegrationTest
         @Test
         fun `poll dispatches at most twenty jobs per batch`() {
             val mail = mockk<EmailService>(relaxed = true)
-            repeat(21) { recordInvitation() }
+            repeat(21) { publish(invitation) }
             worker(mail).poll()
             assertEquals(1, rowCount())
             verify(exactly = 20) { mail.sendVoteInvitation(any(), any(), any(), any(), any()) }

@@ -14,11 +14,14 @@ import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.module.kotlin.KotlinModule
 import java.time.Duration
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class NotificationWorkerTest {
     private val outbox = mockk<NotificationOutboxPort>(relaxed = true)
@@ -138,6 +141,61 @@ class NotificationWorkerTest {
         verify(exactly = 0) { delivery.send(any<InvitationPayload>()) }
         verify(exactly = 1) { outbox.complete(job) }
         assertEquals(1.0, meterRegistry.counter("notification.suppressed", "reason", "unsubscribed").count())
+    }
+
+    @Test
+    fun `a job still being delivered keeps its lease until it is acknowledged`() {
+        val job = job()
+        queue(job)
+        val sending = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        every { delivery.send(invitation) } answers {
+            sending.countDown()
+            release.await()
+        }
+        every { outbox.renew(job, properties.lease) } returns true
+
+        val polling = Thread.ofVirtual().start { worker.poll() }
+        assertTrue(sending.await(5, TimeUnit.SECONDS))
+        worker.renewLeases()
+        release.countDown()
+        polling.join(Duration.ofSeconds(5))
+        worker.renewLeases()
+
+        verify(exactly = 1) { outbox.renew(job, Duration.ofMinutes(2)) }
+        verify(exactly = 1) { outbox.complete(job) }
+    }
+
+    @Test
+    fun `a lost lease is reported once and no longer renewed`() {
+        val job = job()
+        queue(job)
+        val sending = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        every { delivery.send(invitation) } answers {
+            sending.countDown()
+            release.await()
+        }
+        every { outbox.renew(job, properties.lease) } returns false
+
+        val polling = Thread.ofVirtual().start { worker.poll() }
+        assertTrue(sending.await(5, TimeUnit.SECONDS))
+        worker.renewLeases()
+        worker.renewLeases()
+        release.countDown()
+        polling.join(Duration.ofSeconds(5))
+
+        verify(exactly = 1) { outbox.renew(job, any()) }
+        assertEquals(1.0, count("notification.lease.lost"))
+        // The delivery still finishes; acknowledging a lost claim is fenced off by the outbox.
+        verify(exactly = 1) { outbox.complete(job) }
+    }
+
+    @Test
+    fun `nothing in flight, nothing renewed`() {
+        worker.renewLeases()
+
+        verify(exactly = 0) { outbox.renew(any(), any()) }
     }
 
     @Test

@@ -58,6 +58,20 @@ class NotificationOutboxAdapter(
                 lease.toMillis() / MILLIS_PER_SECOND
             ).firstOrNull()
 
+    override fun renew(
+        job: NotificationJob,
+        lease: Duration,
+    ): Boolean =
+        jdbc.update(
+            """
+            UPDATE notification_outbox SET available_at = now() + make_interval(secs => ?)
+            WHERE id = ? AND claim_id = ? AND failed_at IS NULL
+            """,
+            lease.toMillis() / MILLIS_PER_SECOND,
+            job.id,
+            job.claimId
+        ) == 1
+
     override fun complete(job: NotificationJob) {
         jdbc.update("DELETE FROM notification_outbox WHERE id = ? AND claim_id = ?", job.id, job.claimId)
     }

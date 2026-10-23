@@ -36,4 +36,10 @@ class NotificationPropertiesTest {
     fun `rejects a non-positive batch size`() {
         assertThrows<IllegalArgumentException> { NotificationProperties(batchSize = 0) }
     }
+
+    @Test
+    fun `lease renewal must come well before the lease runs out`() {
+        assertThrows<IllegalArgumentException> { NotificationProperties(lease = Duration.ofMinutes(1), leaseRenewal = Duration.ofMinutes(1)) }
+        assertThrows<IllegalArgumentException> { NotificationProperties(leaseRenewal = Duration.ZERO) }
+    }
 }

@@ -145,6 +145,9 @@ app:
     batch-size: 20
     max-attempts: 10
     lease: 2m
+    # Leases of jobs still being delivered are extended this often, so another instance
+    # never re-claims a slow job (must stay well below `lease`).
+    lease-renewal: 30s
     retry-base-delay: 1m
     retry-max-delay: 6h
     failed-retention: 14d

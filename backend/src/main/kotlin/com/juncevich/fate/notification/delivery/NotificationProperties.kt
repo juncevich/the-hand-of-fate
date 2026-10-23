@@ -17,6 +17,8 @@ data class NotificationProperties(
     val maxAttempts: Int = 10,
     /** How long a claimed job stays invisible to other pollers before it is considered abandoned. */
     val lease: Duration = Duration.ofMinutes(2),
+    /** How often the leases of jobs still being delivered are extended; well below [lease]. */
+    val leaseRenewal: Duration = Duration.ofSeconds(30),
     val retryBaseDelay: Duration = Duration.ofMinutes(1),
     val retryMaxDelay: Duration = Duration.ofHours(6),
     val failedRetention: Duration = Duration.ofDays(14),
@@ -27,6 +29,9 @@ data class NotificationProperties(
         require(emailBudgetPerUser > 0) { "app.notifications.email-budget-per-user must be positive" }
         require(batchSize > 0) { "app.notifications.batch-size must be positive" }
         require(maxAttempts > 0) { "app.notifications.max-attempts must be positive" }
+        require(leaseRenewal.isPositive && leaseRenewal < lease) {
+            "app.notifications.lease-renewal must be positive and shorter than app.notifications.lease"
+        }
     }
 
     /** Delay before the next attempt after attempt number [attempt] (1-based) failed. */

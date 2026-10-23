@@ -15,11 +15,14 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import tools.jackson.core.JacksonException
 import tools.jackson.databind.json.JsonMapper
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 /**
- * Delivers outbox jobs. Designed for a single backend instance: a batch can outlive the lease
- * under heavy SMTP retries, and a second instance would then re-claim and send duplicates.
+ * Delivers outbox jobs; safe to run on several backend instances. A claimed job is leased, and
+ * while it is being delivered [renewLeases] keeps extending the lease, so a slow batch (SMTP
+ * retries, waiting for a send permit) is not re-claimed and sent twice by another instance. The
+ * lease only runs out when its worker died — then the job is delivered again (at least once).
  */
 @Component
 @ConditionalOnProperty(name = ["app.notifications.delivery-enabled"], havingValue = "true", matchIfMissing = true)
@@ -33,13 +36,40 @@ class NotificationWorker(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    /** Claimed jobs not yet acknowledged; their leases are renewed. */
+    private val inFlight: MutableSet<NotificationJob> = ConcurrentHashMap.newKeySet()
+
     /** SMTP runs outside DB transactions, with bounded batches and per-recipient recovery. */
     @Scheduled(fixedDelayString = "\${app.notifications.poll-delay-ms:1000}")
     fun poll() {
         Executors.newVirtualThreadPerTaskExecutor().use { executor ->
             repeat(properties.batchSize) {
                 val job = outbox.claim(properties.lease) ?: return@use
-                executor.execute { process(job) }
+                inFlight += job
+                executor.execute {
+                    try {
+                        process(job)
+                    } finally {
+                        inFlight -= job
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Extends the lease of every job still being delivered. Runs alongside a long [poll]: with
+     * virtual threads Spring Boot's scheduler starts each scheduled run on a thread of its own.
+     * A job whose lease is gone (acknowledged meanwhile, cancelled, or claimed again after this
+     * instance stalled past the lease) is no longer renewed.
+     */
+    @Scheduled(fixedDelayString = "\${app.notifications.lease-renewal:30s}")
+    fun renewLeases() {
+        for (job in inFlight) {
+            // Acknowledging removes the job first, so a lease lost here was really lost.
+            if (!outbox.renew(job, properties.lease) && inFlight.remove(job)) {
+                log.warn("Notification {} lost its lease while being delivered; it may be sent twice", job.id)
+                meterRegistry.counter("notification.lease.lost", "type", job.type.metricTag).increment()
             }
         }
     }
@@ -64,7 +94,7 @@ class NotificationWorker(
         if (suppressions.isSuppressed(payload.recipientEmail)) {
             // Checked at delivery rather than when queued, so unsubscribing also stops queued emails.
             meterRegistry.counter("notification.suppressed", "reason", "unsubscribed").increment()
-            outbox.complete(job)
+            complete(job)
             return
         }
         try {
@@ -73,6 +103,12 @@ class NotificationWorker(
             onDeliveryFailure(job, ex)
             return
         }
+        complete(job)
+    }
+
+    // Each acknowledgement stops the job's lease renewal first (see renewLeases).
+    private fun complete(job: NotificationJob) {
+        inFlight -= job
         outbox.complete(job)
     }
 
@@ -122,6 +158,7 @@ class NotificationWorker(
             delay,
             ex
         )
+        inFlight -= job
         outbox.retry(job, ex.message ?: "Delivery failed", delay)
     }
 
@@ -131,6 +168,7 @@ class NotificationWorker(
     ) {
         log.error("Notification {} ({}) failed permanently after {} attempt(s)", job.id, job.type, job.attempts, ex)
         meterRegistry.counter("notification.dead", "type", job.type.metricTag).increment()
+        inFlight -= job
         outbox.fail(job, ex.message ?: "Delivery failed")
     }
 

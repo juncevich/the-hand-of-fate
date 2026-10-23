@@ -23,6 +23,15 @@ interface NotificationOutboxPort {
     /** Leases the oldest pending job for [lease]; `null` when nothing is due. */
     fun claim(lease: Duration): NotificationJob?
 
+    /**
+     * Extends the lease of [job] to [lease] from now while this claim still holds it; `false` when
+     * the job was acknowledged, cancelled or claimed again after its lease ran out.
+     */
+    fun renew(
+        job: NotificationJob,
+        lease: Duration,
+    ): Boolean
+
     fun complete(job: NotificationJob)
 
     fun retry(

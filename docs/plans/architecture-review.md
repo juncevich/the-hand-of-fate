@@ -41,8 +41,8 @@
   - Сделано 2026-10-24 (сначала было отложено): события в терминах агрегата — `VoteCreated` / `ParticipantInvited` / `VoteDrawn` (id, адреса, `DrawOutcome`), `Vote.pullEvents()`, публикация в `VoteService.store`. Бюджет писем и имя создателя переехали из сервиса в `NotificationRecorder` — слоя перевода событий не понадобилось
 
 ## 7. Масштабирование NotificationWorker (по желанию)
-- [ ] Продление lease во время ретраев SMTP или ShedLock — только если появится второй инстанс
-  - Не требуется сейчас: бэкенд работает в одном экземпляре (ограничение задокументировано в `NotificationWorker`)
+- [x] Продление lease во время ретраев SMTP или ShedLock — только если появится второй инстанс
+  - Сделано 2026-10-24: heartbeat `NotificationWorker.renewLeases` (каждые `app.notifications.lease-renewal`, 30 s) продлевает lease задач в работе через `NotificationOutboxPort.renew` (ограждение по `claim_id`); подтверждение сначала снимает задачу с продления; потерянный lease — warn + `notification.lease.lost`. ShedLock не нужен: несколько экземпляров разбирают очередь параллельно (`SKIP LOCKED`)
 
 ## Проверка в конце
 - [x] `./gradlew spotlessCheck detekt check` (покрытие ≥ 95/85)
