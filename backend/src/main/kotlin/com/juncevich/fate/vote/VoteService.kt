@@ -2,7 +2,6 @@ package com.juncevich.fate.vote
 
 import com.juncevich.fate.account.UserQueryService
 import com.juncevich.fate.account.mailbox
-import com.juncevich.fate.notification.EmailBudget
 import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
@@ -13,14 +12,12 @@ import com.juncevich.fate.vote.domain.DrawHistoryRepository
 import com.juncevich.fate.vote.domain.DrawOutcome
 import com.juncevich.fate.vote.domain.PageQuery
 import com.juncevich.fate.vote.domain.PageResult
-import com.juncevich.fate.vote.domain.ParticipantInvited
 import com.juncevich.fate.vote.domain.Vote
-import com.juncevich.fate.vote.domain.VoteDrawn
 import com.juncevich.fate.vote.domain.VoteRepository
 import com.juncevich.fate.vote.domain.VoteSummary
 import com.juncevich.fate.vote.domain.WinnerPicker
+import com.juncevich.fate.vote.domain.winner
 import io.micrometer.core.instrument.MeterRegistry
-import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
@@ -35,8 +32,9 @@ private const val MAX_HISTORY_PAGE_SIZE = 100
 
 /**
  * The vote module's use cases. Each change loads the [Vote] aggregate under its row lock, lets it
- * check its rules and change itself, stores it, and then does what lies outside the aggregate:
- * the email budget, notification events and metrics.
+ * check its rules and change itself, stores it and publishes the events it recorded ([store]);
+ * metrics are counted here. Notifications and their email budget are the listeners' business
+ * (`NotificationRecorder`).
  */
 @Service
 @Transactional
@@ -47,11 +45,8 @@ class VoteService(
     private val winnerPicker: WinnerPicker,
     private val events: ApplicationEventPublisher,
     private val meterRegistry: MeterRegistry,
-    private val emailBudget: EmailBudget,
     private val clock: Clock,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     fun createVote(
         creatorId: UserId,
         request: CreateVoteCommand,
@@ -59,11 +54,10 @@ class VoteService(
         val creator =
             userQueryService.findProfileById(creatorId.value)
                 ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
-        val creatorEmail = creator.mailbox
         val vote =
             Vote.create(
                 creatorId = creatorId,
-                creatorEmail = creatorEmail,
+                creatorEmail = creator.mailbox,
                 title = request.title,
                 description = request.description,
                 mode = request.mode,
@@ -76,14 +70,8 @@ class VoteService(
                     .findProfilesByEmailIn(emails.map { it.value })
                     .associate { it.mailbox to it.displayName }
             }
-        val invitedEmails = vote.participants.map { it.email }.filter { it != creatorEmail }
-        emailBudget.reserveOrThrow(creatorId.value, invitedEmails.size)
-
-        votes.save(vote)
+        store(vote)
         meterRegistry.counter("vote.created", "mode", vote.mode.name).increment()
-        invitedEmails.forEach { email ->
-            events.publishEvent(ParticipantInvited(vote.id, vote.title, creator.displayName, email))
-        }
         return vote.toDetailView(lastResult = null, requesterId = creatorId)
     }
 
@@ -116,19 +104,8 @@ class VoteService(
         voteId: VoteId,
         requesterId: UserId,
         email: String,
-    ) {
-        val vote = findForUpdateOrThrow(voteId)
-        val participant =
-            vote.invite(requesterId, email, clock.instant()) {
-                userQueryService.findProfileByEmail(it.value)?.displayName
-            }
-        emailBudget.reserveOrThrow(requesterId.value, 1)
-        votes.save(vote)
-
-        // Only the creator invites, so the requester's name is the creator's.
-        val creator =
-            checkNotNull(userQueryService.findProfileById(requesterId.value)) { "Creator $requesterId not found" }
-        events.publishEvent(ParticipantInvited(vote.id, vote.title, creator.displayName, participant.email))
+    ) = change(voteId) { vote ->
+        vote.invite(requesterId, email, clock.instant()) { userQueryService.findProfileByEmail(it.value)?.displayName }
     }
 
     fun removeParticipant(
@@ -167,18 +144,9 @@ class VoteService(
                 clock.instant()
             ) { round -> history.findByRound(vote.id, round) }
         history.save(outcome.entry)
-        votes.save(vote)
+        store(vote)
         meterRegistry.counter("vote.draw.performed", "mode", vote.mode.name).increment()
-
-        val result = outcome.toResult()
-        val recipients = vote.participants.map { it.email }.distinct()
-        // The draw itself is never refused: over the budget only its result emails are dropped.
-        if (emailBudget.tryReserve(requesterId.value, recipients.size)) {
-            events.publishEvent(VoteDrawn(vote.id, vote.title, result, recipients))
-        } else {
-            log.warn("Result emails for draw of vote {} suppressed: email budget exhausted", vote.id)
-        }
-        return result
+        return outcome.toResult()
     }
 
     fun reopen(
@@ -239,7 +207,13 @@ class VoteService(
     ) {
         val vote = findForUpdateOrThrow(voteId)
         action(vote)
+        store(vote)
+    }
+
+    /** Saves [vote], then publishes what it recorded — the listeners run in this transaction. */
+    private fun store(vote: Vote) {
         votes.save(vote)
+        vote.pullEvents().forEach(events::publishEvent)
     }
 
     private fun findForUpdateOrThrow(voteId: VoteId): Vote =
@@ -288,13 +262,6 @@ private fun Vote.toDetailView(
     isCreator = isCreator(requesterId),
     createdAt = createdAt
 )
-
-private val DrawHistory.winner: Winner
-    get() =
-        when (this) {
-            is DrawHistory.ParticipantWinner -> Winner.Participant(email?.value, displayName)
-            is DrawHistory.OptionWinner -> Winner.Option(optionTitle)
-        }
 
 private fun DrawHistory.toView() = DrawHistoryView(id = id, winner = winner, round = round, drawnAt = drawnAt)
 

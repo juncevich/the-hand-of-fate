@@ -6,7 +6,6 @@ import com.juncevich.fate.account.UserProfile
 import com.juncevich.fate.account.UserQueryService
 import com.juncevich.fate.account.mailbox
 import com.juncevich.fate.account.userId
-import com.juncevich.fate.notification.EmailBudget
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.Email
@@ -22,6 +21,7 @@ import com.juncevich.fate.vote.domain.PageResult
 import com.juncevich.fate.vote.domain.Participant
 import com.juncevich.fate.vote.domain.ParticipantInvited
 import com.juncevich.fate.vote.domain.Vote
+import com.juncevich.fate.vote.domain.VoteCreated
 import com.juncevich.fate.vote.domain.VoteDrawn
 import com.juncevich.fate.vote.domain.VoteOption
 import com.juncevich.fate.vote.domain.VoteRepository
@@ -51,10 +51,9 @@ class VoteServiceTest {
     private val userQueryService = mockk<UserQueryService>()
     private val events = mockk<ApplicationEventPublisher>(relaxed = true)
     private val meterRegistry = SimpleMeterRegistry()
-    private val emailBudget = mockk<EmailBudget>(relaxed = true)
 
     private val service =
-        VoteService(votes, history, userQueryService, WinnerPicker(), events, meterRegistry, emailBudget, FIXED_CLOCK)
+        VoteService(votes, history, userQueryService, WinnerPicker(), events, meterRegistry, FIXED_CLOCK)
 
     private val creator = UserProfile(UUID.randomUUID(), "creator@test.com", "Creator")
 
@@ -63,7 +62,6 @@ class VoteServiceTest {
         every { userQueryService.findProfileById(creator.id) } returns creator
         every { userQueryService.findProfilesByEmailIn(any()) } returns listOf(creator)
         every { userQueryService.findProfileByEmail(any()) } returns null
-        every { emailBudget.tryReserve(any(), any()) } returns true
     }
 
     @AfterEach
@@ -99,7 +97,7 @@ class VoteServiceTest {
     // ── createVote ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `createVote stores the vote, reserves and sends one invitation per invitee`() {
+    fun `createVote stores the vote and announces it with its invitees`() {
         val saved = slot<Vote>()
         every { votes.save(capture(saved)) } returns Unit
 
@@ -120,8 +118,7 @@ class VoteServiceTest {
         assertEquals(DrawTarget.OPTIONS, view.drawTarget)
         assertTrue(view.isCreator)
         assertNull(view.lastResult)
-        verify(exactly = 1) { emailBudget.reserveOrThrow(creator.id, 1) }
-        verify(exactly = 1) { events.publishEvent(ParticipantInvited(VoteId(view.id), "Vote", "Creator", Email.of("p@test.com"))) }
+        verify(exactly = 1) { events.publishEvent(VoteCreated(VoteId(view.id), "Vote", creator.userId, listOf(Email.of("p@test.com")))) }
         verify(exactly = 1) { events.publishEvent(any<Any>()) }
         assertEquals(
             1.0,
@@ -134,15 +131,14 @@ class VoteServiceTest {
     }
 
     @Test
-    fun `createVote over the email budget stores nothing and sends no invitations`() {
-        every { emailBudget.reserveOrThrow(creator.id, 2) } throws TooManyRequestsException("Email limit reached", ErrorCode.EMAIL_LIMIT_REACHED)
+    fun `a listener refusing the event fails the change, so its transaction rolls back`() {
+        every { events.publishEvent(any<VoteCreated>()) } throws TooManyRequestsException("Email limit reached", ErrorCode.EMAIL_LIMIT_REACHED)
 
         assertThrows<TooManyRequestsException> {
-            service.createVote(creator.userId, CreateVoteCommand(title = "Vote", participantEmails = listOf("a@test.com", "b@test.com", creator.email)))
+            service.createVote(creator.userId, CreateVoteCommand(title = "Vote", participantEmails = listOf("a@test.com")))
         }
 
-        verify(exactly = 0) { votes.save(any()) }
-        verify(exactly = 0) { events.publishEvent(any<Any>()) }
+        assertTrue(meterRegistry.find("vote.created").counters().isEmpty())
     }
 
     @Test
@@ -154,7 +150,7 @@ class VoteServiceTest {
             service.createVote(creator.userId, CreateVoteCommand(title = "Vote", options = listOf("A"), drawTarget = DrawTarget.PARTICIPANTS))
         }
         verify(exactly = 0) { votes.save(any()) }
-        verify(exactly = 0) { emailBudget.reserveOrThrow(any(), any()) }
+        verify(exactly = 0) { events.publishEvent(any<Any>()) }
     }
 
     @Test
@@ -261,26 +257,14 @@ class VoteServiceTest {
     // ── changes ──────────────────────────────────────────────────────────────────
 
     @Test
-    fun `addParticipant stores the participant and sends the invitation`() {
+    fun `addParticipant stores the participant and announces the invitation`() {
         val vote = stored()
         every { userQueryService.findProfileByEmail("new@test.com") } returns UserProfile(UUID.randomUUID(), "new@test.com", "Newton")
 
         service.addParticipant(vote.id, creator.userId, "New@test.com")
 
         verify { votes.save(match { v -> v.participants.any { it.email.value == "new@test.com" && it.displayName == "Newton" } }) }
-        verify(exactly = 1) { emailBudget.reserveOrThrow(creator.id, 1) }
-        verify(exactly = 1) { events.publishEvent(ParticipantInvited(vote.id, vote.title, "Creator", Email.of("new@test.com"))) }
-    }
-
-    @Test
-    fun `addParticipant over the email budget adds nobody`() {
-        val vote = stored()
-        every { emailBudget.reserveOrThrow(creator.id, 1) } throws TooManyRequestsException("Email limit reached", ErrorCode.EMAIL_LIMIT_REACHED)
-
-        assertThrows<TooManyRequestsException> { service.addParticipant(vote.id, creator.userId, "new@test.com") }
-
-        verify(exactly = 0) { votes.save(any()) }
-        verify(exactly = 0) { events.publishEvent(any<Any>()) }
+        verify(exactly = 1) { events.publishEvent(ParticipantInvited(vote.id, vote.title, creator.userId, Email.of("new@test.com"))) }
     }
 
     @Test
@@ -292,7 +276,6 @@ class VoteServiceTest {
         assertThrows<ConflictException> { service.removeParticipant(vote.id, creator.userId, creator.email) }
 
         verify(exactly = 0) { votes.save(any()) }
-        verify(exactly = 0) { emailBudget.reserveOrThrow(any(), any()) }
         verify(exactly = 0) { events.publishEvent(any<Any>()) }
     }
 
@@ -365,8 +348,16 @@ class VoteServiceTest {
         assertEquals(Email.of("winner@test.com"), (recorded.captured as DrawHistory.ParticipantWinner).email)
         assertFalse(result.newRoundStarted)
         verify { votes.save(match { it.status == VoteStatus.DRAWN }) }
-        verify(exactly = 1) { emailBudget.tryReserve(creator.id, 1) }
-        verify(exactly = 1) { events.publishEvent(VoteDrawn(vote.id, vote.title, result, listOf(Email.of("winner@test.com")))) }
+        verify(exactly = 1) {
+            events.publishEvent(
+                match<VoteDrawn> {
+                    it.voteId == vote.id &&
+                        it.drawnBy == creator.userId &&
+                        it.outcome.entry == recorded.captured &&
+                        it.recipients == listOf(Email.of("winner@test.com"))
+                }
+            )
+        }
         assertEquals(
             1.0,
             meterRegistry
@@ -388,17 +379,6 @@ class VoteServiceTest {
         assertEquals(1, result.round)
         verify { history.findByRound(vote.id, 1) }
         verify { history.save(match { it is DrawHistory.OptionWinner && it.optionTitle == "Pizza" }) }
-    }
-
-    @Test
-    fun `draw over the email budget still draws but sends no result emails`() {
-        val vote = stored(participants = listOf("winner@test.com", creator.email))
-        every { emailBudget.tryReserve(creator.id, 2) } returns false
-
-        service.draw(vote.id, creator.userId)
-
-        verify { history.save(any()) }
-        verify(exactly = 0) { events.publishEvent(any<VoteDrawn>()) }
     }
 
     @Test

@@ -11,9 +11,10 @@ import com.juncevich.fate.notification.port.EmailSuppressionPort
 import com.juncevich.fate.notification.port.NotificationOutboxPort
 import com.juncevich.fate.notification.port.NotificationType
 import com.juncevich.fate.shared.Email
-import com.juncevich.fate.vote.DrawResult
+import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.vote.VoteId
-import com.juncevich.fate.vote.Winner
+import com.juncevich.fate.vote.domain.DrawHistory
+import com.juncevich.fate.vote.domain.DrawOutcome
 import com.juncevich.fate.vote.domain.ParticipantInvited
 import com.juncevich.fate.vote.domain.VoteDrawn
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
@@ -37,6 +38,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
 import tools.jackson.databind.json.JsonMapper
 import java.time.Duration
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -67,16 +69,39 @@ class NotificationOutboxIntegrationTest
             }
         }
 
-        private val invitation = ParticipantInvited(VoteId(UUID.randomUUID()), "Vote", "Creator", Email.of("recipient@test.com"))
+        // The recorder charges the creator's email budget and invites by their name: a real account.
+        private val creatorId = UserId(UUID.randomUUID())
+        private val invitation = ParticipantInvited(VoteId(UUID.randomUUID()), "Vote", creatorId, Email.of("recipient@test.com"))
         private val lease = Duration.ofMinutes(2)
         private val retryDelay = Duration.ofMinutes(1)
 
         @BeforeEach
         fun clearQueue() {
             jdbc.update("DELETE FROM notification_outbox")
+            jdbc.update(
+                "INSERT INTO users (id, email, display_name, created_at, updated_at) VALUES (?, ?, 'Creator', now(), now())",
+                creatorId.value,
+                "creator-$creatorId@test.com"
+            )
         }
 
-        private fun recordInvitation() = TransactionTemplate(transactions).executeWithoutResult { events.publishEvent(invitation) }
+        private fun publish(event: Any) = TransactionTemplate(transactions).executeWithoutResult { events.publishEvent(event) }
+
+        private fun drawn(
+            round: Int,
+            recipients: List<String>,
+        ) = VoteDrawn(
+            VoteId(UUID.randomUUID()),
+            "Vote",
+            creatorId,
+            DrawOutcome(
+                DrawHistory.OptionWinner(voteId = VoteId(UUID.randomUUID()), optionId = null, optionTitle = "Winner", round = round, drawnAt = Instant.now()),
+                newRoundStarted = false
+            ),
+            recipients.map(Email::of)
+        )
+
+        private fun recordInvitation() = publish(invitation)
 
         @Test
         fun `notification rolls back with the vote transaction`() {
@@ -104,8 +129,7 @@ class NotificationOutboxIntegrationTest
 
         @Test
         fun `draw creates one independently recoverable job per distinct recipient`() {
-            val draw = VoteDrawn(VoteId(UUID.randomUUID()), "Vote", DrawResult(Winner.Option("Winner"), 1, false), listOf("a@test.com", "b@test.com", "a@test.com").map(Email::of))
-            TransactionTemplate(transactions).executeWithoutResult { events.publishEvent(draw) }
+            publish(drawn(1, listOf("a@test.com", "b@test.com", "a@test.com")))
             val jobs = listOf(checkNotNull(claim()), checkNotNull(claim()))
             assertEquals(
                 setOf("a@test.com", "b@test.com"),
@@ -150,7 +174,7 @@ class NotificationOutboxIntegrationTest
             val mail = mockk<EmailService>(relaxed = true)
             every { mail.sendVoteInvitation("recipient@test.com", any(), any(), any(), any()) } throws IllegalStateException("SMTP down")
             recordInvitation()
-            events.publishEvent(invitation.copy(recipientEmail = Email.of("good@test.com")))
+            publish(invitation.copy(recipientEmail = Email.of("good@test.com")))
             val worker = worker(mail)
             worker.poll()
             verify(exactly = 1) { mail.sendVoteInvitation("good@test.com", any(), any(), any(), any()) }
@@ -167,7 +191,7 @@ class NotificationOutboxIntegrationTest
         @Test
         fun `worker deserializes and delivers draw results`() {
             val mail = mockk<EmailService>(relaxed = true)
-            events.publishEvent(VoteDrawn(VoteId(UUID.randomUUID()), "Vote", DrawResult(Winner.Option("Winner"), 3, false), listOf(Email.of("a@test.com"))))
+            publish(drawn(3, listOf("a@test.com")))
             worker(mail).poll()
             verify(exactly = 1) { mail.sendDrawResult("a@test.com", "Vote", "Winner", "", 3, any(), any()) }
             assertEquals(0, rowCount())

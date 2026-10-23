@@ -3,6 +3,7 @@ package com.juncevich.fate.vote.domain
 import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.uuidV7
 import com.juncevich.fate.vote.VoteId
+import com.juncevich.fate.vote.Winner
 import java.time.Instant
 import java.util.UUID
 
@@ -36,3 +37,11 @@ sealed interface DrawHistory {
         override val audit: DrawAudit? = null,
     ) : DrawHistory
 }
+
+/** The module API's view of who [this] draw picked. */
+val DrawHistory.winner: Winner
+    get() =
+        when (this) {
+            is DrawHistory.ParticipantWinner -> Winner.Participant(email?.value, displayName)
+            is DrawHistory.OptionWinner -> Winner.Option(optionTitle)
+        }

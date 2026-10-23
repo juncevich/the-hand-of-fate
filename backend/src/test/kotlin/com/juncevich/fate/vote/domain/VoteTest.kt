@@ -451,6 +451,32 @@ class VoteTest {
         }
 
         @Test
+        fun `the vote records what happened, handed out once`() {
+            val created = create(participantEmails = listOf("p@test.com"))
+            assertEquals(listOf(VoteCreated(created.id, "Vote", CREATOR_ID, listOf(Email.of("p@test.com")))), created.pullEvents())
+            assertEquals(emptyList<VoteEvent>(), created.pullEvents())
+
+            val vote = vote()
+            vote.invite(CREATOR_ID, "new@test.com", NOW) { null }
+            val outcome = vote.draw(CREATOR_ID, WinnerPicker(), NOW, noHistory)
+            assertEquals(
+                listOf(
+                    ParticipantInvited(vote.id, "Vote", CREATOR_ID, Email.of("new@test.com")),
+                    VoteDrawn(vote.id, "Vote", CREATOR_ID, outcome, listOf(Email.of(CREATOR_EMAIL), Email.of("new@test.com")))
+                ),
+                vote.pullEvents()
+            )
+        }
+
+        @Test
+        fun `a refused change records nothing`() {
+            val vote = vote(status = VoteStatus.DRAWN)
+            assertFails<ConflictException>(ErrorCode.VOTE_NOT_PENDING) { vote.invite(CREATOR_ID, "new@test.com", NOW) { null } }
+            assertFails<ConflictException>(ErrorCode.VOTE_NOT_PENDING) { vote.draw(CREATOR_ID, WinnerPicker(), NOW, noHistory) }
+            assertEquals(emptyList<VoteEvent>(), vote.pullEvents())
+        }
+
+        @Test
         fun `recorded times are the given now, never the clock`() {
             val created = create(participantEmails = listOf("p@test.com"), optionTitles = listOf("A"))
             assertEquals(NOW, created.createdAt)

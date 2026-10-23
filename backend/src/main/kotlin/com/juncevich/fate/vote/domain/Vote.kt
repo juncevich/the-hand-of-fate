@@ -44,6 +44,7 @@ data class DrawOutcome(
  *
  * The public constructor restores a stored vote as it is; a new one comes from [create].
  * The aggregate never reads the clock: a change that records a time takes it as `now`.
+ * What happened is recorded as [VoteEvent]s, which the caller takes with [pullEvents] after saving.
  */
 class Vote(
     val id: VoteId,
@@ -69,10 +70,15 @@ class Vote(
     private val _participants = participants.toMutableList()
     private val _options = options.sortedWith(compareBy({ it.position }, { it.createdAt })).toMutableList()
 
+    private val recordedEvents = mutableListOf<VoteEvent>()
+
     val participants: List<Participant> get() = _participants.toList()
 
     /** In display order. */
     val options: List<VoteOption> get() = _options.toList()
+
+    /** The events recorded since the last call, oldest first; publish them once the vote is saved. */
+    fun pullEvents(): List<VoteEvent> = recordedEvents.toList().also { recordedEvents.clear() }
 
     fun isCreator(userId: UserId) = creatorId == userId
 
@@ -110,7 +116,10 @@ class Vote(
         ensureValid(_participants.size < VoteLimits.MAX_PARTICIPANTS, ErrorCode.TOO_MANY_PARTICIPANTS) {
             participantLimitMessage()
         }
-        return Participant(normalizedEmail, displayNameOf(normalizedEmail), addedAt = now).also(_participants::add)
+        val participant = Participant(normalizedEmail, displayNameOf(normalizedEmail), addedAt = now)
+        _participants += participant
+        recordedEvents += ParticipantInvited(id, title, by, participant.email)
+        return participant
     }
 
     fun removeParticipant(
@@ -194,6 +203,7 @@ class Vote(
                 DrawTarget.PARTICIPANTS -> drawParticipant(picker, now, roundHistory)
             }
         status = VoteStatus.DRAWN
+        recordedEvents += VoteDrawn(id, title, by, outcome, _participants.map { it.email })
         return outcome
     }
 
@@ -333,23 +343,26 @@ class Vote(
                 PARTICIPANTS_TARGET_OPTIONS_MESSAGE
             }
             val displayNames = displayNamesOf(allEmails)
-            return Vote(
-                id = VoteId.new(),
-                title = validTitle,
-                description = description,
-                creatorId = creatorId,
-                mode = mode,
-                drawTarget = target,
-                status = VoteStatus.PENDING,
-                currentRound = 1,
-                createdAt = now,
-                version = 0,
-                participants = allEmails.map { Participant(it, displayNames[it], addedAt = now) },
-                options =
-                    validOptionTitles.mapIndexed { position, optionTitle ->
-                        VoteOption(optionTitle, position, createdAt = now)
-                    }
-            )
+            val vote =
+                Vote(
+                    id = VoteId.new(),
+                    title = validTitle,
+                    description = description,
+                    creatorId = creatorId,
+                    mode = mode,
+                    drawTarget = target,
+                    status = VoteStatus.PENDING,
+                    currentRound = 1,
+                    createdAt = now,
+                    version = 0,
+                    participants = allEmails.map { Participant(it, displayNames[it], addedAt = now) },
+                    options =
+                        validOptionTitles.mapIndexed { position, optionTitle ->
+                            VoteOption(optionTitle, position, createdAt = now)
+                        }
+                )
+            vote.recordedEvents += VoteCreated(vote.id, vote.title, creatorId, invitedEmails)
+            return vote
         }
     }
 }
