@@ -138,7 +138,11 @@ class VoteController(
 
     @PostMapping("/{id}/reopen")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(operationId = "reopenVote", summary = "Reopen a drawn or closed vote (creator only)")
+    @Operation(
+        operationId = "reopenVote",
+        summary = "Reopen a drawn vote (creator only)",
+        description = "Only a DRAWN vote returns to PENDING; a CLOSED vote stays closed."
+    )
     fun reopen(
         @AuthenticationPrincipal user: AuthenticatedUser,
         @PathVariable id: UUID,

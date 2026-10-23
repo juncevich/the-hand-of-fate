@@ -422,7 +422,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reopen a drawn or closed vote (creator only) */
+        /**
+         * Reopen a drawn vote (creator only)
+         * @description Only a DRAWN vote returns to PENDING; a CLOSED vote stays closed.
+         */
         post: operations["reopenVote"];
         delete?: never;
         options?: never;
