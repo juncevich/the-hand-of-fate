@@ -1,8 +1,11 @@
 package com.juncevich.fate.account
 
+import com.juncevich.fate.FIXED_CLOCK
+import com.juncevich.fate.NOW
 import com.juncevich.fate.account.avatar.AvatarService
 import com.juncevich.fate.account.deletion.AccountDeletionService
 import com.juncevich.fate.account.domain.DeletedAccountRepository
+import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.account.keycloak.KeycloakProperties
 import com.juncevich.fate.notification.NotificationOutbox
@@ -42,12 +45,13 @@ class AccountDeletionServiceTest {
             avatars,
             events,
             deletedAccounts,
-            keycloak
+            keycloak,
+            FIXED_CLOCK
         )
 
     private fun User.caller(authenticatedAt: Instant? = null) = AuthenticatedUser(id, email, authenticatedAt)
 
-    private fun user() = User(email = "ann@test.com", displayName = "Ann")
+    private fun user() = User(email = "ann@test.com", displayName = "Ann", createdAt = NOW)
 
     @Test
     fun `a recent sign-in deletes the account, tells other modules and drops queued emails`() {
@@ -57,7 +61,7 @@ class AccountDeletionServiceTest {
         every { outbox.cancelFor(account.email) } just Runs
         TransactionSynchronizationManager.initSynchronization()
         try {
-            service.deleteAccount(account.caller(authenticatedAt = Instant.now().minusSeconds(60)))
+            service.deleteAccount(account.caller(authenticatedAt = NOW.minusSeconds(60)))
 
             verify { events.publishEvent(AccountDeleted(account.id, account.email)) }
             verify { outbox.cancelFor(account.email) }
@@ -79,7 +83,7 @@ class AccountDeletionServiceTest {
         val account = user()
         every { users.findById(account.id) } returns account
 
-        listOf(Instant.now().minus(Duration.ofMinutes(6)), null).forEach { signedInAt ->
+        listOf(NOW.minus(Duration.ofMinutes(6)), null).forEach { signedInAt ->
             val ex = assertThrows<ForbiddenException> { service.deleteAccount(account.caller(signedInAt)) }
             assertEquals(ErrorCode.REAUTHENTICATION_REQUIRED, ex.code)
         }

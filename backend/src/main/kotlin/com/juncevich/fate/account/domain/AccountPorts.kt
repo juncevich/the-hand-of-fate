@@ -1,6 +1,6 @@
 package com.juncevich.fate.account.domain
 
-import com.juncevich.fate.account.User
+import com.juncevich.fate.account.domain.User
 import java.time.Instant
 import java.util.UUID
 

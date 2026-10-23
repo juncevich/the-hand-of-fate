@@ -1,8 +1,8 @@
 package com.juncevich.fate.account.web
 
 import com.juncevich.fate.account.AuthenticatedUser
-import com.juncevich.fate.account.UserQueryService
 import com.juncevich.fate.account.avatar.avatarUrl
+import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
@@ -21,7 +21,8 @@ import org.springframework.web.bind.annotation.RestController
 @Tag(name = "Users")
 class MeController(
     private val emailPreferences: EmailPreferences,
-    private val users: UserQueryService,
+    // The module's own port: the profile needs fields other modules don't get (`UserProfile`).
+    private val users: UserRepository,
 ) {
     @GetMapping
     @Operation(

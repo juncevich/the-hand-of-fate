@@ -1,26 +1,19 @@
 package com.juncevich.fate.vote
 
-import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
 import java.util.UUID
 
-// enumAsRef: one shared schema in api/openapi.yaml instead of a copy inlined into every DTO
-@Schema(enumAsRef = true)
+// No OpenAPI annotations here: every enum becomes one shared schema (`OpenApiConfig`), and the
+// docs of these schemas are added by the web adapter (`vote/web/VoteOpenApiDocs`).
+
 enum class VoteMode { SIMPLE, FAIR_ROTATION }
 
-@Schema(enumAsRef = true)
 enum class VoteStatus { PENDING, DRAWN, CLOSED }
 
 /**
  * What a draw picks the winner from; fixed when the vote is created. With [OPTIONS] the
  * participants are observers: they see the vote and get its notifications but are never drawn.
  */
-@Schema(
-    enumAsRef = true,
-    description =
-        "What a draw picks the winner from; fixed when the vote is created. " +
-            "With OPTIONS the participants are observers and are never drawn."
-)
 enum class DrawTarget { PARTICIPANTS, OPTIONS }
 
 data class CreateVoteCommand(
@@ -34,7 +27,7 @@ data class CreateVoteCommand(
 )
 
 // Read models of the module API. Adapters map them to their own wire format (REST DTOs in
-// `internal/web`, protobuf in `grpc`), so they carry no serialization annotations.
+// `vote/web`, protobuf in `grpc`), so they carry no serialization annotations.
 
 data class VoteSummaryView(
     val id: UUID,

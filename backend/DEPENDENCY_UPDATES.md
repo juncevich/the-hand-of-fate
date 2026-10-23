@@ -1,5 +1,11 @@
 # Dependency Updates
 
+## 2026-10-24 — removed: grpc-kotlin and kotlinx-coroutines
+
+Architecture review (docs/plans/architecture-review.md, block 1): every RPC body was blocking JPA on a virtual-thread coroutine dispatcher, so coroutines only added a second concurrency model. `FateGrpcService` now extends grpc-java's `FateServiceImplBase` on the virtual-thread executor of `GrpcServerConfig`.
+- Removed `io.grpc:grpc-kotlin-stub` `1.5.0`, the `protoc-gen-grpc-kotlin` protoc plugin (`grpckt`), `org.jetbrains.kotlinx:kotlinx-coroutines-core` and `kotlinx-coroutines-reactor` `1.11.0`
+- `protobuf-kotlin` and the `kotlin` protoc builtin stay (message DSL)
+
 ## 2026-10-21 — all dependencies, majors in scope
 
 Every explicit version checked against Maven Central / Gradle Plugin Portal `maven-metadata.xml` (release dates from the artifacts' `Last-Modified`), per the user's request with majors in scope. Rule kept from the Keycloak work: only stable releases at least two weeks old (published on or before 2026-10-07). No majors were available.

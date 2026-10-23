@@ -12,6 +12,7 @@ import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 import java.net.http.HttpClient
+import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
@@ -29,6 +30,7 @@ private val TOKEN_EXPIRY_MARGIN: Duration = Duration.ofSeconds(30)
 class KeycloakAdminClient(
     private val props: KeycloakProperties,
     observationRegistry: ObservationRegistry,
+    private val clock: Clock,
 ) : IdentityAdmin {
     private val http =
         RestClient
@@ -64,7 +66,7 @@ class KeycloakAdminClient(
     }
 
     private fun accessToken(): String {
-        token?.takeIf { Instant.now().isBefore(it.renewAt) }?.let { return it.value }
+        token?.takeIf { clock.instant().isBefore(it.renewAt) }?.let { return it.value }
         val form =
             LinkedMultiValueMap<String, String>().apply {
                 add("grant_type", "client_credentials")
@@ -81,7 +83,7 @@ class KeycloakAdminClient(
                     .retrieve()
                     .body<TokenResponse>()
             ) { "Keycloak returned no token" }
-        val renewAt = Instant.now().plusSeconds(response.expiresIn).minus(TOKEN_EXPIRY_MARGIN)
+        val renewAt = clock.instant().plusSeconds(response.expiresIn).minus(TOKEN_EXPIRY_MARGIN)
         return ServiceToken(response.accessToken, renewAt).also { token = it }.value
     }
 

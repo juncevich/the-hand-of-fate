@@ -6,7 +6,7 @@ import com.juncevich.fate.account.keycloak.KeycloakProperties
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.time.Instant
+import java.time.Clock
 
 private const val BATCH_SIZE = 20
 
@@ -21,6 +21,7 @@ class IdentityDeletionWorker(
     private val deletedAccounts: DeletedAccountRepository,
     private val identityAdmin: IdentityAdmin,
     private val props: KeycloakProperties,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -31,13 +32,13 @@ class IdentityDeletionWorker(
         for (userId in deletedAccounts.findPendingIdentityDeletion(BATCH_SIZE)) {
             try {
                 identityAdmin.deleteUser(userId)
-                deletedAccounts.markIdentityDeleted(userId, Instant.now())
+                deletedAccounts.markIdentityDeleted(userId, clock.instant())
                 log.info("Deleted the Keycloak user of account {}", userId)
             } catch (ex: RuntimeException) {
                 // Stays pending: retried on the next run.
                 log.warn("Could not delete the Keycloak user of account {}: {}", userId, ex.message)
             }
         }
-        deletedAccounts.purge(Instant.now().minus(props.deletedAccountRetention))
+        deletedAccounts.purge(clock.instant().minus(props.deletedAccountRetention))
     }
 }

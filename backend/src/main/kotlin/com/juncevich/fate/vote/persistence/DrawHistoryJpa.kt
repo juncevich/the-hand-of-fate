@@ -32,7 +32,7 @@ class DrawHistoryJpaEntity(
     @Column(nullable = false)
     var round: Int,
     @Column(name = "drawn_at", nullable = false)
-    var drawnAt: Instant = Instant.now(),
+    var drawnAt: Instant,
     /** `null` for draws recorded before V22 (both columns NULL). */
     @Embedded
     var audit: DrawAuditColumns? = null,

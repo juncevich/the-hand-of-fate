@@ -1,6 +1,7 @@
 package com.juncevich.fate.vote.listener
 
 import com.juncevich.fate.account.AccountDeleted
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.vote.domain.DrawHistoryRepository
 import com.juncevich.fate.vote.domain.VoteRepository
 import io.mockk.mockk
@@ -16,7 +17,7 @@ class AccountDeletionListenerTest {
     fun `a deleted account leaves other votes and keeps its wins anonymously`() {
         AccountDeletionListener(votes, history).on(AccountDeleted(UUID.randomUUID(), "gone@test.com"))
 
-        verify { votes.removeParticipantEverywhere("gone@test.com") }
-        verify { history.anonymizeWins("gone@test.com", DELETED_USER_NAME) }
+        verify { votes.removeParticipantEverywhere(Email.of("gone@test.com")) }
+        verify { history.anonymizeWins(Email.of("gone@test.com"), DELETED_USER_NAME) }
     }
 }

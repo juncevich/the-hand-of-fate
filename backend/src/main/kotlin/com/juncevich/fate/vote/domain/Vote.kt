@@ -1,14 +1,16 @@
 package com.juncevich.fate.vote.domain
 
 import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
+import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.shared.ensureState
 import com.juncevich.fate.shared.ensureValid
-import com.juncevich.fate.shared.normalizeEmail
 import com.juncevich.fate.shared.requireValidTitle
 import com.juncevich.fate.shared.uuidV7
 import com.juncevich.fate.vote.DrawTarget
+import com.juncevich.fate.vote.VoteId
 import com.juncevich.fate.vote.VoteLimits
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
@@ -16,17 +18,17 @@ import java.time.Instant
 import java.util.UUID
 
 data class Participant(
-    val email: String,
+    val email: Email,
     val displayName: String? = null,
     val id: UUID = uuidV7(),
-    val addedAt: Instant = Instant.now(),
+    val addedAt: Instant,
 )
 
 data class VoteOption(
     val title: String,
     val position: Int,
     val id: UUID = uuidV7(),
-    val createdAt: Instant = Instant.now(),
+    val createdAt: Instant,
 )
 
 /** What [Vote.draw] produced: the history entry to record and whether the draw started a new round. */
@@ -41,12 +43,13 @@ data class DrawOutcome(
  * vote's row lock for any change.
  *
  * The public constructor restores a stored vote as it is; a new one comes from [create].
+ * The aggregate never reads the clock: a change that records a time takes it as `now`.
  */
 class Vote(
-    val id: UUID,
+    val id: VoteId,
     val title: String,
     val description: String?,
-    val creatorId: UUID,
+    val creatorId: UserId,
     val mode: VoteMode,
     val drawTarget: DrawTarget,
     status: VoteStatus,
@@ -71,9 +74,9 @@ class Vote(
     /** In display order. */
     val options: List<VoteOption> get() = _options.toList()
 
-    fun isCreator(userId: UUID) = creatorId == userId
+    fun isCreator(userId: UserId) = creatorId == userId
 
-    fun requireCreator(userId: UUID) {
+    fun requireCreator(userId: UserId) {
         if (!isCreator(userId)) {
             throw ForbiddenException("Only the creator can perform this action", ErrorCode.NOT_VOTE_CREATOR)
         }
@@ -81,8 +84,8 @@ class Vote(
 
     /** The creator and every participant (also the observers of an options vote) may see the vote. */
     fun requireViewer(
-        userId: UUID,
-        email: String,
+        userId: UserId,
+        email: Email,
     ) {
         if (!isCreator(userId) && _participants.none { it.email == email }) {
             throw ForbiddenException("Vote is not available for this user", ErrorCode.VOTE_ACCESS_DENIED)
@@ -91,12 +94,13 @@ class Vote(
 
     /** Adds [email] as a participant; [displayNameOf] looks up the name of an existing account. */
     fun invite(
-        by: UUID,
+        by: UserId,
         email: String,
-        displayNameOf: (String) -> String?,
+        now: Instant,
+        displayNameOf: (Email) -> String?,
     ): Participant {
         requireCreator(by)
-        val normalizedEmail = normalizeEmail(email)
+        val normalizedEmail = Email.of(email)
         ensureState(status == VoteStatus.PENDING, ErrorCode.VOTE_NOT_PENDING) {
             "Cannot add participants to a non-pending vote"
         }
@@ -106,22 +110,23 @@ class Vote(
         ensureValid(_participants.size < VoteLimits.MAX_PARTICIPANTS, ErrorCode.TOO_MANY_PARTICIPANTS) {
             participantLimitMessage()
         }
-        return Participant(normalizedEmail, displayNameOf(normalizedEmail)).also(_participants::add)
+        return Participant(normalizedEmail, displayNameOf(normalizedEmail), addedAt = now).also(_participants::add)
     }
 
     fun removeParticipant(
-        by: UUID,
+        by: UserId,
         email: String,
     ) {
         requireCreator(by)
         requirePendingForChange()
-        val normalizedEmail = normalizeEmail(email)
+        val normalizedEmail = Email.of(email)
         _participants.removeIf { it.email == normalizedEmail }
     }
 
     fun addOption(
-        by: UUID,
+        by: UserId,
         title: String,
+        now: Instant,
     ): VoteOption {
         requireCreator(by)
         ensureState(status == VoteStatus.PENDING, ErrorCode.VOTE_NOT_PENDING) {
@@ -137,12 +142,12 @@ class Vote(
         }
         // Appended last, after any gap left by a removal.
         val position = (_options.maxOfOrNull { it.position } ?: -1) + 1
-        return VoteOption(validTitle, position).also(_options::add)
+        return VoteOption(validTitle, position, createdAt = now).also(_options::add)
     }
 
     /** [orderedIds] must list every option exactly once; each option's position becomes its index. */
     fun reorderOptions(
-        by: UUID,
+        by: UserId,
         orderedIds: List<UUID>,
     ) {
         requireCreator(by)
@@ -160,7 +165,7 @@ class Vote(
     }
 
     fun removeOption(
-        by: UUID,
+        by: UserId,
         optionId: UUID,
     ) {
         requireCreator(by)
@@ -174,8 +179,9 @@ class Vote(
      * everyone once all have won. The vote becomes DRAWN.
      */
     fun draw(
-        by: UUID,
+        by: UserId,
         picker: WinnerPicker,
+        now: Instant,
         roundHistory: (round: Int) -> List<DrawHistory>,
     ): DrawOutcome {
         requireCreator(by)
@@ -184,20 +190,20 @@ class Vote(
         }
         val outcome =
             when (drawTarget) {
-                DrawTarget.OPTIONS -> drawOption(picker, roundHistory)
-                DrawTarget.PARTICIPANTS -> drawParticipant(picker, roundHistory)
+                DrawTarget.OPTIONS -> drawOption(picker, now, roundHistory)
+                DrawTarget.PARTICIPANTS -> drawParticipant(picker, now, roundHistory)
             }
         status = VoteStatus.DRAWN
         return outcome
     }
 
-    fun reopen(by: UUID) {
+    fun reopen(by: UserId) {
         requireCreator(by)
         ensureState(status == VoteStatus.DRAWN, ErrorCode.VOTE_NOT_DRAWN) { "Only DRAWN votes can be reopened" }
         status = VoteStatus.PENDING
     }
 
-    fun close(by: UUID) {
+    fun close(by: UserId) {
         requireCreator(by)
         ensureState(status != VoteStatus.CLOSED, ErrorCode.VOTE_ALREADY_CLOSED) { "Vote is already closed" }
         status = VoteStatus.CLOSED
@@ -205,15 +211,16 @@ class Vote(
 
     private fun drawOption(
         picker: WinnerPicker,
+        now: Instant,
         roundHistory: (Int) -> List<DrawHistory>,
     ): DrawOutcome {
         ensureState(_options.isNotEmpty(), ErrorCode.NO_OPTIONS) { "Cannot draw: add at least one option first" }
         // Ids, not titles: an option can be deleted and a new one added under the same title.
-        val (eligible, newRoundStarted) =
+        val eligible =
             eligibleThisRound(_options, { it.id.toString() }, roundHistory) {
                 (it as? DrawHistory.OptionWinner)?.optionId?.toString()
             }
-        val byKey = eligible.associateBy { it.id.toString() }
+        val byKey = eligible.pool.associateBy { it.id.toString() }
         val (key, audit) = picker.pick(byKey.keys)
         val option = byKey.getValue(key)
         val entry =
@@ -222,21 +229,23 @@ class Vote(
                 optionId = option.id,
                 optionTitle = option.title,
                 round = currentRound,
+                drawnAt = now,
                 audit = audit
             )
-        return DrawOutcome(entry, newRoundStarted)
+        return DrawOutcome(entry, eligible.newRoundStarted)
     }
 
     private fun drawParticipant(
         picker: WinnerPicker,
+        now: Instant,
         roundHistory: (Int) -> List<DrawHistory>,
     ): DrawOutcome {
         ensureState(_participants.isNotEmpty(), ErrorCode.NO_PARTICIPANTS) { "Cannot draw: vote has no participants" }
-        val (eligible, newRoundStarted) =
-            eligibleThisRound(_participants, { it.email }, roundHistory) {
-                (it as? DrawHistory.ParticipantWinner)?.email
+        val eligible =
+            eligibleThisRound(_participants, { it.email.value }, roundHistory) {
+                (it as? DrawHistory.ParticipantWinner)?.email?.value
             }
-        val byKey = eligible.associateBy { it.email }
+        val byKey = eligible.pool.associateBy { it.email.value }
         val (key, audit) = picker.pick(byKey.keys)
         val participant = byKey.getValue(key)
         val entry =
@@ -245,9 +254,10 @@ class Vote(
                 email = participant.email,
                 displayName = participant.displayName,
                 round = currentRound,
+                drawnAt = now,
                 audit = audit
             )
-        return DrawOutcome(entry, newRoundStarted)
+        return DrawOutcome(entry, eligible.newRoundStarted)
     }
 
     /** FAIR_ROTATION: who has not won this round yet; once everyone has, a new round starts with all. */
@@ -256,14 +266,20 @@ class Vote(
         key: (T) -> String,
         roundHistory: (Int) -> List<DrawHistory>,
         winnerKey: (DrawHistory) -> String?,
-    ): Pair<List<T>, Boolean> {
-        if (mode == VoteMode.SIMPLE) return pool to false
+    ): Eligible<T> {
+        if (mode == VoteMode.SIMPLE) return Eligible(pool, newRoundStarted = false)
         val won = roundHistory(currentRound).mapNotNullTo(HashSet(), winnerKey)
         val notYetWon = pool.filter { key(it) !in won }
-        if (notYetWon.isNotEmpty()) return notYetWon to false
+        if (notYetWon.isNotEmpty()) return Eligible(notYetWon, newRoundStarted = false)
         currentRound++
-        return pool to true
+        return Eligible(pool, newRoundStarted = true)
     }
+
+    /** Who may win this draw, and whether choosing them started a new round. */
+    private data class Eligible<T>(
+        val pool: List<T>,
+        val newRoundStarted: Boolean,
+    )
 
     private fun requirePendingForChange() =
         ensureState(status == VoteStatus.PENDING, ErrorCode.VOTE_NOT_PENDING) { "Cannot modify a non-pending vote" }
@@ -273,18 +289,20 @@ class Vote(
          * A new PENDING vote: the creator becomes a participant along with the invited [participantEmails]
          * (normalized, duplicates dropped); [displayNamesOf] maps the addresses of existing accounts to
          * their names. Without [drawTarget] the vote draws from its options if any are given.
+         * [now] becomes its creation time.
          */
         @Suppress("LongParameterList")
         fun create(
-            creatorId: UUID,
-            creatorEmail: String,
+            creatorId: UserId,
+            creatorEmail: Email,
             title: String,
             description: String?,
             mode: VoteMode,
             drawTarget: DrawTarget?,
             participantEmails: List<String>,
             optionTitles: List<String>,
-            displayNamesOf: (Set<String>) -> Map<String, String>,
+            now: Instant,
+            displayNamesOf: (Set<Email>) -> Map<Email, String>,
         ): Vote {
             val validTitle = requireValidTitle(title)
             ensureValid(
@@ -302,7 +320,7 @@ class Vote(
             }
             val invitedEmails =
                 participantEmails
-                    .map(::normalizeEmail)
+                    .map(Email::of)
                     .distinct()
                     .filter { it != creatorEmail }
             val allEmails = setOf(creatorEmail) + invitedEmails
@@ -316,7 +334,7 @@ class Vote(
             }
             val displayNames = displayNamesOf(allEmails)
             return Vote(
-                id = uuidV7(),
+                id = VoteId.new(),
                 title = validTitle,
                 description = description,
                 creatorId = creatorId,
@@ -324,10 +342,13 @@ class Vote(
                 drawTarget = target,
                 status = VoteStatus.PENDING,
                 currentRound = 1,
-                createdAt = Instant.now(),
+                createdAt = now,
                 version = 0,
-                participants = allEmails.map { Participant(it, displayNames[it]) },
-                options = validOptionTitles.mapIndexed { position, optionTitle -> VoteOption(optionTitle, position) }
+                participants = allEmails.map { Participant(it, displayNames[it], addedAt = now) },
+                options =
+                    validOptionTitles.mapIndexed { position, optionTitle ->
+                        VoteOption(optionTitle, position, createdAt = now)
+                    }
             )
         }
     }

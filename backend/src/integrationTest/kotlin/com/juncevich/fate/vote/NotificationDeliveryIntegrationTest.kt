@@ -2,6 +2,8 @@ package com.juncevich.fate.vote
 
 import com.juncevich.fate.AbstractApiIntegrationTest
 import com.juncevich.fate.notification.delivery.EmailService
+import com.juncevich.fate.shared.UserId
+import com.juncevich.fate.vote.VoteId
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
@@ -121,12 +123,12 @@ class NotificationDeliveryIntegrationTest
             val committed = "committed-${UUID.randomUUID()}@test.com"
 
             TransactionTemplate(transactionManager).executeWithoutResult { status ->
-                voteService.addParticipant(voteId, creatorId, rolledBack)
+                voteService.addParticipant(VoteId(voteId), UserId(creatorId), rolledBack)
                 status.setRollbackOnly()
             }
             // A committed change afterwards acts as a barrier: once its email arrives, any
             // (wrongly) dispatched email for the rolled-back change would have arrived too.
-            voteService.addParticipant(voteId, creatorId, committed)
+            voteService.addParticipant(VoteId(voteId), UserId(creatorId), committed)
 
             verify(timeout = 5_000, exactly = 1) { emailService.sendVoteInvitation(committed, any(), any(), any(), any()) }
             verify(exactly = 0) { emailService.sendVoteInvitation(rolledBack, any(), any(), any(), any()) }

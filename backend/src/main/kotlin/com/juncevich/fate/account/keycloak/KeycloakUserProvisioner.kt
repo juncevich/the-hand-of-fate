@@ -1,11 +1,12 @@
 package com.juncevich.fate.account.keycloak
 
-import com.juncevich.fate.account.User
 import com.juncevich.fate.account.domain.DeletedAccountRepository
+import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.util.UUID
 
 private const val DISPLAY_NAME_MAX_LENGTH = 100
@@ -28,6 +29,7 @@ data class KeycloakIdentity(
 class KeycloakUserProvisioner(
     private val users: UserRepository,
     private val deletedAccounts: DeletedAccountRepository,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -41,7 +43,14 @@ class KeycloakUserProvisioner(
             log.info("Account {} taken over by Keycloak user {}", existing.id, identity.id)
             return true
         }
-        users.insertIfAbsent(User(id = identity.id, email = identity.email, displayName = displayName(identity)))
+        users.insertIfAbsent(
+            User(
+                id = identity.id,
+                email = identity.email,
+                displayName = displayName(identity),
+                createdAt = clock.instant()
+            )
+        )
         return true
     }
 

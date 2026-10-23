@@ -1,4 +1,4 @@
-package com.juncevich.fate.account
+package com.juncevich.fate.account.domain
 
 import com.juncevich.fate.shared.uuidV7
 import java.time.Instant
@@ -6,7 +6,8 @@ import java.util.UUID
 
 /**
  * An account of this application; who it is comes from Keycloak (docs/adr/0001). Immutable: a
- * change is a copy, stored with `UserRepository.update`.
+ * change is a copy, stored with `UserRepository.update`. Private to the account module — other
+ * modules see an account as `UserProfile`.
  */
 data class User(
     val id: UUID = uuidV7(),
@@ -16,7 +17,7 @@ data class User(
     val telegramName: String? = null,
     /** When the avatar was last replaced; `null` when the user has none. */
     val avatarUpdatedAt: Instant? = null,
-    val createdAt: Instant = Instant.now(),
+    val createdAt: Instant,
 ) {
     val isTelegramLinked: Boolean get() = telegramId != null
 

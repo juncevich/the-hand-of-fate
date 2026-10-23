@@ -38,9 +38,7 @@ repositories {
 }
 
 val grpcVersion          = "1.84.1"
-val grpcKotlinVersion    = "1.5.0"
 val protobufVersion      = "4.36.2"
-val coroutinesVersion    = "1.11.0"
 val modulithVersion      = "2.1.1"
 val awsSdkVersion        = "2.55.12"
 
@@ -68,7 +66,6 @@ dependencies {
     // ── Kotlin ───────────────────────────────────────────────────────────────
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
 
     // ── JWT (issued via NimbusJwtEncoder, validated by the resource server) ────
     implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
@@ -77,9 +74,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-grpc-server")
     implementation("io.grpc:grpc-protobuf:$grpcVersion")
     implementation("io.grpc:grpc-stub:$grpcVersion")
-    implementation("io.grpc:grpc-kotlin-stub:$grpcKotlinVersion")
     implementation("com.google.protobuf:protobuf-kotlin:$protobufVersion")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:$coroutinesVersion")
 
     // ── Database ─────────────────────────────────────────────────────────────
     runtimeOnly("org.postgresql:postgresql:42.7.14")
@@ -121,15 +116,11 @@ protobuf {
         if (findByName("grpc") == null) id("grpc") {
             artifact = "io.grpc:protoc-gen-grpc-java:$grpcVersion"
         }
-        if (findByName("grpckt") == null) id("grpckt") {
-            artifact = "io.grpc:protoc-gen-grpc-kotlin:$grpcKotlinVersion:jdk8@jar"
-        }
     }
     generateProtoTasks {
         all().forEach { task ->
             task.plugins {
                 if (findByName("grpc") == null) id("grpc")
-                if (findByName("grpckt") == null) id("grpckt")
             }
             task.builtins {
                 if (findByName("kotlin") == null) id("kotlin")
@@ -233,7 +224,7 @@ val generatedProtoClassNames: Provider<Set<String>> =
         buildSet {
             fileTree(root).visit {
                 if (!isDirectory) {
-                    // Drop the leading protoc-plugin directory (java/, grpc/, kotlin/, grpckt/)
+                    // Drop the leading protoc-plugin directory (java/, grpc/, kotlin/)
                     val className = relativePath.segments.drop(1).joinToString("/").substringBeforeLast('.')
                     add(className)
                     add(className + "Kt")

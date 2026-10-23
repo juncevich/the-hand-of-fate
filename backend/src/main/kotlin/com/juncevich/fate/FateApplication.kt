@@ -17,7 +17,7 @@ import org.springframework.scheduling.annotation.EnableScheduling
 )
 @Modulith(systemName = "The Hand of Fate")
 @ConfigurationPropertiesScan
-@EnableJpaAuditing
+@EnableJpaAuditing(dateTimeProviderRef = "auditingDateTimeProvider")
 @EnableScheduling
 @EnableResilientMethods
 class FateApplication

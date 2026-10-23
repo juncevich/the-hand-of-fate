@@ -7,7 +7,6 @@ import com.juncevich.fate.vote.VoteStatus
 import jakarta.persistence.*
 import org.hibernate.annotations.JdbcType
 import org.hibernate.dialect.type.PostgreSQLEnumJdbcType
-import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -45,12 +44,13 @@ class VoteJpaEntity(
     var status: VoteStatus = VoteStatus.PENDING,
     @Column(name = "current_round", nullable = false)
     var currentRound: Int = 1,
-    @CreatedDate
+    // Set by the domain (`Vote.create`), not by auditing: one source of the creation time.
     @Column(name = "created_at", nullable = false, updatable = false)
-    var createdAt: Instant = Instant.now(),
+    var createdAt: Instant,
+    /** Technical: set by Spring Data auditing on every write (from the application `Clock`). */
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: Instant = Instant.now(),
+    var updatedAt: Instant? = null,
     @Version
     var version: Int = 0,
 ) {
@@ -72,7 +72,6 @@ class VoteJpaEntity(
     name = "vote_participants",
     uniqueConstraints = [UniqueConstraint(columnNames = ["vote_id", "email"])]
 )
-@EntityListeners(AuditingEntityListener::class)
 class VoteParticipantJpaEntity(
     @Id
     var id: UUID = uuidV7(),
@@ -83,9 +82,8 @@ class VoteParticipantJpaEntity(
     var email: String,
     @Column(name = "display_name", length = 100)
     var displayName: String? = null,
-    @CreatedDate
     @Column(name = "added_at", nullable = false, updatable = false)
-    var addedAt: Instant = Instant.now(),
+    var addedAt: Instant,
 )
 
 @Entity
@@ -93,7 +91,6 @@ class VoteParticipantJpaEntity(
     name = "vote_options",
     uniqueConstraints = [UniqueConstraint(columnNames = ["vote_id", "title"])]
 )
-@EntityListeners(AuditingEntityListener::class)
 class VoteOptionJpaEntity(
     @Id
     var id: UUID = uuidV7(),
@@ -104,9 +101,8 @@ class VoteOptionJpaEntity(
     var title: String,
     @Column(nullable = false)
     var position: Int = 0,
-    @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    var createdAt: Instant = Instant.now(),
+    var createdAt: Instant,
 )
 
 interface VoteJpaRepository : JpaRepository<VoteJpaEntity, UUID> {

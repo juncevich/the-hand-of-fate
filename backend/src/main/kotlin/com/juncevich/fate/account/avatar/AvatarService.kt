@@ -1,6 +1,6 @@
 package com.juncevich.fate.account.avatar
 
-import com.juncevich.fate.account.User
+import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
@@ -8,6 +8,7 @@ import com.juncevich.fate.storage.ObjectStorage
 import com.juncevich.fate.storage.StorageUnavailableException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
@@ -31,6 +32,7 @@ class AvatarService(
     private val userRepository: UserRepository,
     private val objectStorage: ObjectStorage,
     private val imageProcessor: AvatarImageProcessor,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -42,7 +44,7 @@ class AvatarService(
         if (!objectStorage.isEnabled) throw StorageUnavailableException()
         val user = findUser(userId)
         objectStorage.put(avatarKey(userId), imageProcessor.toAvatarPng(upload), PNG)
-        val updated = user.withAvatar(Instant.now())
+        val updated = user.withAvatar(clock.instant())
         userRepository.update(updated)
         return checkNotNull(updated.avatarUrl())
     }

@@ -18,10 +18,10 @@ class NotificationRecorder(
     fun on(event: ParticipantInvited) {
         outbox.record(
             InvitationPayload(
-                voteId = event.voteId,
+                voteId = event.voteId.value,
                 voteTitle = event.voteTitle,
                 creatorName = event.creatorName,
-                recipientEmail = event.recipientEmail
+                recipientEmail = event.recipientEmail.value
             )
         )
     }
@@ -34,9 +34,9 @@ class NotificationRecorder(
         event.participantEmails.distinct().forEach { email ->
             outbox.record(
                 DrawResultPayload(
-                    voteId = event.voteId,
+                    voteId = event.voteId.value,
                     voteTitle = event.voteTitle,
-                    recipientEmail = email,
+                    recipientEmail = email.value,
                     winnerName = winnerName,
                     winnerEmail = winnerEmail,
                     round = result.round

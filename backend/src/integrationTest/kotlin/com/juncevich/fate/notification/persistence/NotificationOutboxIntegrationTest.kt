@@ -10,7 +10,9 @@ import com.juncevich.fate.notification.delivery.NotificationWorker
 import com.juncevich.fate.notification.port.EmailSuppressionPort
 import com.juncevich.fate.notification.port.NotificationOutboxPort
 import com.juncevich.fate.notification.port.NotificationType
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.vote.DrawResult
+import com.juncevich.fate.vote.VoteId
 import com.juncevich.fate.vote.Winner
 import com.juncevich.fate.vote.domain.ParticipantInvited
 import com.juncevich.fate.vote.domain.VoteDrawn
@@ -65,7 +67,7 @@ class NotificationOutboxIntegrationTest
             }
         }
 
-        private val invitation = ParticipantInvited(UUID.randomUUID(), "Vote", "Creator", "recipient@test.com")
+        private val invitation = ParticipantInvited(VoteId(UUID.randomUUID()), "Vote", "Creator", Email.of("recipient@test.com"))
         private val lease = Duration.ofMinutes(2)
         private val retryDelay = Duration.ofMinutes(1)
 
@@ -92,7 +94,7 @@ class NotificationOutboxIntegrationTest
             assertEquals(NotificationType.INVITATION, job.type)
             assertEquals(1, job.attempts)
             assertEquals(
-                InvitationPayload(invitation.voteId, "Vote", "Creator", "recipient@test.com"),
+                InvitationPayload(invitation.voteId.value, "Vote", "Creator", "recipient@test.com"),
                 json.readValue(job.payload, InvitationPayload::class.java)
             )
             assertNull(claim(), "The leased job cannot be claimed twice")
@@ -102,7 +104,7 @@ class NotificationOutboxIntegrationTest
 
         @Test
         fun `draw creates one independently recoverable job per distinct recipient`() {
-            val draw = VoteDrawn(UUID.randomUUID(), "Vote", DrawResult(Winner.Option("Winner"), 1, false), listOf("a@test.com", "b@test.com", "a@test.com"))
+            val draw = VoteDrawn(VoteId(UUID.randomUUID()), "Vote", DrawResult(Winner.Option("Winner"), 1, false), listOf("a@test.com", "b@test.com", "a@test.com").map(Email::of))
             TransactionTemplate(transactions).executeWithoutResult { events.publishEvent(draw) }
             val jobs = listOf(checkNotNull(claim()), checkNotNull(claim()))
             assertEquals(
@@ -148,7 +150,7 @@ class NotificationOutboxIntegrationTest
             val mail = mockk<EmailService>(relaxed = true)
             every { mail.sendVoteInvitation("recipient@test.com", any(), any(), any(), any()) } throws IllegalStateException("SMTP down")
             recordInvitation()
-            events.publishEvent(invitation.copy(recipientEmail = "good@test.com"))
+            events.publishEvent(invitation.copy(recipientEmail = Email.of("good@test.com")))
             val worker = worker(mail)
             worker.poll()
             verify(exactly = 1) { mail.sendVoteInvitation("good@test.com", any(), any(), any(), any()) }
@@ -165,7 +167,7 @@ class NotificationOutboxIntegrationTest
         @Test
         fun `worker deserializes and delivers draw results`() {
             val mail = mockk<EmailService>(relaxed = true)
-            events.publishEvent(VoteDrawn(UUID.randomUUID(), "Vote", DrawResult(Winner.Option("Winner"), 3, false), listOf("a@test.com")))
+            events.publishEvent(VoteDrawn(VoteId(UUID.randomUUID()), "Vote", DrawResult(Winner.Option("Winner"), 3, false), listOf(Email.of("a@test.com"))))
             worker(mail).poll()
             verify(exactly = 1) { mail.sendDrawResult("a@test.com", "Vote", "Winner", "", 3, any(), any()) }
             assertEquals(0, rowCount())

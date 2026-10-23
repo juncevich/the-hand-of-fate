@@ -1,11 +1,15 @@
 package com.juncevich.fate.vote.domain
 
+import com.juncevich.fate.NOW
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.FateException
 import com.juncevich.fate.shared.ForbiddenException
+import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.vote.DrawTarget
+import com.juncevich.fate.vote.VoteId
 import com.juncevich.fate.vote.VoteLimits
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
@@ -16,10 +20,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import java.time.Instant
 import java.util.UUID
 
-private val CREATOR_ID: UUID = UUID.randomUUID()
+private val CREATOR_ID = UserId(UUID.randomUUID())
 private const val CREATOR_EMAIL = "creator@test.com"
 
 private fun vote(
@@ -30,7 +33,7 @@ private fun vote(
     participants: List<String> = listOf(CREATOR_EMAIL),
     options: List<String> = emptyList(),
 ) = Vote(
-    id = UUID.randomUUID(),
+    id = VoteId(UUID.randomUUID()),
     title = "Vote",
     description = null,
     creatorId = CREATOR_ID,
@@ -38,10 +41,10 @@ private fun vote(
     drawTarget = drawTarget,
     status = status,
     currentRound = currentRound,
-    createdAt = Instant.now(),
+    createdAt = NOW,
     version = 0,
-    participants = participants.map { Participant(it) },
-    options = options.mapIndexed { position, title -> VoteOption(title, position) }
+    participants = participants.map { Participant(Email.of(it), addedAt = NOW) },
+    options = options.mapIndexed { position, title -> VoteOption(title, position, createdAt = NOW) }
 )
 
 private fun create(
@@ -53,14 +56,15 @@ private fun create(
     displayNames: Map<String, String> = emptyMap(),
 ) = Vote.create(
     creatorId = CREATOR_ID,
-    creatorEmail = CREATOR_EMAIL,
+    creatorEmail = Email.of(CREATOR_EMAIL),
     title = title,
     description = description,
     mode = VoteMode.SIMPLE,
     drawTarget = drawTarget,
     participantEmails = participantEmails,
-    optionTitles = optionTitles
-) { emails -> displayNames.filterKeys { it in emails } }
+    optionTitles = optionTitles,
+    now = NOW
+) { emails -> displayNames.mapKeys { Email.of(it.key) }.filterKeys { it in emails } }
 
 private val noHistory: (Int) -> List<DrawHistory> = { emptyList() }
 
@@ -78,8 +82,8 @@ class VoteTest {
         fun `the creator joins the invited participants, normalized and without duplicates`() {
             val vote = create(listOf(" P@Test.com ", "p@test.com", CREATOR_EMAIL.uppercase()), displayNames = mapOf("p@test.com" to "Pat"))
 
-            assertEquals(listOf(CREATOR_EMAIL, "p@test.com"), vote.participants.map { it.email })
-            assertEquals("Pat", vote.participants.single { it.email == "p@test.com" }.displayName)
+            assertEquals(listOf(CREATOR_EMAIL, "p@test.com"), vote.participants.map { it.email.value })
+            assertEquals("Pat", vote.participants.single { it.email.value == "p@test.com" }.displayName)
             assertEquals(VoteStatus.PENDING, vote.status)
             assertEquals(1, vote.currentRound)
             assertEquals(0, vote.version)
@@ -146,24 +150,24 @@ class VoteTest {
         fun `the creator and participants may view, others may not`() {
             val vote = vote(participants = listOf(CREATOR_EMAIL, "p@test.com"))
 
-            vote.requireViewer(CREATOR_ID, "whatever@test.com")
-            vote.requireViewer(UUID.randomUUID(), "p@test.com")
-            assertFails<ForbiddenException>(ErrorCode.VOTE_ACCESS_DENIED) { vote.requireViewer(UUID.randomUUID(), "x@test.com") }
+            vote.requireViewer(CREATOR_ID, Email.of("whatever@test.com"))
+            vote.requireViewer(UserId(UUID.randomUUID()), Email.of("p@test.com"))
+            assertFails<ForbiddenException>(ErrorCode.VOTE_ACCESS_DENIED) { vote.requireViewer(UserId(UUID.randomUUID()), Email.of("x@test.com")) }
         }
 
         @Test
         fun `only the creator may change the vote`() {
-            val stranger = UUID.randomUUID()
+            val stranger = UserId(UUID.randomUUID())
             val vote = vote(drawTarget = DrawTarget.OPTIONS, options = listOf("A"))
             val changes: List<() -> Unit> =
                 listOf(
                     { vote.requireCreator(stranger) },
-                    { vote.invite(stranger, "new@test.com") { null } },
+                    { vote.invite(stranger, "new@test.com", NOW) { null } },
                     { vote.removeParticipant(stranger, CREATOR_EMAIL) },
-                    { vote.addOption(stranger, "B") },
+                    { vote.addOption(stranger, "B", NOW) },
                     { vote.reorderOptions(stranger, vote.options.map { it.id }) },
                     { vote.removeOption(stranger, vote.options.single().id) },
-                    { vote.draw(stranger, WinnerPicker(), noHistory) },
+                    { vote.draw(stranger, WinnerPicker(), NOW, noHistory) },
                     { vote.reopen(stranger) },
                     { vote.close(stranger) }
                 )
@@ -176,9 +180,9 @@ class VoteTest {
             val vote = vote(drawTarget = DrawTarget.OPTIONS, status = VoteStatus.DRAWN, options = listOf("A"))
             val changes: List<() -> Unit> =
                 listOf(
-                    { vote.invite(CREATOR_ID, "new@test.com") { null } },
+                    { vote.invite(CREATOR_ID, "new@test.com", NOW) { null } },
                     { vote.removeParticipant(CREATOR_ID, CREATOR_EMAIL) },
-                    { vote.addOption(CREATOR_ID, "B") },
+                    { vote.addOption(CREATOR_ID, "B", NOW) },
                     { vote.reorderOptions(CREATOR_ID, vote.options.map { it.id }) },
                     { vote.removeOption(CREATOR_ID, vote.options.single().id) }
                 )
@@ -194,23 +198,23 @@ class VoteTest {
         fun `an invited participant is normalized and named after their account`() {
             val vote = vote()
 
-            val participant = vote.invite(CREATOR_ID, " New@Test.com ") { if (it == "new@test.com") "Newton" else null }
+            val participant = vote.invite(CREATOR_ID, " New@Test.com ", NOW) { if (it == Email.of("new@test.com")) "Newton" else null }
 
-            assertEquals("new@test.com", participant.email)
+            assertEquals("new@test.com", participant.email.value)
             assertEquals("Newton", participant.displayName)
-            assertEquals(listOf(CREATOR_EMAIL, "new@test.com"), vote.participants.map { it.email })
+            assertEquals(listOf(CREATOR_EMAIL, "new@test.com"), vote.participants.map { it.email.value })
         }
 
         @Test
         fun `a participant cannot be invited twice`() {
             val vote = vote(participants = listOf(CREATOR_EMAIL, "dup@test.com"))
-            assertFails<ConflictException>(ErrorCode.PARTICIPANT_EXISTS) { vote.invite(CREATOR_ID, "DUP@test.com") { null } }
+            assertFails<ConflictException>(ErrorCode.PARTICIPANT_EXISTS) { vote.invite(CREATOR_ID, "DUP@test.com", NOW) { null } }
         }
 
         @Test
         fun `a full vote takes no more participants`() {
             val vote = vote(participants = List(VoteLimits.MAX_PARTICIPANTS) { "p$it@test.com" })
-            assertFails<BadRequestException>(ErrorCode.TOO_MANY_PARTICIPANTS) { vote.invite(CREATOR_ID, "new@test.com") { null } }
+            assertFails<BadRequestException>(ErrorCode.TOO_MANY_PARTICIPANTS) { vote.invite(CREATOR_ID, "new@test.com", NOW) { null } }
         }
 
         @Test
@@ -220,7 +224,7 @@ class VoteTest {
             vote.removeParticipant(CREATOR_ID, " P@test.com")
             vote.removeParticipant(CREATOR_ID, "unknown@test.com")
 
-            assertEquals(listOf(CREATOR_EMAIL), vote.participants.map { it.email })
+            assertEquals(listOf(CREATOR_EMAIL), vote.participants.map { it.email.value })
         }
     }
 
@@ -231,7 +235,7 @@ class VoteTest {
             val vote = vote(drawTarget = DrawTarget.OPTIONS, options = listOf("A", "B", "C"))
             vote.removeOption(CREATOR_ID, vote.options[1].id)
 
-            val option = vote.addOption(CREATOR_ID, "  D  ")
+            val option = vote.addOption(CREATOR_ID, "  D  ", NOW)
 
             assertEquals("D", option.title)
             assertEquals(3, option.position)
@@ -240,8 +244,8 @@ class VoteTest {
 
         @Test
         fun `options are kept in position order`() {
-            val options = listOf(VoteOption("Second", 1), VoteOption("First", 0))
-            val vote = Vote(UUID.randomUUID(), "Vote", null, CREATOR_ID, VoteMode.SIMPLE, DrawTarget.OPTIONS, VoteStatus.PENDING, 1, Instant.now(), 0, emptyList(), options)
+            val options = listOf(VoteOption("Second", 1, createdAt = NOW), VoteOption("First", 0, createdAt = NOW))
+            val vote = Vote(VoteId(UUID.randomUUID()), "Vote", null, CREATOR_ID, VoteMode.SIMPLE, DrawTarget.OPTIONS, VoteStatus.PENDING, 1, NOW, 0, emptyList(), options)
 
             assertEquals(listOf("First", "Second"), vote.options.map { it.title })
         }
@@ -250,19 +254,19 @@ class VoteTest {
         fun `an option title is validated and unique within the vote`() {
             val vote = vote(drawTarget = DrawTarget.OPTIONS, options = listOf("Winner"))
 
-            assertFails<BadRequestException>(ErrorCode.TITLE_INVALID) { vote.addOption(CREATOR_ID, " ") }
-            assertFails<ConflictException>(ErrorCode.ALREADY_EXISTS) { vote.addOption(CREATOR_ID, " Winner ") }
+            assertFails<BadRequestException>(ErrorCode.TITLE_INVALID) { vote.addOption(CREATOR_ID, " ", NOW) }
+            assertFails<ConflictException>(ErrorCode.ALREADY_EXISTS) { vote.addOption(CREATOR_ID, " Winner ", NOW) }
         }
 
         @Test
         fun `a full vote takes no more options`() {
             val vote = vote(drawTarget = DrawTarget.OPTIONS, options = List(VoteLimits.MAX_OPTIONS) { "Option $it" })
-            assertFails<BadRequestException>(ErrorCode.TOO_MANY_OPTIONS) { vote.addOption(CREATOR_ID, "One more") }
+            assertFails<BadRequestException>(ErrorCode.TOO_MANY_OPTIONS) { vote.addOption(CREATOR_ID, "One more", NOW) }
         }
 
         @Test
         fun `a vote drawing from participants takes no options`() {
-            assertFails<ConflictException>(ErrorCode.OPTIONS_NOT_ALLOWED) { vote().addOption(CREATOR_ID, "Pizza") }
+            assertFails<ConflictException>(ErrorCode.OPTIONS_NOT_ALLOWED) { vote().addOption(CREATOR_ID, "Pizza", NOW) }
         }
 
         @Test
@@ -300,10 +304,10 @@ class VoteTest {
         fun `a simple draw picks among all participants without reading the history`() {
             val vote = vote(participants = listOf("only@test.com"))
 
-            val outcome = vote.draw(CREATOR_ID, WinnerPicker()) { error("SIMPLE must not read the history") }
+            val outcome = vote.draw(CREATOR_ID, WinnerPicker(), NOW) { error("SIMPLE must not read the history") }
 
             val entry = outcome.entry as DrawHistory.ParticipantWinner
-            assertEquals("only@test.com", entry.email)
+            assertEquals("only@test.com", entry.email?.value)
             assertEquals(vote.id, entry.voteId)
             assertEquals(1, entry.round)
             assertFalse(outcome.newRoundStarted)
@@ -313,21 +317,21 @@ class VoteTest {
         @Test
         fun `only a pending vote can be drawn`() {
             assertFails<ConflictException>(ErrorCode.VOTE_NOT_PENDING) {
-                vote(status = VoteStatus.DRAWN).draw(CREATOR_ID, WinnerPicker(), noHistory)
+                vote(status = VoteStatus.DRAWN).draw(CREATOR_ID, WinnerPicker(), NOW, noHistory)
             }
         }
 
         @Test
         fun `a participants vote without participants cannot be drawn`() {
             assertFails<ConflictException>(ErrorCode.NO_PARTICIPANTS) {
-                vote(participants = emptyList()).draw(CREATOR_ID, WinnerPicker(), noHistory)
+                vote(participants = emptyList()).draw(CREATOR_ID, WinnerPicker(), NOW, noHistory)
             }
         }
 
         @Test
         fun `an options vote without options asks for one instead of drawing participants`() {
             val vote = vote(drawTarget = DrawTarget.OPTIONS)
-            val ex = assertThrows<ConflictException> { vote.draw(CREATOR_ID, WinnerPicker(), noHistory) }
+            val ex = assertThrows<ConflictException> { vote.draw(CREATOR_ID, WinnerPicker(), NOW, noHistory) }
             assertEquals(ErrorCode.NO_OPTIONS, ex.code)
             assertEquals(VoteStatus.PENDING, vote.status)
         }
@@ -336,7 +340,7 @@ class VoteTest {
         fun `an options vote draws an option and leaves its participants out`() {
             val vote = vote(drawTarget = DrawTarget.OPTIONS, participants = listOf(CREATOR_EMAIL, "p@test.com"), options = listOf("Pizza"))
 
-            val entry = vote.draw(CREATOR_ID, WinnerPicker(), noHistory).entry as DrawHistory.OptionWinner
+            val entry = vote.draw(CREATOR_ID, WinnerPicker(), NOW, noHistory).entry as DrawHistory.OptionWinner
 
             assertEquals("Pizza", entry.optionTitle)
             assertEquals(vote.options.single().id, entry.optionId)
@@ -345,13 +349,13 @@ class VoteTest {
         @Test
         fun `fair rotation picks only participants who have not won this round`() {
             val vote = vote(VoteMode.FAIR_ROTATION, participants = listOf("won@test.com", "eligible@test.com"))
-            val won = DrawHistory.ParticipantWinner(voteId = vote.id, email = "won@test.com", round = 1)
+            val won = DrawHistory.ParticipantWinner(voteId = vote.id, email = Email.of("won@test.com"), round = 1, drawnAt = NOW)
             // A winner who deleted their account has no address and blocks nobody.
-            val anonymized = DrawHistory.ParticipantWinner(voteId = vote.id, email = null, round = 1)
+            val anonymized = DrawHistory.ParticipantWinner(voteId = vote.id, email = null, round = 1, drawnAt = NOW)
 
-            val outcome = vote.draw(CREATOR_ID, WinnerPicker()) { round -> if (round == 1) listOf(won, anonymized) else emptyList() }
+            val outcome = vote.draw(CREATOR_ID, WinnerPicker(), NOW) { round -> if (round == 1) listOf(won, anonymized) else emptyList() }
 
-            assertEquals("eligible@test.com", (outcome.entry as DrawHistory.ParticipantWinner).email)
+            assertEquals("eligible@test.com", (outcome.entry as DrawHistory.ParticipantWinner).email?.value)
             assertFalse(outcome.newRoundStarted)
             assertEquals(1, vote.currentRound)
             assertEquals(listOf("eligible@test.com"), outcome.entry.audit?.candidates)
@@ -360,9 +364,9 @@ class VoteTest {
         @Test
         fun `fair rotation starts a new round with everyone once all have won`() {
             val vote = vote(VoteMode.FAIR_ROTATION, participants = listOf("sole@test.com"))
-            val won = DrawHistory.ParticipantWinner(voteId = vote.id, email = "sole@test.com", round = 1)
+            val won = DrawHistory.ParticipantWinner(voteId = vote.id, email = Email.of("sole@test.com"), round = 1, drawnAt = NOW)
 
-            val outcome = vote.draw(CREATOR_ID, WinnerPicker()) { listOf(won) }
+            val outcome = vote.draw(CREATOR_ID, WinnerPicker(), NOW) { listOf(won) }
 
             assertTrue(outcome.newRoundStarted)
             assertEquals(2, vote.currentRound)
@@ -373,11 +377,11 @@ class VoteTest {
         fun `fair rotation over options leaves out this round's winning options, by id`() {
             val vote = vote(VoteMode.FAIR_ROTATION, DrawTarget.OPTIONS, currentRound = 3, options = listOf("Won", "Eligible", "Also eligible"))
             val wonOption = vote.options.first()
-            val won = DrawHistory.OptionWinner(voteId = vote.id, optionId = wonOption.id, optionTitle = wonOption.title, round = 3)
+            val won = DrawHistory.OptionWinner(voteId = vote.id, optionId = wonOption.id, optionTitle = wonOption.title, round = 3, drawnAt = NOW)
             // A deleted option keeps its title in the history but no longer blocks anything.
-            val deleted = DrawHistory.OptionWinner(voteId = vote.id, optionId = null, optionTitle = "Eligible", round = 3)
+            val deleted = DrawHistory.OptionWinner(voteId = vote.id, optionId = null, optionTitle = "Eligible", round = 3, drawnAt = NOW)
 
-            val outcome = vote.draw(CREATOR_ID, WinnerPicker()) { round -> if (round == 3) listOf(won, deleted) else emptyList() }
+            val outcome = vote.draw(CREATOR_ID, WinnerPicker(), NOW) { round -> if (round == 3) listOf(won, deleted) else emptyList() }
 
             assertEquals(
                 vote.options
@@ -396,8 +400,8 @@ class VoteTest {
             val option = vote.options.single()
 
             val outcome =
-                vote.draw(CREATOR_ID, WinnerPicker()) {
-                    listOf(DrawHistory.OptionWinner(voteId = vote.id, optionId = option.id, optionTitle = option.title, round = 1))
+                vote.draw(CREATOR_ID, WinnerPicker(), NOW) {
+                    listOf(DrawHistory.OptionWinner(voteId = vote.id, optionId = option.id, optionTitle = option.title, round = 1, drawnAt = NOW))
                 }
 
             assertTrue(outcome.newRoundStarted)
@@ -409,11 +413,11 @@ class VoteTest {
         fun `the recorded audit reproduces the winner`() {
             val vote = vote(participants = listOf("c@test.com", "a@test.com", "b@test.com"))
 
-            val entry = vote.draw(CREATOR_ID, WinnerPicker(), noHistory).entry as DrawHistory.ParticipantWinner
+            val entry = vote.draw(CREATOR_ID, WinnerPicker(), NOW, noHistory).entry as DrawHistory.ParticipantWinner
 
             val audit = checkNotNull(entry.audit)
             assertEquals(listOf("a@test.com", "b@test.com", "c@test.com"), audit.candidates)
-            assertEquals(entry.email, audit.candidates[WinnerPicker.index(audit.seed, 3)])
+            assertEquals(entry.email?.value, audit.candidates[WinnerPicker.index(audit.seed, 3)])
         }
     }
 
@@ -441,9 +445,23 @@ class VoteTest {
         fun `the exposed lists are snapshots`() {
             val vote = vote()
             val participants = vote.participants
-            vote.invite(CREATOR_ID, "new@test.com") { null }
+            vote.invite(CREATOR_ID, "new@test.com", NOW) { null }
             assertEquals(1, participants.size)
             assertNull(vote.description)
+        }
+
+        @Test
+        fun `recorded times are the given now, never the clock`() {
+            val created = create(participantEmails = listOf("p@test.com"), optionTitles = listOf("A"))
+            assertEquals(NOW, created.createdAt)
+            assertEquals(listOf(NOW, NOW), created.participants.map { it.addedAt })
+            assertEquals(NOW, created.options.single().createdAt)
+
+            val later = NOW.plusSeconds(60)
+            val vote = vote(drawTarget = DrawTarget.OPTIONS, options = listOf("A"))
+            assertEquals(later, vote.invite(CREATOR_ID, "new@test.com", later) { null }.addedAt)
+            assertEquals(later, vote.addOption(CREATOR_ID, "B", later).createdAt)
+            assertEquals(later, vote.draw(CREATOR_ID, WinnerPicker(), later, noHistory).entry.drawnAt)
         }
     }
 }

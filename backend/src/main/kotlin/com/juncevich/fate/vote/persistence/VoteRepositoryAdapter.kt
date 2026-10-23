@@ -1,13 +1,17 @@
 package com.juncevich.fate.vote.persistence
 
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
+import com.juncevich.fate.vote.VoteId
+import com.juncevich.fate.vote.domain.PageQuery
+import com.juncevich.fate.vote.domain.PageResult
 import com.juncevich.fate.vote.domain.Participant
 import com.juncevich.fate.vote.domain.Vote
 import com.juncevich.fate.vote.domain.VoteOption
 import com.juncevich.fate.vote.domain.VoteRepository
 import com.juncevich.fate.vote.domain.VoteSummary
 import jakarta.persistence.EntityManager
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.PageRequest
 import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -27,19 +31,19 @@ class VoteRepositoryAdapter(
     private val votes: VoteJpaRepository,
     private val em: EntityManager,
 ) : VoteRepository {
-    override fun find(id: UUID): Vote? = votes.findById(id).orElse(null)?.toDomain()
+    override fun find(id: VoteId): Vote? = votes.findById(id.value).orElse(null)?.toDomain()
 
-    override fun findForUpdate(id: UUID): Vote? = votes.findByIdWithPessimisticLock(id)?.toDomain()
+    override fun findForUpdate(id: VoteId): Vote? = votes.findByIdWithPessimisticLock(id.value)?.toDomain()
 
     override fun save(vote: Vote) {
-        val entity = votes.findById(vote.id).orElse(null)
+        val entity = votes.findById(vote.id.value).orElse(null)
         if (entity == null) {
             // persist, not save(): with an assigned id, save() would merge and query the row first.
             em.persist(vote.toNewEntity())
             return
         }
         if (entity.version != vote.version) {
-            throw ObjectOptimisticLockingFailureException(VoteJpaEntity::class.java, vote.id)
+            throw ObjectOptimisticLockingFailureException(VoteJpaEntity::class.java, vote.id.value)
         }
         entity.status = vote.status
         entity.currentRound = vote.currentRound
@@ -47,30 +51,32 @@ class VoteRepositoryAdapter(
         syncOptions(entity, vote.options)
     }
 
-    override fun delete(id: UUID) = votes.deleteVote(id)
+    override fun delete(id: VoteId) = votes.deleteVote(id.value)
 
     override fun findSummaries(
-        userId: UUID,
-        email: String,
-        pageable: Pageable,
-    ): Page<VoteSummary> {
-        val page = votes.findAllByUserIdOrParticipantEmail(userId, email, pageable)
-        val ids = page.content.map { it.id }
+        userId: UserId,
+        email: Email,
+        page: PageQuery,
+    ): PageResult<VoteSummary> {
+        val rows =
+            votes.findAllByUserIdOrParticipantEmail(
+                userId.value,
+                email.value,
+                PageRequest.of(page.number, page.size)
+            )
+        val ids = rows.content.map { it.id }
         val counts =
             if (ids.isEmpty()) {
                 emptyMap()
             } else {
-                votes
-                    .countParticipants(
-                        ids
-                    ).associate { it.voteId to it.participantCount }
+                votes.countParticipants(ids).associate { it.voteId to it.participantCount }
             }
-        return page.map { it.toSummary(counts[it.id] ?: 0) }
+        return PageResult(rows.content.map { it.toSummary(counts[it.id] ?: 0) }, page, rows.totalElements)
     }
 
-    override fun countByCreator(creatorId: UUID): Long = votes.countByCreatorId(creatorId)
+    override fun countByCreator(creatorId: UserId): Long = votes.countByCreatorId(creatorId.value)
 
-    override fun removeParticipantEverywhere(email: String) = votes.deleteParticipantsByEmail(email)
+    override fun removeParticipantEverywhere(email: Email) = votes.deleteParticipantsByEmail(email.value)
 
     private fun syncParticipants(
         entity: VoteJpaEntity,
@@ -81,9 +87,7 @@ class VoteRepositoryAdapter(
         val existing = entity.participants.associateBy { it.id }
         participants.forEach { participant ->
             val row = existing[participant.id]
-            if (row ==
-                null
-            ) {
+            if (row == null) {
                 entity.participants += participant.toEntity(entity)
             } else {
                 row.displayName = participant.displayName
@@ -113,25 +117,25 @@ class VoteRepositoryAdapter(
 
 private fun VoteJpaEntity.toDomain() =
     Vote(
-        id = id,
+        id = VoteId(id),
         title = title,
         description = description,
-        creatorId = creatorId,
+        creatorId = UserId(creatorId),
         mode = mode,
         drawTarget = drawTarget,
         status = status,
         currentRound = currentRound,
         createdAt = createdAt,
         version = version,
-        participants = participants.map { Participant(it.email, it.displayName, it.id, it.addedAt) },
+        participants = participants.map { Participant(Email.trusted(it.email), it.displayName, it.id, it.addedAt) },
         options = options.map { VoteOption(it.title, it.position, it.id, it.createdAt) }
     )
 
 private fun VoteJpaEntity.toSummary(participantCount: Long) =
     VoteSummary(
-        id = id,
+        id = VoteId(id),
         title = title,
-        creatorId = creatorId,
+        creatorId = UserId(creatorId),
         mode = mode,
         status = status,
         currentRound = currentRound,
@@ -142,10 +146,10 @@ private fun VoteJpaEntity.toSummary(participantCount: Long) =
 private fun Vote.toNewEntity(): VoteJpaEntity {
     val entity =
         VoteJpaEntity(
-            id = id,
+            id = id.value,
             title = title,
             description = description,
-            creatorId = creatorId,
+            creatorId = creatorId.value,
             mode = mode,
             drawTarget = drawTarget,
             status = status,
@@ -158,7 +162,7 @@ private fun Vote.toNewEntity(): VoteJpaEntity {
 }
 
 private fun Participant.toEntity(vote: VoteJpaEntity) =
-    VoteParticipantJpaEntity(id = id, vote = vote, email = email, displayName = displayName, addedAt = addedAt)
+    VoteParticipantJpaEntity(id = id, vote = vote, email = email.value, displayName = displayName, addedAt = addedAt)
 
 private fun VoteOption.toEntity(vote: VoteJpaEntity) =
     VoteOptionJpaEntity(id = id, vote = vote, title = title, position = position, createdAt = createdAt)

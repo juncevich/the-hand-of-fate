@@ -10,6 +10,7 @@ import com.juncevich.fate.shared.ensureState
 import com.juncevich.fate.shared.ensureValid
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
@@ -25,15 +26,17 @@ data class GeneratedLinkToken(
 class TelegramLinkService(
     private val linkTokens: TelegramLinkTokenRepository,
     private val userRepository: UserRepository,
+    private val clock: Clock,
 ) {
     fun generateLinkToken(userId: UUID): GeneratedLinkToken {
         linkTokens.deleteAllByUserId(userId)
 
         val token = UUID.randomUUID().toString().replace("-", "")
         userRepository.findById(userId) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
-        val expiresAt = Instant.now().plusSeconds(LINK_TOKEN_TTL_SECONDS)
+        val now = clock.instant()
+        val expiresAt = now.plusSeconds(LINK_TOKEN_TTL_SECONDS)
 
-        linkTokens.insert(TelegramLinkToken(userId = userId, token = token, expiresAt = expiresAt))
+        linkTokens.insert(TelegramLinkToken(userId = userId, token = token, expiresAt = expiresAt, createdAt = now))
         return GeneratedLinkToken(token = token, expiresAt = expiresAt)
     }
 
@@ -42,7 +45,7 @@ class TelegramLinkService(
         token: String,
         telegramId: Long,
         telegramName: String,
-    ): User {
+    ): UserProfile {
         // Group and channel chat ids are negative: an account may only be bound to a person.
         ensureValid(telegramId > 0, ErrorCode.TELEGRAM_PRIVATE_CHAT_ONLY) {
             "Telegram account can only be linked from a private chat"
@@ -51,7 +54,7 @@ class TelegramLinkService(
             linkTokens.findByToken(token)
                 ?: throw NotFoundException("Invalid or expired link token", ErrorCode.TELEGRAM_LINK_TOKEN_INVALID)
 
-        if (linkToken.isExpired) {
+        if (linkToken.isExpiredAt(clock.instant())) {
             linkTokens.delete(linkToken)
             throw BadRequestException(
                 "Link token has expired. Please generate a new one from the app.",
@@ -72,7 +75,7 @@ class TelegramLinkService(
         userRepository.update(user)
 
         linkTokens.delete(linkToken)
-        return user
+        return user.toProfile()
     }
 
     fun unlinkAccount(telegramId: Long) {

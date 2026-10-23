@@ -1,7 +1,10 @@
 package com.juncevich.fate.account
 
+import com.juncevich.fate.FIXED_CLOCK
+import com.juncevich.fate.NOW
 import com.juncevich.fate.account.domain.TelegramLinkToken
 import com.juncevich.fate.account.domain.TelegramLinkTokenRepository
+import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
@@ -17,21 +20,22 @@ class TelegramLinkServiceTest {
     private val linkTokens = mockk<TelegramLinkTokenRepository>()
     private val userRepository = mockk<UserRepository>()
 
-    private val service = TelegramLinkService(linkTokens, userRepository)
+    private val service = TelegramLinkService(linkTokens, userRepository, FIXED_CLOCK)
 
     private fun makeUser(id: UUID = UUID.randomUUID()) =
         User(
             id = id,
             email = "user@test.com",
-            displayName = "Test User"
+            displayName = "Test User",
+            createdAt = NOW
         )
 
     private fun makeLinkToken(
         user: User,
         expired: Boolean = false,
     ): TelegramLinkToken {
-        val expiresAt = if (expired) Instant.now().minusSeconds(60) else Instant.now().plusSeconds(300)
-        return TelegramLinkToken(userId = user.id, token = "token123", expiresAt = expiresAt)
+        val expiresAt = if (expired) NOW.minusSeconds(60) else NOW.plusSeconds(300)
+        return TelegramLinkToken(userId = user.id, token = "token123", expiresAt = expiresAt, createdAt = NOW)
     }
 
     @Test
@@ -88,7 +92,8 @@ class TelegramLinkServiceTest {
 
         val result = service.linkAccount("token123", 42L, "new_name")
 
-        assertEquals("new_name", result.telegramName)
+        assertEquals(user.id, result.id)
+        verify { userRepository.update(match { it.telegramName == "new_name" }) }
         verify { linkTokens.delete(linkToken) }
     }
 
@@ -105,9 +110,8 @@ class TelegramLinkServiceTest {
 
         val result = service.linkAccount("token123", 42L, "telegram_user")
 
-        assertEquals(42L, result.telegramId)
-        assertEquals("telegram_user", result.telegramName)
-        verify { userRepository.update(result) }
+        assertEquals(UserProfile(user.id, user.email, user.displayName), result)
+        verify { userRepository.update(user.linkTelegram(42L, "telegram_user")) }
         verify { linkTokens.delete(linkToken) }
     }
 

@@ -1,5 +1,7 @@
 package com.juncevich.fate.account
 
+import com.juncevich.fate.FIXED_CLOCK
+import com.juncevich.fate.NOW
 import com.juncevich.fate.account.domain.TelegramLinkTokenRepository
 import com.juncevich.fate.account.telegram.ExpiredTokenPurger
 import io.mockk.every
@@ -9,7 +11,7 @@ import org.junit.jupiter.api.Test
 
 class ExpiredTokenPurgerTest {
     private val linkTokens = mockk<TelegramLinkTokenRepository>()
-    private val purger = ExpiredTokenPurger(linkTokens)
+    private val purger = ExpiredTokenPurger(linkTokens, FIXED_CLOCK)
 
     @Test
     fun `purges expired link tokens`() {
@@ -17,7 +19,7 @@ class ExpiredTokenPurgerTest {
 
         purger.purge()
 
-        verify { linkTokens.deleteExpired(any()) }
+        verify { linkTokens.deleteExpired(NOW) }
     }
 
     @Test

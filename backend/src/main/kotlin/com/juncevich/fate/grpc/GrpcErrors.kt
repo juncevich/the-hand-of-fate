@@ -10,6 +10,7 @@ import com.juncevich.fate.shared.TooManyRequestsException
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
+import io.grpc.stub.StreamObserver
 import com.google.protobuf.Any as ProtoAny
 import com.juncevich.fate.shared.ErrorCode as DomainErrorCode
 
@@ -74,24 +75,53 @@ internal object GrpcErrors {
         }
 }
 
+/**
+ * Completes a unary call with what [block] returns, or fails it with the status
+ * [GrpcErrors.toStatusException] picks — the recovery boundary of every RPC body. `Error`s are
+ * not caught: grpc-java closes the call itself.
+ */
+@Suppress("TooGenericExceptionCaught")
+internal inline fun <T> unary(
+    observer: StreamObserver<T>,
+    block: () -> T,
+) {
+    val response =
+        try {
+            block()
+        } catch (ex: Exception) {
+            observer.onError(GrpcErrors.toStatusException(ex))
+            return
+        }
+    observer.onNext(response)
+    observer.onCompleted()
+}
+
 /** Runs a read RPC body, translating failures via [GrpcErrors.toStatusException]. */
+@Suppress("TooGenericExceptionCaught")
 internal inline fun <T> grpcRead(block: () -> T): T =
-    runCatching(block).getOrElse { throw GrpcErrors.toStatusException(it) }
+    try {
+        block()
+    } catch (ex: Exception) {
+        throw GrpcErrors.toStatusException(ex)
+    }
 
 /**
  * Runs a mutating RPC body whose response carries `success`/`message`: client errors become
  * an unsuccessful response built by [failure] (English message + code), anything unexpected becomes `INTERNAL`.
  */
+@Suppress("TooGenericExceptionCaught")
 internal inline fun <T> grpcMutation(
     failure: (message: String, code: ErrorCode) -> T,
     block: () -> T,
 ): T =
-    runCatching(block).getOrElse { ex ->
-        when (ex) {
-            is StatusRuntimeException -> throw ex
-            is FateException -> failure(ex.message.orEmpty(), ex.code.toProto())
-            else -> throw GrpcErrors.internal()
-        }
+    try {
+        block()
+    } catch (ex: StatusRuntimeException) {
+        throw ex
+    } catch (ex: FateException) {
+        failure(ex.message.orEmpty(), ex.code.toProto())
+    } catch (_: Exception) {
+        throw GrpcErrors.internal()
     }
 
 /** The proto mirror of a domain code (`ERROR_CODE_` + name; `ErrorMappingContractTest` keeps them in sync). */

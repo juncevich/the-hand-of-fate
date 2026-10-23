@@ -1,5 +1,7 @@
 package com.juncevich.fate.account
 
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
 import java.time.Instant
 import java.util.UUID
 
@@ -12,3 +14,9 @@ data class AuthenticatedUser(
      */
     val authenticatedAt: Instant? = null,
 )
+
+/** [AuthenticatedUser.id] as the typed id other modules take. */
+val AuthenticatedUser.userId: UserId get() = UserId(id)
+
+/** The verified address of the token, in canonical form. */
+val AuthenticatedUser.mailbox: Email get() = Email.trusted(email)

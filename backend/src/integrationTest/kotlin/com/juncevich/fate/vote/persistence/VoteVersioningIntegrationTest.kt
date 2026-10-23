@@ -1,5 +1,7 @@
 package com.juncevich.fate.vote.persistence
 
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.vote.DrawTarget
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
@@ -23,6 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
+import java.time.Instant
 import java.util.UUID
 
 @SpringBootTest(
@@ -139,7 +142,7 @@ class VoteVersioningIntegrationTest
             tx { voteRepository.save(vote) }
 
             val loaded = checkNotNull(voteRepository.find(vote.id))
-            assertEquals(listOf("creator-$creatorId@test.com", "p@test.com"), loaded.participants.map { it.email })
+            assertEquals(listOf("creator-$creatorId@test.com", "p@test.com"), loaded.participants.map { it.email.value })
             assertEquals(listOf("A", "B"), loaded.options.map { it.title })
             assertEquals(vote.participants.map { it.id }, loaded.participants.map { it.id })
             assertEquals(DrawTarget.OPTIONS, loaded.drawTarget)
@@ -154,25 +157,25 @@ class VoteVersioningIntegrationTest
             tx {
                 val locked = checkNotNull(voteRepository.findForUpdate(vote.id))
                 val (a, b, c) = locked.options
-                locked.removeParticipant(creatorId, "q@test.com")
-                locked.invite(creatorId, "r@test.com") { "Ray" }
-                locked.removeOption(creatorId, b.id)
+                locked.removeParticipant(UserId(creatorId), "q@test.com")
+                locked.invite(UserId(creatorId), "r@test.com", Instant.now()) { "Ray" }
+                locked.removeOption(UserId(creatorId), b.id)
                 // Swaps positions within the transaction: (vote_id, position) is only checked at commit.
-                locked.reorderOptions(creatorId, listOf(c.id, a.id))
-                locked.addOption(creatorId, "D")
+                locked.reorderOptions(UserId(creatorId), listOf(c.id, a.id))
+                locked.addOption(UserId(creatorId), "D", Instant.now())
                 voteRepository.save(locked)
             }
 
             val loaded = checkNotNull(voteRepository.find(vote.id))
             assertEquals(
                 setOf("creator-$creatorId@test.com", "p@test.com", "r@test.com"),
-                loaded.participants.map { it.email }.toSet()
+                loaded.participants.map { it.email.value }.toSet()
             )
-            assertEquals("Ray", loaded.participants.single { it.email == "r@test.com" }.displayName)
+            assertEquals("Ray", loaded.participants.single { it.email.value == "r@test.com" }.displayName)
             assertEquals(listOf("C" to 0, "A" to 1, "D" to 2), loaded.options.map { it.title to it.position })
             // Child rows are owned by the inverse side: changing them leaves the vote row and its version alone.
             assertEquals(0, loaded.version)
-            assertEquals(3, jdbcTemplate.queryForObject("SELECT count(*) FROM vote_options WHERE vote_id = ?", Int::class.java, vote.id))
+            assertEquals(3, jdbcTemplate.queryForObject("SELECT count(*) FROM vote_options WHERE vote_id = ?", Int::class.java, vote.id.value))
         }
 
         @Test
@@ -184,11 +187,11 @@ class VoteVersioningIntegrationTest
             // Another writer changes the vote row in between, which bumps its version.
             tx {
                 val current = checkNotNull(voteRepository.findForUpdate(vote.id))
-                current.close(creatorId)
+                current.close(UserId(creatorId))
                 voteRepository.save(current)
             }
 
-            stale.addOption(creatorId, "B")
+            stale.addOption(UserId(creatorId), "B", Instant.now())
             assertThrows<ObjectOptimisticLockingFailureException> { tx { voteRepository.save(stale) } }
             assertEquals(listOf("A"), checkNotNull(voteRepository.find(vote.id)).options.map { it.title })
         }
@@ -201,7 +204,7 @@ class VoteVersioningIntegrationTest
             tx { voteRepository.delete(vote.id) }
 
             assertEquals(null, voteRepository.find(vote.id))
-            assertEquals(0, jdbcTemplate.queryForObject("SELECT count(*) FROM vote_participants WHERE vote_id = ?", Int::class.java, vote.id))
+            assertEquals(0, jdbcTemplate.queryForObject("SELECT count(*) FROM vote_participants WHERE vote_id = ?", Int::class.java, vote.id.value))
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────
@@ -210,14 +213,15 @@ class VoteVersioningIntegrationTest
             invited: List<String>,
             options: List<String>,
         ) = Vote.create(
-            creatorId = creatorId,
-            creatorEmail = "creator-$creatorId@test.com",
+            creatorId = UserId(creatorId),
+            creatorEmail = Email.of("creator-$creatorId@test.com"),
             title = "aggregate",
             description = null,
             mode = VoteMode.SIMPLE,
             drawTarget = null,
             participantEmails = invited,
-            optionTitles = options
+            optionTitles = options,
+            now = Instant.now()
         ) { emptyMap() }
 
         // persist, as VoteRepositoryAdapter inserts: merging a new entity (saveAndFlush) inserts and then updates it.
@@ -233,6 +237,7 @@ class VoteVersioningIntegrationTest
                 title = "test vote",
                 creatorId = creatorId,
                 mode = VoteMode.SIMPLE,
-                status = VoteStatus.PENDING
+                status = VoteStatus.PENDING,
+                createdAt = Instant.now()
             )
     }

@@ -97,19 +97,19 @@ class ModularityTest {
     }
 
     @Test
-    fun `vote module uses public profiles rather than accounts containing password hashes`() {
+    fun `other modules see accounts only as public profiles`() {
         com.tngtech.archunit.lang.syntax.ArchRuleDefinition
             .noClasses()
             .that()
-            .resideInAPackage("com.juncevich.fate.vote..")
+            .resideOutsideOfPackage("com.juncevich.fate.account..")
             .should()
             .dependOnClassesThat()
-            .haveFullyQualifiedName("com.juncevich.fate.account.User")
+            .haveFullyQualifiedName("com.juncevich.fate.account.domain.User")
             .check(
                 com.tngtech.archunit.core.importer
                     .ClassFileImporter()
                     .withImportOption(com.tngtech.archunit.core.importer.ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                    .importPackages("com.juncevich.fate.vote")
+                    .importPackages("com.juncevich.fate")
             )
     }
 }

@@ -1,5 +1,7 @@
 package com.juncevich.fate.account
 
+import com.juncevich.fate.NOW
+import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
 import io.mockk.every
 import io.mockk.mockk
@@ -23,7 +25,7 @@ class UserQueryServiceTest {
 
     @Test
     fun `bulk profile lookup exports only public identity fields`() {
-        val user = User(email = "user@test.com", displayName = "User", telegramId = 42)
+        val user = User(email = "user@test.com", displayName = "User", telegramId = 42, createdAt = NOW)
         every { repository.findAllByIdIn(listOf(user.id)) } returns listOf(user)
         every { repository.findAllByEmailIn(listOf(user.email)) } returns listOf(user)
         val profile = UserProfile(user.id, user.email, user.displayName)

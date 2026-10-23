@@ -1,7 +1,10 @@
 package com.juncevich.fate.account
 
+import com.juncevich.fate.FIXED_CLOCK
+import com.juncevich.fate.NOW
 import com.juncevich.fate.account.avatar.AvatarImageProcessor
 import com.juncevich.fate.account.avatar.AvatarService
+import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.storage.ObjectStorage
@@ -26,9 +29,9 @@ class AvatarServiceTest {
     private val users = mockk<UserRepository>()
     private val storage = mockk<ObjectStorage>()
     private val processor = mockk<AvatarImageProcessor>()
-    private val service = AvatarService(users, storage, processor)
+    private val service = AvatarService(users, storage, processor, FIXED_CLOCK)
 
-    private val user = User(email = "user@test.com", displayName = "User")
+    private val user = User(email = "user@test.com", displayName = "User", createdAt = NOW)
     private val key = "avatars/${user.id}.png"
     private val png = byteArrayOf(1, 2, 3)
 
@@ -85,7 +88,7 @@ class AvatarServiceTest {
 
     @Test
     fun `delete clears the avatar and removes the object`() {
-        withAvatar(Instant.now())
+        withAvatar(NOW)
         every { storage.delete(key) } just runs
 
         service.delete(user.id)
@@ -98,7 +101,7 @@ class AvatarServiceTest {
 
     @Test
     fun `delete succeeds even if the object cannot be removed`() {
-        withAvatar(Instant.now())
+        withAvatar(NOW)
         every { storage.delete(key) } throws IllegalStateException("store down")
 
         service.delete(user.id)
@@ -130,7 +133,7 @@ class AvatarServiceTest {
     fun `load reports a missing avatar as not found`() {
         assertTrue(assertThrows<NotFoundException> { service.load(user.id) }.message == "Avatar not found")
 
-        withAvatar(Instant.now())
+        withAvatar(NOW)
         every { storage.get(key) } returns null
         assertThrows<NotFoundException> { service.load(user.id) }
 

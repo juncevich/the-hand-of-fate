@@ -22,7 +22,7 @@ class TelegramLinkTokenJpaEntity(
     @Column(name = "expires_at", nullable = false)
     var expiresAt: Instant,
     @Column(name = "created_at", nullable = false, updatable = false)
-    var createdAt: Instant = Instant.now(),
+    var createdAt: Instant,
 )
 
 interface TelegramLinkTokenJpaRepository : JpaRepository<TelegramLinkTokenJpaEntity, UUID> {

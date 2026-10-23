@@ -1,5 +1,8 @@
 package com.juncevich.fate.account
 
+import com.juncevich.fate.NOW
+import com.juncevich.fate.account.domain.User
+import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.account.web.MeController
 import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.platform.ErrorHandler
@@ -23,7 +26,7 @@ import java.util.UUID
 
 class MeControllerTest {
     private val preferences = mockk<EmailPreferences>()
-    private val users = mockk<UserQueryService>()
+    private val users = mockk<UserRepository>()
     private val userId = UUID.randomUUID()
     private val mockMvc =
         MockMvcBuilders
@@ -63,7 +66,7 @@ class MeControllerTest {
     fun `returns the caller's profile with a versioned avatar url`() {
         val avatarAt = Instant.ofEpochMilli(1_700_000_000_000)
         every { users.findById(userId) } returns
-            User(id = userId, email = "ann@test.com", displayName = "Ann", avatarUpdatedAt = avatarAt)
+            User(id = userId, email = "ann@test.com", displayName = "Ann", avatarUpdatedAt = avatarAt, createdAt = NOW)
 
         mockMvc.get("/api/v1/users/me").andExpect {
             status { isOk() }

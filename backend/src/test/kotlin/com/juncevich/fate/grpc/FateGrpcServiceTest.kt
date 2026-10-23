@@ -2,8 +2,10 @@ package com.juncevich.fate.grpc
 
 import com.google.rpc.ErrorInfo
 import com.juncevich.fate.account.TelegramLinkService
-import com.juncevich.fate.account.User
+import com.juncevich.fate.account.UserProfile
 import com.juncevich.fate.account.UserQueryService
+import com.juncevich.fate.account.mailbox
+import com.juncevich.fate.account.userId
 import com.juncevich.fate.grpc.FateProto.*
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
@@ -11,6 +13,7 @@ import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
 import com.juncevich.fate.vote.*
+import com.juncevich.fate.vote.VoteId
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
@@ -19,7 +22,6 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -46,133 +48,129 @@ class FateGrpcServiceTest {
         )
 
     @Test
-    fun `createVote creates vote for linked telegram user`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            val voteId = UUID.randomUUID()
-            val createdVote =
-                VoteDetailView(
-                    id = voteId,
-                    title = "Lunch",
-                    description = null,
-                    mode = DomainVoteMode.FAIR_ROTATION,
-                    drawTarget = DomainDrawTarget.PARTICIPANTS,
-                    status = DomainVoteStatus.PENDING,
-                    currentRound = 1,
-                    participants =
-                        listOf(
-                            ParticipantView(user.email, user.displayName),
-                            ParticipantView("friend@example.com", null)
-                        ),
-                    options = emptyList(),
-                    lastResult = null,
-                    isCreator = true,
-                    createdAt = Instant.parse("2026-04-25T00:00:00Z")
-                )
+    fun `createVote creates vote for linked telegram user`() {
+        val user = user()
+        val voteId = UUID.randomUUID()
+        val createdVote =
+            VoteDetailView(
+                id = voteId,
+                title = "Lunch",
+                description = null,
+                mode = DomainVoteMode.FAIR_ROTATION,
+                drawTarget = DomainDrawTarget.PARTICIPANTS,
+                status = DomainVoteStatus.PENDING,
+                currentRound = 1,
+                participants =
+                    listOf(
+                        ParticipantView(user.email, user.displayName),
+                        ParticipantView("friend@example.com", null)
+                    ),
+                options = emptyList(),
+                lastResult = null,
+                isCreator = true,
+                createdAt = Instant.parse("2026-04-25T00:00:00Z")
+            )
 
-            every { userQueryService.findByTelegramId(42) } returns user
-            every {
-                voteService.createVote(
-                    creatorId = user.id,
-                    request =
-                        match {
-                            it.title == "Lunch" &&
-                                it.mode == DomainVoteMode.FAIR_ROTATION &&
-                                it.participantEmails == listOf("friend@example.com")
-                        }
-                )
-            } returns createdVote
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        every {
+            voteService.createVote(
+                creatorId = user.userId,
+                request =
+                    match {
+                        it.title == "Lunch" &&
+                            it.mode == DomainVoteMode.FAIR_ROTATION &&
+                            it.participantEmails == listOf("friend@example.com")
+                    }
+            )
+        } returns createdVote
 
-            val response =
-                service.createVote(
-                    CreateVoteRequest
-                        .newBuilder()
-                        .setTelegramId(42)
-                        .setTitle(" Lunch ")
-                        .setMode(VoteMode.VOTE_MODE_FAIR_ROTATION)
-                        .addParticipantEmails("friend@example.com")
-                        .build()
-                )
+        val response =
+            service.createVote(
+                CreateVoteRequest
+                    .newBuilder()
+                    .setTelegramId(42)
+                    .setTitle(" Lunch ")
+                    .setMode(VoteMode.VOTE_MODE_FAIR_ROTATION)
+                    .addParticipantEmails("friend@example.com")
+                    .build()
+            )
 
-            assertTrue(response.success)
-            assertEquals(voteId.toString(), response.vote.voteId)
-            assertEquals(VoteMode.VOTE_MODE_FAIR_ROTATION, response.vote.mode)
-            assertEquals(2, response.vote.participantsCount)
-        }
+        assertTrue(response.success)
+        assertEquals(voteId.toString(), response.vote.voteId)
+        assertEquals(VoteMode.VOTE_MODE_FAIR_ROTATION, response.vote.mode)
+        assertEquals(2, response.vote.participantsCount)
+    }
 
     @Test
-    fun `getVoteHistory returns backend history for accessible vote`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            val voteId = UUID.randomUUID()
-            val history =
-                listOf(
-                    DrawHistoryView(
-                        id = UUID.randomUUID(),
-                        winner = Winner.Participant("friend@example.com", "Friend"),
-                        round = 2,
-                        drawnAt = Instant.parse("2026-04-25T00:00:00Z")
-                    )
+    fun `getVoteHistory returns backend history for accessible vote`() {
+        val user = user()
+        val voteId = UUID.randomUUID()
+        val history =
+            listOf(
+                DrawHistoryView(
+                    id = UUID.randomUUID(),
+                    winner = Winner.Participant("friend@example.com", "Friend"),
+                    round = 2,
+                    drawnAt = Instant.parse("2026-04-25T00:00:00Z")
                 )
+            )
 
-            every { userQueryService.findByTelegramId(42) } returns user
-            every { voteService.getHistory(voteId, user.id, user.email, any()) } returns
-                org.springframework.data.domain
-                    .PageImpl(history)
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        every { voteService.getHistory(VoteId(voteId), user.userId, user.mailbox, any()) } returns
+            org.springframework.data.domain
+                .PageImpl(history)
 
-            val response =
-                service.getVoteHistory(
-                    GetVoteHistoryRequest
-                        .newBuilder()
-                        .setTelegramId(42)
-                        .setVoteId(voteId.toString())
-                        .build()
-                )
+        val response =
+            service.getVoteHistory(
+                GetVoteHistoryRequest
+                    .newBuilder()
+                    .setTelegramId(42)
+                    .setVoteId(voteId.toString())
+                    .build()
+            )
 
-            assertEquals(1, response.resultsCount)
-            assertEquals("friend@example.com", response.getResults(0).winnerEmail)
-            assertEquals(2, response.getResults(0).round)
-        }
+        assertEquals(1, response.resultsCount)
+        assertEquals("friend@example.com", response.getResults(0).winnerEmail)
+        assertEquals(2, response.getResults(0).round)
+    }
 
     // ── linkTelegramAccount ──────────────────────────────────────────────────
 
     @Test
-    fun `linkTelegramAccount returns display name on success`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            every { telegramLinkService.linkAccount("tok", 42, "tg") } returns user
+    fun `linkTelegramAccount returns display name on success`() {
+        val user = user()
+        every { telegramLinkService.linkAccount("tok", 42, "tg") } returns user
 
-            val response =
-                service.linkTelegramAccount(
-                    LinkTelegramAccountRequest
-                        .newBuilder()
-                        .setLinkToken("tok")
-                        .setTelegramId(42)
-                        .setTelegramName("tg")
-                        .build()
-                )
+        val response =
+            service.linkTelegramAccount(
+                LinkTelegramAccountRequest
+                    .newBuilder()
+                    .setLinkToken("tok")
+                    .setTelegramId(42)
+                    .setTelegramName("tg")
+                    .build()
+            )
 
-            assertTrue(response.success)
-            assertEquals("Owner", response.displayName)
-        }
+        assertTrue(response.success)
+        assertEquals("Owner", response.displayName)
+    }
 
     @Test
-    fun `linkTelegramAccount maps domain errors to unsuccessful response`() =
-        runBlocking {
-            every { telegramLinkService.linkAccount(any(), any(), any()) } throws
-                BadRequestException("Link token expired", ErrorCode.VALIDATION_FAILED)
+    fun `linkTelegramAccount maps domain errors to unsuccessful response`() {
+        every { telegramLinkService.linkAccount(any(), any(), any()) } throws
+            BadRequestException("Link token expired", ErrorCode.VALIDATION_FAILED)
 
-            val response = service.linkTelegramAccount(linkRequest())
+        val response = service.linkTelegramAccount(linkRequest())
 
-            assertFalse(response.success)
-            assertEquals("Link token expired", response.message)
-        }
+        assertFalse(response.success)
+        assertEquals("Link token expired", response.message)
+    }
 
     @Test
     fun `linkTelegramAccount maps unexpected errors to INTERNAL`() {
         every { telegramLinkService.linkAccount(any(), any(), any()) } throws RuntimeException("db down")
 
-        val ex = assertThrows<StatusRuntimeException> { runBlocking { service.linkTelegramAccount(linkRequest()) } }
+        val ex = assertThrows<StatusRuntimeException> { run { service.linkTelegramAccount(linkRequest()) } }
 
         assertEquals(Status.Code.INTERNAL, ex.status.code)
         assertEquals("Unexpected error", ex.status.description)
@@ -181,33 +179,31 @@ class FateGrpcServiceTest {
     // ── unlinkTelegramAccount ────────────────────────────────────────────────
 
     @Test
-    fun `unlinkTelegramAccount succeeds`() =
-        runBlocking {
-            every { telegramLinkService.unlinkAccount(42) } just runs
+    fun `unlinkTelegramAccount succeeds`() {
+        every { telegramLinkService.unlinkAccount(42) } just runs
 
-            val response = service.unlinkTelegramAccount(unlinkRequest())
+        val response = service.unlinkTelegramAccount(unlinkRequest())
 
-            assertTrue(response.success)
-            assertEquals("Account unlinked.", response.message)
-            verify { telegramLinkService.unlinkAccount(42) }
-        }
+        assertTrue(response.success)
+        assertEquals("Account unlinked.", response.message)
+        verify { telegramLinkService.unlinkAccount(42) }
+    }
 
     @Test
-    fun `unlinkTelegramAccount maps domain errors to unsuccessful response`() =
-        runBlocking {
-            every { telegramLinkService.unlinkAccount(42) } throws NotFoundException("Not linked", ErrorCode.VOTE_NOT_FOUND)
+    fun `unlinkTelegramAccount maps domain errors to unsuccessful response`() {
+        every { telegramLinkService.unlinkAccount(42) } throws NotFoundException("Not linked", ErrorCode.VOTE_NOT_FOUND)
 
-            val response = service.unlinkTelegramAccount(unlinkRequest())
+        val response = service.unlinkTelegramAccount(unlinkRequest())
 
-            assertFalse(response.success)
-            assertEquals("Not linked", response.message)
-        }
+        assertFalse(response.success)
+        assertEquals("Not linked", response.message)
+    }
 
     @Test
     fun `unlinkTelegramAccount maps unexpected errors to INTERNAL`() {
         every { telegramLinkService.unlinkAccount(42) } throws RuntimeException("boom")
 
-        val ex = assertThrows<StatusRuntimeException> { runBlocking { service.unlinkTelegramAccount(unlinkRequest()) } }
+        val ex = assertThrows<StatusRuntimeException> { run { service.unlinkTelegramAccount(unlinkRequest()) } }
 
         assertEquals(Status.Code.INTERNAL, ex.status.code)
     }
@@ -215,47 +211,45 @@ class FateGrpcServiceTest {
     // ── getMyVotes ───────────────────────────────────────────────────────────
 
     @Test
-    fun `getMyVotes aggregates all pages`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            every { userQueryService.findByTelegramId(42) } returns user
-            val first = summary("First", DomainVoteStatus.CLOSED)
-            val second = summary("Second", DomainVoteStatus.DRAWN)
-            every { voteService.listVotes(user.id, user.email, PageRequest.of(0, 50)) } returns
-                PageImpl(listOf(first), PageRequest.of(0, 50), 51)
-            every { voteService.listVotes(user.id, user.email, PageRequest.of(1, 50)) } returns
-                PageImpl(listOf(second), PageRequest.of(1, 50), 51)
+    fun `getMyVotes aggregates all pages`() {
+        val user = user()
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        val first = summary("First", DomainVoteStatus.CLOSED)
+        val second = summary("Second", DomainVoteStatus.DRAWN)
+        every { voteService.listVotes(user.userId, user.mailbox, PageRequest.of(0, 50)) } returns
+            PageImpl(listOf(first), PageRequest.of(0, 50), 51)
+        every { voteService.listVotes(user.userId, user.mailbox, PageRequest.of(1, 50)) } returns
+            PageImpl(listOf(second), PageRequest.of(1, 50), 51)
 
-            val response = service.getMyVotes(GetMyVotesRequest.newBuilder().setTelegramId(42).build())
+        val response = service.getMyVotes(GetMyVotesRequest.newBuilder().setTelegramId(42).build())
 
-            assertEquals(listOf("First", "Second"), response.votesList.map { it.title })
-            assertEquals(VoteStatus.VOTE_STATUS_CLOSED, response.getVotes(0).status)
-            assertEquals(VoteStatus.VOTE_STATUS_DRAWN, response.getVotes(1).status)
-        }
+        assertEquals(listOf("First", "Second"), response.votesList.map { it.title })
+        assertEquals(VoteStatus.VOTE_STATUS_CLOSED, response.getVotes(0).status)
+        assertEquals(VoteStatus.VOTE_STATUS_DRAWN, response.getVotes(1).status)
+    }
 
     @Test
-    fun `getMyVotes stops after the page limit`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            every { userQueryService.findByTelegramId(42) } returns user
-            every { voteService.listVotes(user.id, user.email, any()) } answers {
-                val pageable = thirdArg<PageRequest>()
-                PageImpl(listOf(summary("V${pageable.pageNumber}")), pageable, 10_000)
-            }
-
-            val response = service.getMyVotes(GetMyVotesRequest.newBuilder().setTelegramId(42).build())
-
-            assertEquals(20, response.votesCount)
-            verify(exactly = 20) { voteService.listVotes(user.id, user.email, any()) }
+    fun `getMyVotes stops after the page limit`() {
+        val user = user()
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        every { voteService.listVotes(user.userId, user.mailbox, any()) } answers {
+            val pageable = thirdArg<PageRequest>()
+            PageImpl(listOf(summary("V${pageable.pageNumber}")), pageable, 10_000)
         }
+
+        val response = service.getMyVotes(GetMyVotesRequest.newBuilder().setTelegramId(42).build())
+
+        assertEquals(20, response.votesCount)
+        verify(exactly = 20) { voteService.listVotes(user.userId, user.mailbox, any()) }
+    }
 
     @Test
     fun `getMyVotes rejects unlinked telegram account`() {
-        every { userQueryService.findByTelegramId(7) } returns null
+        every { userQueryService.findProfileByTelegramId(7) } returns null
 
         val ex =
             assertThrows<StatusRuntimeException> {
-                runBlocking { service.getMyVotes(GetMyVotesRequest.newBuilder().setTelegramId(7).build()) }
+                run { service.getMyVotes(GetMyVotesRequest.newBuilder().setTelegramId(7).build()) }
             }
 
         assertEquals(Status.Code.NOT_FOUND, ex.status.code)
@@ -273,11 +267,11 @@ class FateGrpcServiceTest {
 
     @Test
     fun `createVote rejects blank title`() {
-        every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
+        every { userQueryService.findProfileByTelegramId(42) } returns user()
 
         val ex =
             assertThrows<StatusRuntimeException> {
-                runBlocking {
+                run {
                     service.createVote(
                         CreateVoteRequest
                             .newBuilder()
@@ -292,67 +286,65 @@ class FateGrpcServiceTest {
     }
 
     @Test
-    fun `createVote delegates input validation and normalization to the service`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            every { userQueryService.findByTelegramId(42) } returns user
-            every {
-                voteService.createVote(
-                    creatorId = user.id,
-                    request =
-                        match {
-                            it.description == "Friday" &&
-                                it.mode == DomainVoteMode.SIMPLE &&
-                                it.options == listOf(" Pizza ", "Sushi", "Pizza", "") &&
-                                it.participantEmails == listOf(" ", "")
-                        }
-                )
-            } returns detail(options = listOf(VoteOptionView(UUID.randomUUID(), "Pizza")))
+    fun `createVote delegates input validation and normalization to the service`() {
+        val user = user()
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        every {
+            voteService.createVote(
+                creatorId = user.userId,
+                request =
+                    match {
+                        it.description == "Friday" &&
+                            it.mode == DomainVoteMode.SIMPLE &&
+                            it.options == listOf(" Pizza ", "Sushi", "Pizza", "") &&
+                            it.participantEmails == listOf(" ", "")
+                    }
+            )
+        } returns detail(options = listOf(VoteOptionView(UUID.randomUUID(), "Pizza")))
 
-            val response =
-                service.createVote(
-                    CreateVoteRequest
-                        .newBuilder()
-                        .setTelegramId(42)
-                        .setTitle("Lunch")
-                        .setDescription("Friday")
-                        .addAllParticipantEmails(listOf(" ", ""))
-                        .addAllOptions(listOf(" Pizza ", "Sushi", "Pizza", ""))
-                        .build()
-                )
+        val response =
+            service.createVote(
+                CreateVoteRequest
+                    .newBuilder()
+                    .setTelegramId(42)
+                    .setTitle("Lunch")
+                    .setDescription("Friday")
+                    .addAllParticipantEmails(listOf(" ", ""))
+                    .addAllOptions(listOf(" Pizza ", "Sushi", "Pizza", ""))
+                    .build()
+            )
 
-            assertTrue(response.success)
-            assertEquals("Pizza", response.vote.getOptions(0).title)
-            assertEquals(VoteMode.VOTE_MODE_SIMPLE, response.vote.mode)
-        }
+        assertTrue(response.success)
+        assertEquals("Pizza", response.vote.getOptions(0).title)
+        assertEquals(VoteMode.VOTE_MODE_SIMPLE, response.vote.mode)
+    }
 
     @Test
-    fun `createVote maps domain errors to unsuccessful response`() =
-        runBlocking {
-            every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-            every { voteService.createVote(any(), any()) } throws BadRequestException("Too many options", ErrorCode.VALIDATION_FAILED)
+    fun `createVote maps domain errors to unsuccessful response`() {
+        every { userQueryService.findProfileByTelegramId(42) } returns user()
+        every { voteService.createVote(any(), any()) } throws BadRequestException("Too many options", ErrorCode.VALIDATION_FAILED)
 
-            val response =
-                service.createVote(
-                    CreateVoteRequest
-                        .newBuilder()
-                        .setTelegramId(42)
-                        .setTitle("Lunch")
-                        .build()
-                )
+        val response =
+            service.createVote(
+                CreateVoteRequest
+                    .newBuilder()
+                    .setTelegramId(42)
+                    .setTitle("Lunch")
+                    .build()
+            )
 
-            assertFalse(response.success)
-            assertEquals("Too many options", response.message)
-        }
+        assertFalse(response.success)
+        assertEquals("Too many options", response.message)
+    }
 
     @Test
     fun `createVote maps unexpected errors to INTERNAL`() {
-        every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
+        every { userQueryService.findProfileByTelegramId(42) } returns user()
         every { voteService.createVote(any(), any()) } throws RuntimeException("boom")
 
         val ex =
             assertThrows<StatusRuntimeException> {
-                runBlocking {
+                run {
                     service.createVote(
                         CreateVoteRequest
                             .newBuilder()
@@ -369,28 +361,27 @@ class FateGrpcServiceTest {
     // ── getVoteDetails ───────────────────────────────────────────────────────
 
     @Test
-    fun `getVoteDetails maps vote with last result`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            val last = historyDto(optionTitle = "Pizza")
-            val dto = detail(description = "desc", lastResult = last)
-            every { userQueryService.findByTelegramId(42) } returns user
-            every { voteService.getVote(dto.id, user.id, user.email) } returns dto
+    fun `getVoteDetails maps vote with last result`() {
+        val user = user()
+        val last = historyDto(optionTitle = "Pizza")
+        val dto = detail(description = "desc", lastResult = last)
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        every { voteService.getVote(VoteId(dto.id), user.userId, user.mailbox) } returns dto
 
-            val response = service.getVoteDetails(detailsRequest(dto.id.toString()))
+        val response = service.getVoteDetails(detailsRequest(dto.id.toString()))
 
-            assertEquals("desc", response.description)
-            assertTrue(response.hasLastResult())
-            assertEquals("Pizza", response.lastResult.winnerOptionTitle)
-            assertEquals("", response.lastResult.winnerEmail)
-            assertEquals("2026-04-25T00:00:00Z", response.lastResult.drawnAt)
-        }
+        assertEquals("desc", response.description)
+        assertTrue(response.hasLastResult())
+        assertEquals("Pizza", response.lastResult.winnerOptionTitle)
+        assertEquals("", response.lastResult.winnerEmail)
+        assertEquals("2026-04-25T00:00:00Z", response.lastResult.drawnAt)
+    }
 
     @Test
     fun `getVoteDetails rejects malformed vote id`() {
-        every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
+        every { userQueryService.findProfileByTelegramId(42) } returns user()
 
-        val ex = assertThrows<StatusRuntimeException> { runBlocking { service.getVoteDetails(detailsRequest("nope")) } }
+        val ex = assertThrows<StatusRuntimeException> { run { service.getVoteDetails(detailsRequest("nope")) } }
 
         assertEquals(Status.Code.INVALID_ARGUMENT, ex.status.code)
         assertEquals("Invalid vote id", ex.status.description)
@@ -423,48 +414,46 @@ class FateGrpcServiceTest {
     // ── drawVote ─────────────────────────────────────────────────────────────
 
     @Test
-    fun `drawVote returns winner`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            val voteId = UUID.randomUUID()
-            every { userQueryService.findByTelegramId(42) } returns user
-            every { voteService.draw(voteId, user.id) } returns
-                DrawResult(
-                    winner = Winner.Participant("friend@example.com", "Friend"),
-                    round = 3,
-                    newRoundStarted = true
-                )
+    fun `drawVote returns winner`() {
+        val user = user()
+        val voteId = UUID.randomUUID()
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        every { voteService.draw(VoteId(voteId), user.userId) } returns
+            DrawResult(
+                winner = Winner.Participant("friend@example.com", "Friend"),
+                round = 3,
+                newRoundStarted = true
+            )
 
-            val response = service.drawVote(drawRequest(voteId.toString()))
+        val response = service.drawVote(drawRequest(voteId.toString()))
 
-            assertTrue(response.success)
-            assertEquals("friend@example.com", response.winnerEmail)
-            assertEquals("", response.winnerOptionTitle)
-            assertEquals(3, response.round)
-            assertTrue(response.newRoundStarted)
-            assertEquals("✦ The Hand of Fate has chosen: Friend", response.message)
-        }
+        assertTrue(response.success)
+        assertEquals("friend@example.com", response.winnerEmail)
+        assertEquals("", response.winnerOptionTitle)
+        assertEquals(3, response.round)
+        assertTrue(response.newRoundStarted)
+        assertEquals("✦ The Hand of Fate has chosen: Friend", response.message)
+    }
 
     @Test
-    fun `drawVote maps domain errors to unsuccessful response`() =
-        runBlocking {
-            val voteId = UUID.randomUUID()
-            every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-            every { voteService.draw(voteId, any()) } throws ForbiddenException("Only the creator can draw", ErrorCode.VOTE_ACCESS_DENIED)
+    fun `drawVote maps domain errors to unsuccessful response`() {
+        val voteId = UUID.randomUUID()
+        every { userQueryService.findProfileByTelegramId(42) } returns user()
+        every { voteService.draw(VoteId(voteId), any()) } throws ForbiddenException("Only the creator can draw", ErrorCode.VOTE_ACCESS_DENIED)
 
-            val response = service.drawVote(drawRequest(voteId.toString()))
+        val response = service.drawVote(drawRequest(voteId.toString()))
 
-            assertFalse(response.success)
-            assertEquals("Only the creator can draw", response.message)
-        }
+        assertFalse(response.success)
+        assertEquals("Only the creator can draw", response.message)
+    }
 
     @Test
     fun `drawVote maps unexpected errors to INTERNAL`() {
         val voteId = UUID.randomUUID()
-        every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-        every { voteService.draw(voteId, any()) } throws RuntimeException("boom")
+        every { userQueryService.findProfileByTelegramId(42) } returns user()
+        every { voteService.draw(VoteId(voteId), any()) } throws RuntimeException("boom")
 
-        val ex = assertThrows<StatusRuntimeException> { runBlocking { service.drawVote(drawRequest(voteId.toString())) } }
+        val ex = assertThrows<StatusRuntimeException> { run { service.drawVote(drawRequest(voteId.toString())) } }
 
         assertEquals(Status.Code.INTERNAL, ex.status.code)
     }
@@ -472,44 +461,42 @@ class FateGrpcServiceTest {
     // ── getLastDrawResult ────────────────────────────────────────────────────
 
     @Test
-    fun `getLastDrawResult returns hasResult false when nothing drawn`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            val voteId = UUID.randomUUID()
-            every { userQueryService.findByTelegramId(42) } returns user
-            every { voteService.getLastResult(voteId, user.id, user.email) } returns null
+    fun `getLastDrawResult returns hasResult false when nothing drawn`() {
+        val user = user()
+        val voteId = UUID.randomUUID()
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        every { voteService.getLastResult(VoteId(voteId), user.userId, user.mailbox) } returns null
 
-            val response = service.getLastDrawResult(lastResultRequest(voteId.toString()))
+        val response = service.getLastDrawResult(lastResultRequest(voteId.toString()))
 
-            assertFalse(response.hasResult)
-        }
+        assertFalse(response.hasResult)
+    }
 
     @Test
-    fun `getLastDrawResult returns latest result`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            val voteId = UUID.randomUUID()
-            every { userQueryService.findByTelegramId(42) } returns user
-            every { voteService.getLastResult(voteId, user.id, user.email) } returns
-                historyDto(email = "friend@example.com", displayName = "Friend")
+    fun `getLastDrawResult returns latest result`() {
+        val user = user()
+        val voteId = UUID.randomUUID()
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        every { voteService.getLastResult(VoteId(voteId), user.userId, user.mailbox) } returns
+            historyDto(email = "friend@example.com", displayName = "Friend")
 
-            val response = service.getLastDrawResult(lastResultRequest(voteId.toString()))
+        val response = service.getLastDrawResult(lastResultRequest(voteId.toString()))
 
-            assertTrue(response.hasResult)
-            assertEquals("friend@example.com", response.result.winnerEmail)
-            assertEquals("Friend", response.result.winnerDisplayName)
-            assertEquals(1, response.result.round)
-        }
+        assertTrue(response.hasResult)
+        assertEquals("friend@example.com", response.result.winnerEmail)
+        assertEquals("Friend", response.result.winnerDisplayName)
+        assertEquals(1, response.result.round)
+    }
 
     @Test
     fun `getLastDrawResult maps missing vote to NOT_FOUND`() {
         val voteId = UUID.randomUUID()
-        every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-        every { voteService.getLastResult(voteId, any(), any()) } throws NotFoundException("Vote not found", ErrorCode.VOTE_NOT_FOUND)
+        every { userQueryService.findProfileByTelegramId(42) } returns user()
+        every { voteService.getLastResult(VoteId(voteId), any(), any()) } throws NotFoundException("Vote not found", ErrorCode.VOTE_NOT_FOUND)
 
         val ex =
             assertThrows<StatusRuntimeException> {
-                runBlocking { service.getLastDrawResult(lastResultRequest(voteId.toString())) }
+                run { service.getLastDrawResult(lastResultRequest(voteId.toString())) }
             }
 
         assertEquals(Status.Code.NOT_FOUND, ex.status.code)
@@ -519,12 +506,12 @@ class FateGrpcServiceTest {
     @Test
     fun `getVoteHistory maps access denial to PERMISSION_DENIED`() {
         val voteId = UUID.randomUUID()
-        every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-        every { voteService.getHistory(voteId, any(), any(), any()) } throws ForbiddenException("Access denied", ErrorCode.VOTE_ACCESS_DENIED)
+        every { userQueryService.findProfileByTelegramId(42) } returns user()
+        every { voteService.getHistory(VoteId(voteId), any(), any(), any()) } throws ForbiddenException("Access denied", ErrorCode.VOTE_ACCESS_DENIED)
 
         val ex =
             assertThrows<StatusRuntimeException> {
-                runBlocking {
+                run {
                     service.getVoteHistory(
                         GetVoteHistoryRequest
                             .newBuilder()
@@ -545,12 +532,12 @@ class FateGrpcServiceTest {
         expected: Status.Code,
     ) {
         val voteId = UUID.randomUUID()
-        every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-        every { voteService.getVote(voteId, any(), any()) } throws error
+        every { userQueryService.findProfileByTelegramId(42) } returns user()
+        every { voteService.getVote(VoteId(voteId), any(), any()) } throws error
 
         val ex =
             assertThrows<StatusRuntimeException> {
-                runBlocking { service.getVoteDetails(detailsRequest(voteId.toString())) }
+                run { service.getVoteDetails(detailsRequest(voteId.toString())) }
             }
 
         assertEquals(expected, ex.status.code)
@@ -620,70 +607,67 @@ class FateGrpcServiceTest {
     )
 
     @Test
-    fun `history supports explicit pages and returns total counts`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            val voteId = UUID.randomUUID()
-            val pageable = PageRequest.of(2, 10)
-            every { userQueryService.findByTelegramId(42) } returns user
-            every { voteService.getHistory(voteId, user.id, user.email, pageable) } returns PageImpl(List(5) { historyDto() }, pageable, 25)
-            val response =
-                service.getVoteHistory(
-                    GetVoteHistoryRequest
-                        .newBuilder()
-                        .setVoteId(voteId.toString())
-                        .setTelegramId(42)
-                        .setPage(2)
-                        .setPageSize(10)
-                        .build()
-                )
-            assertEquals(25L, response.totalElements)
-            assertEquals(3, response.totalPages)
-            assertEquals(5, response.resultsCount)
-        }
+    fun `history supports explicit pages and returns total counts`() {
+        val user = user()
+        val voteId = UUID.randomUUID()
+        val pageable = PageRequest.of(2, 10)
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        every { voteService.getHistory(VoteId(voteId), user.userId, user.mailbox, pageable) } returns PageImpl(List(5) { historyDto() }, pageable, 25)
+        val response =
+            service.getVoteHistory(
+                GetVoteHistoryRequest
+                    .newBuilder()
+                    .setVoteId(voteId.toString())
+                    .setTelegramId(42)
+                    .setPage(2)
+                    .setPageSize(10)
+                    .build()
+            )
+        assertEquals(25L, response.totalElements)
+        assertEquals(3, response.totalPages)
+        assertEquals(5, response.resultsCount)
+    }
 
     @Test
-    fun `history rejects negative pages and invalid page sizes`() =
-        runBlocking {
-            val user = user(telegramId = 42)
-            every { userQueryService.findByTelegramId(42) } returns user
-            for ((page, size) in listOf(-1 to 20, 0 to -1, 0 to 101)) {
-                val exception =
-                    assertThrows<StatusRuntimeException> {
-                        service.getVoteHistory(
-                            GetVoteHistoryRequest
-                                .newBuilder()
-                                .setVoteId(UUID.randomUUID().toString())
-                                .setTelegramId(42)
-                                .setPage(page)
-                                .setPageSize(size)
-                                .build()
-                        )
-                    }
-                assertEquals(Status.Code.INVALID_ARGUMENT, exception.status.code)
-            }
-            verify(exactly = 0) { voteService.getHistory(any(), any(), any(), any()) }
+    fun `history rejects negative pages and invalid page sizes`() {
+        val user = user()
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        for ((page, size) in listOf(-1 to 20, 0 to -1, 0 to 101)) {
+            val exception =
+                assertThrows<StatusRuntimeException> {
+                    service.getVoteHistory(
+                        GetVoteHistoryRequest
+                            .newBuilder()
+                            .setVoteId(UUID.randomUUID().toString())
+                            .setTelegramId(42)
+                            .setPage(page)
+                            .setPageSize(size)
+                            .build()
+                    )
+                }
+            assertEquals(Status.Code.INVALID_ARGUMENT, exception.status.code)
         }
+        verify(exactly = 0) { voteService.getHistory(any(), any(), any(), any()) }
+    }
 
     @Test
-    fun `createVote reports service validation failures without an internal transport error`() =
-        runBlocking {
-            every { userQueryService.findByTelegramId(42) } returns user(telegramId = 42)
-            every { voteService.createVote(any(), any()) } throws
-                com.juncevich.fate.shared
-                    .BadRequestException("Invalid option title", ErrorCode.VALIDATION_FAILED)
-            val response =
-                service.createVote(
-                    CreateVoteRequest
-                        .newBuilder()
-                        .setTelegramId(42)
-                        .setTitle("Vote")
-                        .addOptions(" ")
-                        .build()
-                )
-            assertFalse(response.success)
-            assertEquals("Invalid option title", response.message)
-        }
+    fun `createVote reports service validation failures without an internal transport error`() {
+        every { userQueryService.findProfileByTelegramId(42) } returns user()
+        every { voteService.createVote(any(), any()) } throws
+            com.juncevich.fate.shared
+                .BadRequestException("Invalid option title", ErrorCode.VALIDATION_FAILED)
+        val response =
+            service.createVote(
+                CreateVoteRequest
+                    .newBuilder()
+                    .setTelegramId(42)
+                    .setTitle("Vote")
+                    .addOptions(" ")
+                    .build()
+            )
+        assertFalse(response.success)
+        assertEquals("Invalid option title", response.message)
+    }
 
     private fun historyDto(
         email: String? = null,
@@ -696,10 +680,5 @@ class FateGrpcServiceTest {
         drawnAt = Instant.parse("2026-04-25T00:00:00Z")
     )
 
-    private fun user(telegramId: Long): User =
-        User(
-            email = "owner@example.com",
-            displayName = "Owner",
-            telegramId = telegramId
-        )
+    private fun user() = UserProfile(UUID.randomUUID(), "owner@example.com", "Owner")
 }

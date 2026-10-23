@@ -5,6 +5,7 @@ import com.juncevich.fate.shared.OpenApiDocs
 import io.swagger.v3.core.converter.AnnotatedType
 import io.swagger.v3.core.converter.ModelConverter
 import io.swagger.v3.core.converter.ModelConverterContext
+import io.swagger.v3.core.jackson.ModelResolver
 import io.swagger.v3.core.util.Json
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.OpenAPI
@@ -40,6 +41,12 @@ class OpenApiConfig(
     @param:Value("\${app.keycloak.public-url}") private val keycloakPublicUrl: String,
     @param:Value("\${app.keycloak.realm}") private val keycloakRealm: String,
 ) {
+    init {
+        // Every enum becomes one shared schema in api/openapi.yaml instead of a copy inlined into
+        // each DTO — globally, so the enums of the module APIs need no OpenAPI annotations.
+        ModelResolver.enumsAsRef = true
+    }
+
     @Bean
     fun openApi(): OpenAPI =
         OpenAPI()

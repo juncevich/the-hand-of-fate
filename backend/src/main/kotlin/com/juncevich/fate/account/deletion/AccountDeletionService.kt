@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
-import java.time.Instant
+import java.time.Clock
 
 @Service
 @Transactional
@@ -26,6 +26,7 @@ class AccountDeletionService(
     private val events: ApplicationEventPublisher,
     private val deletedAccounts: DeletedAccountRepository,
     private val keycloak: KeycloakProperties,
+    private val clock: Clock,
 ) {
     /**
      * Deletes the account once the caller proved it is them by a recent sign-in: its own votes,
@@ -38,7 +39,7 @@ class AccountDeletionService(
         events.publishEvent(AccountDeleted(user.id, user.email))
         outbox.cancelFor(user.email)
         users.delete(user.id)
-        deletedAccounts.record(user.id, Instant.now())
+        deletedAccounts.record(user.id, clock.instant())
         // Object storage is not transactional: only remove the avatar once the deletion is committed.
         TransactionSynchronizationManager.registerSynchronization(
             object : TransactionSynchronization {
@@ -49,7 +50,7 @@ class AccountDeletionService(
 
     private fun requireRecentSignIn(caller: AuthenticatedUser) {
         val signedInAt = caller.authenticatedAt
-        if (signedInAt == null || signedInAt.isBefore(Instant.now().minus(keycloak.reauthenticationMaxAge))) {
+        if (signedInAt == null || signedInAt.isBefore(clock.instant().minus(keycloak.reauthenticationMaxAge))) {
             throw ForbiddenException("Sign in again to confirm it is you", ErrorCode.REAUTHENTICATION_REQUIRED)
         }
     }

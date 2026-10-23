@@ -8,19 +8,13 @@ import java.util.UUID
 class UserQueryService(
     private val userRepository: UserRepository,
 ) {
-    fun findById(id: UUID): User? = userRepository.findById(id)
-
-    fun findByEmail(email: String): User? = userRepository.findByEmail(email)
-
-    fun findAllByEmailIn(emails: Collection<String>): List<User> = userRepository.findAllByEmailIn(emails)
-
-    fun findAllByIdIn(ids: Collection<UUID>): List<User> = userRepository.findAllByIdIn(ids)
-
-    fun findByTelegramId(telegramId: Long): User? = userRepository.findByTelegramId(telegramId)
-
     fun findProfileById(id: UUID): UserProfile? = userRepository.findById(id)?.toProfile()
 
     fun findProfileByEmail(email: String): UserProfile? = userRepository.findByEmail(email)?.toProfile()
+
+    /** The account the Telegram account [telegramId] is linked to. */
+    fun findProfileByTelegramId(telegramId: Long): UserProfile? =
+        userRepository.findByTelegramId(telegramId)?.toProfile()
 
     fun findProfilesByIdIn(ids: Collection<UUID>): List<UserProfile> =
         userRepository.findAllByIdIn(ids).map {

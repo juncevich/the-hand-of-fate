@@ -50,12 +50,12 @@ class WinnerPickerTest {
 
     @Test
     fun `every draw gets a fresh seed`() {
-        assertNotEquals(picker.pick(listOf("a", "b")).second.seed, picker.pick(listOf("a", "b")).second.seed)
+        assertNotEquals(picker.pick(listOf("a", "b")).audit.seed, picker.pick(listOf("a", "b")).audit.seed)
     }
 
     @Test
     fun `winners are spread evenly`() {
-        val counts = List(3000) { picker.pick(listOf("a", "b", "c")).first }.groupingBy { it }.eachCount()
+        val counts = List(3000) { picker.pick(listOf("a", "b", "c")).winner }.groupingBy { it }.eachCount()
 
         assertEquals(setOf("a", "b", "c"), counts.keys)
         counts.values.forEach { assertTrue(it in 850..1150, "unexpected spread $counts") }

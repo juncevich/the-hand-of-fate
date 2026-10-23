@@ -1,42 +1,43 @@
 package com.juncevich.fate.vote.domain
 
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
+import com.juncevich.fate.vote.VoteId
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
 import java.time.Instant
 import java.util.UUID
 
 /** Loads and stores [Vote] aggregates whole: the vote with its participants and options. */
 interface VoteRepository {
-    fun find(id: UUID): Vote?
+    fun find(id: VoteId): Vote?
 
     /** Like [find], holding the vote's row lock until the transaction ends; every change loads it this way. */
-    fun findForUpdate(id: UUID): Vote?
+    fun findForUpdate(id: VoteId): Vote?
 
     /** Inserts a new vote or writes a loaded one back; fails if the stored vote changed since [vote] was loaded. */
     fun save(vote: Vote)
 
-    fun delete(id: UUID)
+    fun delete(id: VoteId)
 
     /** Votes [userId] created or [email] participates in, newest first. */
     fun findSummaries(
-        userId: UUID,
-        email: String,
-        pageable: Pageable,
-    ): Page<VoteSummary>
+        userId: UserId,
+        email: Email,
+        page: PageQuery,
+    ): PageResult<VoteSummary>
 
-    fun countByCreator(creatorId: UUID): Long
+    fun countByCreator(creatorId: UserId): Long
 
     /** Removes [email] from the participants of every vote. */
-    fun removeParticipantEverywhere(email: String)
+    fun removeParticipantEverywhere(email: Email)
 }
 
 /** A list entry: the vote without its participants and options. */
 data class VoteSummary(
-    val id: UUID,
+    val id: VoteId,
     val title: String,
-    val creatorId: UUID,
+    val creatorId: UserId,
     val mode: VoteMode,
     val status: VoteStatus,
     val currentRound: Int,
@@ -48,22 +49,22 @@ data class VoteSummary(
 interface DrawHistoryRepository {
     fun save(entry: DrawHistory)
 
-    fun findLatest(voteId: UUID): DrawHistory?
+    fun findLatest(voteId: VoteId): DrawHistory?
 
     /** Newest first; equal timestamps in a stable order. */
     fun findPage(
-        voteId: UUID,
-        pageable: Pageable,
-    ): Page<DrawHistory>
+        voteId: VoteId,
+        page: PageQuery,
+    ): PageResult<DrawHistory>
 
     fun findByRound(
-        voteId: UUID,
+        voteId: VoteId,
         round: Int,
     ): List<DrawHistory>
 
     /** Keeps [email]'s past wins under [displayName] and without the address. */
     fun anonymizeWins(
-        email: String,
+        email: Email,
         displayName: String,
     )
 }

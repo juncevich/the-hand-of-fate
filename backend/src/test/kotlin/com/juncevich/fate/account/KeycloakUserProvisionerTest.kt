@@ -1,6 +1,9 @@
 package com.juncevich.fate.account
 
+import com.juncevich.fate.FIXED_CLOCK
+import com.juncevich.fate.NOW
 import com.juncevich.fate.account.domain.DeletedAccountRepository
+import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.account.keycloak.KeycloakIdentity
 import com.juncevich.fate.account.keycloak.KeycloakUserProvisioner
@@ -17,11 +20,11 @@ import java.util.UUID
 class KeycloakUserProvisionerTest {
     private val users = mockk<UserRepository>(relaxed = true)
     private val deletedAccounts = mockk<DeletedAccountRepository>()
-    private val provisioner = KeycloakUserProvisioner(users, deletedAccounts)
+    private val provisioner = KeycloakUserProvisioner(users, deletedAccounts, FIXED_CLOCK)
 
     private val identity = KeycloakIdentity(UUID.randomUUID(), "kate@test.com", "Kate")
 
-    private fun account() = User(email = identity.email, displayName = "Old")
+    private fun account() = User(email = identity.email, displayName = "Old", createdAt = NOW)
 
     private fun inserted(identity: KeycloakIdentity): User {
         every { users.findById(identity.id) } returns null

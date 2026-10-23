@@ -10,9 +10,9 @@ class TelegramLinkToken(
     val userId: UUID,
     val token: String,
     val expiresAt: Instant,
-    val createdAt: Instant = Instant.now(),
+    val createdAt: Instant,
 ) {
-    val isExpired get() = Instant.now().isAfter(expiresAt)
+    fun isExpiredAt(now: Instant) = now.isAfter(expiresAt)
 }
 
 interface TelegramLinkTokenRepository {

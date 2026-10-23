@@ -2,20 +2,16 @@ package com.juncevich.fate.grpc
 
 import com.juncevich.fate.account.TelegramLinkService
 import com.juncevich.fate.account.UserQueryService
-import com.juncevich.fate.vote.*
-import io.grpc.Status
-import io.grpc.StatusRuntimeException
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.asCoroutineDispatcher
+import com.juncevich.fate.account.mailbox
+import com.juncevich.fate.account.userId
+import com.juncevich.fate.vote.CreateVoteCommand
+import com.juncevich.fate.vote.VoteId
+import com.juncevich.fate.vote.VoteService
+import io.grpc.stub.StreamObserver
 import org.springframework.data.domain.PageRequest
 import org.springframework.grpc.server.service.GrpcService
-import java.time.format.DateTimeFormatter
 import java.util.UUID
-import java.util.concurrent.Executors
 import com.juncevich.fate.shared.ErrorCode as DomainErrorCode
-import com.juncevich.fate.vote.DrawTarget as DomainDrawTarget
-import com.juncevich.fate.vote.VoteMode as DomainVoteMode
-import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 
 private const val GRPC_DEFAULT_PAGE_SIZE = 50
 
@@ -23,20 +19,23 @@ private const val GRPC_DEFAULT_PAGE_SIZE = 50
 // unusually large number of votes can't force an unbounded aggregation.
 private const val GRPC_MAX_PAGES = 20
 
-// Every RPC body makes blocking JPA calls; a virtual thread per dispatch parks cheaply
-// while waiting on the database instead of holding a platform thread.
-private val virtualThreadDispatcher: CoroutineDispatcher =
-    Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher()
-
+/**
+ * The bot's API. Each RPC runs on its own virtual thread (`GrpcServerConfig`) and calls the
+ * blocking services directly; the `internal` overloads hold the bodies, the overrides only
+ * complete the call ([unary]).
+ */
 @GrpcService
 class FateGrpcService(
     private val userQueryService: UserQueryService,
     private val telegramLinkService: TelegramLinkService,
     private val voteService: VoteService,
-    // Coroutine context for every RPC; injectable so tests can swap it
-    dispatcher: CoroutineDispatcher = virtualThreadDispatcher,
-) : FateServiceGrpcKt.FateServiceCoroutineImplBase(dispatcher) {
-    override suspend fun linkTelegramAccount(request: LinkTelegramAccountRequest): LinkTelegramAccountResponse =
+) : FateServiceGrpc.FateServiceImplBase() {
+    override fun linkTelegramAccount(
+        request: LinkTelegramAccountRequest,
+        responseObserver: StreamObserver<LinkTelegramAccountResponse>,
+    ) = unary(responseObserver) { linkTelegramAccount(request) }
+
+    internal fun linkTelegramAccount(request: LinkTelegramAccountRequest): LinkTelegramAccountResponse =
         grpcMutation(
             failure = { message, code ->
                 LinkTelegramAccountResponse
@@ -61,7 +60,12 @@ class FateGrpcService(
                 .build()
         }
 
-    override suspend fun unlinkTelegramAccount(request: UnlinkTelegramAccountRequest): UnlinkTelegramAccountResponse =
+    override fun unlinkTelegramAccount(
+        request: UnlinkTelegramAccountRequest,
+        responseObserver: StreamObserver<UnlinkTelegramAccountResponse>,
+    ) = unary(responseObserver) { unlinkTelegramAccount(request) }
+
+    internal fun unlinkTelegramAccount(request: UnlinkTelegramAccountRequest): UnlinkTelegramAccountResponse =
         grpcMutation(
             failure = { message, code ->
                 UnlinkTelegramAccountResponse
@@ -80,7 +84,12 @@ class FateGrpcService(
                 .build()
         }
 
-    override suspend fun getMyVotes(request: GetMyVotesRequest): GetMyVotesResponse {
+    override fun getMyVotes(
+        request: GetMyVotesRequest,
+        responseObserver: StreamObserver<GetMyVotesResponse>,
+    ) = unary(responseObserver) { getMyVotes(request) }
+
+    internal fun getMyVotes(request: GetMyVotesRequest): GetMyVotesResponse {
         val user = linkedUser(request.telegramId)
         val votes =
             buildList {
@@ -88,8 +97,8 @@ class FateGrpcService(
                 do {
                     val page =
                         voteService.listVotes(
-                            user.id,
-                            user.email,
+                            user.userId,
+                            user.mailbox,
                             PageRequest.of(pageNumber, GRPC_DEFAULT_PAGE_SIZE)
                         )
                     addAll(page.content)
@@ -112,7 +121,12 @@ class FateGrpcService(
         return GetMyVotesResponse.newBuilder().addAllVotes(summaries).build()
     }
 
-    override suspend fun createVote(request: CreateVoteRequest): CreateVoteResponse {
+    override fun createVote(
+        request: CreateVoteRequest,
+        responseObserver: StreamObserver<CreateVoteResponse>,
+    ) = unary(responseObserver) { createVote(request) }
+
+    internal fun createVote(request: CreateVoteRequest): CreateVoteResponse {
         val user = linkedUser(request.telegramId)
         val title = request.title.trim()
         if (title.isBlank()) {
@@ -134,7 +148,7 @@ class FateGrpcService(
         ) {
             val vote =
                 voteService.createVote(
-                    creatorId = user.id,
+                    creatorId = user.userId,
                     request =
                         CreateVoteCommand(
                             title = title,
@@ -150,22 +164,32 @@ class FateGrpcService(
                 .newBuilder()
                 .setSuccess(true)
                 .setMessage("Vote created")
-                .setVote(buildVoteDetailsResponse(vote))
+                .setVote(vote.toProto())
                 .build()
         }
     }
 
-    override suspend fun getVoteDetails(request: GetVoteDetailsRequest): GetVoteDetailsResponse {
+    override fun getVoteDetails(
+        request: GetVoteDetailsRequest,
+        responseObserver: StreamObserver<GetVoteDetailsResponse>,
+    ) = unary(responseObserver) { getVoteDetails(request) }
+
+    internal fun getVoteDetails(request: GetVoteDetailsRequest): GetVoteDetailsResponse {
         val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
         val voteDto =
             grpcRead {
-                voteService.getVote(voteId, user.id, user.email)
+                voteService.getVote(voteId, user.userId, user.mailbox)
             }
-        return buildVoteDetailsResponse(voteDto)
+        return voteDto.toProto()
     }
 
-    override suspend fun drawVote(request: DrawVoteRequest): DrawVoteResponse {
+    override fun drawVote(
+        request: DrawVoteRequest,
+        responseObserver: StreamObserver<DrawVoteResponse>,
+    ) = unary(responseObserver) { drawVote(request) }
+
+    internal fun drawVote(request: DrawVoteRequest): DrawVoteResponse {
         val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
         return grpcMutation(
@@ -178,7 +202,7 @@ class FateGrpcService(
                     .build()
             }
         ) {
-            val result = voteService.draw(voteId, user.id)
+            val result = voteService.draw(voteId, user.userId)
             DrawVoteResponse
                 .newBuilder()
                 .setSuccess(true)
@@ -192,13 +216,18 @@ class FateGrpcService(
         }
     }
 
-    override suspend fun getLastDrawResult(request: GetLastDrawResultRequest): GetLastDrawResultResponse {
+    override fun getLastDrawResult(
+        request: GetLastDrawResultRequest,
+        responseObserver: StreamObserver<GetLastDrawResultResponse>,
+    ) = unary(responseObserver) { getLastDrawResult(request) }
+
+    internal fun getLastDrawResult(request: GetLastDrawResultRequest): GetLastDrawResultResponse {
         val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
 
         val lastDraw =
             grpcRead {
-                voteService.getLastResult(voteId, user.id, user.email)
+                voteService.getLastResult(voteId, user.userId, user.mailbox)
             }
 
         return if (lastDraw == null) {
@@ -212,12 +241,17 @@ class FateGrpcService(
         }
     }
 
-    override suspend fun getVoteHistory(request: GetVoteHistoryRequest): GetVoteHistoryResponse {
+    override fun getVoteHistory(
+        request: GetVoteHistoryRequest,
+        responseObserver: StreamObserver<GetVoteHistoryResponse>,
+    ) = unary(responseObserver) { getVoteHistory(request) }
+
+    internal fun getVoteHistory(request: GetVoteHistoryRequest): GetVoteHistoryResponse {
         val user = linkedUser(request.telegramId)
         val voteId = parseVoteId(request.voteId)
         val history =
             grpcRead {
-                voteService.getHistory(voteId, user.id, user.email, historyPage(request))
+                voteService.getHistory(voteId, user.userId, user.mailbox, historyPage(request))
             }
         return GetVoteHistoryResponse
             .newBuilder()
@@ -237,98 +271,11 @@ class FateGrpcService(
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private fun buildVoteDetailsResponse(vote: VoteDetailView): GetVoteDetailsResponse {
-        val builder =
-            GetVoteDetailsResponse
-                .newBuilder()
-                .setVoteId(vote.id.toString())
-                .setTitle(vote.title)
-                .setDescription(vote.description.orEmpty())
-                .setMode(vote.mode.toProto())
-                .setDrawTarget(vote.drawTarget.toProto())
-                .setStatus(vote.status.toProto())
-                .setCurrentRound(vote.currentRound)
-                .addAllParticipants(
-                    vote.participants.map {
-                        ParticipantInfo
-                            .newBuilder()
-                            .setEmail(it.email)
-                            .setDisplayName(it.displayName.orEmpty())
-                            .build()
-                    }
-                ).addAllOptions(
-                    vote.options.map {
-                        VoteOptionInfo
-                            .newBuilder()
-                            .setOptionId(it.id.toString())
-                            .setTitle(it.title)
-                            .build()
-                    }
-                )
-        vote.lastResult?.let { last ->
-            builder.setLastResult(last.toDrawResultInfo())
-        }
-        return builder.build()
-    }
-
-    private fun DrawHistoryView.toDrawResultInfo(): DrawResultInfo =
-        DrawResultInfo
-            .newBuilder()
-            .setWinnerEmail(winner.email)
-            .setWinnerDisplayName(winner.displayName)
-            .setWinnerOptionTitle(winner.optionTitle)
-            .setRound(round)
-            .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(drawnAt))
-            .build()
-
-    // proto3 strings have no null: the fields of the other kind of winner are empty.
-    private val Winner.email get() = (this as? Winner.Participant)?.email.orEmpty()
-    private val Winner.displayName get() = (this as? Winner.Participant)?.displayName.orEmpty()
-    private val Winner.optionTitle get() = (this as? Winner.Option)?.title.orEmpty()
-
     private fun linkedUser(telegramId: Long) =
-        userQueryService.findByTelegramId(telegramId)
+        userQueryService.findProfileByTelegramId(telegramId)
             ?: throw GrpcErrors.telegramNotLinked()
 
-    private fun parseVoteId(value: String): UUID =
-        runCatching { UUID.fromString(value) }
+    private fun parseVoteId(value: String): VoteId =
+        runCatching { VoteId(UUID.fromString(value)) }
             .getOrElse { throw GrpcErrors.invalidArgument(DomainErrorCode.VOTE_ID_INVALID, "Invalid vote id") }
-
-    // ── Proto enum conversions ──────────────────────────────────────────────
-
-    private fun DomainVoteStatus.toProto(): VoteStatus =
-        when (this) {
-            DomainVoteStatus.PENDING -> VoteStatus.VOTE_STATUS_PENDING
-            DomainVoteStatus.DRAWN -> VoteStatus.VOTE_STATUS_DRAWN
-            DomainVoteStatus.CLOSED -> VoteStatus.VOTE_STATUS_CLOSED
-        }
-
-    private fun DomainVoteMode.toProto(): VoteMode =
-        when (this) {
-            DomainVoteMode.SIMPLE -> VoteMode.VOTE_MODE_SIMPLE
-            DomainVoteMode.FAIR_ROTATION -> VoteMode.VOTE_MODE_FAIR_ROTATION
-        }
-
-    private fun DomainDrawTarget.toProto(): DrawTarget =
-        when (this) {
-            DomainDrawTarget.PARTICIPANTS -> DrawTarget.DRAW_TARGET_PARTICIPANTS
-            DomainDrawTarget.OPTIONS -> DrawTarget.DRAW_TARGET_OPTIONS
-        }
-
-    private fun DrawTarget.toDomain(): DomainDrawTarget? =
-        when (this) {
-            DrawTarget.DRAW_TARGET_PARTICIPANTS -> DomainDrawTarget.PARTICIPANTS
-            DrawTarget.DRAW_TARGET_OPTIONS -> DomainDrawTarget.OPTIONS
-            DrawTarget.DRAW_TARGET_UNSPECIFIED, DrawTarget.UNRECOGNIZED -> null
-        }
-
-    private fun VoteMode.toDomain(): DomainVoteMode =
-        when (this) {
-            VoteMode.VOTE_MODE_FAIR_ROTATION -> DomainVoteMode.FAIR_ROTATION
-
-            VoteMode.VOTE_MODE_SIMPLE,
-            VoteMode.VOTE_MODE_UNSPECIFIED,
-            VoteMode.UNRECOGNIZED,
-            -> DomainVoteMode.SIMPLE
-        }
 }

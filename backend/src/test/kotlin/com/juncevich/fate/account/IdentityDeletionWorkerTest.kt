@@ -1,5 +1,7 @@
 package com.juncevich.fate.account
 
+import com.juncevich.fate.FIXED_CLOCK
+import com.juncevich.fate.NOW
 import com.juncevich.fate.account.deletion.IdentityDeletionWorker
 import com.juncevich.fate.account.domain.DeletedAccountRepository
 import com.juncevich.fate.account.domain.IdentityAdmin
@@ -22,7 +24,7 @@ class IdentityDeletionWorkerTest {
             clientSecret = "secret",
             deletedAccountRetention = Duration.ofDays(1)
         )
-    private val worker = IdentityDeletionWorker(deletedAccounts, identityAdmin, props)
+    private val worker = IdentityDeletionWorker(deletedAccounts, identityAdmin, props, FIXED_CLOCK)
 
     @Test
     fun `deletes pending Keycloak users, keeps failed ones pending and purges old deletions`() {
@@ -34,12 +36,8 @@ class IdentityDeletionWorkerTest {
 
         worker.run()
 
-        verify { deletedAccounts.markIdentityDeleted(done, any()) }
+        verify { deletedAccounts.markIdentityDeleted(done, NOW) }
         verify(exactly = 0) { deletedAccounts.markIdentityDeleted(failing, any()) }
-        verify {
-            deletedAccounts.purge(
-                match { it.isBefore(Instant.now().minus(Duration.ofHours(23))) && it.isAfter(Instant.now().minus(Duration.ofHours(25))) }
-            )
-        }
+        verify { deletedAccounts.purge(NOW.minus(Duration.ofDays(1))) }
     }
 }

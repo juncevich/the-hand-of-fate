@@ -1,6 +1,5 @@
 package com.juncevich.fate.vote.domain
 
-import org.springframework.stereotype.Component
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -17,22 +16,27 @@ data class DrawAudit(
     val candidates: List<String>,
 )
 
+/** A drawn winner — one of the candidate keys passed to [WinnerPicker.pick] — and how to recompute it. */
+data class Pick(
+    val winner: String,
+    val audit: DrawAudit,
+)
+
 /**
  * Picks draw winners reproducibly: a fresh seed from [SecureRandom] per draw, and a winner index
  * derived from it with SHA-256, so anyone holding a [DrawAudit] can recompute the result.
  * This proves the recorded winner follows from the recorded seed — not that the seed itself was
  * not chosen by the server, which would need a commit-reveal scheme.
  */
-@Component
 class WinnerPicker(
     private val random: SecureRandom = SecureRandom(),
 ) {
     /** Picks one of [candidateKeys] (any order; they are sorted first) and returns it with its audit record. */
-    fun pick(candidateKeys: Collection<String>): Pair<String, DrawAudit> {
+    fun pick(candidateKeys: Collection<String>): Pick {
         require(candidateKeys.isNotEmpty()) { "Nothing to draw from" }
         val candidates = candidateKeys.distinct().sorted()
         val seed = HexFormat.of().formatHex(ByteArray(SEED_BYTES).also(random::nextBytes))
-        return candidates[index(seed, candidates.size)] to DrawAudit(seed, candidates)
+        return Pick(candidates[index(seed, candidates.size)], DrawAudit(seed, candidates))
     }
 
     companion object {

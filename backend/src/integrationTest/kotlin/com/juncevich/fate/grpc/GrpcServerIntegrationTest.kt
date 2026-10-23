@@ -6,9 +6,9 @@ import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.Metadata
 import io.grpc.Status
-import io.grpc.StatusException
+import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
-import kotlinx.coroutines.runBlocking
+import io.grpc.stub.MetadataUtils
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -44,12 +44,12 @@ class GrpcServerIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     private lateinit var channel: ManagedChannel
-    private lateinit var stub: FateServiceGrpcKt.FateServiceCoroutineStub
+    private lateinit var stub: FateServiceGrpc.FateServiceBlockingStub
 
     @BeforeEach
     fun openChannel() {
         channel = ManagedChannelBuilder.forAddress("127.0.0.1", port).usePlaintext().build()
-        stub = FateServiceGrpcKt.FateServiceCoroutineStub(channel)
+        stub = FateServiceGrpc.newBlockingStub(channel)
     }
 
     @AfterEach
@@ -57,21 +57,26 @@ class GrpcServerIntegrationTest : AbstractApiIntegrationTest() {
         channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS)
     }
 
-    private fun secret(value: String) = Metadata().apply { put(SharedSecretAuthInterceptor.SHARED_SECRET_KEY, value) }
+    private fun withSecret(value: String): FateServiceGrpc.FateServiceBlockingStub =
+        stub.withInterceptors(
+            MetadataUtils.newAttachHeadersInterceptor(
+                Metadata().apply { put(SharedSecretAuthInterceptor.SHARED_SECRET_KEY, value) }
+            )
+        )
 
     private fun getMyVotes(telegramId: Long) = GetMyVotesRequest.newBuilder().setTelegramId(telegramId).build()
 
     @Test
     fun `call without shared secret is rejected as UNAUTHENTICATED`() {
-        val ex = assertThrows<StatusException> { runBlocking { stub.getMyVotes(getMyVotes(1)) } }
+        val ex = assertThrows<StatusRuntimeException> { stub.getMyVotes(getMyVotes(1)) }
         assertEquals(Status.Code.UNAUTHENTICATED, ex.status.code)
     }
 
     @Test
     fun `call with wrong shared secret is rejected as UNAUTHENTICATED`() {
         val ex =
-            assertThrows<StatusException> {
-                runBlocking { stub.getMyVotes(getMyVotes(1), secret("wrong-secret")) }
+            assertThrows<StatusRuntimeException> {
+                withSecret("wrong-secret").getMyVotes(getMyVotes(1))
             }
         assertEquals(Status.Code.UNAUTHENTICATED, ex.status.code)
     }
@@ -79,8 +84,8 @@ class GrpcServerIntegrationTest : AbstractApiIntegrationTest() {
     @Test
     fun `call with valid secret reaches the service`() {
         val ex =
-            assertThrows<StatusException> {
-                runBlocking { stub.getMyVotes(getMyVotes(Random.nextLong(1, Long.MAX_VALUE)), secret(SHARED_SECRET)) }
+            assertThrows<StatusRuntimeException> {
+                withSecret(SHARED_SECRET).getMyVotes(getMyVotes(Random.nextLong(1, Long.MAX_VALUE)))
             }
         assertEquals(Status.Code.NOT_FOUND, ex.status.code)
         assertEquals("Telegram account not linked", ex.status.description)
@@ -105,61 +110,57 @@ class GrpcServerIntegrationTest : AbstractApiIntegrationTest() {
                     .response.contentAsString
             ).text("token")
         val telegramId = Random.nextLong(1, Long.MAX_VALUE)
-        val headers = secret(SHARED_SECRET)
+        val authed = withSecret(SHARED_SECRET)
 
-        runBlocking {
+        run {
             val link =
-                stub.linkTelegramAccount(
+                authed.linkTelegramAccount(
                     LinkTelegramAccountRequest
                         .newBuilder()
                         .setLinkToken(linkToken)
                         .setTelegramId(telegramId)
                         .setTelegramName("tester")
-                        .build(),
-                    headers
+                        .build()
                 )
             assertTrue(link.success, link.message)
 
             val created =
-                stub.createVote(
+                authed.createVote(
                     CreateVoteRequest
                         .newBuilder()
                         .setTelegramId(telegramId)
                         .setTitle("gRPC vote")
                         .setMode(VoteMode.VOTE_MODE_SIMPLE)
                         .addAllOptions(listOf("Alpha", "Beta"))
-                        .build(),
-                    headers
+                        .build()
                 )
             assertTrue(created.success, created.message)
             val voteId = created.vote.voteId
 
             val draw =
-                stub.drawVote(
+                authed.drawVote(
                     DrawVoteRequest
                         .newBuilder()
                         .setTelegramId(telegramId)
                         .setVoteId(voteId)
-                        .build(),
-                    headers
+                        .build()
                 )
             assertTrue(draw.success, draw.message)
             assertTrue(draw.winnerOptionTitle in setOf("Alpha", "Beta"))
 
-            val votes = stub.getMyVotes(getMyVotes(telegramId), headers)
+            val votes = authed.getMyVotes(getMyVotes(telegramId))
             val summary = votes.votesList.single { it.voteId == voteId }
             assertEquals(VoteStatus.VOTE_STATUS_DRAWN, summary.status)
             assertTrue(summary.isCreator)
 
             val invalid =
-                assertThrows<StatusException> {
-                    stub.getVoteDetails(
+                assertThrows<StatusRuntimeException> {
+                    authed.getVoteDetails(
                         GetVoteDetailsRequest
                             .newBuilder()
                             .setTelegramId(telegramId)
                             .setVoteId("not-a-uuid")
-                            .build(),
-                        headers
+                            .build()
                     )
                 }
             assertEquals(Status.Code.INVALID_ARGUMENT, invalid.status.code)

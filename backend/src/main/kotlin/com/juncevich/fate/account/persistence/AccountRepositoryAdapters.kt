@@ -1,9 +1,9 @@
 package com.juncevich.fate.account.persistence
 
-import com.juncevich.fate.account.User
 import com.juncevich.fate.account.domain.DeletedAccountRepository
 import com.juncevich.fate.account.domain.TelegramLinkToken
 import com.juncevich.fate.account.domain.TelegramLinkTokenRepository
+import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
 import jakarta.persistence.EntityManager
 import org.springframework.data.domain.Limit

@@ -2,7 +2,6 @@ package com.juncevich.fate.account.persistence
 
 import com.juncevich.fate.shared.uuidV7
 import jakarta.persistence.*
-import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import org.springframework.data.jpa.repository.JpaRepository
@@ -29,12 +28,12 @@ class UserJpaEntity(
     var telegramName: String? = null,
     @Column(name = "avatar_updated_at")
     var avatarUpdatedAt: Instant? = null,
-    @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    var createdAt: Instant = Instant.now(),
+    var createdAt: Instant,
+    /** Technical: set by Spring Data auditing on every write (from the application `Clock`). */
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: Instant = Instant.now(),
+    var updatedAt: Instant? = null,
 )
 
 interface UserJpaRepository : JpaRepository<UserJpaEntity, UUID> {

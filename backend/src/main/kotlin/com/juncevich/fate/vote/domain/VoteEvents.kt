@@ -1,22 +1,23 @@
 package com.juncevich.fate.vote.domain
 
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.vote.DrawResult
-import java.util.UUID
+import com.juncevich.fate.vote.VoteId
 
 /**
  * Domain events published by `VoteService`. The recorder persists recipient jobs in the same
  * transaction; the delivery worker sees them only after commit.
  */
 data class ParticipantInvited(
-    val voteId: UUID,
+    val voteId: VoteId,
     val voteTitle: String,
     val creatorName: String,
-    val recipientEmail: String,
+    val recipientEmail: Email,
 )
 
 data class VoteDrawn(
-    val voteId: UUID,
+    val voteId: VoteId,
     val voteTitle: String,
     val result: DrawResult,
-    val participantEmails: List<String>,
+    val participantEmails: List<Email>,
 )
