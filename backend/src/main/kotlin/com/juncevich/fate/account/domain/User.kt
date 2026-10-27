@@ -1,8 +1,8 @@
 package com.juncevich.fate.account.domain
 
-import com.juncevich.fate.shared.uuidV7
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
 import java.time.Instant
-import java.util.UUID
 
 /**
  * An account of this application; who it is comes from Keycloak (docs/adr/0001). Immutable: a
@@ -10,8 +10,8 @@ import java.util.UUID
  * modules see an account as `UserProfile`.
  */
 data class User(
-    val id: UUID = uuidV7(),
-    val email: String,
+    val id: UserId,
+    val email: Email,
     val displayName: String,
     val telegramId: Long? = null,
     val telegramName: String? = null,

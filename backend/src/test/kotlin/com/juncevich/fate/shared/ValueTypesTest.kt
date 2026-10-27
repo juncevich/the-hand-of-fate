@@ -21,6 +21,13 @@ class ValueTypesTest {
     }
 
     @Test
+    fun `malformed and oversized addresses are rejected`() {
+        for (email in listOf("invalid", "a b@test.com", "a".repeat(256) + "@test.com")) {
+            assertEquals(ErrorCode.INVALID_EMAIL, assertThrows<BadRequestException>(email) { Email.of(email) }.code)
+        }
+    }
+
+    @Test
     fun `ids print as their uuid`() {
         val uuid = UUID.randomUUID()
         assertEquals(uuid.toString(), UserId(uuid).toString())

@@ -45,7 +45,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   VOTE_NOT_PENDING: 'Голосование уже разыграно или закрыто',
   VOTE_NOT_DRAWN: 'Переоткрыть можно только разыгранное голосование',
   VOTE_ALREADY_CLOSED: 'Голосование уже закрыто',
-  TITLE_INVALID: 'Название должно быть от 1 до 255 символов',
+  TITLE_INVALID: 'Название — одна строка от 1 до 255 символов',
   DESCRIPTION_TOO_LONG: 'Описание не длиннее 2000 символов',
   TOO_MANY_PARTICIPANTS: 'Не больше 100 участников, включая вас',
   TOO_MANY_OPTIONS: 'Не больше 100 вариантов',

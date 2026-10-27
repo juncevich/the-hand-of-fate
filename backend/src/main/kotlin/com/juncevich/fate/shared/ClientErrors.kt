@@ -13,18 +13,17 @@ private const val UNIQUE_VIOLATION = "23505"
  * as an internal error without its message.
  */
 fun Throwable.asClientError(): FateException? =
-    when {
-        this is FateException -> {
+    when (this) {
+        is FateException -> {
             this
         }
 
-        this is OptimisticLockingFailureException -> {
+        is OptimisticLockingFailureException -> {
             ConflictException("The resource was modified concurrently, please retry", ErrorCode.CONCURRENT_MODIFICATION)
         }
 
         // A unique constraint backs up a rule the code already checks (e.g. a duplicate option title).
-        this is DataIntegrityViolationException &&
-            causes().filterIsInstance<SQLException>().any { it.sqlState == UNIQUE_VIOLATION } -> {
+        is DataIntegrityViolationException if isUniqueViolation() -> {
             ConflictException("The resource already exists", ErrorCode.ALREADY_EXISTS)
         }
 
@@ -33,4 +32,5 @@ fun Throwable.asClientError(): FateException? =
         }
     }
 
-private fun Throwable.causes(): Sequence<Throwable> = generateSequence(this) { it.cause }
+private fun Throwable.isUniqueViolation(): Boolean =
+    generateSequence(this) { it.cause }.filterIsInstance<SQLException>().any { it.sqlState == UNIQUE_VIOLATION }

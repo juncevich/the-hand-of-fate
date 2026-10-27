@@ -226,6 +226,18 @@ class VoteTest {
 
             assertEquals(listOf(CREATOR_EMAIL), vote.participants.map { it.email.value })
         }
+
+        @Test
+        fun `the creator may leave the draw and still runs and sees the vote`() {
+            val vote = vote(participants = listOf(CREATOR_EMAIL, "p@test.com"))
+
+            vote.removeParticipant(CREATOR_ID, CREATOR_EMAIL)
+
+            assertEquals(listOf("p@test.com"), vote.participants.map { it.email.value })
+            vote.requireViewer(CREATOR_ID, Email.of(CREATOR_EMAIL))
+            val entry = vote.draw(CREATOR_ID, WinnerPicker(), NOW, noHistory).entry as DrawHistory.ParticipantWinner
+            assertEquals("p@test.com", entry.email?.value)
+        }
     }
 
     @Nested

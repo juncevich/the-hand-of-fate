@@ -7,9 +7,9 @@ import org.springframework.core.convert.converter.Converter
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.security.authentication.AbstractAuthenticationToken
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+import org.springframework.security.config.annotation.web.invoke
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver
@@ -22,46 +22,33 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
 class SecurityConfig(
     private val accessTokenAuthenticationConverter: Converter<Jwt, AbstractAuthenticationToken>,
     private val frontend: FrontendProperties,
 ) {
     @Bean
-    fun filterChain(http: HttpSecurity): SecurityFilterChain =
-        http
-            .csrf { it.disable() }
-            .cors { it.configurationSource(corsConfigurationSource()) }
-            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-            .authorizeHttpRequests { auth ->
-                auth
-                    .requestMatchers(HttpMethod.GET, "/api/v1/users/*/avatar")
-                    .permitAll()
-                    .requestMatchers(
-                        HttpMethod.POST,
-                        "/api/v1/notifications/unsubscribe",
-                        "/api/v1/notifications/unsubscribe/one-click"
-                    ).permitAll()
-                    .requestMatchers("/actuator/health/**")
-                    .permitAll()
-                    .requestMatchers(
-                        "/v3/api-docs",
-                        "/v3/api-docs.yaml",
-                        "/v3/api-docs/**",
-                        "/swagger-ui/**",
-                        "/swagger-ui.html"
-                    ).permitAll()
-                    .requestMatchers(HttpMethod.OPTIONS, "/**")
-                    .permitAll()
-                    .anyRequest()
-                    .authenticated()
-            }.oauth2ResourceServer { rs ->
-                rs.bearerTokenResolver(bearerTokenResolver())
-                rs.jwt { it.jwtAuthenticationConverter(accessTokenAuthenticationConverter) }
-            }.exceptionHandling {
-                // Return 401 for unauthenticated requests to protected endpoints
-                it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-            }.build()
+    fun filterChain(http: HttpSecurity): SecurityFilterChain {
+        http {
+            csrf { disable() }
+            cors { configurationSource = corsConfigurationSource() }
+            sessionManagement { sessionCreationPolicy = SessionCreationPolicy.STATELESS }
+            authorizeHttpRequests {
+                authorize(HttpMethod.GET, "/api/v1/users/*/avatar", permitAll)
+                UNSUBSCRIBE_PATHS.forEach { authorize(HttpMethod.POST, it, permitAll) }
+                authorize("/actuator/health/**", permitAll)
+                SWAGGER_PATHS.forEach { authorize(it, permitAll) }
+                authorize(HttpMethod.OPTIONS, "/**", permitAll)
+                authorize(anyRequest, authenticated)
+            }
+            oauth2ResourceServer {
+                bearerTokenResolver = bearerTokenResolver()
+                jwt { jwtAuthenticationConverter = accessTokenAuthenticationConverter }
+            }
+            // Return 401 for unauthenticated requests to protected endpoints
+            exceptionHandling { authenticationEntryPoint = HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED) }
+        }
+        return http.build()
+    }
 
     /**
      * The public unsubscribe endpoints ignore a bearer token, so a stale one can never turn them
@@ -94,5 +81,8 @@ class SecurityConfig(
                 "/api/v1/notifications/unsubscribe",
                 "/api/v1/notifications/unsubscribe/one-click"
             )
+
+        val SWAGGER_PATHS =
+            listOf("/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
     }
 }

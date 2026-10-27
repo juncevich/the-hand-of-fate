@@ -3,6 +3,7 @@ package com.juncevich.fate.notification.delivery
 import com.juncevich.fate.notification.DrawResultPayload
 import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.notification.InvitationPayload
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.FrontendProperties
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
@@ -46,8 +47,9 @@ class NotificationAdapter(
     private fun voteUrl(voteId: UUID) = "$frontendUrl/votes/$voteId"
 
     // The API is served from the same origin as the SPA (nginx proxies /api/).
-    private fun unsubscribeLinks(email: String): UnsubscribeLinks {
-        val query = "email=${encode(email)}&sig=${preferences.sign(email)}"
+    private fun unsubscribeLinks(recipient: String): UnsubscribeLinks {
+        val email = Email.trusted(recipient)
+        val query = "email=${encode(email.value)}&sig=${preferences.sign(email)}"
         return UnsubscribeLinks(
             page = "$frontendUrl/unsubscribe?$query",
             oneClick = "$frontendUrl/api/v1/notifications/unsubscribe/one-click?$query"

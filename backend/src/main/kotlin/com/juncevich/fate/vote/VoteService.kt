@@ -1,22 +1,8 @@
 package com.juncevich.fate.vote
 
 import com.juncevich.fate.account.UserQueryService
-import com.juncevich.fate.account.mailbox
-import com.juncevich.fate.shared.Email
-import com.juncevich.fate.shared.ErrorCode
-import com.juncevich.fate.shared.NotFoundException
-import com.juncevich.fate.shared.UserId
-import com.juncevich.fate.shared.ensureValid
-import com.juncevich.fate.vote.domain.DrawHistory
-import com.juncevich.fate.vote.domain.DrawHistoryRepository
-import com.juncevich.fate.vote.domain.DrawOutcome
-import com.juncevich.fate.vote.domain.PageQuery
-import com.juncevich.fate.vote.domain.PageResult
-import com.juncevich.fate.vote.domain.Vote
-import com.juncevich.fate.vote.domain.VoteRepository
-import com.juncevich.fate.vote.domain.VoteSummary
-import com.juncevich.fate.vote.domain.WinnerPicker
-import com.juncevich.fate.vote.domain.winner
+import com.juncevich.fate.shared.*
+import com.juncevich.fate.vote.domain.*
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
@@ -26,7 +12,7 @@ import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
-import java.util.UUID
+import java.util.*
 
 private const val MAX_HISTORY_PAGE_SIZE = 100
 
@@ -52,12 +38,12 @@ class VoteService(
         request: CreateVoteCommand,
     ): VoteDetailView {
         val creator =
-            userQueryService.findProfileById(creatorId.value)
+            userQueryService.findProfileById(creatorId)
                 ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
         val vote =
             Vote.create(
                 creatorId = creatorId,
-                creatorEmail = creator.mailbox,
+                creatorEmail = creator.email,
                 title = request.title,
                 description = request.description,
                 mode = request.mode,
@@ -66,9 +52,7 @@ class VoteService(
                 optionTitles = request.options.orEmpty(),
                 now = clock.instant()
             ) { emails ->
-                userQueryService
-                    .findProfilesByEmailIn(emails.map { it.value })
-                    .associate { it.mailbox to it.displayName }
+                userQueryService.findProfilesByEmailIn(emails).associate { it.email to it.displayName }
             }
         store(vote)
         meterRegistry.counter("vote.created", "mode", vote.mode.name).increment()
@@ -105,7 +89,7 @@ class VoteService(
         requesterId: UserId,
         email: String,
     ) = change(voteId) { vote ->
-        vote.invite(requesterId, email, clock.instant()) { userQueryService.findProfileByEmail(it.value)?.displayName }
+        vote.invite(requesterId, email, clock.instant()) { userQueryService.findProfileByEmail(it)?.displayName }
     }
 
     fun removeParticipant(

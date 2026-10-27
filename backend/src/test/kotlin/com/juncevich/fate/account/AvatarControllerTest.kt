@@ -5,8 +5,10 @@ import com.juncevich.fate.account.avatar.AvatarService
 import com.juncevich.fate.account.avatar.InvalidAvatarException
 import com.juncevich.fate.account.web.AvatarController
 import com.juncevich.fate.platform.ErrorHandler
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
+import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.storage.StorageUnavailableException
 import io.mockk.every
 import io.mockk.just
@@ -33,7 +35,7 @@ class AvatarControllerTest {
     private val avatarService = mockk<AvatarService>()
     private lateinit var mockMvc: MockMvc
 
-    private val userId = UUID.randomUUID()
+    private val userId = UserId(UUID.randomUUID())
     private val file = MockMultipartFile("file", "me.png", "image/png", byteArrayOf(1, 2, 3))
 
     @BeforeEach
@@ -47,7 +49,7 @@ class AvatarControllerTest {
 
         SecurityContextHolder.getContext().authentication =
             UsernamePasswordAuthenticationToken(
-                AuthenticatedUser(userId, "user@test.com"),
+                AuthenticatedUser(userId, Email.of("user@test.com")),
                 null,
                 listOf(SimpleGrantedAuthority("ROLE_USER"))
             )

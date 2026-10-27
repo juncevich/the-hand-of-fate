@@ -8,7 +8,9 @@ import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.NotFoundException
+import com.juncevich.fate.shared.UserId
 import io.mockk.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -22,10 +24,10 @@ class TelegramLinkServiceTest {
 
     private val service = TelegramLinkService(linkTokens, userRepository, FIXED_CLOCK)
 
-    private fun makeUser(id: UUID = UUID.randomUUID()) =
+    private fun makeUser(id: UserId = UserId(UUID.randomUUID())) =
         User(
             id = id,
-            email = "user@test.com",
+            email = Email.of("user@test.com"),
             displayName = "Test User",
             createdAt = NOW
         )
@@ -40,7 +42,7 @@ class TelegramLinkServiceTest {
 
     @Test
     fun `generateLinkToken - revokes existing tokens and saves new one`() {
-        val userId = UUID.randomUUID()
+        val userId = UserId(UUID.randomUUID())
         val user = makeUser(userId)
 
         every { linkTokens.deleteAllByUserId(userId) } just Runs
@@ -57,7 +59,7 @@ class TelegramLinkServiceTest {
 
     @Test
     fun `generateLinkToken - generated token has no hyphens`() {
-        val userId = UUID.randomUUID()
+        val userId = UserId(UUID.randomUUID())
         val user = makeUser(userId)
 
         every { linkTokens.deleteAllByUserId(userId) } just Runs
@@ -71,7 +73,7 @@ class TelegramLinkServiceTest {
 
     @Test
     fun `generateLinkToken - throws when user not found`() {
-        val userId = UUID.randomUUID()
+        val userId = UserId(UUID.randomUUID())
         every { linkTokens.deleteAllByUserId(userId) } just Runs
         every { userRepository.findById(userId) } returns null
 
@@ -183,7 +185,7 @@ class TelegramLinkServiceTest {
 
     @Test
     fun `unlinkByUserId - clears telegram fields for user`() {
-        val userId = UUID.randomUUID()
+        val userId = UserId(UUID.randomUUID())
         val user = makeUser(userId).linkTelegram(42L, "old_name")
 
         every { userRepository.findById(userId) } returns user
@@ -196,7 +198,7 @@ class TelegramLinkServiceTest {
 
     @Test
     fun `unlinkByUserId - throws when user has no linked telegram`() {
-        val userId = UUID.randomUUID()
+        val userId = UserId(UUID.randomUUID())
         val user = makeUser(userId)
 
         every { userRepository.findById(userId) } returns user
@@ -206,7 +208,7 @@ class TelegramLinkServiceTest {
 
     @Test
     fun `unlinkByUserId - throws when user not found`() {
-        val userId = UUID.randomUUID()
+        val userId = UserId(UUID.randomUUID())
         every { userRepository.findById(userId) } returns null
 
         assertThrows<NotFoundException> { service.unlinkByUserId(userId) }

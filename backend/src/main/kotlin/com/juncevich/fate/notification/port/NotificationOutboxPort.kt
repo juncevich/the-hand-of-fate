@@ -1,5 +1,6 @@
 package com.juncevich.fate.notification.port
 
+import com.juncevich.fate.shared.Email
 import java.time.Duration
 import java.util.UUID
 
@@ -47,7 +48,7 @@ interface NotificationOutboxPort {
     )
 
     /** Deletes every job addressed to [email], pending or failed. */
-    fun deleteForRecipient(email: String)
+    fun deleteForRecipient(email: Email)
 
     /** Deletes failed jobs older than [retention]; returns how many were removed. */
     fun purgeFailed(retention: Duration): Int

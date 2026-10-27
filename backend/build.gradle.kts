@@ -69,7 +69,7 @@ dependencies {
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
-    // ── JWT (issued via NimbusJwtEncoder, validated by the resource server) ────
+    // ── JWT (Keycloak access tokens, validated by the resource server) ─────────
     implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
 
     // ── gRPC ─────────────────────────────────────────────────────────────────
@@ -161,8 +161,8 @@ tasks.withType<Test> {
 }
 
 // `./gradlew bootRun` is a local-dev entry point: default it to the `dev`
-// profile (relaxes the production secret guard, seeds the demo user, disables
-// Secure cookies) unless the developer explicitly selects another profile.
+// profile (relaxes the production secret guard, enables RustFS storage and Swagger)
+// unless the developer explicitly selects another profile.
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     // Deterministically set the profile on the forked JVM (defaulting to `dev`),
     // rather than relying on the env reaching the fork through the Gradle daemon.
@@ -287,7 +287,7 @@ spotless {
         target("src/**/*.kt")
         targetExclude("**/build/**", "**/generated/**")
     }
-    // .kts formatting is skipped: ktlint does not yet support Kotlin 2.3.x script parsing
+    // .kts files are not formatted: only Kotlin sources under src/ are
 }
 
 // ── Static analysis (detekt) ─────────────────────────────────────────────────

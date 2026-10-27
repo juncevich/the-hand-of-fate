@@ -8,6 +8,7 @@ import com.juncevich.fate.notification.port.EmailSuppressionPort
 import com.juncevich.fate.notification.port.NotificationJob
 import com.juncevich.fate.notification.port.NotificationOutboxPort
 import com.juncevich.fate.notification.port.NotificationType
+import com.juncevich.fate.shared.Email
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -15,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import tools.jackson.core.JacksonException
 import tools.jackson.databind.json.JsonMapper
+import tools.jackson.module.kotlin.readValue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
@@ -91,7 +93,7 @@ class NotificationWorker(
                 giveUp(job, ex)
                 return
             }
-        if (suppressions.isSuppressed(payload.recipientEmail)) {
+        if (suppressions.isSuppressed(Email.trusted(payload.recipientEmail))) {
             // Checked at delivery rather than when queued, so unsubscribing also stops queued emails.
             meterRegistry.counter("notification.suppressed", "reason", "unsubscribed").increment()
             complete(job)
@@ -116,13 +118,8 @@ class NotificationWorker(
         val payload: NotificationPayload =
             try {
                 when (job.type) {
-                    NotificationType.INVITATION -> {
-                        json.readValue(job.payload, InvitationPayload::class.java)
-                    }
-
-                    NotificationType.DRAW_RESULT -> {
-                        json.readValue(job.payload, DrawResultPayload::class.java)
-                    }
+                    NotificationType.INVITATION -> json.readValue<InvitationPayload>(job.payload)
+                    NotificationType.DRAW_RESULT -> json.readValue<DrawResultPayload>(job.payload)
                 }
             } catch (ex: JacksonException) {
                 throw UnreadablePayloadException("Unreadable ${job.type} payload: ${ex.originalMessage}", ex)

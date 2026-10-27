@@ -3,19 +3,12 @@ package com.juncevich.fate.vote.persistence
 import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.vote.VoteId
-import com.juncevich.fate.vote.domain.PageQuery
-import com.juncevich.fate.vote.domain.PageResult
-import com.juncevich.fate.vote.domain.Participant
-import com.juncevich.fate.vote.domain.Vote
-import com.juncevich.fate.vote.domain.VoteOption
-import com.juncevich.fate.vote.domain.VoteRepository
-import com.juncevich.fate.vote.domain.VoteSummary
+import com.juncevich.fate.vote.domain.*
 import jakarta.persistence.EntityManager
 import org.springframework.data.domain.PageRequest
 import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.util.UUID
 
 /**
  * Stores a [Vote] as its row plus child rows. A save writes the domain state onto the managed

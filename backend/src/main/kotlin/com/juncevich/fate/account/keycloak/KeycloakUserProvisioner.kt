@@ -3,18 +3,19 @@ package com.juncevich.fate.account.keycloak
 import com.juncevich.fate.account.domain.DeletedAccountRepository
 import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
-import java.util.UUID
 
 private const val DISPLAY_NAME_MAX_LENGTH = 100
 
 /** The user a validated Keycloak access token speaks for. [email] is canonical and verified. */
 data class KeycloakIdentity(
-    val id: UUID,
-    val email: String,
+    val id: UserId,
+    val email: Email,
     val name: String?,
 )
 
@@ -55,6 +56,6 @@ class KeycloakUserProvisioner(
     }
 
     private fun displayName(identity: KeycloakIdentity): String =
-        (identity.name?.trim()?.takeIf { it.isNotEmpty() } ?: identity.email.substringBefore('@'))
+        (identity.name?.trim()?.takeIf { it.isNotEmpty() } ?: identity.email.value.substringBefore('@'))
             .take(DISPLAY_NAME_MAX_LENGTH)
 }

@@ -11,48 +11,43 @@ import com.juncevich.fate.vote.VoteStatus as DomainVoteStatus
 // Module read models → protobuf messages of `fate.v1`, and the enums both ways.
 
 internal fun VoteDetailView.toProto(): GetVoteDetailsResponse {
-    val builder =
-        GetVoteDetailsResponse
-            .newBuilder()
-            .setVoteId(id.toString())
-            .setTitle(title)
-            .setDescription(description.orEmpty())
-            .setMode(mode.toProto())
-            .setDrawTarget(drawTarget.toProto())
-            .setStatus(status.toProto())
-            .setCurrentRound(currentRound)
-            .addAllParticipants(
-                participants.map {
-                    ParticipantInfo
-                        .newBuilder()
-                        .setEmail(it.email)
-                        .setDisplayName(it.displayName.orEmpty())
-                        .build()
+    val view = this
+    return getVoteDetailsResponse {
+        voteId = view.id.toString()
+        title = view.title
+        description = view.description.orEmpty()
+        mode = view.mode.toProto()
+        drawTarget = view.drawTarget.toProto()
+        status = view.status.toProto()
+        currentRound = view.currentRound
+        participants +=
+            view.participants.map {
+                participantInfo {
+                    email = it.email
+                    displayName = it.displayName.orEmpty()
                 }
-            ).addAllOptions(
-                options.map {
-                    VoteOptionInfo
-                        .newBuilder()
-                        .setOptionId(it.id.toString())
-                        .setTitle(it.title)
-                        .build()
+            }
+        options +=
+            view.options.map {
+                voteOptionInfo {
+                    optionId = it.id.toString()
+                    title = it.title
                 }
-            )
-    lastResult?.let { last ->
-        builder.setLastResult(last.toDrawResultInfo())
+            }
+        view.lastResult?.let { lastResult = it.toDrawResultInfo() }
     }
-    return builder.build()
 }
 
-internal fun DrawHistoryView.toDrawResultInfo(): DrawResultInfo =
-    DrawResultInfo
-        .newBuilder()
-        .setWinnerEmail(winner.email)
-        .setWinnerDisplayName(winner.displayName)
-        .setWinnerOptionTitle(winner.optionTitle)
-        .setRound(round)
-        .setDrawnAt(DateTimeFormatter.ISO_INSTANT.format(drawnAt))
-        .build()
+internal fun DrawHistoryView.toDrawResultInfo(): DrawResultInfo {
+    val view = this
+    return drawResultInfo {
+        winnerEmail = view.winner.email
+        winnerDisplayName = view.winner.displayName
+        winnerOptionTitle = view.winner.optionTitle
+        round = view.round
+        drawnAt = DateTimeFormatter.ISO_INSTANT.format(view.drawnAt)
+    }
+}
 
 // proto3 strings have no null: the fields of the other kind of winner are empty.
 internal val Winner.email get() = (this as? Winner.Participant)?.email.orEmpty()

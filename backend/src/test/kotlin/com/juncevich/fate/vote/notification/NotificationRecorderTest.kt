@@ -30,8 +30,8 @@ class NotificationRecorderTest {
     private val users = mockk<UserQueryService>()
     private val recorder = NotificationRecorder(outbox, budget, users)
 
-    private val creator = UserProfile(UUID.randomUUID(), "creator@test.com", "Creator")
-    private val creatorId = UserId(creator.id)
+    private val creator = UserProfile(UserId(UUID.randomUUID()), Email.of("creator@test.com"), "Creator")
+    private val creatorId = creator.id
     private val voteId = VoteId(UUID.randomUUID())
 
     init {

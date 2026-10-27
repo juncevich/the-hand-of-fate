@@ -3,77 +3,80 @@ package com.juncevich.fate.notification.persistence
 import com.juncevich.fate.notification.port.NotificationJob
 import com.juncevich.fate.notification.port.NotificationOutboxPort
 import com.juncevich.fate.notification.port.NotificationType
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.uuidV7
-import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
 import java.time.Duration
 import java.util.UUID
 
 private const val MAX_ERROR_LENGTH = 1000
-private const val MILLIS_PER_SECOND = 1000.0
 
 @Component
 class NotificationOutboxAdapter(
-    private val jdbc: JdbcTemplate,
+    private val jdbc: JdbcClient,
 ) : NotificationOutboxPort {
     override fun append(
         type: NotificationType,
         payload: String,
     ) {
-        jdbc.update(
-            "INSERT INTO notification_outbox (id, event_type, payload) VALUES (?, ?, ?)",
-            uuidV7(),
-            type.name,
-            payload
-        )
+        jdbc
+            .sql("INSERT INTO notification_outbox (id, event_type, payload) VALUES (:id, :type, :payload)")
+            .param("id", uuidV7())
+            .param("type", type.name)
+            .param("payload", payload)
+            .update()
     }
 
     /** Single atomic statement; the lease allows recovery after a worker crashes. */
     override fun claim(lease: Duration): NotificationJob? =
         jdbc
-            .query(
+            .sql(
                 """
-            WITH candidate AS (
-                SELECT id FROM notification_outbox
-                WHERE failed_at IS NULL AND available_at <= now()
-                ORDER BY created_at, id
-                FOR UPDATE SKIP LOCKED
-                LIMIT 1
-            )
-            UPDATE notification_outbox o
-            SET attempts = attempts + 1, claim_id = ?, available_at = now() + make_interval(secs => ?)
-            FROM candidate c WHERE o.id = c.id
-            RETURNING o.id, o.event_type, o.payload, o.claim_id, o.attempts
-            """,
-                { row, _ ->
-                    NotificationJob(
-                        row.getObject("id", UUID::class.java),
-                        NotificationType.valueOf(row.getString("event_type")),
-                        row.getString("payload"),
-                        row.getObject("claim_id", UUID::class.java),
-                        row.getInt("attempts")
-                    )
-                },
-                UUID.randomUUID(),
-                lease.toMillis() / MILLIS_PER_SECOND
-            ).firstOrNull()
+                WITH candidate AS (
+                    SELECT id FROM notification_outbox
+                    WHERE failed_at IS NULL AND available_at <= now()
+                    ORDER BY created_at, id
+                    FOR UPDATE SKIP LOCKED
+                    LIMIT 1
+                )
+                UPDATE notification_outbox o
+                SET attempts = attempts + 1, claim_id = :claimId, available_at = now() + make_interval(secs => :lease)
+                FROM candidate c WHERE o.id = c.id
+                RETURNING o.id, o.event_type, o.payload, o.claim_id, o.attempts
+                """
+            ).param("claimId", UUID.randomUUID())
+            .param("lease", lease.seconds())
+            .query { row, _ ->
+                NotificationJob(
+                    row.getObject("id", UUID::class.java),
+                    NotificationType.valueOf(row.getString("event_type")),
+                    row.getString("payload"),
+                    row.getObject("claim_id", UUID::class.java),
+                    row.getInt("attempts")
+                )
+            }.optional()
+            .orElse(null)
 
     override fun renew(
         job: NotificationJob,
         lease: Duration,
     ): Boolean =
-        jdbc.update(
-            """
-            UPDATE notification_outbox SET available_at = now() + make_interval(secs => ?)
-            WHERE id = ? AND claim_id = ? AND failed_at IS NULL
-            """,
-            lease.toMillis() / MILLIS_PER_SECOND,
-            job.id,
-            job.claimId
-        ) == 1
+        jdbc
+            .sql(
+                """
+                UPDATE notification_outbox SET available_at = now() + make_interval(secs => :lease)
+                WHERE id = :id AND claim_id = :claimId AND failed_at IS NULL
+                """
+            ).param("lease", lease.seconds())
+            .claimed(job)
+            .update() == 1
 
     override fun complete(job: NotificationJob) {
-        jdbc.update("DELETE FROM notification_outbox WHERE id = ? AND claim_id = ?", job.id, job.claimId)
+        jdbc
+            .sql("DELETE FROM notification_outbox WHERE id = :id AND claim_id = :claimId")
+            .claimed(job)
+            .update()
     }
 
     override fun retry(
@@ -81,37 +84,46 @@ class NotificationOutboxAdapter(
         error: String,
         delay: Duration,
     ) {
-        jdbc.update(
-            """
-            UPDATE notification_outbox SET available_at = now() + make_interval(secs => ?), last_error = ?
-            WHERE id = ? AND claim_id = ?
-            """,
-            delay.toMillis() / MILLIS_PER_SECOND,
-            error.take(MAX_ERROR_LENGTH),
-            job.id,
-            job.claimId
-        )
+        jdbc
+            .sql(
+                """
+                UPDATE notification_outbox SET available_at = now() + make_interval(secs => :delay), last_error = :error
+                WHERE id = :id AND claim_id = :claimId
+                """
+            ).param("delay", delay.seconds())
+            .param("error", error.take(MAX_ERROR_LENGTH))
+            .claimed(job)
+            .update()
     }
 
     override fun fail(
         job: NotificationJob,
         error: String,
     ) {
-        jdbc.update(
-            "UPDATE notification_outbox SET failed_at = now(), last_error = ? WHERE id = ? AND claim_id = ?",
-            error.take(MAX_ERROR_LENGTH),
-            job.id,
-            job.claimId
-        )
+        jdbc
+            .sql(
+                """
+                UPDATE notification_outbox SET failed_at = now(), last_error = :error
+                WHERE id = :id AND claim_id = :claimId
+                """
+            ).param("error", error.take(MAX_ERROR_LENGTH))
+            .claimed(job)
+            .update()
     }
 
-    override fun deleteForRecipient(email: String) {
-        jdbc.update("DELETE FROM notification_outbox WHERE payload::jsonb ->> 'recipientEmail' = ?", email)
+    override fun deleteForRecipient(email: Email) {
+        jdbc
+            .sql("DELETE FROM notification_outbox WHERE payload::jsonb ->> 'recipientEmail' = :email")
+            .param("email", email.value)
+            .update()
     }
 
     override fun purgeFailed(retention: Duration): Int =
-        jdbc.update(
-            "DELETE FROM notification_outbox WHERE failed_at < now() - make_interval(secs => ?)",
-            retention.toMillis() / MILLIS_PER_SECOND
-        )
+        jdbc
+            .sql("DELETE FROM notification_outbox WHERE failed_at < now() - make_interval(secs => :retention)")
+            .param("retention", retention.seconds())
+            .update()
 }
+
+/** Fences a write to the claim that delivered [job]: a job claimed again elsewhere is left alone. */
+private fun JdbcClient.StatementSpec.claimed(job: NotificationJob) = param("id", job.id).param("claimId", job.claimId)

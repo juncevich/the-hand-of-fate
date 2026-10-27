@@ -3,6 +3,7 @@ package com.juncevich.fate.notification
 import com.juncevich.fate.notification.delivery.NotificationProperties
 import com.juncevich.fate.notification.port.EmailBudgetPort
 import com.juncevich.fate.shared.TooManyRequestsException
+import com.juncevich.fate.shared.UserId
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
 import io.mockk.just
@@ -24,7 +25,7 @@ class EmailBudgetTest {
     private val meterRegistry = SimpleMeterRegistry()
     private val properties = NotificationProperties(emailBudgetPerUser = 10, emailBudgetWindow = Duration.ofHours(24))
     private val budget = EmailBudget(port, properties, meterRegistry)
-    private val userId = UUID.randomUUID()
+    private val userId = UserId(UUID.randomUUID())
 
     private fun used(count: Int) {
         every { port.lock(userId) } just runs

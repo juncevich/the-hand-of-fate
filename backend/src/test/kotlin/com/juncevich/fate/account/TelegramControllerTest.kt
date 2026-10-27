@@ -3,7 +3,9 @@ package com.juncevich.fate.account
 import com.juncevich.fate.account.web.TelegramController
 import com.juncevich.fate.platform.ErrorHandler
 import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.ErrorCode
+import com.juncevich.fate.shared.UserId
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -27,7 +29,7 @@ class TelegramControllerTest {
     private val telegramLinkService = mockk<TelegramLinkService>()
     private lateinit var mockMvc: MockMvc
 
-    private val userId = UUID.randomUUID()
+    private val userId = UserId(UUID.randomUUID())
 
     @BeforeEach
     fun setUp() {
@@ -38,7 +40,7 @@ class TelegramControllerTest {
                 .setCustomArgumentResolvers(AuthenticationPrincipalArgumentResolver())
                 .build()
 
-        val principal = AuthenticatedUser(userId, "user@test.com")
+        val principal = AuthenticatedUser(userId, Email.of("user@test.com"))
         SecurityContextHolder.getContext().authentication =
             UsernamePasswordAuthenticationToken(principal, null, listOf(SimpleGrantedAuthority("ROLE_USER")))
     }

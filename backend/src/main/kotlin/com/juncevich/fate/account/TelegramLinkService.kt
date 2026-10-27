@@ -6,6 +6,7 @@ import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
+import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.shared.ensureState
 import com.juncevich.fate.shared.ensureValid
 import org.springframework.stereotype.Service
@@ -28,7 +29,7 @@ class TelegramLinkService(
     private val userRepository: UserRepository,
     private val clock: Clock,
 ) {
-    fun generateLinkToken(userId: UUID): GeneratedLinkToken {
+    fun generateLinkToken(userId: UserId): GeneratedLinkToken {
         linkTokens.deleteAllByUserId(userId)
 
         val token = UUID.randomUUID().toString().replace("-", "")
@@ -85,7 +86,7 @@ class TelegramLinkService(
         userRepository.update(user.unlinkTelegram())
     }
 
-    fun unlinkByUserId(userId: UUID) {
+    fun unlinkByUserId(userId: UserId) {
         val user =
             userRepository.findById(userId)
                 ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)

@@ -3,6 +3,8 @@ package com.juncevich.fate.grpc
 import com.juncevich.fate.account.TelegramLinkService
 import com.juncevich.fate.account.UserProfile
 import com.juncevich.fate.account.UserQueryService
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.vote.VoteService
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
@@ -26,7 +28,7 @@ class FateGrpcServiceTransportTest {
     @Test
     fun `a successful body completes the call with its response`() {
         every { telegramLinkService.linkAccount("token", 42, "tg") } returns
-            UserProfile(UUID.randomUUID(), "owner@example.com", "Owner")
+            UserProfile(UserId(UUID.randomUUID()), Email.of("owner@example.com"), "Owner")
         every { telegramLinkService.unlinkAccount(42) } just runs
 
         val link = RecordingObserver<LinkTelegramAccountResponse>()

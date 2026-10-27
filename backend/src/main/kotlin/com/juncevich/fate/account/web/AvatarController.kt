@@ -3,6 +3,7 @@ package com.juncevich.fate.account.web
 import com.juncevich.fate.account.AuthenticatedUser
 import com.juncevich.fate.account.avatar.AvatarService
 import com.juncevich.fate.shared.OpenApiDocs
+import com.juncevich.fate.shared.UserId
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.headers.Header
@@ -84,7 +85,7 @@ class AvatarController(
         version: Long?,
         request: WebRequest,
     ): ResponseEntity<ByteArray> {
-        val avatar = avatarService.load(userId)
+        val avatar = avatarService.load(UserId(userId))
         val etag = "\"${avatar.version}\""
         val cacheControl =
             if (version == avatar.version) {

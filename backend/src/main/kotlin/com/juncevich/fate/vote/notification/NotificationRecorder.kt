@@ -34,14 +34,14 @@ class NotificationRecorder(
     @EventListener
     fun on(event: VoteCreated) {
         if (event.invited.isEmpty()) return
-        emailBudget.reserveOrThrow(event.creatorId.value, event.invited.size)
+        emailBudget.reserveOrThrow(event.creatorId, event.invited.size)
         val creatorName = nameOf(event.creatorId)
         event.invited.forEach { invite(event.voteId, event.voteTitle, creatorName, it) }
     }
 
     @EventListener
     fun on(event: ParticipantInvited) {
-        emailBudget.reserveOrThrow(event.invitedBy.value, 1)
+        emailBudget.reserveOrThrow(event.invitedBy, 1)
         // Only the creator invites, so the inviter's name is the creator's.
         invite(event.voteId, event.voteTitle, nameOf(event.invitedBy), event.recipientEmail)
     }
@@ -49,7 +49,7 @@ class NotificationRecorder(
     @EventListener
     fun on(event: VoteDrawn) {
         val recipients = event.recipients.distinct()
-        if (!emailBudget.tryReserve(event.drawnBy.value, recipients.size)) {
+        if (!emailBudget.tryReserve(event.drawnBy, recipients.size)) {
             log.warn("Result emails for draw of vote {} suppressed: email budget exhausted", event.voteId)
             return
         }
@@ -84,5 +84,5 @@ class NotificationRecorder(
     )
 
     private fun nameOf(userId: UserId): String =
-        checkNotNull(users.findProfileById(userId.value)) { "Inviting user $userId not found" }.displayName
+        checkNotNull(users.findProfileById(userId)) { "Inviting user $userId not found" }.displayName
 }

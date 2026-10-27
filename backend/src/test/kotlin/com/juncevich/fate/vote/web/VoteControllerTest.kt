@@ -34,7 +34,7 @@ class VoteControllerTest {
     private val voteStatsService = mockk<VoteStatsService>()
     private lateinit var mockMvc: MockMvc
 
-    private val userId = UUID.randomUUID()
+    private val userId = UserId(UUID.randomUUID())
     private val voteId = UUID.randomUUID()
 
     @BeforeEach
@@ -48,7 +48,7 @@ class VoteControllerTest {
                     PageableHandlerMethodArgumentResolver()
                 ).build()
 
-        val principal = AuthenticatedUser(userId, "user@test.com")
+        val principal = AuthenticatedUser(userId, Email.of("user@test.com"))
         SecurityContextHolder.getContext().authentication =
             UsernamePasswordAuthenticationToken(principal, null, listOf(SimpleGrantedAuthority("ROLE_USER")))
     }
@@ -89,7 +89,7 @@ class VoteControllerTest {
     @Test
     fun `GET votes - returns page of summaries`() {
         val page = PageImpl(listOf(summaryDto()), PageRequest.of(0, 20), 1)
-        every { voteService.listVotes(UserId(userId), Email.of("user@test.com"), any()) } returns page
+        every { voteService.listVotes(userId, Email.of("user@test.com"), any()) } returns page
 
         mockMvc.get("/api/v1/votes").andExpect {
             status { isOk() }
@@ -101,7 +101,7 @@ class VoteControllerTest {
 
     @Test
     fun `POST votes - valid request - returns 201`() {
-        every { voteService.createVote(UserId(userId), any()) } returns detailDto()
+        every { voteService.createVote(userId, any()) } returns detailDto()
 
         mockMvc
             .post("/api/v1/votes") {
@@ -128,7 +128,7 @@ class VoteControllerTest {
 
     @Test
     fun `GET vote by id - returns vote detail`() {
-        every { voteService.getVote(VoteId(voteId), UserId(userId), Email.of("user@test.com")) } returns detailDto()
+        every { voteService.getVote(VoteId(voteId), userId, Email.of("user@test.com")) } returns detailDto()
 
         mockMvc.get("/api/v1/votes/$voteId").andExpect {
             status { isOk() }
@@ -141,7 +141,7 @@ class VoteControllerTest {
 
     @Test
     fun `POST draw - returns draw result`() {
-        every { voteService.draw(VoteId(voteId), UserId(userId)) } returns
+        every { voteService.draw(VoteId(voteId), userId) } returns
             DrawResult(
                 winner = Winner.Participant("winner@test.com", "Winner"),
                 round = 1,
@@ -155,18 +155,18 @@ class VoteControllerTest {
             jsonPath("$.newRoundStarted") { value(false) }
         }
 
-        verify { voteService.draw(VoteId(voteId), UserId(userId)) }
+        verify { voteService.draw(VoteId(voteId), userId) }
     }
 
     @Test
     fun `DELETE vote - returns 204`() {
-        every { voteService.deleteVote(VoteId(voteId), UserId(userId)) } returns Unit
+        every { voteService.deleteVote(VoteId(voteId), userId) } returns Unit
 
         mockMvc.delete("/api/v1/votes/$voteId").andExpect {
             status { isNoContent() }
         }
 
-        verify { voteService.deleteVote(VoteId(voteId), UserId(userId)) }
+        verify { voteService.deleteVote(VoteId(voteId), userId) }
     }
 
     @Test
@@ -182,7 +182,7 @@ class VoteControllerTest {
 
     @Test
     fun `POST participants - valid email - returns 204`() {
-        every { voteService.addParticipant(VoteId(voteId), UserId(userId), "new@test.com") } returns Unit
+        every { voteService.addParticipant(VoteId(voteId), userId, "new@test.com") } returns Unit
 
         mockMvc
             .post("/api/v1/votes/$voteId/participants") {
@@ -195,7 +195,7 @@ class VoteControllerTest {
 
     @Test
     fun `POST close - returns 204`() {
-        every { voteService.closeVote(VoteId(voteId), UserId(userId)) } returns Unit
+        every { voteService.closeVote(VoteId(voteId), userId) } returns Unit
 
         mockMvc.post("/api/v1/votes/$voteId/close").andExpect {
             status { isNoContent() }
@@ -204,7 +204,7 @@ class VoteControllerTest {
 
     @Test
     fun `POST reopen - returns 204`() {
-        every { voteService.reopen(VoteId(voteId), UserId(userId)) } returns Unit
+        every { voteService.reopen(VoteId(voteId), userId) } returns Unit
 
         mockMvc.post("/api/v1/votes/$voteId/reopen").andExpect {
             status { isNoContent() }
@@ -213,14 +213,14 @@ class VoteControllerTest {
 
     @Test
     fun `GET history - returns list`() {
-        every { voteService.getHistory(VoteId(voteId), UserId(userId), Email.of("user@test.com")) } returns emptyList()
+        every { voteService.getHistory(VoteId(voteId), userId, Email.of("user@test.com")) } returns emptyList()
 
         mockMvc.get("/api/v1/votes/$voteId/history").andExpect {
             status { isOk() }
             jsonPath("$") { isArray() }
         }
 
-        verify { voteService.getHistory(VoteId(voteId), UserId(userId), Email.of("user@test.com")) }
+        verify { voteService.getHistory(VoteId(voteId), userId, Email.of("user@test.com")) }
     }
 
     // ── Spring MVC errors stay client errors ────────────────────────────────
@@ -269,7 +269,7 @@ class VoteControllerTest {
     @Test
     fun `PUT options order - returns 204 and passes the order on`() {
         val ids = listOf(UUID.randomUUID(), UUID.randomUUID())
-        every { voteService.reorderOptions(VoteId(voteId), UserId(userId), ids) } returns Unit
+        every { voteService.reorderOptions(VoteId(voteId), userId, ids) } returns Unit
 
         mockMvc
             .put("/api/v1/votes/$voteId/options/order") {
@@ -277,12 +277,12 @@ class VoteControllerTest {
                 content = """{"optionIds":["${ids[0]}","${ids[1]}"]}"""
             }.andExpect { status { isNoContent() } }
 
-        verify { voteService.reorderOptions(VoteId(voteId), UserId(userId), ids) }
+        verify { voteService.reorderOptions(VoteId(voteId), userId, ids) }
     }
 
     @Test
     fun `GET stats - counts the votes the caller created`() {
-        every { voteStatsService.countCreatedBy(UserId(userId)) } returns 3
+        every { voteStatsService.countCreatedBy(userId) } returns 3
 
         mockMvc.get("/api/v1/votes/stats").andExpect {
             status { isOk() }

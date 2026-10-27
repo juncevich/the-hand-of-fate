@@ -4,13 +4,13 @@ import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.NotFoundException
+import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.storage.ObjectStorage
 import com.juncevich.fate.storage.StorageUnavailableException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
 import java.time.Instant
-import java.util.UUID
 
 /** Avatar bytes plus the version they were stored under (used as the HTTP ETag). */
 class Avatar(
@@ -38,7 +38,7 @@ class AvatarService(
 
     /** Stores [upload] as the user's avatar and returns its new URL. */
     fun upload(
-        userId: UUID,
+        userId: UserId,
         upload: ByteArray,
     ): String {
         if (!objectStorage.isEnabled) throw StorageUnavailableException()
@@ -49,25 +49,36 @@ class AvatarService(
         return checkNotNull(updated.avatarUrl())
     }
 
-    fun delete(userId: UUID) {
+    fun delete(userId: UserId) {
         if (!objectStorage.isEnabled) throw StorageUnavailableException()
         val user = findUser(userId)
         if (user.avatarUpdatedAt == null) return
         userRepository.update(user.withAvatar(null))
         // The row no longer references the object; a failed delete only leaves an unreachable
         // file that the next upload overwrites, so it must not fail the request.
-        runCatching { objectStorage.delete(avatarKey(userId)) }
-            .onFailure { log.warn("Could not delete avatar object of user {}: {}", userId, it.message) }
+        deleteObjectQuietly(userId, "user")
     }
 
     /** Best effort, for a deleted account: a leftover object is unreachable and harmless. */
-    fun deleteStoredObject(userId: UUID) {
+    fun deleteStoredObject(userId: UserId) {
         if (!objectStorage.isEnabled) return
-        runCatching { objectStorage.delete(avatarKey(userId)) }
-            .onFailure { log.warn("Could not delete avatar object of deleted user {}: {}", userId, it.message) }
+        deleteObjectQuietly(userId, "deleted user")
     }
 
-    fun load(userId: UUID): Avatar {
+    // Whatever the store answers (unreachable, denied, a bad response) is only logged; an Error is not caught.
+    @Suppress("TooGenericExceptionCaught")
+    private fun deleteObjectQuietly(
+        userId: UserId,
+        whose: String,
+    ) {
+        try {
+            objectStorage.delete(avatarKey(userId))
+        } catch (ex: Exception) {
+            log.warn("Could not delete avatar object of {} {}: {}", whose, userId, ex.message)
+        }
+    }
+
+    fun load(userId: UserId): Avatar {
         val updatedAt = findUser(userId).avatarUpdatedAt
         if (updatedAt == null ||
             !objectStorage.isEnabled
@@ -80,10 +91,10 @@ class AvatarService(
         return Avatar(stored.content, stored.contentType, updatedAt.toEpochMilli())
     }
 
-    private fun findUser(userId: UUID): User =
+    private fun findUser(userId: UserId): User =
         userRepository.findById(userId) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
 
-    private fun avatarKey(userId: UUID) = "avatars/$userId.png"
+    private fun avatarKey(userId: UserId) = "avatars/$userId.png"
 
     private companion object {
         const val PNG = "image/png"

@@ -12,6 +12,8 @@ import io.mockk.mockk
 import io.mockk.verify
 import jakarta.mail.Session
 import jakarta.mail.internet.MimeMessage
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -27,10 +29,14 @@ import org.springframework.test.context.TestPropertySource
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig
 import java.util.Properties
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Retry behaviour of outgoing vote emails, exercised through real Spring proxies
- * (only the SMTP transport is mocked).
+ * Retry and concurrency limit of outgoing vote emails, exercised through real Spring proxies
+ * (only the SMTP server is mocked).
  */
 @SpringJUnitConfig(NotificationRetryTest.Config::class)
 @TestPropertySource(
@@ -38,6 +44,7 @@ import java.util.UUID
         "app.frontend-url=http://localhost:3000",
         "spring.mail.username=noreply@test.com",
         "app.mail.retry.delay-ms=10",
+        "app.mail.max-concurrent-sends=2",
         "app.notifications.unsubscribe-secret=test-unsubscribe-secret"
     ]
 )
@@ -49,7 +56,7 @@ class NotificationRetryTest
     ) {
         @Configuration
         @EnableResilientMethods
-        @Import(EmailService::class, MailTemplates::class, NotificationAdapter::class, EmailPreferences::class)
+        @Import(EmailService::class, SmtpTransport::class, MailTemplates::class, NotificationAdapter::class, EmailPreferences::class)
         @EnableConfigurationProperties(NotificationMailProperties::class, FrontendProperties::class, MailProperties::class)
         class Config {
             @Bean
@@ -86,5 +93,30 @@ class NotificationRetryTest
                 .assertThrows<MailSendException> { adapter.send(invitation) }
 
             verify(exactly = 3) { mailSender.send(any<MimeMessage>()) }
+        }
+
+        @Test
+        fun `caps simultaneous SMTP sends at the configured limit`() {
+            val inFlight = AtomicInteger()
+            val maxInFlight = AtomicInteger()
+            val release = CountDownLatch(1)
+            val started = CountDownLatch(2)
+            every { mailSender.send(any<MimeMessage>()) } answers {
+                maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
+                started.countDown()
+                release.await(5, TimeUnit.SECONDS)
+                inFlight.decrementAndGet()
+            }
+
+            Executors.newVirtualThreadPerTaskExecutor().use { executor ->
+                repeat(6) { i -> executor.execute { adapter.send(invitation.copy(recipientEmail = "p$i@test.com")) } }
+                assertTrue(started.await(5, TimeUnit.SECONDS))
+                // Give the remaining senders a chance to (wrongly) get past the cap before releasing
+                Thread.sleep(100)
+                release.countDown()
+            }
+
+            assertEquals(2, maxInFlight.get())
+            verify(exactly = 6) { mailSender.send(any<MimeMessage>()) }
         }
     }

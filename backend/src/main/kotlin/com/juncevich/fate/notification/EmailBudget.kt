@@ -4,11 +4,11 @@ import com.juncevich.fate.notification.delivery.NotificationProperties
 import com.juncevich.fate.notification.port.EmailBudgetPort
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.TooManyRequestsException
+import com.juncevich.fate.shared.UserId
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * Caps the emails one user can make the service send within a rolling window
@@ -26,7 +26,7 @@ class EmailBudget(
 
     /** Reserves [recipients] emails for [userId] or rejects the whole action. */
     fun reserveOrThrow(
-        userId: UUID,
+        userId: UserId,
         recipients: Int,
     ) {
         if (!tryReserve(userId, recipients)) {
@@ -43,7 +43,7 @@ class EmailBudget(
      * caller must not send them. Never partially reserves.
      */
     fun tryReserve(
-        userId: UUID,
+        userId: UserId,
         recipients: Int,
     ): Boolean {
         if (recipients <= 0) return true

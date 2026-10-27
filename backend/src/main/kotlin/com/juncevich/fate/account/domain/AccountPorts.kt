@@ -1,58 +1,58 @@
 package com.juncevich.fate.account.domain
 
-import com.juncevich.fate.account.domain.User
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
 import java.time.Instant
-import java.util.UUID
 
 interface UserRepository {
-    fun findById(id: UUID): User?
+    fun findById(id: UserId): User?
 
-    fun findByEmail(email: String): User?
+    fun findByEmail(email: Email): User?
 
     fun findByTelegramId(telegramId: Long): User?
 
-    fun findAllByEmailIn(emails: Collection<String>): List<User>
+    fun findAllByEmailIn(emails: Collection<Email>): List<User>
 
-    fun findAllByIdIn(ids: Collection<UUID>): List<User>
+    fun findAllByIdIn(ids: Collection<UserId>): List<User>
 
     /** Writes a changed copy of an existing account back. */
     fun update(user: User)
 
     /** Gives the account the id [to]; references follow it. False when [from] does not exist. */
     fun changeId(
-        from: UUID,
-        to: UUID,
+        from: UserId,
+        to: UserId,
     ): Boolean
 
     /** Inserts [user] unless an account with its id or email exists; true when it was inserted. */
     fun insertIfAbsent(user: User): Boolean
 
-    fun delete(id: UUID)
+    fun delete(id: UserId)
 }
 
 /** Administration of the accounts held by the authorization server (Keycloak). */
 interface IdentityAdmin {
     /** Deletes the account; one that does not exist (any more) counts as deleted. */
-    fun deleteUser(userId: UUID)
+    fun deleteUser(userId: UserId)
 
     /** Ends every session of the account, so no new access tokens are issued for them. */
-    fun logoutUser(userId: UUID)
+    fun logoutUser(userId: UserId)
 }
 
 /** Accounts deleted here whose identity at the authorization server may still exist. */
 interface DeletedAccountRepository {
     fun record(
-        userId: UUID,
+        userId: UserId,
         deletedAt: Instant,
     )
 
-    fun isDeleted(userId: UUID): Boolean
+    fun isDeleted(userId: UserId): Boolean
 
     /** Oldest first: accounts whose Keycloak user is not confirmed deleted yet. */
-    fun findPendingIdentityDeletion(limit: Int): List<UUID>
+    fun findPendingIdentityDeletion(limit: Int): List<UserId>
 
     fun markIdentityDeleted(
-        userId: UUID,
+        userId: UserId,
         at: Instant,
     )
 

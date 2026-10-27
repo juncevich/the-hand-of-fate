@@ -2,6 +2,7 @@ package com.juncevich.fate.notification
 
 import com.juncevich.fate.notification.port.NotificationOutboxPort
 import com.juncevich.fate.notification.port.NotificationType
+import com.juncevich.fate.shared.Email
 import org.springframework.stereotype.Component
 import tools.jackson.databind.json.JsonMapper
 
@@ -19,7 +20,7 @@ class NotificationOutbox(
     }
 
     /** Drops every email still queued for [email], e.g. when its account is deleted. */
-    fun cancelFor(email: String) {
+    fun cancelFor(email: Email) {
         outbox.deleteForRecipient(email)
     }
 

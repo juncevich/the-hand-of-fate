@@ -6,6 +6,7 @@ import com.juncevich.fate.account.deletion.IdentityDeletionWorker
 import com.juncevich.fate.account.domain.DeletedAccountRepository
 import com.juncevich.fate.account.domain.IdentityAdmin
 import com.juncevich.fate.account.keycloak.KeycloakProperties
+import com.juncevich.fate.shared.UserId
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -28,8 +29,8 @@ class IdentityDeletionWorkerTest {
 
     @Test
     fun `deletes pending Keycloak users, keeps failed ones pending and purges old deletions`() {
-        val done = UUID.randomUUID()
-        val failing = UUID.randomUUID()
+        val done = UserId(UUID.randomUUID())
+        val failing = UserId(UUID.randomUUID())
         every { deletedAccounts.findPendingIdentityDeletion(any()) } returns listOf(failing, done)
         every { identityAdmin.deleteUser(failing) } throws IllegalStateException("Keycloak is down")
         every { identityAdmin.deleteUser(done) } returns Unit

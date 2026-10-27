@@ -51,7 +51,7 @@ var errorTexts = map[fatev1.ErrorCode]string{
 	fatev1.ErrorCode_ERROR_CODE_VOTE_NOT_PENDING:      "Голосование уже разыграно или закрыто.",
 	fatev1.ErrorCode_ERROR_CODE_VOTE_NOT_DRAWN:        "Переоткрыть можно только разыгранное голосование.",
 	fatev1.ErrorCode_ERROR_CODE_VOTE_ALREADY_CLOSED:   "Голосование уже закрыто.",
-	fatev1.ErrorCode_ERROR_CODE_TITLE_INVALID:         "Название должно быть от 1 до 255 символов.",
+	fatev1.ErrorCode_ERROR_CODE_TITLE_INVALID:         "Название — одна строка от 1 до 255 символов, без переводов строки.",
 	fatev1.ErrorCode_ERROR_CODE_DESCRIPTION_TOO_LONG:  "Описание не длиннее 2000 символов.",
 	fatev1.ErrorCode_ERROR_CODE_TOO_MANY_PARTICIPANTS: "Не больше 100 участников, включая вас.",
 	fatev1.ErrorCode_ERROR_CODE_TOO_MANY_OPTIONS:      "Не больше 100 вариантов.",

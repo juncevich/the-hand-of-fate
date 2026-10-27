@@ -1,12 +1,11 @@
 package com.juncevich.fate.account.keycloak
 
 import com.juncevich.fate.account.AuthenticatedUser
-import com.juncevich.fate.shared.canonicalEmail
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
 import org.springframework.core.convert.converter.Converter
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.security.authentication.AbstractAuthenticationToken
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
 import org.springframework.security.oauth2.core.OAuth2Error
 import org.springframework.security.oauth2.core.OAuth2TokenValidator
@@ -97,17 +96,16 @@ class KeycloakAccessTokenConverter(
         // Subject and email are guaranteed by KeycloakClaimsValidator before conversion
         val identity =
             KeycloakIdentity(
-                id = UUID.fromString(jwt.subject),
-                email = canonicalEmail(requireNotNull(jwt.getClaimAsString(EMAIL_CLAIM))),
+                id = UserId(UUID.fromString(jwt.subject)),
+                email = Email.trusted(requireNotNull(jwt.getClaimAsString(EMAIL_CLAIM))),
                 name = jwt.getClaimAsString(NAME_CLAIM)
             )
         if (!provisioner.ensureProvisioned(identity)) {
             throw InvalidBearerTokenException("The account was deleted")
         }
-        return UsernamePasswordAuthenticationToken(
+        return KeycloakAuthentication(
             AuthenticatedUser(identity.id, identity.email, jwt.getClaimAsInstant(AUTH_TIME_CLAIM)),
-            jwt,
-            listOf(SimpleGrantedAuthority("ROLE_USER"))
+            jwt
         )
     }
 }

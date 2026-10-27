@@ -1,10 +1,12 @@
 package com.juncevich.fate.notification.port
 
+import com.juncevich.fate.shared.Email
+
 interface EmailSuppressionPort {
-    fun isSuppressed(email: String): Boolean
+    fun isSuppressed(email: Email): Boolean
 
     /** Idempotent. */
-    fun suppress(email: String)
+    fun suppress(email: Email)
 
-    fun allow(email: String)
+    fun allow(email: Email)
 }

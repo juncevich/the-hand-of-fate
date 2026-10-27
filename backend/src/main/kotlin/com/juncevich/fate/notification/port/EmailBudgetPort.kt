@@ -1,20 +1,20 @@
 package com.juncevich.fate.notification.port
 
+import com.juncevich.fate.shared.UserId
 import java.time.Duration
-import java.util.UUID
 
 interface EmailBudgetPort {
     /** Serializes budget checks of [userId] until the current transaction ends. */
-    fun lock(userId: UUID)
+    fun lock(userId: UserId)
 
     /** Emails recorded for [userId] within the last [window]. */
     fun usedWithin(
-        userId: UUID,
+        userId: UserId,
         window: Duration,
     ): Int
 
     fun record(
-        userId: UUID,
+        userId: UserId,
         recipients: Int,
     )
 

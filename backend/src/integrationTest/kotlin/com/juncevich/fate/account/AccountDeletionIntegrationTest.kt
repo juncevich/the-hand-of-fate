@@ -1,17 +1,28 @@
 package com.juncevich.fate.account
 
 import com.juncevich.fate.AbstractApiIntegrationTest
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import com.juncevich.fate.storage.ObjectStorage
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
+import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.multipart
 import org.springframework.test.web.servlet.post
-import java.util.UUID
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
+import java.util.*
+import javax.imageio.ImageIO
 
 /** Deleting an account end to end: what goes, what stays anonymized, what other users still see. */
-class AccountDeletionIntegrationTest : AbstractApiIntegrationTest() {
+class AccountDeletionIntegrationTest
+@Autowired
+constructor(
+    private val objectStorage: ObjectStorage,
+) : AbstractApiIntegrationTest() {
     private fun email(prefix: String) = "$prefix-${UUID.randomUUID()}@test.com"
 
     private fun createVote(
@@ -69,6 +80,29 @@ class AccountDeletionIntegrationTest : AbstractApiIntegrationTest() {
         }
         // Her token, still valid for minutes, doesn't bring the account back.
         mockMvc.get("/api/v1/users/me") { header("Authorization", "Bearer $ann") }.andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `the avatar object goes once the deletion has committed`() {
+        val token = signUp(email("pic"))
+        val image = ByteArrayOutputStream().also { ImageIO.write(BufferedImage(64, 64, BufferedImage.TYPE_INT_RGB), "png", it) }
+        mockMvc
+            .multipart(HttpMethod.PUT, "/api/v1/users/me/avatar") {
+                file(MockMultipartFile("file", "a.png", "image/png", image.toByteArray()))
+                header("Authorization", "Bearer $token")
+            }.andExpect { status { isOk() } }
+        val userId =
+            parse(
+                mockMvc
+                    .get("/api/v1/users/me") { header("Authorization", "Bearer $token") }
+                    .andReturn()
+                    .response.contentAsString
+            ).text("userId")
+        assertNotNull(objectStorage.get("avatars/$userId.png"))
+
+        mockMvc.post("/api/v1/auth/delete-account") { header("Authorization", "Bearer $token") }.andExpect { status { isNoContent() } }
+
+        assertNull(objectStorage.get("avatars/$userId.png"))
     }
 
     @Test

@@ -12,20 +12,15 @@ import org.junit.jupiter.api.Test
 import org.springframework.boot.mail.autoconfigure.MailProperties
 import org.springframework.mail.javamail.JavaMailSender
 import java.util.Properties
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 
 class EmailServiceTest {
     private fun emailService(
         mailSender: JavaMailSender,
         from: String = "",
         smtpUsername: String = "",
-        maxConcurrentSends: Int = 4,
     ): EmailService {
-        val properties = NotificationMailProperties(from = from, maxConcurrentSends = maxConcurrentSends)
-        return EmailService(mailSender, MailTemplates(properties), properties, MailProperties().apply { username = smtpUsername })
+        val properties = NotificationMailProperties(from = from)
+        return EmailService(SmtpTransport(mailSender), MailTemplates(properties), properties, MailProperties().apply { username = smtpUsername })
     }
 
     private fun sentFrom(
@@ -60,36 +55,6 @@ class EmailServiceTest {
     @Test
     fun `an explicit sender wins over the SMTP username`() {
         assertEquals("votes@example.com", sentFrom(fromOverride = "votes@example.com", smtpUsername = "mailer@example.com"))
-    }
-
-    @Test
-    fun `caps simultaneous SMTP sends at the configured limit`() {
-        val mailSender = mockk<JavaMailSender>()
-        val inFlight = AtomicInteger()
-        val maxInFlight = AtomicInteger()
-        val release = CountDownLatch(1)
-        val started = CountDownLatch(2)
-        every { mailSender.createMimeMessage() } answers { MimeMessage(Session.getInstance(Properties())) }
-        every { mailSender.send(any<MimeMessage>()) } answers {
-            maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
-            started.countDown()
-            release.await(5, TimeUnit.SECONDS)
-            inFlight.decrementAndGet()
-        }
-        val service = emailService(mailSender, maxConcurrentSends = 2)
-
-        Executors.newVirtualThreadPerTaskExecutor().use { executor ->
-            repeat(6) { i ->
-                executor.execute { service.sendVoteInvitation("p$i@test.com", "Vote", "Creator", "http://localhost/votes/1", UnsubscribeLinks("http://localhost/unsubscribe", "http://localhost/one-click")) }
-            }
-            assertTrue(started.await(5, TimeUnit.SECONDS))
-            // Give the remaining senders a chance to (wrongly) get past the cap before releasing
-            Thread.sleep(100)
-            release.countDown()
-        }
-
-        assertEquals(2, maxInFlight.get())
-        verify(exactly = 6) { mailSender.send(any<MimeMessage>()) }
     }
 
     private fun sentHtml(send: EmailService.() -> Unit): String {

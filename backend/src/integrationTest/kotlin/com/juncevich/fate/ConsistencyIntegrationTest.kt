@@ -65,11 +65,11 @@ class ConsistencyIntegrationTest
             votes.draw(VoteId(vote.id), UserId(userId))
             votes.reopen(VoteId(vote.id), UserId(userId))
             votes.removeOption(VoteId(vote.id), UserId(userId), vote.options.single().id)
-            val email = checkNotNull(users.findById(userId)).email
+            val email = checkNotNull(users.findById(UserId(userId))).email
 
-            assertEquals(Winner.Option("Winner"), votes.getVote(VoteId(vote.id), UserId(userId), Email.trusted(email)).lastResult?.winner)
-            assertEquals(Winner.Option("Winner"), votes.getHistory(VoteId(vote.id), UserId(userId), Email.trusted(email)).single().winner)
-            assertEquals(Winner.Option("Winner"), votes.getLastResult(VoteId(vote.id), UserId(userId), Email.trusted(email))?.winner)
+            assertEquals(Winner.Option("Winner"), votes.getVote(VoteId(vote.id), UserId(userId), email).lastResult?.winner)
+            assertEquals(Winner.Option("Winner"), votes.getHistory(VoteId(vote.id), UserId(userId), email).single().winner)
+            assertEquals(Winner.Option("Winner"), votes.getLastResult(VoteId(vote.id), UserId(userId), email)?.winner)
         }
 
         @ParameterizedTest
@@ -77,14 +77,14 @@ class ConsistencyIntegrationTest
         fun `composition changes wait for draw and reject the committed DRAWN status`(operation: String) {
             val userId = newUser().userId
             val vote = newVote(userId)
-            val email = checkNotNull(users.findById(userId)).email
+            val email = checkNotNull(users.findById(UserId(userId))).email
             val (draw, change) =
                 compete(
                     first = { votes.draw(VoteId(vote.id), UserId(userId)) },
                     second = {
                         when (operation) {
                             "addParticipant" -> votes.addParticipant(VoteId(vote.id), UserId(userId), "new@test.com")
-                            "removeParticipant" -> votes.removeParticipant(VoteId(vote.id), UserId(userId), email)
+                            "removeParticipant" -> votes.removeParticipant(VoteId(vote.id), UserId(userId), email.value)
                             "addOption" -> votes.addOption(VoteId(vote.id), UserId(userId), "New")
                             else -> votes.removeOption(VoteId(vote.id), UserId(userId), vote.options.single().id)
                         }
@@ -92,9 +92,9 @@ class ConsistencyIntegrationTest
                 )
             assertTrue(draw.isSuccess)
             assertTrue(change.exceptionOrNull() is ConflictException)
-            val detail = votes.getVote(VoteId(vote.id), UserId(userId), Email.trusted(email))
+            val detail = votes.getVote(VoteId(vote.id), UserId(userId), email)
             assertEquals(listOf("Winner"), detail.options.map { it.title })
-            assertEquals(listOf(email), detail.participants.map { it.email })
+            assertEquals(listOf(email.value), detail.participants.map { it.email })
         }
 
         @Test
@@ -120,14 +120,14 @@ class ConsistencyIntegrationTest
             assertEquals(winnerId, candidates[WinnerPicker.index(seed, candidates.size)])
             assertEquals(Winner.Option(vote.options.single { it.id.toString() == winnerId }.title), result.winner)
             // The TEXT[] column also maps back when the entity is read through JPA.
-            val email = checkNotNull(users.findById(userId)).email
-            assertEquals(result.winner, votes.getHistory(VoteId(vote.id), UserId(userId), Email.trusted(email)).single().winner)
+            val email = checkNotNull(users.findById(UserId(userId))).email
+            assertEquals(result.winner, votes.getHistory(VoteId(vote.id), UserId(userId), email).single().winner)
         }
 
         @Test
         fun `expired link tokens are purged without being presented`() {
             val tokens = newUser()
-            telegram.generateLinkToken(tokens.userId)
+            telegram.generateLinkToken(UserId(tokens.userId))
             jdbc.update("UPDATE telegram_link_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = ?", tokens.userId)
 
             purger.purge()
@@ -138,7 +138,7 @@ class ConsistencyIntegrationTest
         @Test
         fun `parallel telegram linking consumes token once`() {
             val userId = newUser().userId
-            val token = telegram.generateLinkToken(userId).token
+            val token = telegram.generateLinkToken(UserId(userId)).token
             // Telegram user ids are positive; linking rejects anything else before taking the lock.
             val firstId = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE
             val secondId = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE
@@ -149,13 +149,13 @@ class ConsistencyIntegrationTest
                 )
             assertTrue(first.isSuccess)
             assertTrue(second.exceptionOrNull() is NotFoundException)
-            assertEquals(firstId, users.findById(userId)?.telegramId)
+            assertEquals(firstId, users.findById(UserId(userId))?.telegramId)
         }
 
         @Test
         fun `an expired link token is deleted despite rejecting the request`() {
             val userId = newUser().userId
-            val link = telegram.generateLinkToken(userId)
+            val link = telegram.generateLinkToken(UserId(userId))
             jdbc.update("UPDATE telegram_link_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = ?", userId)
             assertThrows<BadRequestException> { telegram.linkAccount(link.token, 42, "Expired") }
             assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM telegram_link_tokens WHERE user_id = ?", Int::class.java, userId))
@@ -174,7 +174,7 @@ class ConsistencyIntegrationTest
                 )
             assertEquals("Vote", vote.title)
             assertEquals(setOf(creator.email, email), vote.participants.map { it.email }.toSet())
-            assertEquals(vote.id, votes.getVote(VoteId(vote.id), UserId(participant.userId), Email.trusted(email)).id)
+            assertEquals(vote.id, votes.getVote(VoteId(vote.id), UserId(participant.userId), Email.of(email)).id)
         }
 
         @Test
@@ -187,16 +187,16 @@ class ConsistencyIntegrationTest
                 if (index < 2) votes.reopen(VoteId(vote.id), UserId(userId))
             }
             jdbc.update("UPDATE draw_history SET drawn_at = '2026-01-01T00:00:00Z' WHERE vote_id = ?", vote.id)
-            val email = checkNotNull(users.findById(userId)).email
-            val first = votes.getHistory(VoteId(vote.id), UserId(userId), Email.trusted(email), PageRequest.of(0, 2))
-            val last = votes.getHistory(VoteId(vote.id), UserId(userId), Email.trusted(email), PageRequest.of(1, 2))
+            val email = checkNotNull(users.findById(UserId(userId))).email
+            val first = votes.getHistory(VoteId(vote.id), UserId(userId), email, PageRequest.of(0, 2))
+            val last = votes.getHistory(VoteId(vote.id), UserId(userId), email, PageRequest.of(1, 2))
             assertEquals(3L, first.totalElements)
             assertEquals(2, first.totalPages)
             assertEquals(2, first.content.size)
             assertEquals(1, last.content.size)
             assertEquals(3, (first.content + last.content).map { it.id }.toSet().size)
-            assertEquals(first.content.map { it.id }, votes.getHistory(VoteId(vote.id), UserId(userId), Email.trusted(email), PageRequest.of(0, 2)).content.map { it.id })
-            assertThrows<BadRequestException> { votes.getHistory(VoteId(vote.id), UserId(userId), Email.trusted(email), PageRequest.of(0, 101)) }
+            assertEquals(first.content.map { it.id }, votes.getHistory(VoteId(vote.id), UserId(userId), email, PageRequest.of(0, 2)).content.map { it.id })
+            assertThrows<BadRequestException> { votes.getHistory(VoteId(vote.id), UserId(userId), email, PageRequest.of(0, 101)) }
 
             val token = user.accessToken
             mockMvc
@@ -252,7 +252,7 @@ class ConsistencyIntegrationTest
                     .ClassPathResource("db/migration/V13__normalize_participant_emails.sql")
             val migration = resource.inputStream.bufferedReader().use { it.readText() }
             jdbc.execute(migration)
-            val detail = votes.getVote(VoteId(vote.id), UserId(participant.userId), Email.trusted(email))
+            val detail = votes.getVote(VoteId(vote.id), UserId(participant.userId), Email.of(email))
             assertEquals(1, detail.participants.count { it.email == email })
             assertEquals(email, (detail.lastResult?.winner as? Winner.Participant)?.email)
         }

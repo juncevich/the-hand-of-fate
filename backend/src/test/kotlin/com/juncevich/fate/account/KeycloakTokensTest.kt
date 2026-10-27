@@ -1,11 +1,15 @@
 package com.juncevich.fate.account
 
 import com.juncevich.fate.account.keycloak.KeycloakAccessTokenConverter
+import com.juncevich.fate.account.keycloak.KeycloakAuthentication
 import com.juncevich.fate.account.keycloak.KeycloakIdentity
 import com.juncevich.fate.account.keycloak.KeycloakUserProvisioner
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.security.oauth2.jwt.Jwt
@@ -16,7 +20,7 @@ import java.util.UUID
 class KeycloakTokensTest {
     private val provisioner = mockk<KeycloakUserProvisioner>()
     private val converter = KeycloakAccessTokenConverter(provisioner)
-    private val id = UUID.randomUUID()
+    private val id = UserId(UUID.randomUUID())
 
     private fun jwt(authTime: Instant? = null) =
         Jwt
@@ -31,11 +35,16 @@ class KeycloakTokensTest {
     @Test
     fun `exposes the token's user with a canonical email and the sign-in time`() {
         val signedInAt = Instant.parse("2026-10-20T10:00:00Z")
-        every { provisioner.ensureProvisioned(KeycloakIdentity(id, "kate@test.com", "Kate")) } returns true
+        every { provisioner.ensureProvisioned(KeycloakIdentity(id, Email.of("kate@test.com"), "Kate")) } returns true
 
-        val principal = converter.convert(jwt(signedInAt)).principal as AuthenticatedUser
+        val authentication = converter.convert(jwt(signedInAt)) as KeycloakAuthentication
+        assertTrue(authentication.isAuthenticated)
+        assertEquals(id.toString(), authentication.name)
+        assertEquals(listOf("ROLE_USER"), authentication.authorities.map { it.authority })
+        assertEquals(id.toString(), authentication.credentials.subject)
+        val principal = authentication.principal
 
-        assertEquals(AuthenticatedUser(id, "kate@test.com", signedInAt), principal)
+        assertEquals(AuthenticatedUser(id, Email.of("kate@test.com"), signedInAt), principal)
     }
 
     @Test

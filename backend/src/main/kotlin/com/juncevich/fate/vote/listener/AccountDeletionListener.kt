@@ -1,7 +1,6 @@
 package com.juncevich.fate.vote.listener
 
 import com.juncevich.fate.account.AccountDeleted
-import com.juncevich.fate.shared.Email
 import com.juncevich.fate.vote.domain.DrawHistoryRepository
 import com.juncevich.fate.vote.domain.VoteRepository
 import org.springframework.context.event.EventListener
@@ -21,8 +20,7 @@ class AccountDeletionListener(
 ) {
     @EventListener
     fun on(event: AccountDeleted) {
-        val email = Email.trusted(event.email)
-        votes.removeParticipantEverywhere(email)
-        history.anonymizeWins(email, DELETED_USER_NAME)
+        votes.removeParticipantEverywhere(event.email)
+        history.anonymizeWins(event.email, DELETED_USER_NAME)
     }
 }

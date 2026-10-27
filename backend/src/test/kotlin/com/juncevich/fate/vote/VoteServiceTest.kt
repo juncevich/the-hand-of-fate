@@ -4,8 +4,6 @@ import com.juncevich.fate.FIXED_CLOCK
 import com.juncevich.fate.NOW
 import com.juncevich.fate.account.UserProfile
 import com.juncevich.fate.account.UserQueryService
-import com.juncevich.fate.account.mailbox
-import com.juncevich.fate.account.userId
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.Email
@@ -55,7 +53,7 @@ class VoteServiceTest {
     private val service =
         VoteService(votes, history, userQueryService, WinnerPicker(), events, meterRegistry, FIXED_CLOCK)
 
-    private val creator = UserProfile(UUID.randomUUID(), "creator@test.com", "Creator")
+    private val creator = UserProfile(UserId(UUID.randomUUID()), Email.of("creator@test.com"), "Creator")
 
     @BeforeEach
     fun setUp() {
@@ -71,7 +69,7 @@ class VoteServiceTest {
         drawTarget: DrawTarget = DrawTarget.PARTICIPANTS,
         mode: VoteMode = VoteMode.SIMPLE,
         status: VoteStatus = VoteStatus.PENDING,
-        participants: List<String> = listOf(creator.email),
+        participants: List<String> = listOf(creator.email.value),
         options: List<String> = emptyList(),
     ): Vote {
         val vote =
@@ -79,7 +77,7 @@ class VoteServiceTest {
                 id = VoteId(UUID.randomUUID()),
                 title = "Vote",
                 description = null,
-                creatorId = creator.userId,
+                creatorId = creator.id,
                 mode = mode,
                 drawTarget = drawTarget,
                 status = status,
@@ -103,11 +101,11 @@ class VoteServiceTest {
 
         val view =
             service.createVote(
-                creator.userId,
-                CreateVoteCommand(title = "Vote", participantEmails = listOf("p@test.com", creator.email), options = listOf("A", "B"))
+                creator.id,
+                CreateVoteCommand(title = "Vote", participantEmails = listOf("p@test.com", creator.email.value), options = listOf("A", "B"))
             )
 
-        assertEquals(listOf(creator.mailbox, Email.of("p@test.com")), saved.captured.participants.map { it.email })
+        assertEquals(listOf(creator.email, Email.of("p@test.com")), saved.captured.participants.map { it.email })
         assertEquals(
             "Creator",
             saved.captured.participants
@@ -118,7 +116,7 @@ class VoteServiceTest {
         assertEquals(DrawTarget.OPTIONS, view.drawTarget)
         assertTrue(view.isCreator)
         assertNull(view.lastResult)
-        verify(exactly = 1) { events.publishEvent(VoteCreated(VoteId(view.id), "Vote", creator.userId, listOf(Email.of("p@test.com")))) }
+        verify(exactly = 1) { events.publishEvent(VoteCreated(VoteId(view.id), "Vote", creator.id, listOf(Email.of("p@test.com")))) }
         verify(exactly = 1) { events.publishEvent(any<Any>()) }
         assertEquals(
             1.0,
@@ -135,7 +133,7 @@ class VoteServiceTest {
         every { events.publishEvent(any<VoteCreated>()) } throws TooManyRequestsException("Email limit reached", ErrorCode.EMAIL_LIMIT_REACHED)
 
         assertThrows<TooManyRequestsException> {
-            service.createVote(creator.userId, CreateVoteCommand(title = "Vote", participantEmails = listOf("a@test.com")))
+            service.createVote(creator.id, CreateVoteCommand(title = "Vote", participantEmails = listOf("a@test.com")))
         }
 
         assertTrue(meterRegistry.find("vote.created").counters().isEmpty())
@@ -144,10 +142,10 @@ class VoteServiceTest {
     @Test
     fun `createVote rejected by the vote's rules stores nothing`() {
         assertThrows<BadRequestException> {
-            service.createVote(creator.userId, CreateVoteCommand(title = "Vote", participantEmails = listOf("not-an-email")))
+            service.createVote(creator.id, CreateVoteCommand(title = "Vote", participantEmails = listOf("not-an-email")))
         }
         assertThrows<BadRequestException> {
-            service.createVote(creator.userId, CreateVoteCommand(title = "Vote", options = listOf("A"), drawTarget = DrawTarget.PARTICIPANTS))
+            service.createVote(creator.id, CreateVoteCommand(title = "Vote", options = listOf("A"), drawTarget = DrawTarget.PARTICIPANTS))
         }
         verify(exactly = 0) { votes.save(any()) }
         verify(exactly = 0) { events.publishEvent(any<Any>()) }
@@ -156,7 +154,7 @@ class VoteServiceTest {
     @Test
     fun `createVote for an unknown user fails`() {
         val unknown = UserId(UUID.randomUUID())
-        every { userQueryService.findProfileById(unknown.value) } returns null
+        every { userQueryService.findProfileById(unknown) } returns null
 
         assertEquals(
             ErrorCode.USER_NOT_FOUND,
@@ -169,11 +167,11 @@ class VoteServiceTest {
     @Test
     fun `listVotes maps summaries and marks the requester's own votes`() {
         val pageable = PageRequest.of(0, 20)
-        val own = summary(creator.userId)
+        val own = summary(creator.id)
         val foreign = summary(UserId(UUID.randomUUID()))
-        every { votes.findSummaries(creator.userId, creator.mailbox, PageQuery(0, 20)) } returns PageResult(listOf(own, foreign), PageQuery(0, 20), 2)
+        every { votes.findSummaries(creator.id, creator.email, PageQuery(0, 20)) } returns PageResult(listOf(own, foreign), PageQuery(0, 20), 2)
 
-        val page = service.listVotes(creator.userId, creator.mailbox, pageable)
+        val page = service.listVotes(creator.id, creator.email, pageable)
 
         assertEquals(listOf(true, false), page.content.map { it.isCreator })
         assertEquals(3L, page.content.first().participantCount)
@@ -182,13 +180,13 @@ class VoteServiceTest {
 
     @Test
     fun `getVote shows a participant the vote with its last result`() {
-        val vote = stored(participants = listOf(creator.email, "p@test.com"))
+        val vote = stored(participants = listOf(creator.email.value, "p@test.com"))
         every { history.findLatest(vote.id) } returns DrawHistory.ParticipantWinner(voteId = vote.id, email = Email.of("p@test.com"), displayName = "Pat", round = 1, drawnAt = NOW)
 
         val view = service.getVote(vote.id, UserId(UUID.randomUUID()), Email.of("p@test.com"))
 
         assertFalse(view.isCreator)
-        assertEquals(listOf(creator.email, "p@test.com"), view.participants.map { it.email })
+        assertEquals(listOf(creator.email.value, "p@test.com"), view.participants.map { it.email })
         assertEquals(Winner.Participant("p@test.com", "Pat"), view.lastResult?.winner)
     }
 
@@ -208,15 +206,15 @@ class VoteServiceTest {
         every { votes.find(id) } returns null
 
         listOf<() -> Unit>(
-            { service.getVote(id, creator.userId, creator.mailbox) },
-            { service.getHistory(id, creator.userId, creator.mailbox) },
-            { service.getLastResult(id, creator.userId, creator.mailbox) }
+            { service.getVote(id, creator.id, creator.email) },
+            { service.getHistory(id, creator.id, creator.email) },
+            { service.getLastResult(id, creator.id, creator.email) }
         ).forEach { assertEquals(ErrorCode.VOTE_NOT_FOUND, assertThrows<NotFoundException>(it).code) }
     }
 
     @Test
     fun `getLastResult returns the latest option winner, or null before any draw`() {
-        val vote = stored(DrawTarget.OPTIONS, participants = listOf(creator.email, "p@test.com"))
+        val vote = stored(DrawTarget.OPTIONS, participants = listOf(creator.email.value, "p@test.com"))
         every { history.findLatest(vote.id) } returnsMany
             listOf(DrawHistory.OptionWinner(voteId = vote.id, optionId = UUID.randomUUID(), optionTitle = "Pizza", round = 2, drawnAt = NOW), null)
 
@@ -224,7 +222,7 @@ class VoteServiceTest {
         assertEquals(Winner.Option("Pizza"), result?.winner)
         assertEquals(2, result?.round)
 
-        assertNull(service.getLastResult(vote.id, creator.userId, creator.mailbox))
+        assertNull(service.getLastResult(vote.id, creator.id, creator.email))
     }
 
     @Test
@@ -232,11 +230,11 @@ class VoteServiceTest {
         val vote = stored()
         every { history.findPage(vote.id, PageQuery(1, 100)) } returns PageResult(emptyList(), PageQuery(1, 100), 100)
 
-        assertEquals(100, service.getHistory(vote.id, creator.userId, creator.mailbox, PageRequest.of(1, 100)).totalElements)
+        assertEquals(100, service.getHistory(vote.id, creator.id, creator.email, PageRequest.of(1, 100)).totalElements)
         listOf(PageRequest.of(0, 101), Pageable.unpaged()).forEach { pageable ->
             assertEquals(
                 ErrorCode.PAGE_INVALID,
-                assertThrows<BadRequestException> { service.getHistory(vote.id, creator.userId, creator.mailbox, pageable) }.code
+                assertThrows<BadRequestException> { service.getHistory(vote.id, creator.id, creator.email, pageable) }.code
             )
         }
     }
@@ -251,7 +249,7 @@ class VoteServiceTest {
                 1
             )
 
-        assertEquals(listOf(Winner.Option("Gone")), service.getHistory(vote.id, creator.userId, creator.mailbox).map { it.winner })
+        assertEquals(listOf(Winner.Option("Gone")), service.getHistory(vote.id, creator.id, creator.email).map { it.winner })
     }
 
     // ── changes ──────────────────────────────────────────────────────────────────
@@ -259,12 +257,12 @@ class VoteServiceTest {
     @Test
     fun `addParticipant stores the participant and announces the invitation`() {
         val vote = stored()
-        every { userQueryService.findProfileByEmail("new@test.com") } returns UserProfile(UUID.randomUUID(), "new@test.com", "Newton")
+        every { userQueryService.findProfileByEmail(Email.of("new@test.com")) } returns UserProfile(UserId(UUID.randomUUID()), Email.of("new@test.com"), "Newton")
 
-        service.addParticipant(vote.id, creator.userId, "New@test.com")
+        service.addParticipant(vote.id, creator.id, "New@test.com")
 
         verify { votes.save(match { v -> v.participants.any { it.email.value == "new@test.com" && it.displayName == "Newton" } }) }
-        verify(exactly = 1) { events.publishEvent(ParticipantInvited(vote.id, vote.title, creator.userId, Email.of("new@test.com"))) }
+        verify(exactly = 1) { events.publishEvent(ParticipantInvited(vote.id, vote.title, creator.id, Email.of("new@test.com"))) }
     }
 
     @Test
@@ -272,8 +270,8 @@ class VoteServiceTest {
         val vote = stored(status = VoteStatus.DRAWN)
 
         assertThrows<ForbiddenException> { service.addParticipant(vote.id, UserId(UUID.randomUUID()), "new@test.com") }
-        assertThrows<ConflictException> { service.addParticipant(vote.id, creator.userId, "new@test.com") }
-        assertThrows<ConflictException> { service.removeParticipant(vote.id, creator.userId, creator.email) }
+        assertThrows<ConflictException> { service.addParticipant(vote.id, creator.id, "new@test.com") }
+        assertThrows<ConflictException> { service.removeParticipant(vote.id, creator.id, creator.email.value) }
 
         verify(exactly = 0) { votes.save(any()) }
         verify(exactly = 0) { events.publishEvent(any<Any>()) }
@@ -281,15 +279,15 @@ class VoteServiceTest {
 
     @Test
     fun `composition changes are applied to the locked vote and stored`() {
-        val vote = stored(DrawTarget.OPTIONS, participants = listOf(creator.email, "p@test.com"), options = listOf("A", "B"))
+        val vote = stored(DrawTarget.OPTIONS, participants = listOf(creator.email.value, "p@test.com"), options = listOf("A", "B"))
         val (a, b) = vote.options
 
-        service.removeParticipant(vote.id, creator.userId, "p@test.com")
-        service.addOption(vote.id, creator.userId, " C ")
-        service.reorderOptions(vote.id, creator.userId, listOf(b.id, a.id, vote.options.last().id))
-        service.removeOption(vote.id, creator.userId, a.id)
+        service.removeParticipant(vote.id, creator.id, "p@test.com")
+        service.addOption(vote.id, creator.id, " C ")
+        service.reorderOptions(vote.id, creator.id, listOf(b.id, a.id, vote.options.last().id))
+        service.removeOption(vote.id, creator.id, a.id)
 
-        assertEquals(listOf(creator.mailbox), vote.participants.map { it.email })
+        assertEquals(listOf(creator.email), vote.participants.map { it.email })
         assertEquals(listOf("B", "C"), vote.options.map { it.title })
         verify(exactly = 4) { votes.findForUpdate(vote.id) }
         verify(exactly = 4) { votes.save(vote) }
@@ -302,12 +300,12 @@ class VoteServiceTest {
         every { votes.findForUpdate(id) } returns null
 
         listOf<() -> Unit>(
-            { service.addParticipant(id, creator.userId, "new@test.com") },
-            { service.addOption(id, creator.userId, "A") },
-            { service.draw(id, creator.userId) },
-            { service.reopen(id, creator.userId) },
-            { service.closeVote(id, creator.userId) },
-            { service.deleteVote(id, creator.userId) }
+            { service.addParticipant(id, creator.id, "new@test.com") },
+            { service.addOption(id, creator.id, "A") },
+            { service.draw(id, creator.id) },
+            { service.reopen(id, creator.id) },
+            { service.closeVote(id, creator.id) },
+            { service.deleteVote(id, creator.id) }
         ).forEach { assertEquals(ErrorCode.VOTE_NOT_FOUND, assertThrows<NotFoundException>(it).code) }
     }
 
@@ -315,9 +313,9 @@ class VoteServiceTest {
     fun `reopen and close change the status and store it`() {
         val vote = stored(status = VoteStatus.DRAWN)
 
-        service.reopen(vote.id, creator.userId)
+        service.reopen(vote.id, creator.id)
         assertEquals(VoteStatus.PENDING, vote.status)
-        service.closeVote(vote.id, creator.userId)
+        service.closeVote(vote.id, creator.id)
         assertEquals(VoteStatus.CLOSED, vote.status)
 
         verify(exactly = 2) { votes.save(vote) }
@@ -330,7 +328,7 @@ class VoteServiceTest {
         assertThrows<ForbiddenException> { service.deleteVote(vote.id, UserId(UUID.randomUUID())) }
         verify(exactly = 0) { votes.delete(any()) }
 
-        service.deleteVote(vote.id, creator.userId)
+        service.deleteVote(vote.id, creator.id)
         verify(exactly = 1) { votes.delete(vote.id) }
     }
 
@@ -342,7 +340,7 @@ class VoteServiceTest {
         val recorded = slot<DrawHistory>()
         every { history.save(capture(recorded)) } returns Unit
 
-        val result = service.draw(vote.id, creator.userId)
+        val result = service.draw(vote.id, creator.id)
 
         assertEquals(Winner.Participant("winner@test.com", null), result.winner)
         assertEquals(Email.of("winner@test.com"), (recorded.captured as DrawHistory.ParticipantWinner).email)
@@ -352,7 +350,7 @@ class VoteServiceTest {
             events.publishEvent(
                 match<VoteDrawn> {
                     it.voteId == vote.id &&
-                        it.drawnBy == creator.userId &&
+                        it.drawnBy == creator.id &&
                         it.outcome.entry == recorded.captured &&
                         it.recipients == listOf(Email.of("winner@test.com"))
                 }
@@ -373,7 +371,7 @@ class VoteServiceTest {
         val vote = stored(DrawTarget.OPTIONS, VoteMode.FAIR_ROTATION, options = listOf("Pizza"))
         every { history.findByRound(vote.id, 1) } returns emptyList()
 
-        val result = service.draw(vote.id, creator.userId)
+        val result = service.draw(vote.id, creator.id)
 
         assertEquals(Winner.Option("Pizza"), result.winner)
         assertEquals(1, result.round)
@@ -385,7 +383,7 @@ class VoteServiceTest {
     fun `a refused draw records nothing`() {
         val vote = stored(status = VoteStatus.DRAWN)
 
-        assertThrows<ConflictException> { service.draw(vote.id, creator.userId) }
+        assertThrows<ConflictException> { service.draw(vote.id, creator.id) }
 
         verify(exactly = 0) { history.save(any()) }
         verify(exactly = 0) { votes.save(any()) }
@@ -400,8 +398,8 @@ class VoteServiceTest {
         }
 
         repeat(3) {
-            service.draw(vote.id, creator.userId)
-            vote.reopen(creator.userId)
+            service.draw(vote.id, creator.id)
+            vote.reopen(creator.id)
         }
 
         assertEquals(4, vote.currentRound)

@@ -122,6 +122,10 @@ class Vote(
         return participant
     }
 
+    /**
+     * Removes [email] from the participants; an address that is not one is ignored. The creator may
+     * remove themselves — a vote run for a group they are not part of — and still manages and sees it.
+     */
     fun removeParticipant(
         by: UserId,
         email: String,

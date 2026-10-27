@@ -6,7 +6,9 @@ import com.juncevich.fate.account.avatar.AvatarImageProcessor
 import com.juncevich.fate.account.avatar.AvatarService
 import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.NotFoundException
+import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.storage.ObjectStorage
 import com.juncevich.fate.storage.StorageUnavailableException
 import com.juncevich.fate.storage.StoredObject
@@ -24,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.time.Instant
+import java.util.UUID
 
 class AvatarServiceTest {
     private val users = mockk<UserRepository>()
@@ -31,7 +34,7 @@ class AvatarServiceTest {
     private val processor = mockk<AvatarImageProcessor>()
     private val service = AvatarService(users, storage, processor, FIXED_CLOCK)
 
-    private val user = User(email = "user@test.com", displayName = "User", createdAt = NOW)
+    private val user = User(id = UserId(UUID.randomUUID()), email = Email.of("user@test.com"), displayName = "User", createdAt = NOW)
     private val key = "avatars/${user.id}.png"
     private val png = byteArrayOf(1, 2, 3)
 

@@ -1,5 +1,6 @@
 package com.juncevich.fate.account.domain
 
+import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.shared.uuidV7
 import java.time.Instant
 import java.util.UUID
@@ -7,7 +8,7 @@ import java.util.UUID
 /** A one-time token that links the Telegram account presenting it to [userId] (5 minutes). */
 class TelegramLinkToken(
     val id: UUID = uuidV7(),
-    val userId: UUID,
+    val userId: UserId,
     val token: String,
     val expiresAt: Instant,
     val createdAt: Instant,
@@ -23,7 +24,7 @@ interface TelegramLinkTokenRepository {
 
     fun delete(token: TelegramLinkToken)
 
-    fun deleteAllByUserId(userId: UUID)
+    fun deleteAllByUserId(userId: UserId)
 
     /** Deletes tokens past their expiry; returns how many were removed. */
     fun deleteExpired(now: Instant): Int

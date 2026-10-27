@@ -6,6 +6,8 @@ import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.account.web.MeController
 import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.platform.ErrorHandler
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -27,7 +29,7 @@ import java.util.UUID
 class MeControllerTest {
     private val preferences = mockk<EmailPreferences>()
     private val users = mockk<UserRepository>()
-    private val userId = UUID.randomUUID()
+    private val userId = UserId(UUID.randomUUID())
     private val mockMvc =
         MockMvcBuilders
             .standaloneSetup(MeController(preferences, users))
@@ -38,7 +40,7 @@ class MeControllerTest {
     @BeforeEach
     fun signIn() {
         SecurityContextHolder.getContext().authentication =
-            UsernamePasswordAuthenticationToken(AuthenticatedUser(userId, "ann@test.com"), null, emptyList())
+            UsernamePasswordAuthenticationToken(AuthenticatedUser(userId, Email.of("ann@test.com")), null, emptyList())
     }
 
     @AfterEach
@@ -46,8 +48,8 @@ class MeControllerTest {
 
     @Test
     fun `reads and toggles notification emails of the caller's address`() {
-        every { preferences.receivesNotifications("ann@test.com") } returns false
-        every { preferences.setReceivesNotifications("ann@test.com", false) } just runs
+        every { preferences.receivesNotifications(Email.of("ann@test.com")) } returns false
+        every { preferences.setReceivesNotifications(Email.of("ann@test.com"), false) } just runs
 
         mockMvc.get("/api/v1/users/me/email-preferences").andExpect {
             status { isOk() }
@@ -59,14 +61,14 @@ class MeControllerTest {
                 content = """{"notificationsEnabled":false}"""
             }.andExpect { jsonPath("$.notificationsEnabled") { value(false) } }
 
-        verify { preferences.setReceivesNotifications("ann@test.com", false) }
+        verify { preferences.setReceivesNotifications(Email.of("ann@test.com"), false) }
     }
 
     @Test
     fun `returns the caller's profile with a versioned avatar url`() {
         val avatarAt = Instant.ofEpochMilli(1_700_000_000_000)
         every { users.findById(userId) } returns
-            User(id = userId, email = "ann@test.com", displayName = "Ann", avatarUpdatedAt = avatarAt, createdAt = NOW)
+            User(id = userId, email = Email.of("ann@test.com"), displayName = "Ann", avatarUpdatedAt = avatarAt, createdAt = NOW)
 
         mockMvc.get("/api/v1/users/me").andExpect {
             status { isOk() }

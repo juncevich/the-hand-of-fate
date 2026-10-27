@@ -2,8 +2,6 @@ package com.juncevich.fate.grpc
 
 import com.juncevich.fate.account.TelegramLinkService
 import com.juncevich.fate.account.UserQueryService
-import com.juncevich.fate.account.mailbox
-import com.juncevich.fate.account.userId
 import com.juncevich.fate.vote.CreateVoteCommand
 import com.juncevich.fate.vote.VoteId
 import com.juncevich.fate.vote.VoteService
@@ -38,12 +36,11 @@ class FateGrpcService(
     internal fun linkTelegramAccount(request: LinkTelegramAccountRequest): LinkTelegramAccountResponse =
         grpcMutation(
             failure = { message, code ->
-                LinkTelegramAccountResponse
-                    .newBuilder()
-                    .setSuccess(false)
-                    .setMessage(message)
-                    .setErrorCode(code)
-                    .build()
+                linkTelegramAccountResponse {
+                    success = false
+                    this.message = message
+                    errorCode = code
+                }
             }
         ) {
             val user =
@@ -52,12 +49,11 @@ class FateGrpcService(
                     telegramId = request.telegramId,
                     telegramName = request.telegramName
                 )
-            LinkTelegramAccountResponse
-                .newBuilder()
-                .setSuccess(true)
-                .setDisplayName(user.displayName)
-                .setMessage("Account linked successfully!")
-                .build()
+            linkTelegramAccountResponse {
+                success = true
+                displayName = user.displayName
+                message = "Account linked successfully!"
+            }
         }
 
     override fun unlinkTelegramAccount(
@@ -68,20 +64,18 @@ class FateGrpcService(
     internal fun unlinkTelegramAccount(request: UnlinkTelegramAccountRequest): UnlinkTelegramAccountResponse =
         grpcMutation(
             failure = { message, code ->
-                UnlinkTelegramAccountResponse
-                    .newBuilder()
-                    .setSuccess(false)
-                    .setMessage(message)
-                    .setErrorCode(code)
-                    .build()
+                unlinkTelegramAccountResponse {
+                    success = false
+                    this.message = message
+                    errorCode = code
+                }
             }
         ) {
             telegramLinkService.unlinkAccount(request.telegramId)
-            UnlinkTelegramAccountResponse
-                .newBuilder()
-                .setSuccess(true)
-                .setMessage("Account unlinked.")
-                .build()
+            unlinkTelegramAccountResponse {
+                success = true
+                message = "Account unlinked."
+            }
         }
 
     override fun getMyVotes(
@@ -97,28 +91,28 @@ class FateGrpcService(
                 do {
                     val page =
                         voteService.listVotes(
-                            user.userId,
-                            user.mailbox,
+                            user.id,
+                            user.email,
                             PageRequest.of(pageNumber, GRPC_DEFAULT_PAGE_SIZE)
                         )
                     addAll(page.content)
                     pageNumber++
                 } while (page.hasNext() && pageNumber < GRPC_MAX_PAGES)
             }
-        val summaries =
-            votes.map { dto ->
-                VoteSummary
-                    .newBuilder()
-                    .setVoteId(dto.id.toString())
-                    .setTitle(dto.title)
-                    .setStatus(dto.status.toProto())
-                    .setMode(dto.mode.toProto())
-                    .setParticipantCount(dto.participantCount.toInt())
-                    .setIsCreator(dto.isCreator)
-                    .setCurrentRound(dto.currentRound)
-                    .build()
-            }
-        return GetMyVotesResponse.newBuilder().addAllVotes(summaries).build()
+        return getMyVotesResponse {
+            this.votes +=
+                votes.map { dto ->
+                    voteSummary {
+                        voteId = dto.id.toString()
+                        title = dto.title
+                        status = dto.status.toProto()
+                        mode = dto.mode.toProto()
+                        participantCount = dto.participantCount.toInt()
+                        isCreator = dto.isCreator
+                        currentRound = dto.currentRound
+                    }
+                }
+        }
     }
 
     override fun createVote(
@@ -128,30 +122,25 @@ class FateGrpcService(
 
     internal fun createVote(request: CreateVoteRequest): CreateVoteResponse {
         val user = linkedUser(request.telegramId)
-        val title = request.title.trim()
-        if (title.isBlank()) {
-            throw GrpcErrors.invalidArgument(DomainErrorCode.TITLE_INVALID, "Vote title is required")
-        }
         val mode = request.mode.toDomain()
         val participantEmails = request.participantEmailsList
         val options = request.optionsList
 
         return grpcMutation(
             failure = { message, code ->
-                CreateVoteResponse
-                    .newBuilder()
-                    .setSuccess(false)
-                    .setMessage(message)
-                    .setErrorCode(code)
-                    .build()
+                createVoteResponse {
+                    success = false
+                    this.message = message
+                    errorCode = code
+                }
             }
         ) {
             val vote =
                 voteService.createVote(
-                    creatorId = user.userId,
+                    creatorId = user.id,
                     request =
                         CreateVoteCommand(
-                            title = title,
+                            title = request.title,
                             description = request.description.takeIf { it.isNotBlank() },
                             mode = mode,
                             participantEmails = participantEmails,
@@ -160,12 +149,11 @@ class FateGrpcService(
                         )
                 )
 
-            CreateVoteResponse
-                .newBuilder()
-                .setSuccess(true)
-                .setMessage("Vote created")
-                .setVote(vote.toProto())
-                .build()
+            createVoteResponse {
+                success = true
+                message = "Vote created"
+                this.vote = vote.toProto()
+            }
         }
     }
 
@@ -179,7 +167,7 @@ class FateGrpcService(
         val voteId = parseVoteId(request.voteId)
         val voteDto =
             grpcRead {
-                voteService.getVote(voteId, user.userId, user.mailbox)
+                voteService.getVote(voteId, user.id, user.email)
             }
         return voteDto.toProto()
     }
@@ -194,25 +182,23 @@ class FateGrpcService(
         val voteId = parseVoteId(request.voteId)
         return grpcMutation(
             failure = { message, code ->
-                DrawVoteResponse
-                    .newBuilder()
-                    .setSuccess(false)
-                    .setMessage(message)
-                    .setErrorCode(code)
-                    .build()
+                drawVoteResponse {
+                    success = false
+                    this.message = message
+                    errorCode = code
+                }
             }
         ) {
-            val result = voteService.draw(voteId, user.userId)
-            DrawVoteResponse
-                .newBuilder()
-                .setSuccess(true)
-                .setWinnerEmail(result.winner.email)
-                .setWinnerDisplayName(result.winner.displayName)
-                .setWinnerOptionTitle(result.winner.optionTitle)
-                .setRound(result.round)
-                .setNewRoundStarted(result.newRoundStarted)
-                .setMessage("✦ The Hand of Fate has chosen: ${result.winner.label}")
-                .build()
+            val result = voteService.draw(voteId, user.id)
+            drawVoteResponse {
+                success = true
+                winnerEmail = result.winner.email
+                winnerDisplayName = result.winner.displayName
+                winnerOptionTitle = result.winner.optionTitle
+                round = result.round
+                newRoundStarted = result.newRoundStarted
+                message = "✦ The Hand of Fate has chosen: ${result.winner.label}"
+            }
         }
     }
 
@@ -227,17 +213,12 @@ class FateGrpcService(
 
         val lastDraw =
             grpcRead {
-                voteService.getLastResult(voteId, user.userId, user.mailbox)
+                voteService.getLastResult(voteId, user.id, user.email)
             }
 
-        return if (lastDraw == null) {
-            GetLastDrawResultResponse.newBuilder().setHasResult(false).build()
-        } else {
-            GetLastDrawResultResponse
-                .newBuilder()
-                .setHasResult(true)
-                .setResult(lastDraw.toDrawResultInfo())
-                .build()
+        return getLastDrawResultResponse {
+            hasResult = lastDraw != null
+            lastDraw?.let { result = it.toDrawResultInfo() }
         }
     }
 
@@ -251,14 +232,13 @@ class FateGrpcService(
         val voteId = parseVoteId(request.voteId)
         val history =
             grpcRead {
-                voteService.getHistory(voteId, user.userId, user.mailbox, historyPage(request))
+                voteService.getHistory(voteId, user.id, user.email, historyPage(request))
             }
-        return GetVoteHistoryResponse
-            .newBuilder()
-            .addAllResults(history.content.map { it.toDrawResultInfo() })
-            .setTotalPages(history.totalPages)
-            .setTotalElements(history.totalElements)
-            .build()
+        return getVoteHistoryResponse {
+            results += history.content.map { it.toDrawResultInfo() }
+            totalPages = history.totalPages
+            totalElements = history.totalElements
+        }
     }
 
     private fun historyPage(request: GetVoteHistoryRequest): PageRequest {

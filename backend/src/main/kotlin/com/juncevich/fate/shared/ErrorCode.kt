@@ -1,5 +1,7 @@
 package com.juncevich.fate.shared
 
+private const val LEGACY_LOGIN = "Answered only by the app's own login, replaced by Keycloak"
+
 /**
  * Stable machine-readable reason of every client-facing error: the `code` of REST problems and
  * the `ErrorInfo.reason` / `error_code` of gRPC answers. Clients show their own wording per code
@@ -8,8 +10,6 @@ package com.juncevich.fate.shared
  * `ErrorMappingContractTest` keeps them in sync. Never rename or reuse a value: one that goes out of
  * use is deprecated here and in the proto, never removed.
  */
-private const val LEGACY_LOGIN = "Answered only by the app's own login, replaced by Keycloak"
-
 enum class ErrorCode {
     // ── Generic ──────────────────────────────────────────────────────────────
     VALIDATION_FAILED,

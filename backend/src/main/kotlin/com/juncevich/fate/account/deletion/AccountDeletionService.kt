@@ -2,7 +2,6 @@ package com.juncevich.fate.account.deletion
 
 import com.juncevich.fate.account.AccountDeleted
 import com.juncevich.fate.account.AuthenticatedUser
-import com.juncevich.fate.account.avatar.AvatarService
 import com.juncevich.fate.account.domain.DeletedAccountRepository
 import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.account.keycloak.KeycloakProperties
@@ -13,8 +12,6 @@ import com.juncevich.fate.shared.NotFoundException
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionSynchronization
-import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 
 @Service
@@ -22,16 +19,16 @@ import java.time.Clock
 class AccountDeletionService(
     private val users: UserRepository,
     private val outbox: NotificationOutbox,
-    private val avatars: AvatarService,
     private val events: ApplicationEventPublisher,
     private val deletedAccounts: DeletedAccountRepository,
     private val keycloak: KeycloakProperties,
     private val clock: Clock,
 ) {
     /**
-     * Deletes the account once the caller proved it is them by a recent sign-in: its own votes,
-     * tokens and avatar go with it, other modules forget it via [AccountDeleted], queued emails to it
-     * are dropped. Its Keycloak user is deleted after the commit by [IdentityDeletionWorker].
+     * Deletes the account once the caller proved it is them by a recent sign-in: its own votes and
+     * tokens go with it, other modules forget it via [AccountDeleted], queued emails to it are
+     * dropped. After the commit its avatar object goes (`DeletedAccountAvatarCleanup`) and its
+     * Keycloak user is deleted by [IdentityDeletionWorker].
      */
     fun deleteAccount(caller: AuthenticatedUser) {
         requireRecentSignIn(caller)
@@ -40,12 +37,6 @@ class AccountDeletionService(
         outbox.cancelFor(user.email)
         users.delete(user.id)
         deletedAccounts.record(user.id, clock.instant())
-        // Object storage is not transactional: only remove the avatar once the deletion is committed.
-        TransactionSynchronizationManager.registerSynchronization(
-            object : TransactionSynchronization {
-                override fun afterCommit() = avatars.deleteStoredObject(user.id)
-            }
-        )
     }
 
     private fun requireRecentSignIn(caller: AuthenticatedUser) {

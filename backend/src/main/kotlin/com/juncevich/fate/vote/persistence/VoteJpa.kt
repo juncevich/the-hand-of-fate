@@ -108,7 +108,7 @@ class VoteOptionJpaEntity(
 interface VoteJpaRepository : JpaRepository<VoteJpaEntity, UUID> {
     @Query(
         """
-        SELECT DISTINCT v FROM VoteJpaEntity v
+        SELECT v FROM VoteJpaEntity v
         WHERE v.creatorId = :userId
            OR EXISTS (
                SELECT 1 FROM VoteParticipantJpaEntity p WHERE p.vote = v AND p.email = :email

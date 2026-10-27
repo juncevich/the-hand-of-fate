@@ -2,6 +2,7 @@ package com.juncevich.fate.account.keycloak
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.juncevich.fate.account.domain.IdentityAdmin
+import com.juncevich.fate.shared.UserId
 import io.micrometer.observation.ObservationRegistry
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -15,7 +16,6 @@ import java.net.http.HttpClient
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.UUID
 
 private val ADMIN_TIMEOUT: Duration = Duration.ofSeconds(10)
 
@@ -45,9 +45,10 @@ class KeycloakAdminClient(
     @Volatile
     private var token: ServiceToken? = null
 
-    override fun deleteUser(userId: UUID) = ignoringNotFound { admin().delete().uri("/users/{id}", userId) }
+    override fun deleteUser(userId: UserId) = ignoringNotFound { admin().delete().uri("/users/{id}", userId.value) }
 
-    override fun logoutUser(userId: UUID) = ignoringNotFound { admin().post().uri("/users/{id}/logout", userId) }
+    override fun logoutUser(userId: UserId) =
+        ignoringNotFound { admin().post().uri("/users/{id}/logout", userId.value) }
 
     private fun admin(): RestClient =
         http

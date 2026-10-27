@@ -1,5 +1,9 @@
 package com.juncevich.fate.shared
 
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
+
 /**
  * Root of the application's expected (client-facing) errors. Every subtype maps to one
  * transport status in `ErrorHandler` (REST) and `GrpcErrors` (gRPC), and its message is
@@ -47,12 +51,20 @@ open class TooManyRequestsException(
     code: ErrorCode,
 ) : FateException(message, code)
 
-/** Domain counterpart of `require`: throws [BadRequestException] when [condition] is false. */
+/**
+ * Domain counterpart of `require`: throws [BadRequestException] when [condition] is false. Like
+ * `require`, the compiler knows [condition] holds afterwards (smart casts).
+ */
+@OptIn(ExperimentalContracts::class)
 inline fun ensureValid(
     condition: Boolean,
     code: ErrorCode,
     message: () -> String,
 ) {
+    contract {
+        returns() implies condition
+        callsInPlace(message, InvocationKind.AT_MOST_ONCE)
+    }
     if (!condition) throw BadRequestException(message(), code)
 }
 
@@ -60,10 +72,15 @@ inline fun ensureValid(
  * Domain counterpart of `check`: throws [ConflictException] when [condition] is false.
  * Keep `check`/`error` for internal invariants — those are bugs and must surface as 500.
  */
+@OptIn(ExperimentalContracts::class)
 inline fun ensureState(
     condition: Boolean,
     code: ErrorCode,
     message: () -> String,
 ) {
+    contract {
+        returns() implies condition
+        callsInPlace(message, InvocationKind.AT_MOST_ONCE)
+    }
     if (!condition) throw ConflictException(message(), code)
 }

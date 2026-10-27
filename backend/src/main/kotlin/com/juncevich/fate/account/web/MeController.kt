@@ -36,7 +36,7 @@ class MeController(
         val account = users.findById(user.id) ?: throw NotFoundException("User not found", ErrorCode.USER_NOT_FOUND)
         return ProfileResponse(
             userId = account.id.toString(),
-            email = account.email,
+            email = account.email.value,
             displayName = account.displayName,
             avatarUrl = account.avatarUrl()
         )

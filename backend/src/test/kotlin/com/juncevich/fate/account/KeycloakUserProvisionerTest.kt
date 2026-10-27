@@ -7,6 +7,8 @@ import com.juncevich.fate.account.domain.User
 import com.juncevich.fate.account.domain.UserRepository
 import com.juncevich.fate.account.keycloak.KeycloakIdentity
 import com.juncevich.fate.account.keycloak.KeycloakUserProvisioner
+import com.juncevich.fate.shared.Email
+import com.juncevich.fate.shared.UserId
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -22,9 +24,9 @@ class KeycloakUserProvisionerTest {
     private val deletedAccounts = mockk<DeletedAccountRepository>()
     private val provisioner = KeycloakUserProvisioner(users, deletedAccounts, FIXED_CLOCK)
 
-    private val identity = KeycloakIdentity(UUID.randomUUID(), "kate@test.com", "Kate")
+    private val identity = KeycloakIdentity(UserId(UUID.randomUUID()), Email.of("kate@test.com"), "Kate")
 
-    private fun account() = User(email = identity.email, displayName = "Old", createdAt = NOW)
+    private fun account() = User(id = UserId(UUID.randomUUID()), email = identity.email, displayName = "Old", createdAt = NOW)
 
     private fun inserted(identity: KeycloakIdentity): User {
         every { users.findById(identity.id) } returns null
@@ -74,7 +76,7 @@ class KeycloakUserProvisionerTest {
         val user = inserted(identity)
 
         assertEquals(identity.id, user.id)
-        assertEquals("kate@test.com", user.email)
+        assertEquals(Email.of("kate@test.com"), user.email)
         assertEquals("Kate", user.displayName)
     }
 

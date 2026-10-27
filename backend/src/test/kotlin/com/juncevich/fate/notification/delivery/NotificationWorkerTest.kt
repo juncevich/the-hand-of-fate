@@ -7,6 +7,7 @@ import com.juncevich.fate.notification.port.EmailSuppressionPort
 import com.juncevich.fate.notification.port.NotificationJob
 import com.juncevich.fate.notification.port.NotificationOutboxPort
 import com.juncevich.fate.notification.port.NotificationType
+import com.juncevich.fate.shared.Email
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
 import io.mockk.just
@@ -134,7 +135,7 @@ class NotificationWorkerTest {
     fun `an unsubscribed address gets no notification email, the job is done`() {
         val job = job()
         queue(job)
-        every { suppressions.isSuppressed("p@test.com") } returns true
+        every { suppressions.isSuppressed(Email.of("p@test.com")) } returns true
 
         worker.poll()
 

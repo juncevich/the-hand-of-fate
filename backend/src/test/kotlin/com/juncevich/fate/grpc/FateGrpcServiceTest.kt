@@ -4,14 +4,14 @@ import com.google.rpc.ErrorInfo
 import com.juncevich.fate.account.TelegramLinkService
 import com.juncevich.fate.account.UserProfile
 import com.juncevich.fate.account.UserQueryService
-import com.juncevich.fate.account.mailbox
-import com.juncevich.fate.account.userId
 import com.juncevich.fate.grpc.FateProto.*
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
+import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.vote.*
 import com.juncevich.fate.vote.VoteId
 import io.grpc.Status
@@ -62,7 +62,7 @@ class FateGrpcServiceTest {
                 currentRound = 1,
                 participants =
                     listOf(
-                        ParticipantView(user.email, user.displayName),
+                        ParticipantView(user.email.value, user.displayName),
                         ParticipantView("friend@example.com", null)
                     ),
                 options = emptyList(),
@@ -74,10 +74,11 @@ class FateGrpcServiceTest {
         every { userQueryService.findProfileByTelegramId(42) } returns user
         every {
             voteService.createVote(
-                creatorId = user.userId,
+                creatorId = user.id,
                 request =
                     match {
-                        it.title == "Lunch" &&
+                        // Passed as sent: the domain trims and validates the title.
+                        it.title == " Lunch " &&
                             it.mode == DomainVoteMode.FAIR_ROTATION &&
                             it.participantEmails == listOf("friend@example.com")
                     }
@@ -116,7 +117,7 @@ class FateGrpcServiceTest {
             )
 
         every { userQueryService.findProfileByTelegramId(42) } returns user
-        every { voteService.getHistory(VoteId(voteId), user.userId, user.mailbox, any()) } returns
+        every { voteService.getHistory(VoteId(voteId), user.id, user.email, any()) } returns
             org.springframework.data.domain
                 .PageImpl(history)
 
@@ -216,9 +217,9 @@ class FateGrpcServiceTest {
         every { userQueryService.findProfileByTelegramId(42) } returns user
         val first = summary("First", DomainVoteStatus.CLOSED)
         val second = summary("Second", DomainVoteStatus.DRAWN)
-        every { voteService.listVotes(user.userId, user.mailbox, PageRequest.of(0, 50)) } returns
+        every { voteService.listVotes(user.id, user.email, PageRequest.of(0, 50)) } returns
             PageImpl(listOf(first), PageRequest.of(0, 50), 51)
-        every { voteService.listVotes(user.userId, user.mailbox, PageRequest.of(1, 50)) } returns
+        every { voteService.listVotes(user.id, user.email, PageRequest.of(1, 50)) } returns
             PageImpl(listOf(second), PageRequest.of(1, 50), 51)
 
         val response = service.getMyVotes(GetMyVotesRequest.newBuilder().setTelegramId(42).build())
@@ -232,7 +233,7 @@ class FateGrpcServiceTest {
     fun `getMyVotes stops after the page limit`() {
         val user = user()
         every { userQueryService.findProfileByTelegramId(42) } returns user
-        every { voteService.listVotes(user.userId, user.mailbox, any()) } answers {
+        every { voteService.listVotes(user.id, user.email, any()) } answers {
             val pageable = thirdArg<PageRequest>()
             PageImpl(listOf(summary("V${pageable.pageNumber}")), pageable, 10_000)
         }
@@ -240,7 +241,7 @@ class FateGrpcServiceTest {
         val response = service.getMyVotes(GetMyVotesRequest.newBuilder().setTelegramId(42).build())
 
         assertEquals(20, response.votesCount)
-        verify(exactly = 20) { voteService.listVotes(user.userId, user.mailbox, any()) }
+        verify(exactly = 20) { voteService.listVotes(user.id, user.email, any()) }
     }
 
     @Test
@@ -266,23 +267,23 @@ class FateGrpcServiceTest {
     // ── createVote ───────────────────────────────────────────────────────────
 
     @Test
-    fun `createVote rejects blank title`() {
-        every { userQueryService.findProfileByTelegramId(42) } returns user()
+    fun `createVote reports an invalid title as an unsuccessful response, like other validation errors`() {
+        val user = user()
+        every { userQueryService.findProfileByTelegramId(42) } returns user
+        every { voteService.createVote(user.id, match { it.title == "   " }) } throws
+            BadRequestException("Title must be one line", ErrorCode.TITLE_INVALID)
 
-        val ex =
-            assertThrows<StatusRuntimeException> {
-                run {
-                    service.createVote(
-                        CreateVoteRequest
-                            .newBuilder()
-                            .setTelegramId(42)
-                            .setTitle("   ")
-                            .build()
-                    )
-                }
-            }
+        val response =
+            service.createVote(
+                CreateVoteRequest
+                    .newBuilder()
+                    .setTelegramId(42)
+                    .setTitle("   ")
+                    .build()
+            )
 
-        assertEquals(Status.Code.INVALID_ARGUMENT, ex.status.code)
+        assertFalse(response.success)
+        assertEquals(ErrorCode.TITLE_INVALID.toProto(), response.errorCode)
     }
 
     @Test
@@ -291,7 +292,7 @@ class FateGrpcServiceTest {
         every { userQueryService.findProfileByTelegramId(42) } returns user
         every {
             voteService.createVote(
-                creatorId = user.userId,
+                creatorId = user.id,
                 request =
                     match {
                         it.description == "Friday" &&
@@ -366,7 +367,7 @@ class FateGrpcServiceTest {
         val last = historyDto(optionTitle = "Pizza")
         val dto = detail(description = "desc", lastResult = last)
         every { userQueryService.findProfileByTelegramId(42) } returns user
-        every { voteService.getVote(VoteId(dto.id), user.userId, user.mailbox) } returns dto
+        every { voteService.getVote(VoteId(dto.id), user.id, user.email) } returns dto
 
         val response = service.getVoteDetails(detailsRequest(dto.id.toString()))
 
@@ -418,7 +419,7 @@ class FateGrpcServiceTest {
         val user = user()
         val voteId = UUID.randomUUID()
         every { userQueryService.findProfileByTelegramId(42) } returns user
-        every { voteService.draw(VoteId(voteId), user.userId) } returns
+        every { voteService.draw(VoteId(voteId), user.id) } returns
             DrawResult(
                 winner = Winner.Participant("friend@example.com", "Friend"),
                 round = 3,
@@ -465,7 +466,7 @@ class FateGrpcServiceTest {
         val user = user()
         val voteId = UUID.randomUUID()
         every { userQueryService.findProfileByTelegramId(42) } returns user
-        every { voteService.getLastResult(VoteId(voteId), user.userId, user.mailbox) } returns null
+        every { voteService.getLastResult(VoteId(voteId), user.id, user.email) } returns null
 
         val response = service.getLastDrawResult(lastResultRequest(voteId.toString()))
 
@@ -477,7 +478,7 @@ class FateGrpcServiceTest {
         val user = user()
         val voteId = UUID.randomUUID()
         every { userQueryService.findProfileByTelegramId(42) } returns user
-        every { voteService.getLastResult(VoteId(voteId), user.userId, user.mailbox) } returns
+        every { voteService.getLastResult(VoteId(voteId), user.id, user.email) } returns
             historyDto(email = "friend@example.com", displayName = "Friend")
 
         val response = service.getLastDrawResult(lastResultRequest(voteId.toString()))
@@ -612,7 +613,7 @@ class FateGrpcServiceTest {
         val voteId = UUID.randomUUID()
         val pageable = PageRequest.of(2, 10)
         every { userQueryService.findProfileByTelegramId(42) } returns user
-        every { voteService.getHistory(VoteId(voteId), user.userId, user.mailbox, pageable) } returns PageImpl(List(5) { historyDto() }, pageable, 25)
+        every { voteService.getHistory(VoteId(voteId), user.id, user.email, pageable) } returns PageImpl(List(5) { historyDto() }, pageable, 25)
         val response =
             service.getVoteHistory(
                 GetVoteHistoryRequest
@@ -680,5 +681,5 @@ class FateGrpcServiceTest {
         drawnAt = Instant.parse("2026-04-25T00:00:00Z")
     )
 
-    private fun user() = UserProfile(UUID.randomUUID(), "owner@example.com", "Owner")
+    private fun user() = UserProfile(UserId(UUID.randomUUID()), Email.of("owner@example.com"), "Owner")
 }

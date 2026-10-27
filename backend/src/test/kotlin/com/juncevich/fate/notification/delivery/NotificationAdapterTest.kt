@@ -4,6 +4,7 @@ import com.juncevich.fate.notification.DrawResultPayload
 import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.notification.InvitationPayload
 import com.juncevich.fate.notification.NOTIFICATION_PAYLOAD_VERSION
+import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.FrontendProperties
 import io.mockk.every
 import io.mockk.mockk
@@ -38,7 +39,7 @@ class NotificationAdapterTest {
 
         adapter.send(InvitationPayload(voteId, "Vote", "Creator", "p+1@test.com"))
 
-        val sig = preferences.sign("p+1@test.com")
+        val sig = preferences.sign(Email.of("p+1@test.com"))
         assertEquals("http://localhost:3000/unsubscribe?email=p%2B1%40test.com&sig=$sig", links.captured.page)
         assertEquals(
             "http://localhost:3000/api/v1/notifications/unsubscribe/one-click?email=p%2B1%40test.com&sig=$sig",

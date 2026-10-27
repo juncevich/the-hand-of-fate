@@ -1,6 +1,7 @@
 package com.juncevich.fate.notification
 
 import com.juncevich.fate.AbstractApiIntegrationTest
+import com.juncevich.fate.shared.Email
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
@@ -25,10 +26,10 @@ class UnsubscribeIntegrationTest
             mockMvc
                 .post("/api/v1/notifications/unsubscribe") {
                     contentType = MediaType.APPLICATION_JSON
-                    content = """{"email":"$email","signature":"${preferences.sign("someone@else.com")}"}"""
+                    content = """{"email":"$email","signature":"${preferences.sign(Email.of("someone@else.com"))}"}"""
                 }.andExpect { jsonPath("$.code") { value("INVALID_TOKEN") } }
             mockMvc
-                .post("/api/v1/notifications/unsubscribe/one-click?email=$email&sig=${preferences.sign(email)}") {
+                .post("/api/v1/notifications/unsubscribe/one-click?email=$email&sig=${preferences.sign(Email.of(email))}") {
                     contentType = MediaType.APPLICATION_FORM_URLENCODED
                     content = "List-Unsubscribe=One-Click"
                 }.andExpect { status { isNoContent() } }
@@ -49,7 +50,7 @@ class UnsubscribeIntegrationTest
             mockMvc
                 .post("/api/v1/notifications/unsubscribe") {
                     contentType = MediaType.APPLICATION_JSON
-                    content = """{"email":"$email","signature":"${preferences.sign(email)}"}"""
+                    content = """{"email":"$email","signature":"${preferences.sign(Email.of(email))}"}"""
                 }.andExpect { status { isNoContent() } }
         }
 
@@ -61,7 +62,7 @@ class UnsubscribeIntegrationTest
                 .post("/api/v1/notifications/unsubscribe") {
                     header("Authorization", "Bearer not-a-valid-jwt")
                     contentType = MediaType.APPLICATION_JSON
-                    content = """{"email":"$email","signature":"${preferences.sign(email)}"}"""
+                    content = """{"email":"$email","signature":"${preferences.sign(Email.of(email))}"}"""
                 }.andExpect { status { isNoContent() } }
         }
     }
