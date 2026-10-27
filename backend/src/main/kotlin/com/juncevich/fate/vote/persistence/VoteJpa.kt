@@ -21,6 +21,7 @@ import java.util.UUID
 @Entity
 @Table(name = "votes")
 @EntityListeners(AuditingEntityListener::class)
+@Suppress("LongParameterList") // one parameter per column of `votes`
 class VoteJpaEntity(
     @Id
     var id: UUID = uuidV7(),

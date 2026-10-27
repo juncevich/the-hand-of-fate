@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
+import org.springframework.jdbc.core.queryForObject
 import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
@@ -44,7 +45,7 @@ class AccountDeletionIntegrationTest
         private fun count(
             sql: String,
             vararg args: Any,
-        ) = jdbcTemplate.queryForObject(sql, Int::class.java, *args) ?: 0
+        ) = jdbcTemplate.queryForObject<Int>(sql, *args) ?: 0
 
         @Test
         fun `deleting an account removes its votes and data and anonymizes it in other votes`() {

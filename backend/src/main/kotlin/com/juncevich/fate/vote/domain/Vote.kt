@@ -46,6 +46,7 @@ data class DrawOutcome(
  * The aggregate never reads the clock: a change that records a time takes it as `now`.
  * What happened is recorded as [VoteEvent]s, which the caller takes with [pullEvents] after saving.
  */
+@Suppress("LongParameterList") // the restoring constructor takes the whole stored state
 class Vote(
     val id: VoteId,
     val title: String,

@@ -9,6 +9,7 @@ import org.springframework.context.ApplicationContextInitializer
 import org.springframework.context.ConfigurableApplicationContext
 import org.springframework.core.env.MapPropertySource
 import org.springframework.http.MediaType
+import org.springframework.jdbc.core.queryForObject
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
@@ -85,8 +86,8 @@ class KeycloakSmokeIntegrationTest
             mockMvc
                 .get("/api/v1/users/me/email-preferences") { header("Authorization", "Bearer $token") }
                 .andExpect { status { isOk() } }
-            assertEquals(email, jdbcTemplate.queryForObject("SELECT email FROM users WHERE id = ?", String::class.java, id))
-            assertEquals("Smoke Test", jdbcTemplate.queryForObject("SELECT display_name FROM users WHERE id = ?", String::class.java, id))
+            assertEquals(email, jdbcTemplate.queryForObject<String>("SELECT email FROM users WHERE id = ?", id))
+            assertEquals("Smoke Test", jdbcTemplate.queryForObject<String>("SELECT display_name FROM users WHERE id = ?", id))
 
             // Admin API: end the user's sessions (manage-users)…
             mockMvc
@@ -109,9 +110,8 @@ class KeycloakSmokeIntegrationTest
             assertEquals(404, (lookup.exceptionOrNull() as HttpClientErrorException).statusCode.value())
             assertEquals(
                 1,
-                jdbcTemplate.queryForObject(
+                jdbcTemplate.queryForObject<Int>(
                     "SELECT count(*) FROM deleted_accounts WHERE user_id = ? AND identity_deleted_at IS NOT NULL",
-                    Int::class.java,
                     id
                 )
             )

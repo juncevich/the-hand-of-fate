@@ -15,6 +15,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.queryForObject
 import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -175,7 +176,7 @@ class VoteVersioningIntegrationTest
             assertEquals(listOf("C" to 0, "A" to 1, "D" to 2), loaded.options.map { it.title to it.position })
             // Child rows are owned by the inverse side: changing them leaves the vote row and its version alone.
             assertEquals(0, loaded.version)
-            assertEquals(3, jdbcTemplate.queryForObject("SELECT count(*) FROM vote_options WHERE vote_id = ?", Int::class.java, vote.id.value))
+            assertEquals(3, jdbcTemplate.queryForObject<Int>("SELECT count(*) FROM vote_options WHERE vote_id = ?", vote.id.value))
         }
 
         @Test
@@ -204,7 +205,7 @@ class VoteVersioningIntegrationTest
             tx { voteRepository.delete(vote.id) }
 
             assertEquals(null, voteRepository.find(vote.id))
-            assertEquals(0, jdbcTemplate.queryForObject("SELECT count(*) FROM vote_participants WHERE vote_id = ?", Int::class.java, vote.id.value))
+            assertEquals(0, jdbcTemplate.queryForObject<Int>("SELECT count(*) FROM vote_participants WHERE vote_id = ?", vote.id.value))
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────

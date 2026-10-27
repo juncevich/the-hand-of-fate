@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.queryForObject
 import org.springframework.test.context.TestPropertySource
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.post
@@ -30,9 +31,8 @@ class EmailBudgetIntegrationTest
         }
 
         private fun outboxJobsFor(recipient: String): Int =
-            jdbc.queryForObject(
+            jdbc.queryForObject<Int>(
                 "SELECT count(*) FROM notification_outbox WHERE payload::jsonb ->> 'recipientEmail' = ?",
-                Int::class.java,
                 recipient
             ) ?: 0
 

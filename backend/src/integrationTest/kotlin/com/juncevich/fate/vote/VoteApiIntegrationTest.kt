@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.util.UUID
 
+@Suppress("TooManyFunctions") // one test per REST behaviour of the votes API
 class VoteApiIntegrationTest : AbstractVoteApiIntegrationTest() {
     // ── Create vote ───────────────────────────────────────────────────────────
 

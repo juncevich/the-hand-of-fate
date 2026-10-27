@@ -29,6 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.queryForObject
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
@@ -153,8 +154,8 @@ class NotificationOutboxIntegrationTest
             outbox.retry(original, "Stale failure", retryDelay)
             outbox.fail(original, "Stale failure")
             assertEquals(1, rowCount())
-            assertNull(jdbc.queryForObject("SELECT last_error FROM notification_outbox", String::class.java))
-            assertNull(jdbc.queryForObject("SELECT failed_at FROM notification_outbox", java.time.OffsetDateTime::class.java))
+            assertNull(jdbc.queryForObject<String>("SELECT last_error FROM notification_outbox"))
+            assertNull(jdbc.queryForObject<java.time.OffsetDateTime>("SELECT failed_at FROM notification_outbox"))
             outbox.complete(recovered)
             assertEquals(0, rowCount())
         }
@@ -200,7 +201,7 @@ class NotificationOutboxIntegrationTest
             worker.poll()
             verify(exactly = 1) { mail.sendVoteInvitation("good@test.com", any(), any(), any(), any()) }
             assertEquals(1, rowCount())
-            assertEquals("SMTP down", jdbc.queryForObject("SELECT last_error FROM notification_outbox", String::class.java))
+            assertEquals("SMTP down", jdbc.queryForObject<String>("SELECT last_error FROM notification_outbox"))
             worker.poll()
             verify(exactly = 1) { mail.sendVoteInvitation("recipient@test.com", any(), any(), any(), any()) }
             makeAvailable()
@@ -225,13 +226,12 @@ class NotificationOutboxIntegrationTest
             outbox.retry(job, "x".repeat(2000), Duration.ofMinutes(30))
             val delaySeconds =
                 checkNotNull(
-                    jdbc.queryForObject(
-                        "SELECT extract(epoch FROM available_at - now()) FROM notification_outbox",
-                        Double::class.java
+                    jdbc.queryForObject<Double>(
+                        "SELECT extract(epoch FROM available_at - now()) FROM notification_outbox"
                     )
                 )
             assertTrue(delaySeconds in 1700.0..1800.0, "available in ~30 minutes, was ${delaySeconds}s")
-            assertEquals(1000, jdbc.queryForObject("SELECT length(last_error) FROM notification_outbox", Int::class.java))
+            assertEquals(1000, jdbc.queryForObject<Int>("SELECT length(last_error) FROM notification_outbox"))
         }
 
         @Test
@@ -259,7 +259,7 @@ class NotificationOutboxIntegrationTest
             makeAvailable()
             worker.poll()
             verify(exactly = 2) { mail.sendVoteInvitation(any(), any(), any(), any(), any()) }
-            assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM notification_outbox WHERE failed_at IS NOT NULL", Int::class.java))
+            assertEquals(1, jdbc.queryForObject<Int>("SELECT count(*) FROM notification_outbox WHERE failed_at IS NOT NULL"))
         }
 
         @Test
@@ -268,7 +268,7 @@ class NotificationOutboxIntegrationTest
             outbox.append(NotificationType.INVITATION, """{"legacy":"format"}""")
             worker(mail).poll()
             verify(exactly = 0) { mail.sendVoteInvitation(any(), any(), any(), any(), any()) }
-            assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM notification_outbox WHERE failed_at IS NOT NULL", Int::class.java))
+            assertEquals(1, jdbc.queryForObject<Int>("SELECT count(*) FROM notification_outbox WHERE failed_at IS NOT NULL"))
         }
 
         @Test
@@ -296,7 +296,7 @@ class NotificationOutboxIntegrationTest
             suppressions
         )
 
-        private fun rowCount() = jdbc.queryForObject("SELECT count(*) FROM notification_outbox", Int::class.java)
+        private fun rowCount() = jdbc.queryForObject<Int>("SELECT count(*) FROM notification_outbox")
 
         private fun makeAvailable() {
             jdbc.update("UPDATE notification_outbox SET available_at = now() - interval '1 second'")

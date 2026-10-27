@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
+import org.springframework.jdbc.core.queryForObject
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.Duration
@@ -26,7 +27,7 @@ class KeycloakAuthenticationIntegrationTest
         private fun count(
             sql: String,
             vararg args: Any,
-        ) = jdbcTemplate.queryForObject(sql, Int::class.java, *args) ?: 0
+        ) = jdbcTemplate.queryForObject<Int>(sql, *args) ?: 0
 
         private fun preferences(token: String) = mockMvc.get("/api/v1/users/me/email-preferences") { bearer(token) }
 
@@ -72,7 +73,7 @@ class KeycloakAuthenticationIntegrationTest
                     jsonPath("$.content[0].title") { value("Before Keycloak") }
                 }
 
-            assertEquals(keycloakId, jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ?", UUID::class.java, email))
+            assertEquals(keycloakId, jdbcTemplate.queryForObject<UUID>("SELECT id FROM users WHERE email = ?", email))
             // References followed the new id (ON UPDATE CASCADE).
             assertEquals(1, count("SELECT count(*) FROM votes WHERE creator_id = ?", keycloakId))
         }

@@ -1,7 +1,5 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues/>
-  <CurrentIssues>
-    <ID>TooManyFunctions:VoteApiIntegrationTest.kt:VoteApiIntegrationTest : AbstractVoteApiIntegrationTest</ID>
-  </CurrentIssues>
+  <CurrentIssues/>
 </SmellBaseline>

@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.domain.PageRequest
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.queryForObject
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.transaction.PlatformTransactionManager
@@ -132,7 +133,7 @@ class ConsistencyIntegrationTest
 
             purger.purge()
 
-            assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM telegram_link_tokens WHERE user_id = ?", Int::class.java, tokens.userId))
+            assertEquals(0, jdbc.queryForObject<Int>("SELECT count(*) FROM telegram_link_tokens WHERE user_id = ?", tokens.userId))
         }
 
         @Test
@@ -158,7 +159,7 @@ class ConsistencyIntegrationTest
             val link = telegram.generateLinkToken(UserId(userId))
             jdbc.update("UPDATE telegram_link_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = ?", userId)
             assertThrows<BadRequestException> { telegram.linkAccount(link.token, 42, "Expired") }
-            assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM telegram_link_tokens WHERE user_id = ?", Int::class.java, userId))
+            assertEquals(0, jdbc.queryForObject<Int>("SELECT count(*) FROM telegram_link_tokens WHERE user_id = ?", userId))
         }
 
         @Test
@@ -292,9 +293,8 @@ class ConsistencyIntegrationTest
             val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
             while (System.nanoTime() < deadline) {
                 val waiting =
-                    jdbc.queryForObject(
-                        "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'",
-                        Int::class.java
+                    jdbc.queryForObject<Int>(
+                        "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
                     ) ?: 0
                 if (waiting > 0) return
                 Thread.sleep(20)
