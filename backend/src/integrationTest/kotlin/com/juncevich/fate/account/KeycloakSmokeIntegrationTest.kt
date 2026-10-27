@@ -54,10 +54,7 @@ class KeycloakSmokeIntegrationTest
         private fun adminToken(): String = token("master", "grant_type=password&client_id=admin-cli&username=admin&password=admin")
 
         /** Creates a verified user in realm `fate`, as registration plus email confirmation would. */
-        private fun createKeycloakUser(
-            email: String,
-            password: String,
-        ): UUID {
+        private fun createKeycloakUser(email: String): UUID {
             val location =
                 keycloakApi
                     .post()
@@ -68,7 +65,7 @@ class KeycloakSmokeIntegrationTest
                         """
                         {"username":"$email","email":"$email","emailVerified":true,"enabled":true,
                          "firstName":"Smoke","lastName":"Test",
-                         "credentials":[{"type":"password","value":"$password","temporary":false}]}
+                         "credentials":[{"type":"password","value":"$USER_PASSWORD","temporary":false}]}
                         """.trimIndent()
                     ).retrieve()
                     .toBodilessEntity()
@@ -77,16 +74,13 @@ class KeycloakSmokeIntegrationTest
         }
 
         /** A token for the user through `fate-test`, the dev/e2e client with direct grants. */
-        private fun userToken(
-            email: String,
-            password: String,
-        ): String = token("fate", "grant_type=password&client_id=fate-test&username=$email&password=$password&scope=openid")
+        private fun userToken(email: String): String = token("fate", "grant_type=password&client_id=fate-test&username=$email&password=$USER_PASSWORD&scope=openid")
 
         @Test
         fun `Keycloak's tokens are accepted and its service account can end sessions and delete users`() {
             val email = "smoke-${UUID.randomUUID()}@test.com"
-            val id = createKeycloakUser(email, "smoke-password")
-            val token = userToken(email, "smoke-password")
+            val id = createKeycloakUser(email)
+            val token = userToken(email)
 
             mockMvc
                 .get("/api/v1/users/me/email-preferences") { header("Authorization", "Bearer $token") }
@@ -127,6 +121,7 @@ class KeycloakSmokeIntegrationTest
             private const val KEYCLOAK_IMAGE = "quay.io/keycloak/keycloak:26.8.0"
             private const val CONFIG_CLI_IMAGE = "adorsys/keycloak-config-cli:6.5.1-26"
             private const val BACKEND_SECRET = "smoke-test-backend-secret"
+            private const val USER_PASSWORD = "smoke-password"
 
             private val network: Network = Network.newNetwork()
 

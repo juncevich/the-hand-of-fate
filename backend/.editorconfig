@@ -11,8 +11,14 @@ insert_final_newline = true
 [*.kt]
 max_line_length = 120
 
-# Wildcard imports are used intentionally (FateProto.*, domain.vote.*, mockk.*)
+# Wildcard imports are written by hand where they help (jakarta.persistence.*, mockk.*, Assertions.*);
+# IntelliJ must not collapse explicit imports into one (it does from 5 names of a package by default).
 ktlint_standard_no-wildcard-imports = disabled
+ij_kotlin_name_count_to_use_star_import = 2147483647
+ij_kotlin_name_count_to_use_star_import_for_members = 2147483647
+
+# Off by default since ktlint 1.x; unused imports otherwise pass spotlessCheck.
+ktlint_standard_no-unused-imports = enabled
 
 # Trailing commas — enforce on declarations, skip call sites to avoid noise in complex builders
 ij_kotlin_allow_trailing_comma = true

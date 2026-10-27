@@ -103,6 +103,8 @@ cd backend
 ./gradlew spotlessCheck          # formatting check (Spotless 8.4.0 / ktlint)
 ./gradlew spotlessApply          # auto-fix formatting
 ```
+- `backend/detekt.yml` serves two engines: Gradle runs detekt 2.x (`allowed*` limits), the IntelliJ detekt plugin still bundles detekt 1.23 (`threshold*` keys = the 2.x limit + 1). The 1.x keys are listed in `config.excludes`, so detekt 2's config validation skips them — change both when changing a limit. In the plugin: config `backend/detekt.yml`, baseline `backend/detekt-baseline-main.xml`, formatting rules off (spotless owns formatting)
+- `backend/.editorconfig` turns on ktlint's `no-unused-imports` (off by default since ktlint 1.x) and stops IntelliJ from collapsing imports into `*`; write a wildcard by hand only where it helps. Keys read only through `@Value`/`@Scheduled` are described in `src/main/resources/META-INF/additional-spring-configuration-metadata.json` — add a new one there
 
 ### Frontend (React + Vite)
 ```bash

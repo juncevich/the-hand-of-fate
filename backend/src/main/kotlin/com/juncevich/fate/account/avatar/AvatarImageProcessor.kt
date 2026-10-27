@@ -27,7 +27,7 @@ class AvatarImageProcessor {
     fun toAvatarPng(upload: ByteArray): ByteArray {
         if (upload.isEmpty()) throw InvalidAvatarException("Avatar file is empty")
         val square = cropToSquare(decode(upload))
-        val avatar = resize(square, SIZE)
+        val avatar = resize(square)
         return ByteArrayOutputStream().also { ImageIO.write(avatar, "png", it) }.toByteArray()
     }
 
@@ -64,16 +64,13 @@ class AvatarImageProcessor {
         return image.getSubimage((image.width - side) / 2, (image.height - side) / 2, side, side)
     }
 
-    /** Halves the image step by step: a single bilinear pass from a large photo would alias badly. */
-    private fun resize(
-        source: BufferedImage,
-        target: Int,
-    ): BufferedImage {
+    /** Down to [SIZE], halving step by step: a single bilinear pass from a large photo would alias badly. */
+    private fun resize(source: BufferedImage): BufferedImage {
         var current = source
-        while (current.width / 2 >= target) {
+        while (current.width / 2 >= SIZE) {
             current = scale(current, current.width / 2)
         }
-        return if (current.width == target) current else scale(current, target)
+        return if (current.width == SIZE) current else scale(current, SIZE)
     }
 
     private fun scale(

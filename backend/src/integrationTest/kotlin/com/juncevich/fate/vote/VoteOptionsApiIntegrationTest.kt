@@ -1,7 +1,6 @@
 package com.juncevich.fate.vote
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.MediaType
@@ -9,7 +8,6 @@ import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
-import java.util.UUID
 
 /** Options of a vote: draw target rules, adding/removing/reordering, and drawing from options. */
 class VoteOptionsApiIntegrationTest : AbstractVoteApiIntegrationTest() {

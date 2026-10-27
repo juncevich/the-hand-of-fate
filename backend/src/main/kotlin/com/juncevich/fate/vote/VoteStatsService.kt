@@ -4,7 +4,6 @@ import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.vote.domain.VoteRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.util.UUID
 
 @Service
 @Transactional(readOnly = true)

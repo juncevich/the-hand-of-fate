@@ -1,0 +1,44 @@
+{
+  "properties": [
+    {
+      "name": "grpc.shared-secret",
+      "type": "java.lang.String",
+      "description": "Shared secret the Telegram bot sends in x-grpc-shared-secret (SharedSecretAuthInterceptor). At least 16 characters and not a dev default outside the dev/test profiles (SecretsValidator)."
+    },
+    {
+      "name": "app.notifications.unsubscribe-secret",
+      "type": "java.lang.String",
+      "description": "HMAC-SHA256 key signing the unsubscribe links of notification emails (EmailPreferences). At least 32 bytes outside the dev/test profiles; changing it invalidates the links in emails already sent."
+    },
+    {
+      "name": "app.notifications.poll-delay-ms",
+      "type": "java.lang.Long",
+      "description": "Delay in milliseconds between NotificationWorker polls of the outbox.",
+      "defaultValue": 1000
+    },
+    {
+      "name": "app.notifications.purge-delay-ms",
+      "type": "java.lang.Long",
+      "description": "Delay in milliseconds between purges of failed outbox jobs and expired email budget entries.",
+      "defaultValue": 3600000
+    },
+    {
+      "name": "app.mail.retry.delay-ms",
+      "type": "java.lang.Long",
+      "description": "Initial backoff in milliseconds of EmailService's retries of a failed SMTP send; doubles per attempt.",
+      "defaultValue": 1000
+    },
+    {
+      "name": "app.auth.token-purge-delay-ms",
+      "type": "java.lang.Long",
+      "description": "Delay in milliseconds between purges of expired Telegram link tokens (ExpiredTokenPurger).",
+      "defaultValue": 3600000
+    },
+    {
+      "name": "app.keycloak.deletion-delay-ms",
+      "type": "java.lang.Long",
+      "description": "Delay in milliseconds between IdentityDeletionWorker runs, which delete the Keycloak users of deleted accounts.",
+      "defaultValue": 30000
+    }
+  ]
+}

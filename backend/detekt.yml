@@ -1,25 +1,42 @@
 config:
   validation: true
   warningsAsErrors: false
+  # The 1.x threshold keys below are for the IntelliJ detekt plugin, which still runs detekt 1.23;
+  # detekt 2.x (Gradle) doesn't know them, so its config validation skips them.
+  excludes:
+    - 'complexity>.*>threshold'
+    - 'complexity>LongParameterList>functionThreshold'
+    - 'complexity>LongParameterList>constructorThreshold'
+    - 'complexity>TooManyFunctions>thresholdIn.*'
 
-# detekt 2.x "allowed*" values are the maximum permitted (1.x "threshold" was the first
-# reported value where the defaults differ by one); limits are unchanged from the 1.x config.
+# detekt 2.x "allowed*" values are the maximum permitted; the 1.x "threshold" next to each is the
+# first reported value, one more — keep both in step.
 complexity:
   CyclomaticComplexMethod:
     allowedComplexity: 14
+    threshold: 15
   CognitiveComplexMethod:
     allowedComplexity: 20
+    threshold: 21
   LongMethod:
     allowedLines: 80
+    threshold: 81
   LongParameterList:
     allowedFunctionParameters: 7
     allowedConstructorParameters: 9  # JPA entities and Spring service constructors can be wide
+    functionThreshold: 8
+    constructorThreshold: 10
   TooManyFunctions:
     allowedFunctionsPerFile: 30
     allowedFunctionsPerClass: 20
     allowedFunctionsPerInterface: 20
     allowedFunctionsPerObject: 20
     allowedFunctionsPerEnum: 20
+    thresholdInFiles: 31
+    thresholdInClasses: 21
+    thresholdInInterfaces: 21
+    thresholdInObjects: 21
+    thresholdInEnums: 21
 
 naming:
   FunctionNaming:

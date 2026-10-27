@@ -185,7 +185,7 @@ class NotificationOutboxIntegrationTest
         fun `parallel workers claim different jobs`() {
             repeat(2) { publish(invitation) }
             Executors.newFixedThreadPool(2).use { executor ->
-                val tasks = List(2) { executor.submit<java.util.UUID> { checkNotNull(claim()).id } }
+                val tasks = List(2) { executor.submit<UUID> { checkNotNull(claim()).id } }
                 assertEquals(2, tasks.map { it.get(5, TimeUnit.SECONDS) }.toSet().size)
             }
         }

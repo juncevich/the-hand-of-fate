@@ -3,7 +3,13 @@ package com.juncevich.fate.vote.persistence
 import com.juncevich.fate.shared.Email
 import com.juncevich.fate.shared.UserId
 import com.juncevich.fate.vote.VoteId
-import com.juncevich.fate.vote.domain.*
+import com.juncevich.fate.vote.domain.PageQuery
+import com.juncevich.fate.vote.domain.PageResult
+import com.juncevich.fate.vote.domain.Participant
+import com.juncevich.fate.vote.domain.Vote
+import com.juncevich.fate.vote.domain.VoteOption
+import com.juncevich.fate.vote.domain.VoteRepository
+import com.juncevich.fate.vote.domain.VoteSummary
 import jakarta.persistence.EntityManager
 import org.springframework.data.domain.PageRequest
 import org.springframework.orm.ObjectOptimisticLockingFailureException

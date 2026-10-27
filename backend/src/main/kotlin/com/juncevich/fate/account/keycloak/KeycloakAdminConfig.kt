@@ -11,7 +11,6 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.oauth2.client.web.client.OAuth2ClientHttpRequestInterceptor
 import org.springframework.web.client.support.RestClientHttpServiceGroupConfigurer
-import org.springframework.web.service.registry.HttpServiceGroupConfigurer.ClientCallback
 import org.springframework.web.service.registry.ImportHttpServices
 
 /** HTTP service group of [KeycloakAdminApi]; base URL and timeouts: `spring.http.serviceclient.keycloak-admin`. */
@@ -53,7 +52,7 @@ class KeycloakAdminConfig {
                 }
             groups
                 .filterByName(KEYCLOAK_ADMIN_GROUP)
-                .forEachClient(ClientCallback { _, client -> client.requestInterceptor(interceptor) })
+                .forEachClient { _, client -> client.requestInterceptor(interceptor) }
         }
 
     private companion object {

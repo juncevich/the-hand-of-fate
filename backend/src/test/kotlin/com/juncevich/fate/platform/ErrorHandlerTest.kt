@@ -5,7 +5,6 @@ import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.ErrorCode
 import com.juncevich.fate.shared.ForbiddenException
 import com.juncevich.fate.shared.NotFoundException
-import com.juncevich.fate.shared.TooManyRequestsException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test

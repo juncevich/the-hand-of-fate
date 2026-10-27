@@ -6,7 +6,6 @@ import com.juncevich.fate.vote.VoteId
 import com.juncevich.fate.vote.VoteMode
 import com.juncevich.fate.vote.VoteStatus
 import java.time.Instant
-import java.util.UUID
 
 /** Loads and stores [Vote] aggregates whole: the vote with its participants and options. */
 interface VoteRepository {

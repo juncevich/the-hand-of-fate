@@ -115,7 +115,7 @@ class OpenApiConfig(
                         ApiResponse().description("Missing or invalid access token")
                     )
                 }
-                operation.responses.addApiResponse("default", problemResponse("Error described by a problem detail"))
+                operation.responses.addApiResponse("default", problemResponse())
             }
             openApi.tags = openApi.tags?.sortedBy { it.name }
             // A nullable reference is emitted as `allOf: [$ref], nullable: true`; OpenAPI 3.0 only
@@ -164,9 +164,9 @@ class OpenApiConfig(
         const val ERROR_CODE_SCHEMA = "ErrorCode"
     }
 
-    private fun problemResponse(description: String): ApiResponse =
+    private fun problemResponse(): ApiResponse =
         ApiResponse()
-            .description(description)
+            .description("Error described by a problem detail")
             .content(
                 Content().addMediaType(
                     OpenApiDocs.PROBLEM_MEDIA_TYPE,

@@ -47,6 +47,11 @@ val awsSdkVersion        = "2.55.12"
 extra["grpc-java.version"] = grpcVersion
 extra["protobuf-java.version"] = protobufVersion
 
+// Jackson 2 is only springdoc's (swagger-core); the app itself is on Jackson 3. Boot 4.1.1 pins
+// 2.21.5, which IntelliJ's dependency scanner flags; 2.21.8 fixes the last of those CVEs — drop this
+// override once the Boot BOM pins 2.21.8 or newer.
+extra["jackson-2-bom.version"] = "2.21.8"
+
 dependencies {
     // ── Spring Modulith ───────────────────────────────────────────────────────
     implementation(platform("org.springframework.modulith:spring-modulith-bom:$modulithVersion"))
@@ -110,6 +115,12 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-junit-jupiter:2.0.5")
     testImplementation("io.mockk:mockk:1.14.11")
 
+    // ── Transitive versions ───────────────────────────────────────────────────
+    constraints {
+        // accessors-smart (json-smart, under Nimbus in the OAuth2 client and json-path) still asks for 9.7.1
+        implementation("org.ow2.asm:asm:9.11.1") { because("asm 9.7.1 is flagged by IntelliJ's dependency scanner") }
+    }
+
     // ── Static analysis ───────────────────────────────────────────────────────
     // detekt-formatting is intentionally excluded — spotless/ktlint owns all formatting
 }
@@ -147,11 +158,11 @@ sourceSets {
 // `test`: unit tests (src/test). `integrationTest`: the application against PostgreSQL, RustFS and
 // Keycloak in Testcontainers (src/integrationTest), with the same test libraries.
 // The JUnit version comes from the Spring Boot BOM: Gradle's own default would downgrade junit-jupiter.
-val junitJupiterVersion = dependencyManagement.importedProperties.getValue("junit-jupiter.version")
+val junitJupiterVersion: String = dependencyManagement.importedProperties.getValue("junit-jupiter.version")
 
 testing {
     suites {
-        val test by getting(JvmTestSuite::class) {
+        named<JvmTestSuite>("test") {
             useJUnitJupiter(junitJupiterVersion)
         }
 
@@ -163,7 +174,7 @@ testing {
             targets.all {
                 testTask.configure {
                     description = "Runs integration tests (spin up PostgreSQL via TestContainers)"
-                    shouldRunAfter(test)
+                    shouldRunAfter(tasks.test)
                 }
             }
         }
@@ -205,7 +216,7 @@ integrationTest {
     inputs.file(openApiSpec).withPropertyName("openApiSpec").optional()
 }
 
-val openApiUpdate by tasks.registering(Test::class) {
+tasks.register<Test>("openApiUpdate") {
     description = "Regenerates api/openapi.yaml from the REST controllers"
     group = "documentation"
     useJUnitPlatform()

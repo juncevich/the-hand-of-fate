@@ -24,7 +24,7 @@ class EnsureTest {
         // Compiles only thanks to the contract: `title` is smart-cast to String.
         assertEquals(4, title.length)
 
-        val round: Any = 1
+        val round: Any = listOf<Any>(1).first()
         ensureState(round is Int, ErrorCode.VOTE_NOT_PENDING) { "not a round" }
         assertEquals(2, round + 1)
     }

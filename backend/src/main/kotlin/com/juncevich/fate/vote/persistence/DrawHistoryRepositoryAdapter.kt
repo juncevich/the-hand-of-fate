@@ -11,7 +11,6 @@ import jakarta.persistence.EntityManager
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.util.UUID
 
 // Transactional like Spring Data's own repositories: inside a service transaction it joins it; called
 // without one (AvatarService keeps storage I/O out of transactions) it still loads, writes and flushes.

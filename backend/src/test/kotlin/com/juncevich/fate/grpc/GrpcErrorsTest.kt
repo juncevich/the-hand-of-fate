@@ -49,7 +49,7 @@ class GrpcErrorsTest {
     @Test
     fun `a bug in a mutation is logged too`() {
         assertThrows<StatusRuntimeException> {
-            grpcMutation(failure = { message, _ -> message }) { error("broken invariant") }
+            grpcMutation(failure = { _, _ -> }) { error("broken invariant") }
         }
 
         assertEquals(Level.ERROR, appender.list.single().level)

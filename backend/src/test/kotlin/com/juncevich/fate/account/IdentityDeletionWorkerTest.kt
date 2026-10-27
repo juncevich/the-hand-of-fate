@@ -12,7 +12,6 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.Test
 import java.time.Duration
-import java.time.Instant
 import java.util.UUID
 
 class IdentityDeletionWorkerTest {

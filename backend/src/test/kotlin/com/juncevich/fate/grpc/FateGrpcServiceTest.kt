@@ -4,7 +4,6 @@ import com.google.rpc.ErrorInfo
 import com.juncevich.fate.account.TelegramLinkService
 import com.juncevich.fate.account.UserProfile
 import com.juncevich.fate.account.UserQueryService
-import com.juncevich.fate.grpc.FateProto.*
 import com.juncevich.fate.shared.BadRequestException
 import com.juncevich.fate.shared.ConflictException
 import com.juncevich.fate.shared.Email
@@ -118,8 +117,7 @@ class FateGrpcServiceTest {
 
         every { userQueryService.findProfileByTelegramId(42) } returns user
         every { voteService.getHistory(VoteId(voteId), user.id, user.email, any()) } returns
-            org.springframework.data.domain
-                .PageImpl(history)
+            PageImpl(history)
 
         val response =
             service.getVoteHistory(
@@ -655,8 +653,7 @@ class FateGrpcServiceTest {
     fun `createVote reports service validation failures without an internal transport error`() {
         every { userQueryService.findProfileByTelegramId(42) } returns user()
         every { voteService.createVote(any(), any()) } throws
-            com.juncevich.fate.shared
-                .BadRequestException("Invalid option title", ErrorCode.VALIDATION_FAILED)
+            BadRequestException("Invalid option title", ErrorCode.VALIDATION_FAILED)
         val response =
             service.createVote(
                 CreateVoteRequest

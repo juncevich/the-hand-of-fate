@@ -15,7 +15,6 @@ import io.mockk.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import java.time.Instant
 import java.util.UUID
 
 class TelegramLinkServiceTest {
@@ -144,7 +143,7 @@ class TelegramLinkServiceTest {
         every { linkTokens.findByToken("token123") } returns expiredToken
         every { linkTokens.delete(expiredToken) } just Runs
 
-        assertThrows<com.juncevich.fate.shared.BadRequestException> {
+        assertThrows<BadRequestException> {
             service.linkAccount("token123", 42L, "user")
         }
         verify { linkTokens.delete(expiredToken) }

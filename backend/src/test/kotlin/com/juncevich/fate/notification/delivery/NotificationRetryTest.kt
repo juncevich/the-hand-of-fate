@@ -1,9 +1,7 @@
 package com.juncevich.fate.notification.delivery
 
-import com.juncevich.fate.notification.DrawResultPayload
 import com.juncevich.fate.notification.EmailPreferences
 import com.juncevich.fate.notification.InvitationPayload
-import com.juncevich.fate.notification.NOTIFICATION_PAYLOAD_VERSION
 import com.juncevich.fate.notification.port.EmailSuppressionPort
 import com.juncevich.fate.shared.FrontendProperties
 import io.mockk.clearMocks

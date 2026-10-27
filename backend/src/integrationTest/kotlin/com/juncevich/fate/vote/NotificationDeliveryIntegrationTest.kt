@@ -3,7 +3,6 @@ package com.juncevich.fate.vote
 import com.juncevich.fate.AbstractApiIntegrationTest
 import com.juncevich.fate.notification.delivery.EmailService
 import com.juncevich.fate.shared.UserId
-import com.juncevich.fate.vote.VoteId
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk

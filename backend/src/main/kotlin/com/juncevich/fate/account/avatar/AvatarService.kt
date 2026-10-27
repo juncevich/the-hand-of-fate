@@ -10,7 +10,6 @@ import com.juncevich.fate.storage.StorageUnavailableException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
-import java.time.Instant
 
 /** Avatar bytes plus the version they were stored under (used as the HTTP ETag). */
 class Avatar(

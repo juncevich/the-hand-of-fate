@@ -1,5 +1,30 @@
 # Dependency Updates
 
+## 2026-10-27 — transitive versions flagged by IntelliJ's dependency scanner
+
+IntelliJ's dependency scanner (Mend.io) flagged transitive dependencies of the backend; each was traced with `./gradlew dependencies` and checked against Maven Central `maven-metadata.xml` (release dates from the POM's `Last-Modified`). Rule kept from earlier passes: only stable releases at least two weeks old (published on or before 2026-10-13); majors not in scope. **Exception, per the user's decision:** Jackson `2.21.8` and ASM `9.11.1` (both 2026-10-17, 10 days old) — they fix a CVE and a regression of the otherwise chosen versions.
+
+### Jackson 2 (`jackson-2-bom.version`, override of the Spring Boot BOM) `2.21.5 → 2.21.8`
+- Only springdoc pulls Jackson 2 (`swagger-core-jakarta` 2.2.55 asks for 2.22.1, the Boot 4.1.1 BOM pins 2.21.5); the application itself is on Jackson 3 (`tools.jackson` 3.1.5). Spring Boot 4.1.2 pins 2.21.7 — drop the override once the Boot BOM pins 2.21.8 or newer
+- `2.21.6` (2026-08-14): jackson-core — `maxDocumentLength` bypass in the async parser (GHSA-2c4j-63jj-9fqr), `maxNameLength` enforced incrementally (CVE-2026-68498), buffered `INCLUDE_NON_NULL` context fix; databind — number length limits for `XMLGregorianCalendar`/`Duration` (CVE-2026-68497), restricted URL schemes for `java.nio.file.Path` (CVE-2026-19032), `java.lang.Comparable` as an unsafe polymorphic base type (CVE-2026-83557), limits for numeric Map keys, `findClass()` without class initialization, `@JsonInclude(NON_EMPTY, content=CUSTOM)` on Maps, non-ASCII digits in `InetAddress`; plus CBOR/Smile/Protobuf fixes not used here
+- `2.21.7` (2026-09-21): jackson-core — `NumberInput.looksLikeValidNumber` (CVE-2026-89407), `maxErrorTokenLength` in `UTF8DataInputJsonParser` (CVE-2026-89425), `UTF32Reader` surrogate split, zero-length custom escape at buffer end; databind — bounded type id cache (CVE-2026-91776), no quadratic forward-reference resolution in Collection/Map (CVE-2026-91777) and array deserializers, IPv6 `InetSocketAddress` brackets; plus Avro/Ion/Properties/Protobuf/Smile/TOML fixes not used here
+- `2.21.8` (2026-10-17, exception to the two-week rule): databind — type parameters and array element types of type ids validated (CVE-2026-110879, the last one flagged), `BeanDescription.findProperties()` thread safety, cycle through `@JsonValue` reported as `DatabindException`, NPE on `VALUE_STRING` with `null` text; jackson-core — lone surrogates in `\uXXXX` field names, surrogate pairs in `UTF8DataInputJsonParser` property names, several non-blocking parser fixes, `FilteringGeneratorDelegate` consistency, `ALLOW_UNESCAPED_CONTROL_CHARS` for single-quoted strings; plus Avro/CBOR/Ion fixes not used here
+- `jackson-dataformat-yaml` WS-2026-0134 is not named in the 2.21.6–2.21.8 notes
+- Verified: `OpenApiSpecIntegrationTest` — `api/openapi.yaml` unchanged
+
+### ASM (`org.ow2.asm:asm`, Gradle constraint) `9.7.1 → 9.11.1`
+- Arrives with the OAuth2 client added the same day (`oauth2-oidc-sdk` → `json-smart` 2.6.0 → `accessors-smart` → asm) and, in tests, through `json-path`; the Boot BOM doesn't manage it, so a `constraints { }` entry sets it
+- `9.8` (2025-03-29): `Opcodes.V25`, DUP2 copy fix, `CheckClassAdapter`/`ASMifier` fixes. `9.9` (2025-10-04): `Opcodes.V26`, new `Remapper` API, Textifier `ACC_SUPER` fix, FIPS 140-3 SHA-1 use. `9.9.1` (2025-12-06): OOM on invalid class files, narrower OSGi version ranges. `9.10` (2026-05-14): `Opcodes.V27`, TraceSignatureVisitor fix. `9.10.1` (2026-05-23): retrofitter `forRemoval` fix. `9.11` (2026-10-04): `Opcodes.V28`; security fixes — `BootstrapMethods`/code length validation, single `ret` per subroutine, recursion limits (signatures, ConstantDynamic, annotations), non-recursive verifier/printer paths, resource-limit APIs for `ClassWriter`/`Analyzer`/`JSRInlinerAdapter`; forward label references stored inline (!460)
+- `9.11.1` (2026-10-17, exception to the two-week rule): fixes the regression of !460 (!480) and a `LimitExceededException` in `computeAllFrames()` on complex classes (!481). `accessors-smart` generates classes only when JSON is mapped onto beans, which Nimbus doesn't do (it parses into `Map`s), so the regression hardly touched us — taken anyway rather than shipping a known-broken 9.11
+
+### Checked, left unchanged
+- `logback-classic` `1.5.38` (Spring Boot BOM): latest 1.5.x, and Spring Boot 4.1.2 keeps it; the flagged issue gives no fixed version. `1.6.x` (latest old enough `1.6.5`, 2026-09-30) is a line switch Boot hasn't made yet (needs slf4j 2.0.19+)
+- `net.minidev:json-smart` `2.6.0`: already the latest release
+- `com.vaadin.external.google:android-json` `0.0.20131108.vaadin1`: test classpath only (`spring-boot-starter-test` → `jsonassert` 1.5.3); no newer release, `jsonassert` `2.0-rc1` is a release candidate
+- `com.google.protobuf` Gradle plugin `0.10.0`: already the latest (Plugin Portal and Maven Central); it is the source of Gradle's `Configuration.setVisible` deprecation (removal in Gradle 11), to revisit when a newer plugin ships
+
+Verified: `./gradlew spotlessCheck detekt check` (unit 295 + integration 113 tests, coverage gate), including `KeycloakSmokeIntegrationTest` against a real Keycloak (OAuth2 client → Nimbus → json-smart/asm).
+
 ## 2026-10-27 — added: OAuth2 client and RestClient starters
 
 Architecture review block 9: Keycloak's Admin API moves from a hand-built `RestClient` with a hand-rolled token cache to an HTTP service interface (`KeycloakAdminApi`, `@ImportHttpServices`) authenticated by Spring Security's OAuth2 client.
