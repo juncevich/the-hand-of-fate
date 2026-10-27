@@ -1,4 +1,4 @@
-.PHONY: proto proto-bot proto-backend install-proto-tools openapi openapi-spec openapi-clients dev dev-local infra infra-down \
+.PHONY: proto proto-bot proto-backend install-proto-tools openapi openapi-spec openapi-clients dev dev-local infra infra-down db-schema \
         k8s-up k8s-down k8s-delete k8s-status k8s-dev k8s-dev-down k8s-check k8s-e2e e2e-web
 
 proto: proto-bot proto-backend
@@ -36,6 +36,10 @@ infra:
 
 infra-down:
 	docker compose -f docker-compose.infra.yml down
+
+# Schema the Flyway migrations produce → backend/db-schema/schema.sql (IntelliJ's DDL data source)
+db-schema:
+	backend/scripts/db-schema.sh
 
 # Full stack in local minikube (profile hand-of-fate) — see k8s-start.sh / k8s-stop.sh
 k8s-up:

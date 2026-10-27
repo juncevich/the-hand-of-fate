@@ -26,6 +26,9 @@ gradle-app.setting
 # ── Proto generated ───────────────────────────────────────────────────────────
 backend/src/main/generated/
 
+# ── Schema dump for IntelliJ's DDL data source (make db-schema) ───────────────
+backend/db-schema/
+
 # ── Kotlin compiler cache ─────────────────────────────────────────────────────
 .kotlin/
 

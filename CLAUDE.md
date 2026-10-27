@@ -105,6 +105,7 @@ cd backend
 ```
 - `backend/detekt.yml` serves two engines: Gradle runs detekt 2.x (`allowed*` limits), the IntelliJ detekt plugin still bundles detekt 1.23 (`threshold*` keys = the 2.x limit + 1). The 1.x keys are listed in `config.excludes`, so detekt 2's config validation skips them — change both when changing a limit. In the plugin: config `backend/detekt.yml`, formatting rules off (spotless owns formatting). The baselines stay empty: the plugin can't match detekt 2's baseline ids, so a deliberate exception is a `@Suppress("<Rule>")` with a reason at the declaration, which both engines honour
 - `backend/.editorconfig` turns on ktlint's `no-unused-imports` (off by default since ktlint 1.x) and stops IntelliJ from collapsing imports into `*`; write a wildcard by hand only where it helps. Keys read only through `@Value`/`@Scheduled` are described in `src/main/resources/META-INF/additional-spring-configuration-metadata.json` — add a new one there
+- `make db-schema` (`backend/scripts/db-schema.sh`, needs Docker) applies the Flyway migrations in version order to a throwaway `postgres:17` and writes the resulting schema to `backend/db-schema/schema.sql` (gitignored) — the file IntelliJ's DDL data source (SQL and JPA inspections) should point at. Not the migration folder itself: the IDE applies those in name order (V10 before V1, V26 before V3) and misses some drops; and not `build/`, which the IDE excludes. Re-run after adding a migration
 
 ### Frontend (React + Vite)
 ```bash
