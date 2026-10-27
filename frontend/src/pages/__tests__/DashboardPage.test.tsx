@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
@@ -17,7 +18,7 @@ vi.mock('@/components/ui/toaster', () => ({
 }))
 
 const createWrapper = (queryClient: QueryClient) =>
-  ({ children }: { children: React.ReactNode }) => (
+  ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>{children}</MemoryRouter>
     </QueryClientProvider>

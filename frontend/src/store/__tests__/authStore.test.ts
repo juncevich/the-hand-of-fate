@@ -29,7 +29,7 @@ describe('session cache isolation', () => {
   it('cancels an in-flight query so it cannot repopulate the cache after logout', async () => {
     useAuthStore.getState().setAuth(alice)
     let complete!: (value: string[]) => void
-    const pending = queryClient.fetchQuery({
+    const pending = queryClient.query({
       queryKey: ['votes', 0, 'alice'],
       queryFn: () => new Promise<string[]>((resolve) => { complete = resolve }),
     }).catch(() => undefined)

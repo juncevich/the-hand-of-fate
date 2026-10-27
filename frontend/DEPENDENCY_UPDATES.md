@@ -1,5 +1,16 @@
 # Dependency Updates
 
+## 2026-10-27 — zod (transitive, dev only): `npm audit` fix
+
+`npm audit` reported GHSA-mrhx-c7xc-m3w5 (high: memory exhaustion while validating oversized constrained collections, fixed in `4.6.6`). Production dependencies were clean (`npm audit --omit=dev`: 0). Versions checked with `npm view zod time`; rule kept: stable releases at least two weeks old (on or before 2026-10-13).
+
+### zod `4.4.3 → 4.6.7` (lockfile only)
+- Dev-only: `eslint-plugin-react-hooks` 7.1.1 and its `zod-validation-error` 4.0.2 depend on it; nothing in `src/` imports zod. `npm audit fix` moved the lockfile within their `^4` range, `package.json` unchanged
+- `4.5.0` (2026-08-28): `z.compile()`, `z.creditCard()`, `z.properties()`, `z.deepPartial()`/`.exactPartial()`, `z.validate()`, ~9x smaller schema memory footprint, new locales. `4.5.1`–`4.5.4` (2026-08-28/29): `vi.spyOn` on prototype method getters, numeric record keys as strings in `toJSONSchema`, the cycle walk no longer fires a default factory; the rest release/docs
+- `4.6.0` (2026-09-09): `.validate()` fast path, `z.instanceof().properties()`, `fromJSONSchema()` enforces six more keywords, `z.iban()`, `z.withParser()`, faster CommonJS, memory retention in recursive schemas fixed (a 4.5 OOM), `@zod/mini` as its own package. `4.6.1`: unique tags with defaulted discriminators, deferred recursive object index inference, Tajik locale. `4.6.2`: undefined prefault outputs and object keys preserved. `4.6.3`: `z.properties()` is a check again. `4.6.4`: `z.currencyCode()`, `z.url()` via `URL.canParse()`. `4.6.5`: `.properties()` shape keyed off the instance type, `z.currencyCode()` re-landed
+- `4.6.6` (2026-10-11): the GHSA-mrhx-c7xc-m3w5 fix (its release notes list only docs/release-pipeline commits); `4.6.7` (2026-10-12): version bump only
+- Verified: `npm run lint` (the only consumer), `npm test`, `npm run build`; `npm audit` → 0 vulnerabilities
+
 ## 2026-10-21 — all dependencies, majors in scope
 
 Checked against the npm registry (`npm view <pkg> time`), per the user's request with majors in scope. Only stable releases at least two weeks old (published on or before 2026-10-07) — the lockfile pins exactly those (installed as `pkg@x.y.z`, so `^` ranges don't pull in newer ones).

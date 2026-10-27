@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -20,7 +21,7 @@ vi.mock('@/api/users', () => ({
 }))
 vi.mock('@/components/ui/toaster', () => ({ toast: vi.fn() }))
 
-function renderAt(path: string, element: React.ReactNode, route: string) {
+function renderAt(path: string, element: ReactNode, route: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>

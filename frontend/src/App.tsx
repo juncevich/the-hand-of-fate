@@ -51,7 +51,7 @@ export default function App() {
   return (
     <BrowserRouter>
       {import.meta.env.DEV && (
-        <div className="fixed top-3 right-3 z-[9999] pointer-events-none select-none flex items-center gap-2">
+        <div className="fixed top-3 right-3 z-9999 pointer-events-none select-none flex items-center gap-2">
           <BackendStatusIndicator />
           <span className="text-xs font-mono tracking-widest uppercase opacity-30 text-fate-gold">
             dev mode

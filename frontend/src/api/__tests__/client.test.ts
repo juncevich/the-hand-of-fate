@@ -68,8 +68,7 @@ describe('apiClient: a rejected access token', () => {
   })
 
   it('sends the access token', async () => {
-    const adapter = fakeBackendAdapter('old-token')
-    apiClient.defaults.adapter = adapter
+    apiClient.defaults.adapter = fakeBackendAdapter('old-token')
 
     await expect(apiClient.get('/votes')).resolves.toMatchObject({ data: { ok: true } })
   })

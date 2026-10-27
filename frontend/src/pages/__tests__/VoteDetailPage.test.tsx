@@ -1,4 +1,5 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { AxiosError, AxiosHeaders } from 'axios'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -50,7 +51,7 @@ function makeVote(overrides: Partial<VoteDetail> = {}): VoteDetail {
 }
 
 const createWrapper = (queryClient: QueryClient) =>
-  ({ children }: { children: React.ReactNode }) => (
+  ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[`/votes/${VOTE_ID}`]}>
         <Routes>
