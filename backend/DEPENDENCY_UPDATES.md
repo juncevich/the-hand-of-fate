@@ -1,5 +1,11 @@
 # Dependency Updates
 
+## 2026-10-27 — added: OAuth2 client and RestClient starters
+
+Architecture review block 9: Keycloak's Admin API moves from a hand-built `RestClient` with a hand-rolled token cache to an HTTP service interface (`KeycloakAdminApi`, `@ImportHttpServices`) authenticated by Spring Security's OAuth2 client.
+- Added `spring-boot-starter-security-oauth2-client` (Boot BOM, `4.1.1`; Spring Security `7.1.1`): client registration `fate-backend` (client credentials) from `app.keycloak.*`, token kept by `InMemoryOAuth2AuthorizedClientService`, sent by `OAuth2ClientHttpRequestInterceptor`. Boot's default `oauth2Login` chain stays off — the app defines its own `SecurityFilterChain`
+- Added `spring-boot-starter-restclient` (Boot BOM, `4.1.1`): in Boot 4 the `RestClient.Builder` bean (with observations) and `spring.http.serviceclient.*` groups are no longer part of the webmvc starter
+
 ## 2026-10-24 — added: FreeMarker
 
 Architecture review block 8: the notification emails move from HTML in Kotlin strings to a template with ru/en texts.

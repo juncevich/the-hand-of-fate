@@ -24,6 +24,27 @@ spring:
     virtual:
       enabled: true
 
+  # Keycloak's Admin API as the `fate-backend` service account (KeycloakAdminConfig). Everything
+  # comes from app.keycloak.*, so KEYCLOAK_URL / KEYCLOAK_CLIENT_SECRET remain the only settings.
+  security:
+    oauth2:
+      client:
+        registration:
+          fate-backend:
+            provider: keycloak
+            client-id: ${app.keycloak.client-id}
+            client-secret: ${app.keycloak.client-secret}
+            authorization-grant-type: client_credentials
+        provider:
+          keycloak:
+            token-uri: ${app.keycloak.url}/realms/${app.keycloak.realm}/protocol/openid-connect/token
+  http:
+    serviceclient:
+      keycloak-admin:
+        base-url: ${app.keycloak.url}/admin/realms/${app.keycloak.realm}
+        connect-timeout: 10s
+        read-timeout: 10s
+
   servlet:
     multipart:
       # Avatars are the only uploads; the image is re-encoded to a small PNG server-side.

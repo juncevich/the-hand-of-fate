@@ -17,7 +17,10 @@ data class KeycloakProperties(
     val realm: String = "fate",
     /** Required in `aud`: tokens meant for another API are rejected. */
     val audience: String = "fate-api",
-    /** Service account used for the Admin API (delete a user, end their sessions). */
+    /**
+     * Service account used for the Admin API (delete a user, end their sessions); application.yml
+     * hands it to the OAuth2 client registration `fate-backend` (see `KeycloakAdminConfig`).
+     */
     val clientId: String = "fate-backend",
     val clientSecret: String,
     /** How recent a sign-in must be for operations that re-authenticate (`auth_time`). */
@@ -28,8 +31,4 @@ data class KeycloakProperties(
     val issuer: String get() = "$publicUrl/realms/$realm"
 
     val jwkSetUri: String get() = "$url/realms/$realm/protocol/openid-connect/certs"
-
-    val tokenUri: String get() = "$url/realms/$realm/protocol/openid-connect/token"
-
-    val adminUri: String get() = "$url/admin/realms/$realm"
 }

@@ -56,6 +56,8 @@ dependencies {
 
     // ── Spring Boot ─────────────────────────────────────────────────────────
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
+    // RestClient.Builder and HTTP service clients (@ImportHttpServices, spring.http.serviceclient.*)
+    implementation("org.springframework.boot:spring-boot-starter-restclient")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-mail")
@@ -71,6 +73,8 @@ dependencies {
 
     // ── JWT (Keycloak access tokens, validated by the resource server) ─────────
     implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
+    // Client credentials of the `fate-backend` service account for Keycloak's Admin API
+    implementation("org.springframework.boot:spring-boot-starter-security-oauth2-client")
 
     // ── gRPC ─────────────────────────────────────────────────────────────────
     implementation("org.springframework.boot:spring-boot-starter-grpc-server")
@@ -139,26 +143,38 @@ sourceSets {
     }
 }
 
-val integrationTestSourceSet = sourceSets.create("integrationTest") {
-    kotlin.srcDir("src/integrationTest/kotlin")
-    resources.srcDir("src/integrationTest/resources")
-    compileClasspath += sourceSets.main.get().output
-    runtimeClasspath += output + compileClasspath
+// ── Test suites ──────────────────────────────────────────────────────────────
+// `test`: unit tests (src/test). `integrationTest`: the application against PostgreSQL, RustFS and
+// Keycloak in Testcontainers (src/integrationTest), with the same test libraries.
+// The JUnit version comes from the Spring Boot BOM: Gradle's own default would downgrade junit-jupiter.
+val junitJupiterVersion = dependencyManagement.importedProperties.getValue("junit-jupiter.version")
+
+testing {
+    suites {
+        val test by getting(JvmTestSuite::class) {
+            useJUnitJupiter(junitJupiterVersion)
+        }
+
+        register<JvmTestSuite>("integrationTest") {
+            useJUnitJupiter(junitJupiterVersion)
+            dependencies {
+                implementation(project())
+            }
+            targets.all {
+                testTask.configure {
+                    description = "Runs integration tests (spin up PostgreSQL via TestContainers)"
+                    shouldRunAfter(test)
+                }
+            }
+        }
+    }
 }
 
-configurations["integrationTestImplementation"].extendsFrom(configurations["testImplementation"])
-configurations["integrationTestRuntimeOnly"].extendsFrom(configurations["testRuntimeOnly"])
+val integrationTestSourceSet: SourceSet = sourceSets["integrationTest"]
+val integrationTest = tasks.named<Test>("integrationTest")
 
-// The integrationTest source set lists src/integrationTest/resources both by
-// convention and via the explicit srcDir above, so files there are enumerated
-// twice; collapse the duplicates instead of failing the resources task.
-tasks.named<ProcessResources>("processIntegrationTestResources") {
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE
-}
-
-tasks.withType<Test> {
-    useJUnitPlatform()
-}
+configurations["integrationTestImplementation"].extendsFrom(configurations.testImplementation.get())
+configurations["integrationTestRuntimeOnly"].extendsFrom(configurations.testRuntimeOnly.get())
 
 // `./gradlew bootRun` is a local-dev entry point: default it to the `dev`
 // profile (relaxes the production secret guard, enables RustFS storage and Swagger)
@@ -172,15 +188,6 @@ tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     (project.findProperty("jvmArgs") as String?)?.let { extra ->
         jvmArgs(extra.split(" ").filter { it.isNotBlank() })
     }
-}
-
-val integrationTest by tasks.registering(Test::class) {
-    description = "Runs integration tests (spin up PostgreSQL via TestContainers)"
-    group = LifecycleBasePlugin.VERIFICATION_GROUP
-    useJUnitPlatform()
-    shouldRunAfter(tasks.test)
-    testClassesDirs = integrationTestSourceSet.output.classesDirs
-    classpath = integrationTestSourceSet.runtimeClasspath
 }
 
 tasks.check {

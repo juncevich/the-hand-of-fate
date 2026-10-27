@@ -81,13 +81,16 @@ Value classes до конца:
 - [x] `EmailService`: `@ConcurrencyLimit` вместо `Semaphore` (проверить тестом порядок с `@Retryable`), `@Retryable` на уровне класса
   - Оба пост-процессора ставят advice первым с одинаковым order → на одном бине лимит оборачивал повторы (проверено мутацией: `SmtpConcurrencyLimitTest` падает). Поэтому лимит — на отдельном бине `SmtpTransport` (одна попытка), `@Retryable` — на классе `EmailService`
 - [x] `JdbcClient` вместо `JdbcTemplate` в адаптерах `notification` — именованные параметры, общий `claimed(job)` для ограждения по `claim_id`
-- [ ] `KeycloakAdminClient`: HTTP interface client (`@HttpExchange`) + `OAuth2ClientHttpRequestInterceptor` вместо ручного кэша токена (или хотя бы `RestClient.Builder` от Boot)
+- [x] `KeycloakAdminClient`: HTTP interface client (`@HttpExchange`) + `OAuth2ClientHttpRequestInterceptor` вместо ручного кэша токена (или хотя бы `RestClient.Builder` от Boot)
+  - Сделано 2026-10-27: `KeycloakAdminApi` (`@DeleteExchange`/`@PostExchange`, `@ImportHttpServices`, группа `keycloak-admin`), регистрация `fate-backend` (client credentials) — обе из `app.keycloak.*` в application.yml, переменные окружения те же. Новые стартеры: `security-oauth2-client`, `restclient` (в Boot 4 `RestClient.Builder` не входит в webmvc). Ловушка: перехватчик по умолчанию кэширует токен под principal из `SecurityContext` — из `logout-all` это пользователь, токен на каждого; `setPrincipalResolver` фиксирует один (проверено мутацией: `KeycloakAdminClientIntegrationTest`). На 401/403 токен сбрасывается
 - [x] `SecurityConfig` на Kotlin DSL; убрать неиспользуемый `@EnableMethodSecurity`
 - [x] ~~`SecretsValidator` через типизированные свойства вместо `@Value`~~ — не делаем: `KeycloakProperties` во внутреннем пакете `account.keycloak`, `platform` не должен от него зависеть (границы Modulith); `@Value` держит валидатор независимым от модулей
 - [x] `NotificationWorker.decode`: `readValue<T>()` из jackson-module-kotlin
 - [x] `ensureValid`/`ensureState` с contracts (smart cast после проверки) — `EnsureTest` компилируется только с контрактом
-- [ ] Gradle: `jvm-test-suite` для `integrationTest` вместо ручного source set; убрать `-Xjsr305=strict`, если ничего не сломает
-- [ ] (косметика) multi-dollar строки в `@Value`/`@Scheduled`
+- [x] Gradle: `jvm-test-suite` для `integrationTest` вместо ручного source set; убрать `-Xjsr305=strict`, если ничего не сломает
+  - Сделано 2026-10-27: `testing.suites` (`test` + `integrationTest`, `implementation(project())`, тестовые зависимости через `extendsFrom`), хак `duplicatesStrategy` ушёл. Версия JUnit для `useJUnitJupiter` — из BOM Spring Boot (`junit-jupiter.version`): версия Gradle по умолчанию откатывала `junit-jupiter` 6.0.3 → 5.12.2. `openApiUpdate`, JaCoCo, `detektIntegrationTest` работают как раньше
+  - `-Xjsr305=strict` оставлен: gRPC размечен аннотациями JSR-305, без флага null-проверки его API ослабнут
+- [x] ~~(косметика) multi-dollar строки в `@Value`/`@Scheduled`~~ — не вводим: `"\${…}"` привычнее для Spring, выигрыша нет
 
 ## Проверка в конце
 - [x] `./gradlew spotlessCheck detekt check` (покрытие ≥ 95/85)

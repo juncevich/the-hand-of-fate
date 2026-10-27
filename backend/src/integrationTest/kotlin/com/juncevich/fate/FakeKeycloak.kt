@@ -17,6 +17,7 @@ import java.time.Instant
 import java.util.Collections
 import java.util.Date
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Just enough of Keycloak for the backend's integration tests: realm `fate`'s signing keys, the
@@ -30,7 +31,6 @@ object FakeKeycloak {
      */
     const val PUBLIC_URL = "http://localhost:3000/auth"
     const val ISSUER = "$PUBLIC_URL/realms/fate"
-    private const val SERVICE_TOKEN = "service-account-token"
 
     private val signingKey: RSAKey = RSAKeyGenerator(2048).keyID("test-key").generate()
 
@@ -43,13 +43,27 @@ object FakeKeycloak {
     /** Accounts whose deletion fails with 500, to exercise retries. */
     val failingDeletes: MutableSet<UUID> = Collections.synchronizedSet(mutableSetOf())
 
+    /** Service-account tokens issued so far; only the latest is accepted by the Admin API. */
+    val serviceTokensIssued = AtomicInteger()
+
+    @Volatile
+    private var serviceTokenGeneration = 0
+
+    private val serviceToken get() = "service-account-token-$serviceTokenGeneration"
+
+    /** Makes every service-account token issued so far invalid, as when Keycloak revokes them. */
+    fun revokeServiceTokens() {
+        serviceTokenGeneration++
+    }
+
     private val server: HttpServer =
         HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
             createContext("/auth/realms/fate/protocol/openid-connect/certs") {
                 it.respond(200, JWKSet(signingKey.toPublicJWK()).toString())
             }
             createContext("/auth/realms/fate/protocol/openid-connect/token") {
-                it.respond(200, """{"access_token":"$SERVICE_TOKEN","expires_in":300,"token_type":"Bearer"}""")
+                serviceTokensIssued.incrementAndGet()
+                it.respond(200, """{"access_token":"$serviceToken","expires_in":300,"token_type":"Bearer"}""")
             }
             createContext("/auth/admin/realms/fate/users/") { admin(it) }
             start()
@@ -104,7 +118,7 @@ object FakeKeycloak {
     }
 
     private fun admin(exchange: HttpExchange) {
-        if (exchange.requestHeaders.getFirst("Authorization") != "Bearer $SERVICE_TOKEN") {
+        if (exchange.requestHeaders.getFirst("Authorization") != "Bearer $serviceToken") {
             return exchange.respond(401, "")
         }
         // /auth/admin/realms/fate/users/{id}[/logout]
