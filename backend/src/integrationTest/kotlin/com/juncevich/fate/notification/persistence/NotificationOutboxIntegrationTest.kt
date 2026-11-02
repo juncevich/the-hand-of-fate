@@ -61,7 +61,7 @@ class NotificationOutboxIntegrationTest
     ) {
         companion object {
             @Container @JvmField
-            val postgres: PostgreSQLContainer = PostgreSQLContainer("postgres:17")
+            val postgres: PostgreSQLContainer = PostgreSQLContainer("postgres:18.6-alpine")
 
             @DynamicPropertySource @JvmStatic
             fun datasource(registry: DynamicPropertyRegistry) {

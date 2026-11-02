@@ -1,5 +1,79 @@
 # Dependency Updates
 
+## 2026-11-02 — all dependencies, majors in scope
+
+Latest stable releases checked against the upstream registries on 2026-11-02; per user request, majors included. No minimum release-age restriction in this pass. Pre-releases are excluded; the existing detekt alpha is retained because there is no stable 2.x replacement. Each release-history link below identifies the changes for that intermediate version.
+
+### Gradle wrapper `9.8.1 → 9.8.2`
+
+- Fixes a false unstable dependency-graph warning during virtual-platform alignment; wrappers regenerated in backend and perf. [Release notes](https://docs.gradle.org/9.8.2/release-notes.html).
+
+### Kotlin (JVM, Spring and JPA plugins) `2.4.20 → 2.4.21`
+
+- JVM reflection and script fixes; the three compiler plugins stay aligned.
+- Intermediate release changes: [2.4.21](https://github.com/JetBrains/kotlin/releases/tag/v2.4.21).
+- Version source: [Maven metadata](https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/maven-metadata.xml).
+
+### Spring Boot `4.1.1 → 4.1.2`
+
+- JWT/JWKS configuration, graceful shutdown and configuration-loading fixes; managed dependencies move with the Boot BOM.
+- Intermediate release changes: [4.1.2](https://github.com/spring-projects/spring-boot/releases/tag/v4.1.2).
+- Version source: [Maven metadata](https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-gradle-plugin/maven-metadata.xml).
+
+### Spotless `8.10.3 → 8.10.4`
+
+- Formatting plugin updated in backend and perf; spotlessCheck passes without source reformatting.
+- Intermediate release changes: [8.10.4](https://github.com/diffplug/spotless/releases/tag/v8.10.4).
+- Version source: [Maven metadata](https://repo.maven.apache.org/maven2/com/diffplug/spotless/spotless-plugin-gradle/maven-metadata.xml).
+
+### gRPC Java (`grpcVersion`) `1.84.1 → 1.85.1`
+
+- Runtime, stubs and protoc-gen-grpc-java stay aligned. 1.85.1 fixes request-header iteration, delays deserialization and fixes certificate-provider synchronization.
+- Intermediate release changes: [1.84.2](https://github.com/grpc/grpc-java/releases/tag/v1.84.2) → [1.84.3](https://github.com/grpc/grpc-java/releases/tag/v1.84.3) → [1.85.0](https://github.com/grpc/grpc-java/releases/tag/v1.85.0) → [1.85.1](https://github.com/grpc/grpc-java/releases/tag/v1.85.1).
+- Version source: [Maven metadata](https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/maven-metadata.xml).
+
+### Spring Modulith (`modulithVersion`) `2.1.1 → 2.1.2`
+
+- BOM updated as one family; module-boundary and architecture tests pass.
+- Intermediate release changes: [2.1.2](https://github.com/spring-projects/spring-modulith/releases/tag/v2.1.2).
+- Version source: [Maven metadata](https://repo.maven.apache.org/maven2/org/springframework/modulith/spring-modulith-bom/maven-metadata.xml).
+
+### AWS SDK v2 (`awsSdkVersion`) `2.55.12 → 2.57.8`
+
+- SDK service-model and library updates; s3 and url-connection-client stay on one BOM. Avatar integration tests pass against RustFS 1.0.4.
+- Intermediate release changes: [2.55.13](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.55.13) → [2.55.14](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.55.14) → [2.55.15](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.55.15) → [2.55.16](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.55.16) → [2.56.0](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.56.0) → [2.57.0](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.57.0) → [2.57.1](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.57.1) → [2.57.2](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.57.2) → [2.57.3](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.57.3) → [2.57.4](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.57.4) → [2.57.5](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.57.5) → [2.57.6](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.57.6) → [2.57.7](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.57.7) → [2.57.8](https://github.com/aws/aws-sdk-java-v2/releases/tag/v2.57.8).
+- Version source: [Maven metadata](https://repo.maven.apache.org/maven2/software/amazon/awssdk/bom/maven-metadata.xml).
+
+### springdoc-openapi `3.1.1 → 3.2.0`
+
+- Built for Boot 4.1.2; required-property/nullability and API-version documentation fixes. The committed OpenAPI contract remains unchanged.
+- Intermediate release changes: [3.2.0](https://github.com/springdoc/springdoc-openapi/releases/tag/v3.2.0).
+- Version source: [Maven metadata](https://repo.maven.apache.org/maven2/org/springdoc/springdoc-openapi-starter-webmvc-ui/maven-metadata.xml).
+
+### Jackson 2 BOM override `2.21.8 → 2.22.4`
+
+- Moves the springdoc Jackson 2 family together; application serialization remains on Boot-managed Jackson 3. Version history includes both the remaining 2.21 patches and the 2.22 line.
+- Intermediate release changes: [2.22.0](https://github.com/FasterXML/jackson/wiki/Jackson-Release-2.22.0) → [2.22.1](https://github.com/FasterXML/jackson/wiki/Jackson-Release-2.22.1) → [2.22.2](https://github.com/FasterXML/jackson/wiki/Jackson-Release-2.22.2) → [2.22.3](https://github.com/FasterXML/jackson/wiki/Jackson-Release-2.22.3) → [2.22.4](https://github.com/FasterXML/jackson/wiki/Jackson-Release-2.22.4).
+- Version source: [Maven metadata](https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-bom/maven-metadata.xml).
+
+### JaCoCo `0.8.15 → 0.8.16`
+
+- Coverage tooling updated; the unchanged 95% line / 85% branch gate passes.
+- Intermediate release changes: [0.8.16](https://github.com/jacoco/jacoco/releases/tag/v0.8.16).
+- Version source: [Maven metadata](https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.core/maven-metadata.xml).
+
+### Container dependencies
+
+- Integration tests now use PostgreSQL `18.6-alpine`, RustFS `1.0.4` and Keycloak `26.8.1`, aligned with Compose/Kubernetes; see [infra updates](../infra/DEPENDENCY_UPDATES.md) and [PostgreSQL migration](../infra/POSTGRES_UPGRADE.md).
+
+### Checked, left unchanged
+
+- Protobuf runtime/compiler `4.36.2`, protobuf Gradle plugin `0.10.0`, dependency-management plugin `1.1.7`, Foojay resolver `1.0.0`, PostgreSQL JDBC `42.7.14`, Testcontainers `2.0.5`, MockK `1.14.11`, ASM `9.11.1`, ktlint `1.8.0`: latest stable in their registries.
+- detekt `2.0.0-alpha.6` remains the available 2.x release; its compiler override stays `2.4.10` as required by that detekt build. Kotlin 2.5 Beta, Boot 4.2 RC, Modulith 2.2 RC and protobuf 4.37 RC were skipped.
+- Java remains the configured 26 toolchain; this pass changes libraries/build tools and the patch level of the existing Go line.
+
+Verified: `./gradlew spotlessCheck detekt check` on Gradle 9.8.2 / Java 26: 295 unit + 113 integration tests; 98.53% line / 89.58% branch coverage. REST contract unchanged.
+
 ## 2026-10-27 — transitive versions flagged by IntelliJ's dependency scanner
 
 IntelliJ's dependency scanner (Mend.io) flagged transitive dependencies of the backend; each was traced with `./gradlew dependencies` and checked against Maven Central `maven-metadata.xml` (release dates from the POM's `Last-Modified`). Rule kept from earlier passes: only stable releases at least two weeks old (published on or before 2026-10-13); majors not in scope. **Exception, per the user's decision:** Jackson `2.21.8` and ASM `9.11.1` (both 2026-10-17, 10 days old) — they fix a CVE and a regression of the otherwise chosen versions.

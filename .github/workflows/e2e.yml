@@ -43,7 +43,7 @@ concurrency:
 
 env:
   MINIKUBE_VERSION: v1.39.0
-  KUBECTL_VERSION: v1.37.0   # the Kubernetes version minikube v1.39.0 runs by default
+  KUBECTL_VERSION: v1.37.2   # latest patch of the Kubernetes line used by minikube v1.39.0
 
 jobs:
 

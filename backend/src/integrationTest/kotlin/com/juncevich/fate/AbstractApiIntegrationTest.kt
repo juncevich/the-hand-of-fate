@@ -56,11 +56,11 @@ abstract class AbstractApiIntegrationTest {
     companion object {
         private const val STORAGE_KEY = "test-storage-key"
 
-        private val postgres: PostgreSQLContainer = PostgreSQLContainer("postgres:17").also { it.start() }
+        private val postgres: PostgreSQLContainer = PostgreSQLContainer("postgres:18.6-alpine").also { it.start() }
 
         // Same S3-compatible server as local development (docker-compose.infra.yml).
         private val rustfs: GenericContainer<*> =
-            GenericContainer("rustfs/rustfs:1.0.1")
+            GenericContainer("rustfs/rustfs:1.0.4")
                 .withEnv("RUSTFS_VOLUMES", "/data")
                 .withEnv("RUSTFS_ADDRESS", "0.0.0.0:9000")
                 .withEnv("RUSTFS_ACCESS_KEY", STORAGE_KEY)

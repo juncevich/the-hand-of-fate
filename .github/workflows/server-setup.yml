@@ -59,7 +59,7 @@ jobs:
             systemctl enable nginx
             echo "  Nginx $(nginx -v 2>&1)"
 
-            echo "━━━ [4/7] Установка PostgreSQL 17 ━━━"
+            echo "━━━ [4/7] Установка PostgreSQL 18 ━━━"
             if ! command -v psql &>/dev/null; then
               apt-get install -y -q gnupg2
               curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
@@ -68,7 +68,7 @@ jobs:
                 https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
                 > /etc/apt/sources.list.d/pgdg.list
               apt-get update -q
-              apt-get install -y -q postgresql-17
+              apt-get install -y -q postgresql-18
               systemctl enable postgresql
               systemctl start postgresql
               echo "  PostgreSQL $(psql --version)"

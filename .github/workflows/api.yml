@@ -39,7 +39,7 @@ jobs:
           cache: false
 
       - name: Lint OpenAPI spec
-        run: npx -y @redocly/cli@2.55.0 lint api/openapi.yaml
+        run: npx -y @redocly/cli@2.72.1 lint api/openapi.yaml
 
       # The SPA and the bot-independent clients deploy separately from the backend, so a
       # removed endpoint/field or a newly required request field must be a deliberate change —
@@ -51,6 +51,6 @@ jobs:
             echo "No api/openapi.yaml on ${{ github.base_ref }} yet; skipping"
             exit 0
           fi
-          go run github.com/oasdiff/oasdiff@v1.33.0 breaking \
+          go run github.com/oasdiff/oasdiff@v1.35.0 breaking \
             "$RUNNER_TEMP/base-openapi.yaml" api/openapi.yaml --fail-on ERR \
             --err-ignore api/accepted-breaking-changes.txt

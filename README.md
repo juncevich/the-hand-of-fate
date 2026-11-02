@@ -43,9 +43,9 @@ A voting and random selection application with fair rotation support. Users crea
 ## Monorepo Structure
 
 ```
-backend/    Kotlin 2.4.20 + Spring Boot 4.1.1 — REST API + gRPC server
+backend/    Kotlin 2.4.21 + Spring Boot 4.1.2 — REST API + gRPC server
 frontend/   React 19 + TypeScript 7 + Vite 8 + Tailwind CSS 4
-bot/        Go 1.27.1 — Telegram bot, gRPC client
+bot/        Go 1.27.3 — Telegram bot, gRPC client
 proto/      Shared protobuf definitions (fate/v1/fate.proto)
 infra/
   nginx/      Nginx reverse proxy config
@@ -59,9 +59,9 @@ infra/
 
 | Component    | Language / Runtime | Key Libraries                              |
 |--------------|--------------------|--------------------------------------------|
-| `backend/`   | Kotlin 2.4.20      | Spring Boot 4.1.1, gRPC 1.84, Keycloak 26.8|
+| `backend/`   | Kotlin 2.4.21      | Spring Boot 4.1.2, gRPC 1.85.1, Keycloak 26.8.1|
 | `frontend/`  | TypeScript 7.0.2   | React 19.3, Vite 8, TanStack Query 5       |
-| `bot/`       | Go 1.27.1          | grpc 1.84, zap 1.28, viper 1.21            |
+| `bot/`       | Go 1.27.3          | grpc 1.85.0, zap 1.28, viper 1.21            |
 | DB           | PostgreSQL         | Flyway migrations (V1–V26)                 |
 | Observability| —                  | OpenTelemetry, Mimir, Loki, Grafana        |
 
@@ -71,6 +71,9 @@ infra/
 cp .env.example .env   # set BOT_TOKEN
 docker compose up -d
 ```
+
+Existing PostgreSQL 17 volumes need [migration to PostgreSQL 18](infra/POSTGRES_UPGRADE.md)
+before starting the updated stack.
 
 | Service   | URL                                   |
 |-----------|---------------------------------------|

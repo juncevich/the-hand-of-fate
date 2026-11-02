@@ -14,9 +14,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-KUSTOMIZE=(go run sigs.k8s.io/kustomize/kustomize/v5@v5.8.2)
+KUSTOMIZE=(go run sigs.k8s.io/kustomize/kustomize/v5@v5.8.3)
 KUBECONFORM=(go run github.com/yannh/kubeconform/cmd/kubeconform@v0.8.0)
-SHELLCHECK_IMAGE=koalaman/shellcheck:v0.10.0
+SHELLCHECK_IMAGE=koalaman/shellcheck:v0.11.0
 
 OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT

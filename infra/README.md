@@ -2,6 +2,9 @@
 
 Infrastructure configuration: Nginx reverse proxy, observability stack, and Kubernetes manifests.
 
+PostgreSQL is pinned to 18.6. Before starting this version with existing PostgreSQL 17 data,
+follow [the database upgrade procedure](POSTGRES_UPGRADE.md).
+
 ## Structure
 
 ```

@@ -16,6 +16,6 @@ RUN --mount=type=cache,target=/root/.m2 npm run build-keycloak-theme
 
 # ─────────────────────────────────────────────────────────────────────────────
 
-FROM quay.io/keycloak/keycloak:26.8.0
+FROM quay.io/keycloak/keycloak:26.8.1
 
 COPY --from=theme /app/dist_keycloak/fate-keycloak-theme.jar /opt/keycloak/providers/

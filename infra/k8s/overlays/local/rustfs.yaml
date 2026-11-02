@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
         - name: rustfs
-          image: rustfs/rustfs:1.0.1
+          image: rustfs/rustfs:1.0.4
           ports:
             - name: s3
               containerPort: 9000

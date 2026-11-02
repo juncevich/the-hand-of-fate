@@ -1,5 +1,29 @@
 # Dependency Updates
 
+## 2026-11-02 — all dependencies, majors in scope
+
+Latest stable releases checked against the upstream registries on 2026-11-02; per user request, majors included. No minimum release-age restriction in this pass. Pre-releases are excluded; the existing detekt alpha is retained because there is no stable 2.x replacement. Each release-history link below identifies the changes for that intermediate version.
+
+### Kotlin (JVM, Spring and JPA plugins) `2.4.20 → 2.4.21`
+
+- JVM reflection and script fixes; the three compiler plugins stay aligned.
+- Intermediate release changes: [2.4.21](https://github.com/JetBrains/kotlin/releases/tag/v2.4.21).
+
+### Spotless `8.10.3 → 8.10.4`
+
+- Formatting plugin updated in backend and perf; spotlessCheck passes without source reformatting.
+- Intermediate release changes: [8.10.4](https://github.com/diffplug/spotless/releases/tag/v8.10.4).
+
+### Gradle wrapper `9.8.1 → 9.8.2`
+
+- Fixes virtual-platform dependency-graph alignment warnings; [release notes](https://docs.gradle.org/9.8.2/release-notes.html). Wrapper regenerated.
+
+### Checked, left unchanged
+
+- Gatling plugin and highcharts `3.16.0`, Foojay `1.0.0`, ktlint `1.8.0`: latest stable. detekt `2.0.0-alpha.6` and its Kotlin `2.4.10` override remain aligned.
+
+Verified: `./gradlew spotlessCheck detekt compileGatlingKotlin` on Gradle 9.8.2 / Java 26. Live load simulations were not run.
+
 ## 2026-10-21 — all dependencies, majors in scope
 
 Same pass as `backend` (Maven Central / Plugin Portal metadata, stable releases at least two weeks old, majors in scope — none available).

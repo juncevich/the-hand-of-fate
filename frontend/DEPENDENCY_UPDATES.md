@@ -1,5 +1,114 @@
 # Dependency Updates
 
+## 2026-11-02 — all dependencies, majors in scope
+
+Latest stable releases checked against the upstream registries on 2026-11-02; per user request, majors included. No minimum release-age restriction in this pass. Pre-releases are excluded; npm dist-tags.latest selects stable package releases. Each release-history link below identifies the changes for that intermediate version.
+
+### @tanstack/react-query `5.104.1 → 5.105.2`
+
+- Server-state cache and React hooks; kept aligned with devtools.
+- Intermediate release metadata/source references: [5.104.2](https://registry.npmjs.org/@tanstack%2freact-query/5.104.2) → [5.104.3](https://registry.npmjs.org/@tanstack%2freact-query/5.104.3) → [5.104.4](https://registry.npmjs.org/@tanstack%2freact-query/5.104.4) → [5.104.5](https://registry.npmjs.org/@tanstack%2freact-query/5.104.5) → [5.105.0](https://registry.npmjs.org/@tanstack%2freact-query/5.105.0) → [5.105.1](https://registry.npmjs.org/@tanstack%2freact-query/5.105.1) → [5.105.2](https://registry.npmjs.org/@tanstack%2freact-query/5.105.2).
+
+### @tanstack/react-query-devtools `5.104.1 → 5.105.2`
+
+- Development query inspector; kept aligned with React Query.
+- Intermediate release metadata/source references: [5.104.2](https://registry.npmjs.org/@tanstack%2freact-query-devtools/5.104.2) → [5.104.3](https://registry.npmjs.org/@tanstack%2freact-query-devtools/5.104.3) → [5.104.4](https://registry.npmjs.org/@tanstack%2freact-query-devtools/5.104.4) → [5.104.5](https://registry.npmjs.org/@tanstack%2freact-query-devtools/5.104.5) → [5.105.0](https://registry.npmjs.org/@tanstack%2freact-query-devtools/5.105.0) → [5.105.1](https://registry.npmjs.org/@tanstack%2freact-query-devtools/5.105.1) → [5.105.2](https://registry.npmjs.org/@tanstack%2freact-query-devtools/5.105.2).
+
+### axios `1.20.0 → 1.21.0`
+
+- HTTP transport; the refreshed lockfile also includes the fixed follow-redirects release.
+- Intermediate release metadata/source references: [1.21.0](https://registry.npmjs.org/axios/1.21.0).
+
+### keycloakify `11.16.1 → 11.16.4`
+
+- Login/email theme builder; the theme JAR builds successfully.
+- Intermediate release metadata/source references: [11.16.2](https://registry.npmjs.org/keycloakify/11.16.2) → [11.16.3](https://registry.npmjs.org/keycloakify/11.16.3) → [11.16.4](https://registry.npmjs.org/keycloakify/11.16.4).
+
+### lucide-react `1.52.0 → 1.66.0`
+
+- Icon components; application imports compile against the updated icon catalogue.
+- Intermediate release metadata/source references: [1.53.0](https://registry.npmjs.org/lucide-react/1.53.0) → [1.54.0](https://registry.npmjs.org/lucide-react/1.54.0) → [1.55.0](https://registry.npmjs.org/lucide-react/1.55.0) → [1.56.0](https://registry.npmjs.org/lucide-react/1.56.0) → [1.57.0](https://registry.npmjs.org/lucide-react/1.57.0) → [1.58.0](https://registry.npmjs.org/lucide-react/1.58.0) → [1.59.0](https://registry.npmjs.org/lucide-react/1.59.0) → [1.60.0](https://registry.npmjs.org/lucide-react/1.60.0) → [1.61.0](https://registry.npmjs.org/lucide-react/1.61.0) → [1.62.0](https://registry.npmjs.org/lucide-react/1.62.0) → [1.63.0](https://registry.npmjs.org/lucide-react/1.63.0) → [1.64.0](https://registry.npmjs.org/lucide-react/1.64.0) → [1.65.0](https://registry.npmjs.org/lucide-react/1.65.0) → [1.66.0](https://registry.npmjs.org/lucide-react/1.66.0).
+
+### radix-ui `1.7.0 → 1.8.1`
+
+- Accessible UI primitives; component tests and TypeScript build pass.
+- Intermediate release metadata/source references: [1.8.0](https://registry.npmjs.org/radix-ui/1.8.0) → [1.8.1](https://registry.npmjs.org/radix-ui/1.8.1).
+
+### react `19.3.0 → 19.3.1`
+
+- React runtime; react-dom updated together.
+- Intermediate release metadata/source references: [19.3.1](https://registry.npmjs.org/react/19.3.1).
+
+### react-dom `19.3.0 → 19.3.1`
+
+- DOM renderer; React runtime updated together.
+- Intermediate release metadata/source references: [19.3.1](https://registry.npmjs.org/react-dom/19.3.1).
+
+### react-router `8.4.0 → 8.5.1`
+
+- Declarative routing; route and session tests pass.
+- Intermediate release metadata/source references: [8.5.0](https://registry.npmjs.org/react-router/8.5.0) → [8.5.1](https://registry.npmjs.org/react-router/8.5.1).
+
+### zustand `5.0.15 → 5.0.16`
+
+- Auth/theme stores; existing store tests pass.
+- Intermediate release metadata/source references: [5.0.16](https://registry.npmjs.org/zustand/5.0.16).
+
+### @testing-library/user-event `14.6.7 → 14.6.8`
+
+- Interaction simulation in component tests.
+- Intermediate release metadata/source references: [14.6.8](https://registry.npmjs.org/@testing-library%2fuser-event/14.6.8).
+
+### @types/node `26.6.4 → 26.6.6`
+
+- Node 26 declarations; compiler and configuration imports still type-check.
+- Intermediate release metadata/source references: [26.6.5](https://registry.npmjs.org/@types%2fnode/26.6.5) → [26.6.6](https://registry.npmjs.org/@types%2fnode/26.6.6).
+
+### @vitejs/plugin-react `6.1.2 → 6.2.1`
+
+- Vite React transform/plugin; production build passes.
+- Intermediate release metadata/source references: [6.2.0](https://registry.npmjs.org/@vitejs%2fplugin-react/6.2.0) → [6.2.1](https://registry.npmjs.org/@vitejs%2fplugin-react/6.2.1).
+
+### eslint `10.12.0 → 10.14.0`
+
+- Static analysis; existing configuration works without source changes.
+- Intermediate release metadata/source references: [10.13.0](https://registry.npmjs.org/eslint/10.13.0) → [10.14.0](https://registry.npmjs.org/eslint/10.14.0).
+
+### jsdom `30.1.2 → 30.1.3`
+
+- DOM test environment; all component tests pass.
+- Intermediate release metadata/source references: [30.1.3](https://registry.npmjs.org/jsdom/30.1.3).
+
+### typescript-eslint `8.71.1 → 8.72.1`
+
+- Type-aware linting; the TypeScript 6 API alias remains necessary.
+- Intermediate release metadata/source references: [8.71.2](https://registry.npmjs.org/typescript-eslint/8.71.2) → [8.72.0](https://registry.npmjs.org/typescript-eslint/8.72.0) → [8.72.1](https://registry.npmjs.org/typescript-eslint/8.72.1).
+
+### vite `8.3.3 → 8.3.5`
+
+- SPA bundler; production and theme builds pass.
+- Intermediate release metadata/source references: [8.3.4](https://registry.npmjs.org/vite/8.3.4) → [8.3.5](https://registry.npmjs.org/vite/8.3.5).
+
+### vitest `5.0.3 → 5.1.0`
+
+- Test runner; all 173 existing tests pass.
+- Intermediate release metadata/source references: [5.0.4](https://registry.npmjs.org/vitest/5.0.4) → [5.0.5](https://registry.npmjs.org/vitest/5.0.5) → [5.1.0](https://registry.npmjs.org/vitest/5.1.0).
+
+### minimatch `5.1.9 / 10.2.6 → 11.0.4` (major override)
+
+- Global override removes the vulnerable versions under ESLint, typescript-eslint and Redocly; all use the public matching API. This is intentionally a major transitive update. [Advisory](https://github.com/advisories/GHSA-g3hv-75wg-m249); [upstream changelog](https://github.com/isaacs/minimatch/blob/main/changelog.md).
+- The ESLint scan, all frontend tests and OpenAPI type regeneration pass with the override.
+
+### follow-redirects `1.16.1 → 1.16.2` (lockfile)
+
+- Fixes handling of cross-realm sensitive-header arrays during redirects. [Advisory](https://github.com/advisories/GHSA-mrwp-f3q8-3g9p).
+
+### Checked, left unchanged
+
+- TypeScript native alias `7.0.2` and classic API alias `6.0.2`, Tailwind packages `4.3.3`, oidc-client-ts `3.5.0`, openapi-typescript `7.13.0`, Testing Library React `16.3.3` / jest-dom `7.0.1`, React types `19.3.0`, eslint-plugin-react-hooks `7.1.1`, date-fns `4.4.0`, tailwind-merge `3.7.0`, clsx `2.1.1` and class-variance-authority `0.7.1`: latest stable. Node 26 remains the runtime line; prereleases excluded.
+
+Verified: `npm run lint`, `npm test` (173 tests), `npm run build-keycloak-theme`, `npm run check:api`; install/update audit: 0 vulnerabilities. Keycloakify still prints a static-evaluation warning for the existing imported custom-translation objects; the build succeeds.
+
 ## 2026-10-27 — zod (transitive, dev only): `npm audit` fix
 
 `npm audit` reported GHSA-mrhx-c7xc-m3w5 (high: memory exhaustion while validating oversized constrained collections, fixed in `4.6.6`). Production dependencies were clean (`npm audit --omit=dev`: 0). Versions checked with `npm view zod time`; rule kept: stable releases at least two weeks old (on or before 2026-10-13).

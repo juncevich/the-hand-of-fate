@@ -9,11 +9,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Monorepo Structure
 
 ```
-backend/     Kotlin 2.4.20 + Spring Boot 4.1.1 on Java 26, PostgreSQL, gRPC server
+backend/     Kotlin 2.4.21 + Spring Boot 4.1.2 on Java 26, PostgreSQL, gRPC server
 frontend/    React 19 + TypeScript 7 + Vite 8 + Tailwind CSS 4 + shadcn/ui
-bot/         Go 1.27.1 Telegram bot, gRPC client to backend
+bot/         Go 1.27.3 Telegram bot, gRPC client to backend
 perf/        Gatling 3.16.0 + Kotlin load/smoke tests
-simulation/  Go 1.27.1 user-behaviour simulator (functional end-to-end flows)
+simulation/  Go 1.27.3 user-behaviour simulator (functional end-to-end flows)
 e2e/         Playwright browser tests against a running stack (minikube gateway by default)
 proto/       Shared protobuf definitions (proto/fate/v1/fate.proto)
 api/         REST contract api/openapi.yaml (generated from the backend controllers, committed)
@@ -88,6 +88,8 @@ make k8s-dev-down                    # `tilt down` — removes the workloads, ke
 
 **Default demo user** (Keycloak realm `fate`, `infra/keycloak/realm-dev/` — dev/e2e only): `admin@admin.com` / `admin123` (the realm's password policy needs 8+ characters). Its `users` row is created on the first request. Migration V7 once seeded it for the app's own login; its Flyway placeholder `seedDemoUser` stays `false` everywhere (Flyway fails on an unresolved placeholder, and an applied migration can't change).
 
+Existing PostgreSQL 17 volumes require [migration to PostgreSQL 18](infra/POSTGRES_UPGRADE.md) before running the updated stack. Compose explicitly preserves its previous PGDATA path so an old cluster cannot be silently replaced by a new empty database.
+
 ### Backend (Kotlin + Gradle)
 ```bash
 cd backend
@@ -100,12 +102,12 @@ cd backend
 ./gradlew bootJar                # build fat JAR
 ./gradlew detekt                 # static analysis (detekt 2.0.0-alpha.6, full analysis of main/test/integrationTest)
 ./gradlew detektBaselineMain detektBaselineTest detektBaselineIntegrationTest  # rewrite detekt-baseline-<sourceSet>.xml
-./gradlew spotlessCheck          # formatting check (Spotless 8.4.0 / ktlint)
+./gradlew spotlessCheck          # formatting check (Spotless 8.10.4 / ktlint)
 ./gradlew spotlessApply          # auto-fix formatting
 ```
 - `backend/detekt.yml` serves two engines: Gradle runs detekt 2.x (`allowed*` limits), the IntelliJ detekt plugin still bundles detekt 1.23 (`threshold*` keys = the 2.x limit + 1). The 1.x keys are listed in `config.excludes`, so detekt 2's config validation skips them — change both when changing a limit. In the plugin: config `backend/detekt.yml`, formatting rules off (spotless owns formatting). The baselines stay empty: the plugin can't match detekt 2's baseline ids, so a deliberate exception is a `@Suppress("<Rule>")` with a reason at the declaration, which both engines honour
 - `backend/.editorconfig` turns on ktlint's `no-unused-imports` (off by default since ktlint 1.x) and stops IntelliJ from collapsing imports into `*`; write a wildcard by hand only where it helps. Keys read only through `@Value`/`@Scheduled` are described in `src/main/resources/META-INF/additional-spring-configuration-metadata.json` — add a new one there
-- `make db-schema` (`backend/scripts/db-schema.sh`, needs Docker) applies the Flyway migrations in version order to a throwaway `postgres:17` and writes the resulting schema to `backend/db-schema/schema.sql` (gitignored) — the file IntelliJ's DDL data source (SQL and JPA inspections) should point at. Not the migration folder itself: the IDE applies those in name order (V10 before V1, V26 before V3) and misses some drops; and not `build/`, which the IDE excludes. Re-run after adding a migration
+- `make db-schema` (`backend/scripts/db-schema.sh`, needs Docker) applies the Flyway migrations in version order to a throwaway `postgres:18.6-alpine` and writes the resulting schema to `backend/db-schema/schema.sql` (gitignored) — the file IntelliJ's DDL data source (SQL and JPA inspections) should point at. Not the migration folder itself: the IDE applies those in name order (V10 before V1, V26 before V3) and misses some drops; and not `build/`, which the IDE excludes. Re-run after adding a migration
 
 ### Frontend (React + Vite)
 ```bash
@@ -202,7 +204,7 @@ cd perf
 | `telegram-bot-api/telegram-bot-api/v5` | v5.5.1  | Telegram API  |
 | `spf13/viper`                      | v1.21.0  | Config        |
 | `go.uber.org/zap`                  | v1.28.0  | Logging       |
-| `google.golang.org/grpc`           | v1.84.0  | gRPC client   |
+| `google.golang.org/grpc`           | v1.85.0  | gRPC client   |
 | `google.golang.org/genproto/googleapis/rpc` | (pseudo-version, via grpc) | `errdetails.ErrorInfo` |
 | `google.golang.org/protobuf`       | v1.36.12 | Proto runtime |
 | `go.opentelemetry.io/otel` (+ `sdk`, `sdk/metric`, `sdk/log`, `otlptracegrpc`, `otlpmetricgrpc`) | v1.47.0 | Traces, metrics and logs over OTLP/gRPC |
@@ -278,7 +280,7 @@ Each vote has a `drawTarget` (`votes.draw_target`, V20), chosen at creation and 
 
 ### Backend Module Architecture (Hexagonal / Ports & Adapters)
 
-The backend follows a hexagonal architecture enforced by **Spring Modulith 2.0**. Modules are: `account`, `vote`, `notification`, `storage`, `grpc`, `shared`, `platform`. A module's **base package is its API; every sub-package is private to it** (Spring Modulith's default — there is no `internal/` level, and no `@NamedInterface`). `shared` is the shared kernel (error codes, exceptions, validation; depends on nothing); `platform` wires the application (`SecurityConfig`, `ErrorHandler`, `OpenApiConfig`, `SecretsValidator`) and no module may depend on it.
+The backend follows a hexagonal architecture enforced by **Spring Modulith 2.1.2**. Modules are: `account`, `vote`, `notification`, `storage`, `grpc`, `shared`, `platform`. A module's **base package is its API; every sub-package is private to it** (Spring Modulith's default — there is no `internal/` level, and no `@NamedInterface`). `shared` is the shared kernel (error codes, exceptions, validation; depends on nothing); `platform` wires the application (`SecurityConfig`, `ErrorHandler`, `OpenApiConfig`, `SecretsValidator`) and no module may depend on it.
 
 ```
 <module>/          — API: services other modules/adapters call, read models, events, enums
@@ -362,7 +364,7 @@ Domain objects are immutable where they carry no rules (`account.domain.User`: a
 5. Bot notifies via Telegram; backend sends emails for invitations and draw results
 
 ### Testing
-- **Backend**: MockK for unit tests. Tests live in `backend/src/test/kotlin/`. Coverage: JaCoCo 0.8.15, merged unit + integration report; generated protobuf/gRPC classes are excluded by the file names `generateProto` emitted (they share the `com.juncevich.fate.grpc` package with hand-written code). `check` enforces minimums of 95% lines / 85% branches (`jacocoTestCoverageVerification`) — cover new code with tests rather than lowering them
+- **Backend**: MockK for unit tests. Tests live in `backend/src/test/kotlin/`. Coverage: JaCoCo 0.8.16, merged unit + integration report; generated protobuf/gRPC classes are excluded by the file names `generateProto` emitted (they share the `com.juncevich.fate.grpc` package with hand-written code). `check` enforces minimums of 95% lines / 85% branches (`jacocoTestCoverageVerification`) — cover new code with tests rather than lowering them
 - **Frontend**: Vitest + `@testing-library/react` + jest-dom
 
 #### Backend Testing Patterns
@@ -469,7 +471,7 @@ Each project has its own workflow file, triggered on PR and push to `main` via p
 - `simulation.yml`: `simulation-test` — generated-models check + gofmt + go vet + staticcheck + go test + build. The scenarios themselves (`go run ./cmd/simulate`) need a running backend and are not run in CI.
 - `api.yml`: `api-check` on changes to `api/**` — Redocly lint of `api/openapi.yaml` and, on PRs, `oasdiff breaking` against the base branch (the REST analogue of `buf breaking`).
 - `e2e.yml`: the whole stack on a throwaway minikube cluster (`K8S_OVERLAY=e2e ./k8s-start.sh`), then `infra/k8s/e2e.sh` (gateway smoke with a Keycloak token, every simulation scenario through the gateway, mail delivery, backend metrics/logs/traces and Keycloak metrics/traces — also `make k8s-e2e`) and the Playwright tests in `e2e/`; uploads `playwright-report` on failure. The bot is not deployed.
-- `k8s.yml`: `k8s-check` on changes to `infra/k8s/**`, `infra/nginx/**`, `infra/monitoring/**`, `docker-compose*.yml`, `k8s-*.sh` — runs `infra/k8s/check.sh` (also `make k8s-check`, needs Go + Docker, no cluster): renders every overlay (kustomize v5.8.2), `kubeconform -strict`, validates the OTel Collector (compose config and the k8s merge), Loki, Tempo and gateway nginx configs with the image versions the manifests pin, checks the Grafana dashboard JSON, requires every third-party image shared by `docker-compose*.yml` and the manifests to use the same tag (bump both together), and runs shellcheck on the k8s scripts.
+- `k8s.yml`: `k8s-check` on changes to `infra/k8s/**`, `infra/nginx/**`, `infra/monitoring/**`, `docker-compose*.yml`, `k8s-*.sh` — runs `infra/k8s/check.sh` (also `make k8s-check`, needs Go + Docker, no cluster): renders every overlay (kustomize v5.8.3), `kubeconform -strict`, validates the OTel Collector (compose config and the k8s merge), Loki, Tempo and gateway nginx configs with the image versions the manifests pin, checks the Grafana dashboard JSON, requires every third-party image shared by `docker-compose*.yml` and the manifests to use the same tag (bump both together), and runs shellcheck on the k8s scripts.
 - `frontend.yml` also runs `npm run check:api`; backend, frontend and simulation workflows all trigger on `api/openapi.yaml`.
 
 ### Deploy workflows (deploy-backend.yml / deploy-frontend.yml / deploy-bot.yml)
@@ -496,7 +498,7 @@ One-time `workflow_dispatch` — run on a fresh Ubuntu VPS before the first depl
 1. Updates packages
 2. Installs Java 26 (Temurin) and makes it the default `java` (also upgrades a server still on an older Java; `deploy-backend.yml` refuses to deploy to a server below Java 26)
 3. Installs and enables Nginx
-4. Installs PostgreSQL 17, creates `fate` DB user and `fate` database
+4. Installs PostgreSQL 18, creates `fate` DB user and `fate` database
 5. Creates `fate` system user and `/opt/hand-of-fate/{backend,frontend,bot}/` directories
 6. Registers `fate-backend` and `fate-bot` systemd units with `EnvironmentFile=/opt/hand-of-fate/.env`
 7. Writes Nginx site config: SPA routing (`/`), API proxy (`/api/`), per-IP `limit_req` on `/api/v1/auth/` (legacy), security headers (CSP, HSTS, X-Frame-Options, nosniff, Referrer-Policy), static asset caching. **Swagger/OpenAPI is not proxied in prod** (also disabled server-side unless `SPRINGDOC_ENABLED=true`).

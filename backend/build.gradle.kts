@@ -1,13 +1,13 @@
 import com.google.protobuf.gradle.*
 
 plugins {
-    kotlin("jvm")                              version "2.4.20"
-    kotlin("plugin.spring")                    version "2.4.20"
-    kotlin("plugin.jpa")                       version "2.4.20"
-    id("org.springframework.boot")             version "4.1.1"
+    kotlin("jvm")                              version "2.4.21"
+    kotlin("plugin.spring")                    version "2.4.21"
+    kotlin("plugin.jpa")                       version "2.4.21"
+    id("org.springframework.boot")             version "4.1.2"
     id("io.spring.dependency-management")      version "1.1.7"
     id("com.google.protobuf")                  version "0.10.0"
-    id("com.diffplug.spotless")                version "8.10.3"
+    id("com.diffplug.spotless")                version "8.10.4"
     id("dev.detekt")                           version "2.0.0-alpha.6"
     jacoco
 }
@@ -37,20 +37,19 @@ repositories {
     mavenCentral()
 }
 
-val grpcVersion          = "1.84.1"
+val grpcVersion          = "1.85.1"
 val protobufVersion      = "4.36.2"
-val modulithVersion      = "2.1.1"
-val awsSdkVersion        = "2.55.12"
+val modulithVersion      = "2.1.2"
+val awsSdkVersion        = "2.57.8"
 
 // The Spring Boot BOM pins older gRPC / protobuf releases; override its version
 // properties so the runtime matches the protoc / protoc-gen-grpc-java used for codegen.
 extra["grpc-java.version"] = grpcVersion
 extra["protobuf-java.version"] = protobufVersion
 
-// Jackson 2 is only springdoc's (swagger-core); the app itself is on Jackson 3. Boot 4.1.1 pins
-// 2.21.5, which IntelliJ's dependency scanner flags; 2.21.8 fixes the last of those CVEs — drop this
-// override once the Boot BOM pins 2.21.8 or newer.
-extra["jackson-2-bom.version"] = "2.21.8"
+// Jackson 2 is used by springdoc (swagger-core); the application uses Jackson 3.
+// Keep the Jackson 2 family aligned until Spring Boot's BOM reaches this version.
+extra["jackson-2-bom.version"] = "2.22.4"
 
 dependencies {
     // ── Spring Modulith ───────────────────────────────────────────────────────
@@ -106,7 +105,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
 
     // ── OpenAPI ───────────────────────────────────────────────────────────────
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0")
 
     // ── Test ──────────────────────────────────────────────────────────────────
     testImplementation("org.springframework.boot:spring-boot-starter-test")
@@ -233,7 +232,7 @@ tasks.register<Test>("openApiUpdate") {
 // build/reports/jacoco/test/{html,jacocoTestReport.xml}; `check` produces it too and
 // fails via jacocoTestCoverageVerification when coverage drops below the minimums.
 jacoco {
-    toolVersion = "0.8.15"
+    toolVersion = "0.8.16"
 }
 
 // Generated protobuf/gRPC classes share the com.juncevich.fate.grpc package with

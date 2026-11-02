@@ -9,14 +9,14 @@
 # Run it again after adding a migration. Needs Docker.
 #
 #   backend/scripts/db-schema.sh            # or: make db-schema
-#   POSTGRES_IMAGE=postgres:17.11-alpine backend/scripts/db-schema.sh
+#   POSTGRES_IMAGE=postgres:18.6-alpine backend/scripts/db-schema.sh
 set -euo pipefail
 
 BACKEND_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MIGRATIONS="$BACKEND_DIR/src/main/resources/db/migration"
 OUT="$BACKEND_DIR/db-schema/schema.sql"
 # The integration tests' image (Testcontainers), usually already pulled.
-IMAGE="${POSTGRES_IMAGE:-postgres:17}"
+IMAGE="${POSTGRES_IMAGE:-postgres:18.6-alpine}"
 CONTAINER="fate-db-schema-$$"
 
 cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }

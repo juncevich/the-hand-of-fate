@@ -1,5 +1,64 @@
 # Dependency Updates
 
+## 2026-11-02 — all dependencies, majors in scope
+
+Latest stable releases checked against the upstream registries on 2026-11-02; per user request, majors included. No minimum release-age restriction in this pass. Pre-releases are excluded. YAML compatibility constraints, where applicable, are listed below; source and module-history links provide the upstream change references.
+
+### Go directive `1.27.1 → 1.27.3`
+
+- Current stable patch of the Go 1.27 line, aligned in both modules; [Go release history](https://go.dev/doc/devel/release#go1.27.3). Build images follow `golang:1.27-alpine`.
+
+### google.golang.org/genproto/googleapis/rpc `v0.0.0-20260928230214-8a89bd6388cc → v0.0.0-20261026165753-2ffab32bce7e`
+
+- Updated declared module version; build, unit tests and go vet pass.
+- Upstream source/change history: [v0.0.0-20261026165753-2ffab32bce7e](https://pkg.go.dev/google.golang.org/genproto/googleapis/rpc@v0.0.0-20261026165753-2ffab32bce7e); [module versions](https://proxy.golang.org/google.golang.org/genproto/googleapis/rpc/@v/list).
+
+### google.golang.org/grpc `v1.84.0 → v1.85.0`
+
+- Updated declared module version; build, unit tests and go vet pass.
+- Upstream source/change history: [v1.85.0](https://pkg.go.dev/google.golang.org/grpc@v1.85.0); [module versions](https://proxy.golang.org/google.golang.org/grpc/@v/list).
+
+### github.com/grpc-ecosystem/grpc-gateway/v2 `v2.30.0 → v2.33.0`
+
+- Updated declared module version; build, unit tests and go vet pass.
+- Upstream source/change history: [v2.33.0](https://pkg.go.dev/github.com/grpc-ecosystem/grpc-gateway/v2@v2.33.0); [module versions](https://proxy.golang.org/github.com/grpc-ecosystem/grpc-gateway/v2/@v/list).
+
+### go.opentelemetry.io/proto/otlp `v1.11.0 → v1.11.1`
+
+- Updated declared module version; build, unit tests and go vet pass.
+- Upstream source/change history: [v1.11.1](https://pkg.go.dev/go.opentelemetry.io/proto/otlp@v1.11.1); [module versions](https://proxy.golang.org/go.opentelemetry.io/proto/otlp/@v/list).
+
+### go.yaml.in/yaml/v3 `v3.0.5 → v3.0.6`
+
+- Updated declared module version; build, unit tests and go vet pass.
+- Upstream source/change history: [v3.0.6](https://pkg.go.dev/go.yaml.in/yaml/v3@v3.0.6); [module versions](https://proxy.golang.org/go.yaml.in/yaml/v3/@v/list).
+
+### golang.org/x/net `v0.59.0 → v0.62.0`
+
+- Updated declared module version; build, unit tests and go vet pass.
+- Upstream source/change history: [v0.62.0](https://pkg.go.dev/golang.org/x/net@v0.62.0); [module versions](https://proxy.golang.org/golang.org/x/net/@v/list).
+
+### golang.org/x/sys `v0.48.0 → v0.49.0`
+
+- Updated declared module version; build, unit tests and go vet pass.
+- Upstream source/change history: [v0.49.0](https://pkg.go.dev/golang.org/x/sys@v0.49.0); [module versions](https://proxy.golang.org/golang.org/x/sys/@v/list).
+
+### golang.org/x/text `v0.42.0 → v0.43.0`
+
+- Updated declared module version; build, unit tests and go vet pass.
+- Upstream source/change history: [v0.43.0](https://pkg.go.dev/golang.org/x/text@v0.43.0); [module versions](https://proxy.golang.org/golang.org/x/text/@v/list).
+
+### google.golang.org/genproto/googleapis/api `v0.0.0-20260928230214-8a89bd6388cc → v0.0.0-20261026165753-2ffab32bce7e`
+
+- Updated declared module version; build, unit tests and go vet pass.
+- Upstream source/change history: [v0.0.0-20261026165753-2ffab32bce7e](https://pkg.go.dev/google.golang.org/genproto/googleapis/api@v0.0.0-20261026165753-2ffab32bce7e); [module versions](https://proxy.golang.org/google.golang.org/genproto/googleapis/api/@v/list).
+
+### Checked, left unchanged
+
+- Telegram API `v5.5.1`, Viper `1.21.0`, zap `1.28.0`, protobuf `1.36.12`, OpenTelemetry stable core `1.47.0` and the corresponding contrib/log packages are already latest. Upstream release endpoints were also checked for new major module paths.
+
+Verified: `go mod tidy`, `go test ./...`, `go vet ./...`, `go build ./...`.
+
 ## 2026-10-21
 
 Checked via the Go module proxy (`/@v/list` + `.info` release times), majors in scope; stable releases at least two weeks old.

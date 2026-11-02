@@ -1,5 +1,25 @@
 # Dependency Updates
 
+## 2026-11-02 — all dependencies, majors in scope
+
+Latest stable releases checked against the upstream registries on 2026-11-02; per user request, majors included. No minimum release-age restriction in this pass. Pre-releases are excluded; npm dist-tags.latest selects stable package releases. Each release-history link below identifies the changes for that intermediate version.
+
+### @playwright/test `1.64.0 → 1.64.1`
+
+- Browser test runner updated; TypeScript and discovery of all 13 browser tests pass.
+- Intermediate release metadata/source references: [1.64.1](https://registry.npmjs.org/@playwright%2ftest/1.64.1).
+
+### @types/node `26.6.4 → 26.6.6`
+
+- Node 26 declarations; compiler and configuration imports still type-check.
+- Intermediate release metadata/source references: [26.6.5](https://registry.npmjs.org/@types%2fnode/26.6.5) → [26.6.6](https://registry.npmjs.org/@types%2fnode/26.6.6).
+
+### Checked, left unchanged
+
+- TypeScript API alias `npm:@typescript/typescript6@^6.0.2`: latest stable.
+
+Verified: `npm run typecheck`, `npx playwright test --list` (13 tests); install audit: 0 vulnerabilities. The browser suite itself was not run against a deployed stack.
+
 ## 2026-10-21 — all dependencies, majors in scope
 
 Checked against the npm registry; stable releases at least two weeks old, majors in scope.
