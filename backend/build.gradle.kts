@@ -6,8 +6,8 @@ plugins {
     kotlin("plugin.jpa")                       version "2.4.21"
     id("org.springframework.boot")             version "4.1.2"
     id("io.spring.dependency-management")      version "1.1.7"
-    id("com.google.protobuf")                  version "0.10.0"
-    id("com.diffplug.spotless")                version "8.10.4"
+    id("com.google.protobuf")                  version "0.10.1"
+    id("com.diffplug.spotless")                version "8.11.0"
     id("dev.detekt")                           version "2.0.0-alpha.6"
     jacoco
 }
@@ -40,7 +40,7 @@ repositories {
 val grpcVersion          = "1.85.1"
 val protobufVersion      = "4.36.2"
 val modulithVersion      = "2.1.2"
-val awsSdkVersion        = "2.57.8"
+val awsSdkVersion        = "2.57.10"
 
 // The Spring Boot BOM pins older gRPC / protobuf releases; override its version
 // properties so the runtime matches the protoc / protoc-gen-grpc-java used for codegen.

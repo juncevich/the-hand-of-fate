@@ -1,5 +1,38 @@
 # Dependency Updates
 
+## 2026-11-06 — stage 3: backend/perf build tooling and SDK
+
+Stable releases verified against Gradle services, Gradle Plugin Portal and Maven Central on 2026-11-06. Majors are in scope for the overall plan; this stage applies the selected patch/minor updates.
+
+### Gradle wrapper `9.8.2 → 9.9.0`
+
+- [9.9.0 release notes](https://docs.gradle.org/9.9.0/release-notes.html): incremental compilation for Kotlin DSL scripts, correct filtering of non-method JUnit Platform tests, and preservation of custom wrapper properties during upgrades. Released on 2026-11-06; no minimum release-age restriction was requested.
+- Wrapper regenerated in backend and perf using Gradle 9.9.0. Java toolchains remain at 26; Java 27 migration is a separate stage.
+
+### Spotless `8.10.4 → 8.11.0`
+
+- [8.11.0 changelog](https://github.com/diffplug/spotless/blob/main/plugin-gradle/CHANGES.md): adds cleanup and maximum-line-length options for google-java-format and changes its default to 2.0.0. This repository explicitly uses ktlint 1.8.0, so those Java formatter defaults do not affect its configured formatting.
+- Updated together in backend and perf; existing ktlint configuration retained.
+
+### Protobuf Gradle plugin `0.10.0 → 0.10.1`
+
+- [0.10.1 release notes](https://github.com/google/protobuf-gradle-plugin/releases/tag/v0.10.1): removes deprecated Configuration.setVisible calls, adds the Category attribute to compileProtoPath configurations, disables caching for the internal file-copy ProtoSyncTask, and changes ToolsLocator's default version to an empty string.
+- Explicit protoc/protobuf 4.36.2 and gRPC Java/codegen 1.85.1 versions remain aligned and unchanged; the shared proto contract is unchanged.
+
+### AWS SDK v2 (`awsSdkVersion`) `2.57.8 → 2.57.10`
+
+- [2.57.9](https://github.com/aws/aws-sdk-java-v2/releases/tag/2.57.9): fixes S3Presigner leaking background S3 Express session refreshes, updates endpoint metadata and service models, and fixes S3 Transfer Manager progress/resumable-transfer handling. The application uses the S3 protocol through the synchronous URLConnection transport.
+- [2.57.10](https://github.com/aws/aws-sdk-java-v2/releases/tag/2.57.10): fixes async-client shutdown hanging with adaptive retries under rate limiting and updates additional service models. The BOM keeps s3 and url-connection-client aligned.
+
+### Validation and unchanged dependencies
+
+- Passed on Gradle 9.9.0 / Temurin 26: `./gradlew generateProto spotlessCheck detekt check bootJar --warning-mode all` (all 28 actionable tasks executed).
+- 295 unit tests and 113 integration tests passed with no skips or failures, including real Keycloak, RustFS avatar/storage flows, gRPC and OpenApiSpecIntegrationTest. JaCoCo: 98.53% lines / 89.58% branches; both coverage gates passed. REST contract unchanged; all 67 generated protobuf files are byte-identical to their pre-update contents.
+- Both wrapper JAR hashes match Gradle's published SHA-256 (`621008afc4f5d59357fcf06ffa644dd5aade5e091bdc363742710445f73cdaf8`). Wrapper scripts have no substantive changes.
+- Kotlin 2.4.21, Spring Boot 4.1.2, Modulith 2.1.2, gRPC 1.85.1, protobuf/protoc 4.36.2, ktlint 1.8.0, Foojay 1.0.0 and the existing detekt 2.0.0-alpha.6 / Kotlin 2.4.10 override were left unchanged, consistent with the audit and the scoped plan. No additional prereleases or major migrations were introduced.
+- Gradle still reports a deprecated Configuration.setVisible call; it does not fail the build. Local Java discovery also reports an unrelated invalid legacy JDK 8 installation. No machine-wide Java configuration was changed.
+- Synced Spotless's current version in AGENTS.md. Found that perf's wrapper JAR was excluded by the root *.jar rule: corrected the wrapper exception for nested projects and included perf's regenerated JAR so its CI entry point is available in a fresh checkout.
+
 ## 2026-11-02 — all dependencies, majors in scope
 
 Latest stable releases checked against the upstream registries on 2026-11-02; per user request, majors included. No minimum release-age restriction in this pass. Pre-releases are excluded; the existing detekt alpha is retained because there is no stable 2.x replacement. Each release-history link below identifies the changes for that intermediate version.

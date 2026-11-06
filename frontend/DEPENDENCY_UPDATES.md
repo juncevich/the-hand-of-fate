@@ -1,5 +1,69 @@
 # Dependency Updates
 
+## 2026-11-06 — stage 2: jsdom major migration
+
+### jsdom `30.1.3 → 31.0.0`
+
+- Per user request, majors included. Confirmed npm dist-tags.latest is 31.0.0; no intermediate stable releases were published between 30.1.3 and 31.0.0. Sources: [npm metadata](https://registry.npmjs.org/jsdom/31.0.0), [official release notes](https://github.com/jsdom/jsdom/releases/tag/v31.0.0).
+- Breaking changes: replaces CSS parsing, selector matching and computed styles with an integrated implementation; CSS serialization and computed values may differ. HTML/XML parsing can pause at blocking scripts and return partially parsed documents; consumers requiring a finished document must observe readiness/load events. The optional canvas backend changes from canvas to @napi-rs/canvas v1.0.13+ (v1.x).
+- Other changes include fixes to document.write/open/close, script ordering, resource cancellation, focus transitions and pending-request memory leaks, plus window.reportError and additional ARIA properties.
+- Required Node range is `^22.22.2 || ^24.15.0 || >=26.0.0`; verified on Node 26.13.0. Local development and frontend CI already select Node 26 through .nvmrc. Vitest 5.1.0 accepts the new jsdom version and resolves the same deduplicated instance.
+- Refreshed package-lock.json for jsdom and its dependencies. No canvas backend is installed or needed by the current tests. No application, test, mock or Vitest configuration changes were required.
+- Passed: npm install, npm ls jsdom, npm run lint, npm test (29 files / 173 tests), npm run build (TypeScript + Vite production build), git diff --check. The same seven unsupported document-navigation messages seen with jsdom 30 remain; the test process exits successfully. Browser/e2e tests were not run: this stage changes the Vitest DOM environment.
+- Other direct dependencies remain at the versions validated in stage 1. Broader dependency audit results remain in the preceding stage's record; only jsdom was rechecked and updated in this stage. Pre-releases are excluded. No existing documentation version table named jsdom, so no version replacement was needed there.
+
+## 2026-11-06 — stage 1: frontend patch/minor updates
+
+Stage 1 of the dependency update plan. Majors are in scope for the overall plan, per user request; jsdom 31 is reserved for stage 2. Stable npm dist-tags and every intermediate version were checked against the npm registry on 2026-11-06. No application source changes were required.
+
+### @tanstack/react-query `5.105.2 → 5.106.1`
+
+- [5.105.3](https://github.com/TanStack/query/releases/tag/%40tanstack/query-core%405.105.3): fixes a cancelled retry pausing a query and permits static queries without data to refetch after reset/invalidation.
+- [5.106.0](https://github.com/TanStack/query/releases/tag/%40tanstack/react-query%405.106.0): aligns query-core; upstream reports no query-core changes in this release.
+- [5.106.1](https://github.com/TanStack/query/releases/tag/%40tanstack/react-query%405.106.1): aligns query-core again. React 19 remains supported.
+
+### @tanstack/react-query-devtools `5.105.2 → 5.106.1`
+
+- [5.105.3](https://github.com/TanStack/query/releases/tag/%40tanstack/react-query-devtools%405.105.3): aligns query-devtools and React Query.
+- [5.106.0](https://github.com/TanStack/query/releases/tag/%40tanstack/react-query-devtools%405.106.0): inline panels fill the container height, retaining a 500px default when no height is set.
+- [5.106.1](https://github.com/TanStack/query/releases/tag/%40tanstack/react-query-devtools%405.106.1): keeps devtools left-to-right regardless of page direction or browser language.
+
+### lucide-react `1.66.0 → 1.70.0`
+
+- [1.67.0](https://github.com/lucide-icons/lucide/releases/tag/1.67.0): adds globe/flow icons and adjusts chef-hat and letter-j drawings.
+- [1.68.0](https://github.com/lucide-icons/lucide/releases/tag/1.68.0): adds mango and renames warning/alert icons to exclamation-point names upstream; existing application imports still compile.
+- [1.69.0](https://github.com/lucide-icons/lucide/releases/tag/1.69.0): adds package-pen, package-question-mark, opacity and circle-fading-check.
+- [1.70.0](https://github.com/lucide-icons/lucide/releases/tag/1.70.0): adds search, moped, user-exclamation-point and grid icons; includes a React Native alias runtime fix.
+
+### zustand `5.0.16 → 5.1.0`
+
+- [5.1.0](https://github.com/pmndrs/zustand/releases/tag/v5.1.0): persist accepts PromiseLike storage/migration results and rehydrate returns a native Promise; devtools gains actionCreators dispatch support. Existing auth/theme store tests pass.
+
+### tailwindcss `4.3.3 → 4.3.5`
+
+- [4.3.4](https://github.com/tailwindlabs/tailwindcss/releases/tag/v4.3.4): fixes source watching, scope handling, utility parsing and CSS output; adds the upstream Turbopack loader (not used here).
+- [4.3.5](https://github.com/tailwindlabs/tailwindcss/releases/tag/v4.3.5): fixes color-mix fallbacks, WASM scanner loading/rescans and node type declarations; improves canonicalization performance.
+
+### @tailwindcss/vite `4.3.3 → 4.3.5`
+
+- [4.3.4](https://github.com/tailwindlabs/tailwindcss/releases/tag/v4.3.4): fixes bundledDev edit crashes and unwanted full reloads for scanned non-module files; aligns compiler/scanner packages.
+- [4.3.5](https://github.com/tailwindlabs/tailwindcss/releases/tag/v4.3.5): aligns with the compiler/scanner fixes above. Vite 8 remains within the supported peer range.
+
+### vite `8.3.5 → 8.3.6`
+
+- [8.3.6](https://github.com/vitejs/vite/releases/tag/v8.3.6): fixes dependency optimizer resolution/cache detection, HTML attribute escaping, WASM filesystem access checks and worker chunk retention, among other bundler fixes. Production and Keycloak theme builds pass on Node 26.13.0.
+
+### minimatch (override) `11.0.4 → 11.0.5`
+
+- [11.0.5 metadata](https://registry.npmjs.org/minimatch/11.0.5): refreshes the existing global override. No GitHub release notes are published at the v11.0.5 release endpoint; no unverified behavior changes are claimed. ESLint passes with the updated matcher.
+
+### Lockfile, unchanged dependencies and validation
+
+- Refreshed package-lock.json with npm 11.20.0. It includes the selected packages' transitive updates (query-core/devtools, Tailwind node/oxide, Lightning CSS, Rolldown) and npm dependency deduplication. No other direct dependency versions changed.
+- Other direct frontend dependencies remain at the versions verified in the audit: axios, class-variance-authority, clsx, date-fns, keycloakify, oidc-client-ts, radix-ui, React/React DOM, react-router, tailwind-merge, Testing Library packages, Node/React types, TypeScript aliases, plugin-react, ESLint/react-hooks, openapi-typescript, typescript-eslint and Vitest. jsdom remains at 30.1.3 intentionally for the separate major migration. Pre-releases were excluded.
+- Passed: npm install, npm ls --depth=0, npm run lint, npm test (29 files / 173 tests), npm run build (via build-keycloak-theme), and npm run build-keycloak-theme (Temurin 21.0.11 for the theme build).
+- Validation output includes jsdom's unsupported document-navigation messages and Keycloakify's warning about statically evaluating withCustomTranslations; both commands exit successfully. Browser/e2e tests were not run in this stage.
+
 ## 2026-11-02 — all dependencies, majors in scope
 
 Latest stable releases checked against the upstream registries on 2026-11-02; per user request, majors included. No minimum release-age restriction in this pass. Pre-releases are excluded; npm dist-tags.latest selects stable package releases. Each release-history link below identifies the changes for that intermediate version.

@@ -1,5 +1,30 @@
 # Dependency Updates
 
+## 2026-11-06 — stage 4: Go dependency updates
+
+Checked `go list -m -u -json all` against the Go proxy and upstream release endpoints. Per user request, majors included; no new stable major of the direct application dependencies was identified. Scope: explicitly required modules and their necessary dependency changes, not forced upgrades of modules used only by upstream packages/tests.
+
+### github.com/spf13/pflag `v1.0.10 → v1.1.0`
+
+- [v1.1.0 release notes](https://github.com/spf13/pflag/releases/tag/v1.1.0): adds unknown-flag argument handling and fixes typed flag errors, string-map pointer stability, nil defaults, IP/slice validation and output destinations. The upstream notes identify v1.0.10 as the preceding release, so there are no intermediate releases to cover.
+- Remains an indirect dependency of Viper; no configuration or application API changes were needed.
+
+### google.golang.org/genproto/googleapis/rpc `v0.0.0-20261026165753-2ffab32bce7e → v0.0.0-20261104224025-d1e00e9f33ab`
+
+- Updated to the current Go proxy revision together with the api submodule. [Full upstream comparison](https://github.com/googleapis/go-genproto/compare/2ffab32bce7e...d1e00e9f33ab) contains one automatic regeneration commit (#1367); no intermediate commits are omitted.
+- ErrorInfo consumers compile and bot tests pass; the application-owned proto contract and generated bot stubs remain unchanged.
+
+### google.golang.org/genproto/googleapis/api `v0.0.0-20261026165753-2ffab32bce7e → v0.0.0-20261104224025-d1e00e9f33ab`
+
+- Aligned with rpc at the same regeneration revision. [Upstream changes](https://github.com/googleapis/go-genproto/compare/2ffab32bce7e...d1e00e9f33ab), [module metadata](https://proxy.golang.org/google.golang.org/genproto/googleapis/api/@latest).
+
+### Validation and unchanged dependencies
+
+- Passed on Go 1.27.3: `go mod tidy`, `go mod verify`, `go build ./...`, `go test -json ./...` (170 tests passed across 4 tested packages, no failures), and `go vet ./...`.
+- go.sum refreshed and obsolete checksums for the replaced versions removed by tidy. No application or test source changes were required.
+- Other explicit requirements are already at their current releases: Telegram API v5.5.1, Viper v1.21.0, zap v1.28.0, gRPC v1.85.0, protobuf v1.36.12, OpenTelemetry core v1.47.0 and the matching contrib/log exporters, plus the remaining declared indirect modules. Kept the Go directive at 1.27.3.
+- `go list -m -u all` also reports updates to modules present in upstream module graphs but absent from this project's explicit requirements; those were not added as artificial requirements. No prerelease was introduced. Current-version documentation tables do not quote the replaced pflag or genproto revision, so no table edits were needed. Live Telegram/backend flows were not run.
+
 ## 2026-11-02 — all dependencies, majors in scope
 
 Latest stable releases checked against the upstream registries on 2026-11-02; per user request, majors included. No minimum release-age restriction in this pass. Pre-releases are excluded. YAML compatibility constraints, where applicable, are listed below; source and module-history links provide the upstream change references.

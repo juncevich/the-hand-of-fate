@@ -20,7 +20,7 @@ node_modules/
 .gradle/
 .gradle-home/
 gradle-app.setting
-!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.properties
 
 # ── Proto generated ───────────────────────────────────────────────────────────

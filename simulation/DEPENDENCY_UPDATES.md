@@ -1,5 +1,24 @@
 # Dependency Updates
 
+## 2026-11-06 — stage 4: Go audit and YAML compatibility verification
+
+Checked `go list -m -u -json all`, the Go proxy version lists and official release notes. Per user request, majors included. No dependency bump was retained in simulation: direct dependencies and oapi-codegen are current, and the newer explicitly pinned YAML-chain modules still cannot compile with the current generator.
+
+### Checked, left unchanged
+
+- Direct dependencies google/uuid v1.6.0 and zap v1.28.0 remain the latest stable releases. [uuid releases](https://github.com/google/uuid/releases), [zap releases](https://github.com/uber-go/zap/releases).
+- [oapi-codegen v2.8.2](https://github.com/oapi-codegen/oapi-codegen/releases/tag/v2.8.2) is still the latest stable generator. Its pkg/util/loader.go passes gopkg.in/yaml.v3.Node to the overlay library.
+- Retained speakeasy-api/openapi v1.24.1: tested v1.26.3 with a separate temporary go.mod/go.sum and the real model-generation command. Compilation fails in oapi-codegen loader.go:176/181 because ApplyToStrict/ApplyTo now require go.yaml.in/yaml/v3.Node. [Upstream v1.26.3](https://github.com/speakeasy-api/openapi/releases/tag/v1.26.3), [module versions](https://proxy.golang.org/github.com/speakeasy-api/openapi/@v/list). v1.24.1 remains the last stable 1.24 release before the documented 1.25 YAML API transition.
+- Retained speakeasy-api/jsonpath v0.6.3: tested v0.7.0 separately. It selects a newer openapi overlay and fails with the same oapi-codegen YAML node mismatch. [v0.7.0 notes](https://github.com/speakeasy-api/jsonpath/releases/tag/v0.7.0) explicitly describe the breaking gopkg.in/yaml.v3 to go.yaml.in/yaml/v3 migration. The proxy lists no intermediate stable release between v0.6.3 and v0.7.0.
+- Retained go-yit v0.0.0-20220510233725-9ba8df137936: the current proxy revision v0.0.0-20261106020759-d8881214a0db selects go.yaml.in/yaml/v4 v4.0.0-rc.7. A separate compilation probe fails in vmware-labs/yaml-jsonpath because gopkg.in/yaml.v3.Node and go.yaml.in/yaml/v4.Node differ. [Upstream revision](https://github.com/dprotaso/go-yit/commit/d8881214a0db). No YAML v4 RC was retained in the project.
+- Other explicitly declared modules remain current: kin-openapi v0.152.0, jsonpointer v1.0.2, oasdiff/yaml v0.1.3, oasdiff/yaml3 v0.0.16, jsonschema/v6 v6.0.3, vmware-labs/yaml-jsonpath v0.3.2, multierr v1.11.0, go.yaml.in/yaml/v3 v3.0.6, x/mod v0.42.0, x/sync v0.24.0, x/text v0.43.0, x/tools v0.52.0 and gopkg.in/yaml.v3 v3.0.1. Go stays at 1.27.3. Modules used only by upstream dependencies/tests were not added as explicit requirements to force their versions.
+
+### Validation
+
+- Passed with the retained compatible versions on Go 1.27.3: `go mod tidy`, `go mod verify`, `go generate ./...`, `go build ./...`, `go test -json ./...` (101 tests passed across 4 tested packages, no failures), and `go vet ./...`.
+- go.mod, go.sum and internal/client/models.gen.go remain byte-identical to their pre-audit versions. All failed upgrade probes used temporary module files outside the repository.
+- Revisit these three pins when a stable oapi-codegen release adopts the new YAML API together with its overlay loader; then repeat model generation and compare the output. No fork/replace workaround or prerelease was introduced. Live scenarios against a backend were not run.
+
 ## 2026-11-02 — all dependencies, majors in scope
 
 Latest stable releases checked against the upstream registries on 2026-11-02; per user request, majors included. No minimum release-age restriction in this pass. Pre-releases are excluded. YAML compatibility constraints, where applicable, are listed below; source and module-history links provide the upstream change references.

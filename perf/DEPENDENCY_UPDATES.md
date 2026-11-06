@@ -1,5 +1,26 @@
 # Dependency Updates
 
+## 2026-11-06 — stage 3: backend/perf build tooling and SDK
+
+Stable releases verified against Gradle services, Gradle Plugin Portal and Maven Central on 2026-11-06. Majors are in scope for the overall plan; this stage applies the selected patch/minor updates.
+
+### Gradle wrapper `9.8.2 → 9.9.0`
+
+- [9.9.0 release notes](https://docs.gradle.org/9.9.0/release-notes.html): incremental compilation for Kotlin DSL scripts, correct filtering of non-method JUnit Platform tests, and preservation of custom wrapper properties during upgrades. Released on 2026-11-06; no minimum release-age restriction was requested.
+- Wrapper regenerated in backend and perf using Gradle 9.9.0. Java toolchains remain at 26; Java 27 migration is a separate stage.
+
+### Spotless `8.10.4 → 8.11.0`
+
+- [8.11.0 changelog](https://github.com/diffplug/spotless/blob/main/plugin-gradle/CHANGES.md): adds cleanup and maximum-line-length options for google-java-format and changes its default to 2.0.0. This repository explicitly uses ktlint 1.8.0, so those Java formatter defaults do not affect its configured formatting.
+- Updated together in backend and perf; existing ktlint configuration retained.
+
+### Validation and unchanged dependencies
+
+- Passed on Gradle 9.9.0 / Temurin 26: `./gradlew spotlessCheck detekt compileGatlingKotlin test --warning-mode all`. Formatting, full-analysis detektGatling and simulation compilation passed. The standard test task has NO-SOURCE; there are no unit tests in this project. Live load simulations were not run.
+- Both wrappers were regenerated, with JAR hashes verified against Gradle's published SHA-256. Fixed the root .gitignore wrapper exception to include nested projects: perf/gradle/wrapper/gradle-wrapper.jar was previously untracked despite being required by the CI wrapper scripts. Included the regenerated 9.9.0 JAR.
+- Gatling plugin/highcharts 3.16.0, Kotlin 2.4.21, Foojay 1.0.0, ktlint 1.8.0, detekt 2.0.0-alpha.6 and detekt's Kotlin 2.4.10 override remain unchanged, consistent with the audit and stage scope. No additional prereleases or major migrations were introduced.
+- Gradle still reports a deprecated Configuration.setVisible call, and local Java discovery reports an unrelated invalid legacy JDK 8 installation. Neither prevents the checks from passing.
+
 ## 2026-11-02 — all dependencies, majors in scope
 
 Latest stable releases checked against the upstream registries on 2026-11-02; per user request, majors included. No minimum release-age restriction in this pass. Pre-releases are excluded; the existing detekt alpha is retained because there is no stable 2.x replacement. Each release-history link below identifies the changes for that intermediate version.

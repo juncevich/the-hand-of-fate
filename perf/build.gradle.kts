@@ -1,7 +1,7 @@
 plugins {
     kotlin("jvm") version "2.4.21"
     id("io.gatling.gradle") version "3.16.0"
-    id("com.diffplug.spotless") version "8.10.4"
+    id("com.diffplug.spotless") version "8.11.0"
     id("dev.detekt") version "2.0.0-alpha.6"
 }
 
