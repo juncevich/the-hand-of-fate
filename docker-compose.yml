@@ -121,7 +121,7 @@ services:
         condition: service_healthy
 
   keycloak:
-    # quay.io/keycloak/keycloak:26.8.1 + the login theme built from frontend/src/login/
+    # quay.io/keycloak/keycloak:26.8.2 + the login theme built from frontend/src/login/
     image: fate-keycloak:dev
     build:
       context: ./frontend
@@ -264,7 +264,7 @@ services:
       - "3200:3200"   # HTTP API (Grafana datasource)
 
   grafana:
-    image: grafana/grafana:13.2.5
+    image: grafana/grafana:13.3.0
     restart: unless-stopped
     ports:
       - "3001:3000"

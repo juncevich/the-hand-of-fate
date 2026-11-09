@@ -1,5 +1,31 @@
 # Dependency Updates
 
+## 2026-11-09 — production backend Docker build verified
+
+- Passed the complete multi-stage build, with no Dockerfile changes or prebuilt-JAR shortcut: `docker buildx build --load -t fate-backend:production-check -f backend/Dockerfile .`. Gradle 9.9.0 and dependency resolution completed inside the build image; protobuf generation, Kotlin/Java compilation and bootJar passed (9 tasks executed).
+- Final local image: sha256:c6b2dc3480db73ad3cc9b2b0e20793744a4d1f6b388e969adf5fbfdc6eb0654b, linux/arm64, runtime user fate. `docker run --rm --entrypoint java fate-backend:production-check -version` confirms Temurin 26.0.2.1+1.
+- This closes the earlier production-build download failure. No image was pushed or deployed. Tests are excluded by the production Dockerfile (`-x test`); the previously passed backend checks and 13/13 browser tests are recorded separately.
+
+## 2026-11-09 — Java 27 target compatibility recheck
+
+- Rechecked Maven Central's complete version metadata, excluding Beta/RC builds: Kotlin remains at stable 2.4.21 (2.5.0-Beta2 is a prerelease), and Spring Boot remains at stable 4.1.2 (4.2.0-RC2 is a prerelease). Sources: [Kotlin metadata](https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/maven-metadata.xml), [Spring Boot metadata](https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-gradle-plugin/maven-metadata.xml).
+- Executed a temporary Gradle task against the project's actual Kotlin plugin, enumerated JvmTarget constants and invoked fromTarget("27"). The plugin rejects it with `Unknown Kotlin JVM target: 27`; the maximum available target is JVM_26. The probe ran without changing project build scripts.
+- The coordinated Java 27 toolchain/bytecode-target migration remains deferred; no Beta/RC compiler was introduced. Java 26 toolchain, daemon criteria, Docker and CI versions remain unchanged. This check does not imply that running target-26 bytecode on a Java 27 runtime is unsupported; that separate configuration is outside this migration.
+
+## 2026-11-06 — stage 5: Keycloak integration-test image
+
+### Keycloak `26.8.1 → 26.8.2`
+
+- Integration test image aligned with infra/keycloak/Dockerfile. [Release notes](https://github.com/keycloak/keycloak/releases/tag/26.8.2).
+- Initial KeycloakSmokeIntegrationTest exposed the new mandatory Admin API audience/scope check. Added the built-in kc-admin-api default scope to the fate-backend client in infra/keycloak/realm/fate.yaml, following the official migration guide; repeated real-server smoke test passes login/provisioning, session termination and identity deletion.
+- No application Kotlin changes were required; existing Java and library versions retained. Broader stage-3 checks remain recorded below.
+
+## 2026-11-06 — stage 6: Java 27 compatibility review (deferred)
+
+- Java 27 was considered as a major update, per user request. [Spring Boot 4.1 system requirements](https://docs.spring.io/spring-boot/4.1/system-requirements.html) now explicitly support Java 27; Boot itself is no longer the blocker.
+- Inspected the actual Kotlin Gradle plugin API 2.4.21 source JAR resolved by this build: org.jetbrains.kotlin.gradle.dsl.JvmTarget ends at JVM_26, and fromTarget rejects unsupported target strings. There is no JVM_27 target in this stable Kotlin version. A coordinated toolchain/bytecode-target upgrade to 27 is therefore deferred until a stable Kotlin release supplies it.
+- Retained the existing Java 26 toolchain, Gradle daemon criteria, Docker images and CI/deploy versions. Running target-26 bytecode on a Java 27 runtime would be a separate configuration and was not introduced or claimed as tested here. No JDK or machine-wide settings were changed.
+
 ## 2026-11-06 — stage 3: backend/perf build tooling and SDK
 
 Stable releases verified against Gradle services, Gradle Plugin Portal and Maven Central on 2026-11-06. Majors are in scope for the overall plan; this stage applies the selected patch/minor updates.

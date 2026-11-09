@@ -59,7 +59,7 @@ infra/
 
 | Component    | Language / Runtime | Key Libraries                              |
 |--------------|--------------------|--------------------------------------------|
-| `backend/`   | Kotlin 2.4.21      | Spring Boot 4.1.2, gRPC 1.85.1, Keycloak 26.8.1|
+| `backend/`   | Kotlin 2.4.21      | Spring Boot 4.1.2, gRPC 1.85.1, Keycloak 26.8.2|
 | `frontend/`  | TypeScript 7.0.2   | React 19.3, Vite 8, TanStack Query 5       |
 | `bot/`       | Go 1.27.3          | grpc 1.85.0, zap 1.28, viper 1.21            |
 | DB           | PostgreSQL         | Flyway migrations (V1–V26)                 |

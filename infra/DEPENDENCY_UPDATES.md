@@ -2,6 +2,41 @@
 
 Third-party images pinned in `docker-compose*.yml` **and** `infra/k8s/` (plus Dockerfiles and CI where noted). `infra/k8s/check.sh` fails when compose and the manifests disagree, and validates the Collector, Loki, Tempo and nginx configs with the pinned versions.
 
+## 2026-11-09 — production backend Docker build verified
+
+- Passed the complete multi-stage build, with no Dockerfile changes or prebuilt-JAR shortcut: `docker buildx build --load -t fate-backend:production-check -f backend/Dockerfile .`. Gradle 9.9.0 and dependency resolution completed inside the build image; protobuf generation, Kotlin/Java compilation and bootJar passed (9 tasks executed).
+- Final local image: sha256:c6b2dc3480db73ad3cc9b2b0e20793744a4d1f6b388e969adf5fbfdc6eb0654b, linux/arm64, runtime user fate. `docker run --rm --entrypoint java fate-backend:production-check -version` confirms Temurin 26.0.2.1+1.
+- This closes the earlier production-build download failure. No image was pushed or deployed. Tests are excluded by the production Dockerfile (`-x test`); the previously passed backend checks and 13/13 browser tests are recorded separately.
+
+## 2026-11-09 — recovered-stack validation
+
+- Docker 29.8.2 responds and minikube reports host/kubelet/API server Running. All pods are ready; keycloak-config completed. No redeployment or volume changes were needed for this check.
+- Confirmed Keycloak 26.8.2 in the running pod. Gateway, realm discovery and Mailpit return HTTP 200.
+- Grafana /api/health returns HTTP 200, version 13.3.0 and database=ok. Authenticated dashboard search confirms the provisioned Hand of Fate — Overview dashboard (uid hand-of-fate-overview). This verifies health/provisioning, not live metrics ingestion or every panel.
+- Full Playwright browser suite passed 13/13 on the updated stack (seed 650070935) after fixing an email-preferences test save/reload race; details in e2e/DEPENDENCY_UPDATES.md. Earlier Docker-build download failure and the deferred Java 27 migration remain recorded below.
+
+## 2026-11-06 — stage 5: Keycloak and Grafana
+
+Stable versions checked against upstream releases; majors are in scope for the overall plan. No intermediate stable versions were found between the selected endpoints.
+
+### Keycloak `26.8.1 → 26.8.2`
+
+- [26.8.2 release notes](https://github.com/keycloak/keycloak/releases/tag/26.8.2): authentication/broker, token-validation, SAML and Admin API hardening, cold theme-cache fixes, and a Quarkus update. Updated the theme image base, Compose image comments, backend integration test and README together.
+- Required migration: [Admin REST API audience enforcement](https://www.keycloak.org/docs/latest/upgrading/index.html). Custom service-account clients now need the built-in kc-admin-api scope and its audience. The initial real-Keycloak smoke test returned 401 from logout-all (surfaced as backend 500); assigning that default scope to fate-backend in realm/fate.yaml restores both logout-all and user deletion. Security enforcement remains enabled.
+- keycloak-config-cli remains at compatible 6.5.1-26. The realm configuration is applied idempotently to existing realms; no database/volume was deleted.
+
+### Grafana `13.2.5 → 13.3.0`
+
+- [13.3.0 release notes](https://github.com/grafana/grafana/releases/tag/v13.3.0): security fixes, dashboard/panel enhancements, alerting/config API improvements and OAuth refresh locking fixes. Compose and Kubernetes image pins updated together; provisioning files retained.
+
+### Validation
+
+- Passed make k8s-check (local/tilt/e2e overlay rendering, schema checks, config validation, image consistency, dashboard JSON and shellcheck).
+- Passed backend KeycloakSmokeIntegrationTest on real Keycloak 26.8.2 with the migrated service-account scope.
+- Updated frontend and Keycloak theme build passed locally (Temurin 21 for the theme JAR). The production backend Docker build hit Premature EOF while downloading Gradle; no Dockerfile workaround was committed. For local e2e, assembled runtime images from the previously verified backend JAR, freshly built frontend and Keycloak theme using the same runtime bases, then loaded them into minikube.
+- Live validation could not complete: the e2e overlay applied, but PostgreSQL readiness did not complete and minikube's API became unresponsive with TLS handshake timeouts. On 2026-11-07, bounded checks still found Docker info and minikube status timing out and gateway HTTP 000. Full browser tests and live Grafana health/provisioning are NOT verified. No volumes were deleted and no global Docker restart was attempted. The cluster was resumed for these checks; readiness is not confirmed.
+- Other image pins remain at the audited versions; Java 27 compatibility review is recorded in backend/perf journals. After Docker/minikube recover, redeploy the e2e overlay, verify Grafana health/dashboards and run the Playwright suite.
+
 ## 2026-11-02 — all images and CI tools, majors in scope
 
 Checked against Docker Hub tags, the upstream GitHub release APIs, npm and Go module registries. Per user request, majors included; stable releases selected without the previous release-age cutoff. Compose, Kubernetes, Dockerfiles and Testcontainers pins move together.

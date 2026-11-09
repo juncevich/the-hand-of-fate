@@ -93,10 +93,16 @@ test('vote emails are switched off and on in settings', async ({ page }) => {
   const toggle = page.getByRole('checkbox', { name: /^Приглашения и результаты голосований/ })
 
   await expect(toggle).toBeChecked()
-  await toggle.uncheck()
+  await Promise.all([
+    page.waitForResponse((response) => response.url().endsWith('/api/v1/users/me/email-preferences') && response.request().method() === 'PUT' && response.ok()),
+    toggle.uncheck(),
+  ])
   await page.reload()
   await expect(toggle).not.toBeChecked()
-  await toggle.check()
+  await Promise.all([
+    page.waitForResponse((response) => response.url().endsWith('/api/v1/users/me/email-preferences') && response.request().method() === 'PUT' && response.ok()),
+    toggle.check(),
+  ])
   await page.reload()
   await expect(toggle).toBeChecked()
 })

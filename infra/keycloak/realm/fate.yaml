@@ -125,6 +125,8 @@ clients:
     implicitFlowEnabled: false
     directAccessGrantsEnabled: false
     serviceAccountsEnabled: true
+    # Keycloak 26.8.2+ requires this built-in scope and its audience for Admin API tokens.
+    defaultClientScopes: [web-origins, acr, basic, profile, email, roles, kc-admin-api]
 
   # Dev/e2e only: tokens for the simulation, Gatling and Playwright's API setup by password.
   - clientId: fate-test

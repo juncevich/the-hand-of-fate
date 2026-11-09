@@ -118,7 +118,7 @@ class KeycloakSmokeIntegrationTest
         }
 
         companion object {
-            private const val KEYCLOAK_IMAGE = "quay.io/keycloak/keycloak:26.8.1"
+            private const val KEYCLOAK_IMAGE = "quay.io/keycloak/keycloak:26.8.2"
             private const val CONFIG_CLI_IMAGE = "adorsys/keycloak-config-cli:6.5.1-26"
             private const val BACKEND_SECRET = "smoke-test-backend-secret"
             private const val USER_PASSWORD = "smoke-password"

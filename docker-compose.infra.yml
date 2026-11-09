@@ -63,7 +63,7 @@ services:
         condition: service_healthy
 
   keycloak:
-    # quay.io/keycloak/keycloak:26.8.1 + the login theme built from frontend/src/login/
+    # quay.io/keycloak/keycloak:26.8.2 + the login theme built from frontend/src/login/
     image: fate-keycloak:dev
     build:
       context: ./frontend
